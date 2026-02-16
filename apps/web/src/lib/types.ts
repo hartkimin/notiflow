@@ -190,3 +190,18 @@ export interface TrendPoint {
   orders: number;
   total_amount: number;
 }
+
+export interface MobileDevice {
+  id: string;
+  user_id: string;
+  user_name?: string;
+  device_name: string;
+  device_model: string | null;
+  app_version: string;
+  os_version: string;
+  platform: string;
+  is_active: boolean;
+  last_sync_at: string;
+  created_at: string;
+  updated_at: string;
+}

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,8 +17,14 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
 import {
-  LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown,
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown, Trash2,
 } from "lucide-react";
+import { deleteMessage } from "@/lib/actions";
 import { ManualParseForm } from "@/components/manual-parse-form";
 import type { RawMessage, Hospital, Product } from "@/lib/types";
 
@@ -120,6 +127,7 @@ export function MessageFilters() {
             <SelectItem value="sms">SMS</SelectItem>
             <SelectItem value="telegram">텔레그램</SelectItem>
             <SelectItem value="manual">수동</SelectItem>
+            <SelectItem value="모바일">모바일(기타)</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -137,11 +145,27 @@ export function MessageTable({
   hospitals?: Hospital[];
   products?: Product[];
 }) {
+  const router = useRouter();
   const [view, setView] = useState<"list" | "grid">("list");
   const [sortKey, setSortKey] = useState<SortKey>("received_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selected, setSelected] = useState<RawMessage | null>(null);
   const [showManualParse, setShowManualParse] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  function handleDelete(id: number) {
+    startTransition(async () => {
+      try {
+        await deleteMessage(id);
+        toast.success("메시지가 삭제되었습니다.");
+        setSelected(null);
+        router.refresh();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "삭제 실패";
+        toast.error(msg);
+      }
+    });
+  }
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -308,8 +332,12 @@ export function MessageTable({
                 )}
                 {selected.device_id && (
                   <div>
-                    <span className="text-muted-foreground">기기 ID</span>
-                    <p className="font-mono text-xs">{selected.device_id}</p>
+                    <span className="text-muted-foreground">
+                      {selected.device_id.startsWith("cap:") ? "수신 경로" : "기기 ID"}
+                    </span>
+                    <p className="font-mono text-xs">
+                      {selected.device_id.startsWith("cap:") ? "모바일 앱 캡쳐" : selected.device_id}
+                    </p>
                   </div>
                 )}
               </div>
@@ -356,6 +384,44 @@ export function MessageTable({
                   )}
                 </div>
               )}
+
+              {/* Delete button */}
+              <div className="border-t pt-4">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      className="w-full"
+                      variant="destructive"
+                      disabled={isPending}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      메시지 삭제
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>메시지를 삭제하시겠습니까?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        이 작업은 되돌릴 수 없습니다. 메시지가 데이터베이스에서 영구적으로 삭제됩니다.
+                        {selected.order_id && (
+                          <span className="block mt-2 font-medium text-destructive">
+                            주의: 이 메시지는 주문 #{selected.order_id}과 연결되어 있습니다.
+                          </span>
+                        )}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>취소</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => handleDelete(selected.id)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        삭제
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
           )}
         </SheetContent>

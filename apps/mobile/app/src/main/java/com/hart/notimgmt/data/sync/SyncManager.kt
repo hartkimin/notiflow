@@ -1,9 +1,14 @@
 package com.hart.notimgmt.data.sync
 
+import android.content.Context
+import android.os.Build
+import android.provider.Settings
 import android.util.Log
+import com.hart.notimgmt.BuildConfig
 import com.hart.notimgmt.data.db.dao.*
 import com.hart.notimgmt.data.db.entity.*
 import com.hart.notimgmt.data.supabase.*
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.realtime.Realtime
 import io.github.jan.supabase.realtime.channel
@@ -71,6 +76,7 @@ data class SyncState(
 
 @Singleton
 class SyncManager @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val supabaseDataSource: SupabaseDataSource,
     private val capturedMessageDao: CapturedMessageDao,
     private val categoryDao: CategoryDao,
@@ -123,6 +129,21 @@ class SyncManager @Inject constructor(
 
     private fun resetTableStatuses() {
         _syncState.value = SyncState()
+    }
+
+    @Suppress("HardwareIds")
+    private suspend fun registerDevice() {
+        val userId = auth.currentUserOrNull()?.id ?: return
+        val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+        val dto = MobileDeviceDto(
+            id = "${userId}_${androidId}",
+            user_id = userId,
+            device_name = Build.MODEL,
+            device_model = "${Build.MANUFACTURER} ${Build.MODEL}",
+            app_version = BuildConfig.VERSION_NAME,
+            os_version = Build.VERSION.RELEASE
+        )
+        supabaseDataSource.upsertMobileDevice(dto)
     }
 
     /**
@@ -515,6 +536,14 @@ class SyncManager @Inject constructor(
             if (dayCategoryPushCount > 0) addLog("↑ 일별 카테고리 ${dayCategoryPushCount}개 업로드")
             updateTableStatus("day_categories", if (dayCategoryPushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
                 pulledCount = dayCategoryPullCount, pushedCount = dayCategoryPushCount, errorMessage = dayCategoryPushError)
+
+            // ========== Register device info ==========
+            try {
+                registerDevice()
+                addLog("✓ 기기 정보 등록 완료")
+            } catch (e: Exception) {
+                Log.e(TAG, "Device registration failed (non-blocking): ${e.message}", e)
+            }
 
             _syncStatus.value = SyncStatus.IDLE
             _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.IDLE)

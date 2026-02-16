@@ -30,6 +30,7 @@ class SupabaseDataSource @Inject constructor(
         const val APP_FILTERS_TABLE = "app_filters"
         const val PLANS_TABLE = "plans"
         const val DAY_CATEGORIES_TABLE = "day_categories"
+        const val MOBILE_DEVICES_TABLE = "mobile_devices"
     }
 
     private val json = Json { prettyPrint = true }
@@ -301,6 +302,24 @@ class SupabaseDataSource @Inject constructor(
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to delete day category: $id, message: ${e.message}", e)
+            throw e
+        }
+    }
+
+    // ========== Mobile Device Registration ==========
+
+    suspend fun upsertMobileDevice(dto: MobileDeviceDto) {
+        try {
+            Log.d(TAG, "Upserting mobile device: ${dto.id}")
+            postgrest.from(MOBILE_DEVICES_TABLE).upsert(dto) {
+                onConflict = "id"
+            }
+            Log.d(TAG, "Mobile device upserted: ${dto.device_name}")
+        } catch (e: PostgrestRestException) {
+            Log.e(TAG, "Postgrest error upserting mobile device: ${dto.id}, error: ${e.error}, message: ${e.message}", e)
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to upsert mobile device: ${dto.id}, message: ${e.message}", e)
             throw e
         }
     }
@@ -602,4 +621,15 @@ private fun DayCategoryEntity.toSupabaseDto(userId: String) = DayCategoryDto(
     category_id = categoryId,
     created_at = createdAt,
     updated_at = updatedAt
+)
+
+@Serializable
+data class MobileDeviceDto(
+    val id: String,
+    val user_id: String,
+    val device_name: String,
+    val device_model: String? = null,
+    val app_version: String,
+    val os_version: String,
+    val platform: String = "android"
 )

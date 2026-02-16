@@ -194,6 +194,16 @@ export async function deleteSupplier(id: number) {
   return { success: true };
 }
 
+// --- Mobile Devices ---
+
+export async function updateDevice(id: string, data: Record<string, unknown>) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("mobile_devices").update(data).eq("id", id);
+  if (error) throw error;
+  revalidatePath("/devices");
+  return { success: true };
+}
+
 // --- Users (via manage-users Edge Function) ---
 
 export async function createUser(data: {

@@ -16,6 +16,7 @@ import {
   Factory,
   Users,
   Brain,
+  Smartphone,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,7 @@ const navGroups = [
     label: "시스템",
     items: [
       { href: "/users", label: "사용자", icon: Users },
+      { href: "/devices", label: "모바일 기기", icon: Smartphone },
       { href: "/settings", label: "AI 설정", icon: Brain },
     ],
   },

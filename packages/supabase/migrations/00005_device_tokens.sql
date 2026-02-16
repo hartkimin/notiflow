@@ -31,12 +31,11 @@ CREATE POLICY "Users can delete own tokens"
   ON public.device_tokens FOR DELETE
   USING (auth.uid() = user_id);
 
--- Admin can view all tokens (for future individual push)
-CREATE POLICY "Admin can view all tokens"
-  ON public.device_tokens FOR SELECT
-  USING (
-    (SELECT public.get_user_role()) = 'admin'
-  );
+-- Admin full access on device tokens
+CREATE POLICY "Admin full access on device_tokens"
+  ON public.device_tokens FOR ALL
+  USING ((SELECT public.get_user_role()) = 'admin')
+  WITH CHECK ((SELECT public.get_user_role()) = 'admin');
 
 CREATE INDEX idx_device_tokens_user_id ON public.device_tokens(user_id);
 

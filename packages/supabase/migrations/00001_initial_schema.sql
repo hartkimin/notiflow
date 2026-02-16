@@ -340,6 +340,7 @@ CREATE INDEX idx_orders_date_hospital ON orders(order_date, hospital_id);
 CREATE INDEX idx_order_items_order ON order_items(order_id);
 CREATE INDEX idx_order_items_product ON order_items(product_id);
 CREATE INDEX idx_order_items_match_status ON order_items(match_status);
+CREATE INDEX idx_order_items_supplier ON order_items(supplier_id);
 
 -- parse_history
 CREATE INDEX idx_parse_history_message ON parse_history(message_id);

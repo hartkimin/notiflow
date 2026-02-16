@@ -68,8 +68,9 @@ ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Admin full access on audit_logs"
   ON audit_logs FOR ALL
-  USING ((auth.jwt()->>'user_role') = 'admin');
+  USING ((SELECT public.get_user_role()) = 'admin')
+  WITH CHECK ((SELECT public.get_user_role()) = 'admin');
 
 CREATE POLICY "Viewer read audit_logs"
   ON audit_logs FOR SELECT
-  USING ((auth.jwt()->>'user_role') = 'viewer');
+  USING ((SELECT public.get_user_role()) = 'viewer');

@@ -98,6 +98,19 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- FCM Service for push notifications -->
+        <service
+            android:name=".service.fcm.NotiFlowFcmService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="orders" />
+
         <!-- Home Screen Widget -->
         <receiver
             android:name=".widget.NotiFlowWidgetProvider"

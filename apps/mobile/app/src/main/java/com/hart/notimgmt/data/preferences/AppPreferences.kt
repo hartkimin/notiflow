@@ -179,6 +179,13 @@ class AppPreferences @Inject constructor(
             prefs.edit().putString("ai_model_size", value.name).apply()
         }
 
+    // FCM token
+    var fcmToken: String?
+        get() = prefs.getString("fcm_token", null)
+        set(value) {
+            prefs.edit().putString("fcm_token", value).apply()
+        }
+
     // NotiFlow API Gateway settings
     private val _notiFlowEnabledFlow = MutableStateFlow(notiFlowEnabled)
     val notiFlowEnabledFlow: StateFlow<Boolean> = _notiFlowEnabledFlow

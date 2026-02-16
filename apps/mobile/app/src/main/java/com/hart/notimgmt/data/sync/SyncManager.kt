@@ -3,7 +3,6 @@ package com.hart.notimgmt.data.sync
 import android.util.Log
 import com.hart.notimgmt.data.db.dao.*
 import com.hart.notimgmt.data.db.entity.*
-import com.hart.notimgmt.data.notiflow.NotiFlowApiClient
 import com.hart.notimgmt.data.supabase.*
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.realtime.Realtime
@@ -81,8 +80,7 @@ class SyncManager @Inject constructor(
     private val planDao: PlanDao,
     private val dayCategoryDao: DayCategoryDao,
     private val auth: Auth,
-    private val realtime: Realtime,
-    private val notiFlowApiClient: NotiFlowApiClient
+    private val realtime: Realtime
 ) {
     companion object {
         private const val TAG = "SyncManager"
@@ -318,13 +316,14 @@ class SyncManager @Inject constructor(
             // ========== Push to Supabase (local -> remote) ==========
             addLog("로컬 데이터 업로드 중...")
 
-            // Push local categories that don't exist in remote
+            // Push local categories that are missing or newer than remote
             updateTableStatus("categories", TableSyncStatus.PUSHING, pulledCount = categoryPullCount)
-            val remoteCategoryIds = remoteCategories.map { it.id }.toSet()
+            val remoteCategoryMap = remoteCategories.associateBy { it.id }
             var categoryPushCount = 0
             var categoryPushError: String? = null
             categoryDao.getAllOnce().forEach { local ->
-                if (local.id !in remoteCategoryIds) {
+                val remote = remoteCategoryMap[local.id]
+                if (remote == null || local.updatedAt > remote.updated_at) {
                     try {
                         supabaseDataSource.upsertCategory(local)
                         categoryPushCount++
@@ -338,13 +337,14 @@ class SyncManager @Inject constructor(
             updateTableStatus("categories", if (categoryPushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
                 pulledCount = categoryPullCount, pushedCount = categoryPushCount, errorMessage = categoryPushError)
 
-            // Push local status steps that don't exist in remote
+            // Push local status steps that are missing or newer than remote
             updateTableStatus("status_steps", TableSyncStatus.PUSHING, pulledCount = stepPullCount)
-            val remoteStepIds = remoteStatusSteps.map { it.id }.toSet()
+            val remoteStepMap = remoteStatusSteps.associateBy { it.id }
             var stepPushCount = 0
             var stepPushError: String? = null
             statusStepDao.getAllOnce().forEach { local ->
-                if (local.id !in remoteStepIds) {
+                val remote = remoteStepMap[local.id]
+                if (remote == null || local.updatedAt > remote.updated_at) {
                     try {
                         supabaseDataSource.upsertStatusStep(local)
                         stepPushCount++
@@ -358,13 +358,14 @@ class SyncManager @Inject constructor(
             updateTableStatus("status_steps", if (stepPushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
                 pulledCount = stepPullCount, pushedCount = stepPushCount, errorMessage = stepPushError)
 
-            // Push local filter rules that don't exist in remote
+            // Push local filter rules that are missing or newer than remote
             updateTableStatus("filter_rules", TableSyncStatus.PUSHING, pulledCount = rulePullCount)
-            val remoteRuleIds = remoteFilterRules.map { it.id }.toSet()
+            val remoteRuleMap = remoteFilterRules.associateBy { it.id }
             var rulePushCount = 0
             var rulePushError: String? = null
             filterRuleDao.getAllOnce().forEach { local ->
-                if (local.id !in remoteRuleIds) {
+                val remote = remoteRuleMap[local.id]
+                if (remote == null || local.updatedAt > remote.updated_at) {
                     try {
                         supabaseDataSource.upsertFilterRule(local)
                         rulePushCount++
@@ -378,13 +379,14 @@ class SyncManager @Inject constructor(
             updateTableStatus("filter_rules", if (rulePushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
                 pulledCount = rulePullCount, pushedCount = rulePushCount, errorMessage = rulePushError)
 
-            // Push local messages that don't exist in remote
+            // Push local messages that are missing or newer than remote
             updateTableStatus("captured_messages", TableSyncStatus.PUSHING, pulledCount = messagePullCount)
-            val remoteMessageIds = remoteMessages.map { it.id }.toSet()
+            val remoteMessageMap = remoteMessages.associateBy { it.id }
             var messagePushCount = 0
             var messagePushError: String? = null
             capturedMessageDao.getAllOnce().forEach { local ->
-                if (local.id !in remoteMessageIds) {
+                val remote = remoteMessageMap[local.id]
+                if (remote == null || local.updatedAt > remote.updated_at) {
                     try {
                         supabaseDataSource.upsertMessage(local)
                         messagePushCount++
@@ -398,13 +400,14 @@ class SyncManager @Inject constructor(
             updateTableStatus("captured_messages", if (messagePushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
                 pulledCount = messagePullCount, pushedCount = messagePushCount, errorMessage = messagePushError)
 
-            // Push local app filters that don't exist in remote
+            // Push local app filters that are missing or newer than remote
             updateTableStatus("app_filters", TableSyncStatus.PUSHING, pulledCount = appFilterPullCount)
-            val remoteAppFilterPackages = remoteAppFilters.map { it.package_name }.toSet()
+            val remoteAppFilterMap = remoteAppFilters.associateBy { it.package_name }
             var appFilterPushCount = 0
             var appFilterPushError: String? = null
             appFilterDao.getAllOnce().forEach { local ->
-                if (local.packageName !in remoteAppFilterPackages) {
+                val remote = remoteAppFilterMap[local.packageName]
+                if (remote == null || local.updatedAt > remote.updated_at) {
                     try {
                         supabaseDataSource.upsertAppFilter(local)
                         appFilterPushCount++
@@ -442,13 +445,14 @@ class SyncManager @Inject constructor(
             }
             addLog("✓ 플랜 ${remotePlans.size}개 확인, ${planPullCount}개 업데이트")
 
-            // Push local plans that don't exist in remote
+            // Push local plans that are missing or newer than remote
             updateTableStatus("plans", TableSyncStatus.PUSHING, pulledCount = planPullCount)
-            val remotePlanIds = remotePlans.map { it.id }.toSet()
+            val remotePlanMap = remotePlans.associateBy { it.id }
             var planPushCount = 0
             var planPushError: String? = null
             planDao.getAllOnce().forEach { local ->
-                if (local.id !in remotePlanIds) {
+                val remote = remotePlanMap[local.id]
+                if (remote == null || local.updatedAt > remote.updated_at) {
                     try {
                         supabaseDataSource.upsertPlan(local)
                         planPushCount++
@@ -491,13 +495,14 @@ class SyncManager @Inject constructor(
             }
             addLog("✓ 일별 카테고리 ${remoteDayCategories.size}개 확인, ${dayCategoryPullCount}개 업데이트")
 
-            // Push local day categories that don't exist in remote
+            // Push local day categories that are missing or newer than remote
             updateTableStatus("day_categories", TableSyncStatus.PUSHING, pulledCount = dayCategoryPullCount)
-            val remoteDayCategoryIds = remoteDayCategories.map { it.id }.toSet()
+            val remoteDayCategoryMap = remoteDayCategories.associateBy { it.id }
             var dayCategoryPushCount = 0
             var dayCategoryPushError: String? = null
             dayCategoryDao.getAllOnce().forEach { local ->
-                if (local.id !in remoteDayCategoryIds) {
+                val remote = remoteDayCategoryMap[local.id]
+                if (remote == null || local.updatedAt > remote.updated_at) {
                     try {
                         supabaseDataSource.upsertDayCategory(local)
                         dayCategoryPushCount++
@@ -607,20 +612,12 @@ class SyncManager @Inject constructor(
 
     suspend fun syncMessage(message: CapturedMessageEntity) {
         if (!isUserLoggedIn()) return
-        // Supabase 동기화
         try {
             supabaseDataSource.upsertMessage(message)
             Log.d(TAG, "Message synced: ${message.id}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to sync message to Supabase: ${e.message}", e)
             addLog("❌ 메시지 동기화 실패: ${e.message}")
-        }
-        // NotiFlow API Gateway 동시 전송 (실패해도 Supabase에 영향 없음)
-        try {
-            notiFlowApiClient.sendMessage(message)
-            Log.d(TAG, "Message sent to NotiFlow: ${message.id}")
-        } catch (e: Exception) {
-            Log.e(TAG, "NotiFlow 전송 실패: ${e.message}")
         }
     }
 

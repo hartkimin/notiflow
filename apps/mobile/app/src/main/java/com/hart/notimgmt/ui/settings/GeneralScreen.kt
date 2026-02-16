@@ -36,19 +36,14 @@ import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.automirrored.outlined.Logout
-import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Sync
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -68,8 +63,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -539,11 +532,6 @@ fun GeneralScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // NotiFlow API 설정 섹션
-        NotiFlowApiSection(settingsViewModel = settingsViewModel)
-
-        Spacer(modifier = Modifier.height(12.dp))
-
         // 백업/복원 섹션
         BackupRestoreSection(
             backupManager = viewModel.backupManager,
@@ -925,118 +913,6 @@ fun GeneralScreen(
         )
 
         Spacer(modifier = Modifier.height(32.dp))
-    }
-}
-
-@Composable
-private fun NotiFlowApiSection(settingsViewModel: SettingsViewModel) {
-    val notiFlowEnabled by settingsViewModel.notiFlowEnabled.collectAsState()
-    val apiUrl by settingsViewModel.notiFlowApiUrl.collectAsState()
-    val apiKey by settingsViewModel.notiFlowApiKey.collectAsState()
-    val testResult by settingsViewModel.notiFlowTestResult.collectAsState()
-    val isTesting by settingsViewModel.notiFlowTesting.collectAsState()
-    var showApiKey by remember { mutableStateOf(false) }
-
-    SettingsSection(title = "NotiFlow API") {
-        // 활성화 토글
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "API 전송",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    text = "캡처한 메시지를 NotiFlow 서버에 전송합니다",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Switch(
-                checked = notiFlowEnabled,
-                onCheckedChange = { settingsViewModel.setNotiFlowEnabled(it) }
-            )
-        }
-
-        AnimatedVisibility(
-            visible = notiFlowEnabled,
-            enter = expandVertically(),
-            exit = shrinkVertically()
-        ) {
-            Column {
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // API URL
-                OutlinedTextField(
-                    value = apiUrl,
-                    onValueChange = { settingsViewModel.setNotiFlowApiUrl(it) },
-                    label = { Text("API URL") },
-                    placeholder = { Text("https://notiflow.life") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    textStyle = MaterialTheme.typography.bodySmall
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // API Key
-                OutlinedTextField(
-                    value = apiKey,
-                    onValueChange = { settingsViewModel.setNotiFlowApiKey(it) },
-                    label = { Text("API Key") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    textStyle = MaterialTheme.typography.bodySmall,
-                    visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { showApiKey = !showApiKey }) {
-                            Icon(
-                                imageVector = if (showApiKey) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                                contentDescription = if (showApiKey) "숨기기" else "보기",
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // 연결 테스트 버튼
-                OutlinedButton(
-                    onClick = { settingsViewModel.testNotiFlowConnection() },
-                    enabled = !isTesting && apiUrl.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    if (isTesting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.Send,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("연결 테스트")
-                }
-
-                // 테스트 결과
-                if (testResult != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = testResult!!.second,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (testResult!!.first) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-        }
     }
 }
 

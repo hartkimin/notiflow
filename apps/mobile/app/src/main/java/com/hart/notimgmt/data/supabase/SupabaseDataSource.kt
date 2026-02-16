@@ -361,6 +361,7 @@ data class CategoryDto(
     val name: String,
     val color: Int,
     val order_index: Int = 0,
+    val is_active: Boolean = true,
     val is_deleted: Boolean = false,
     val created_at: Long,
     val updated_at: Long
@@ -370,6 +371,7 @@ data class CategoryDto(
         name = name,
         color = color,
         orderIndex = order_index,
+        isActive = is_active,
         isDeleted = is_deleted,
         createdAt = created_at,
         updatedAt = updated_at
@@ -484,6 +486,7 @@ private fun CategoryEntity.toSupabaseDto(userId: String) = CategoryDto(
     name = name,
     color = color,
     order_index = orderIndex,
+    is_active = isActive,
     is_deleted = isDeleted,
     created_at = createdAt,
     updated_at = updatedAt
@@ -493,10 +496,10 @@ private fun FilterRuleEntity.toSupabaseDto(userId: String) = FilterRuleDto(
     id = id,
     user_id = userId,
     category_id = categoryId,
-    sender_keywords = senderKeywords.filter { it.isEnabled }.map { it.keyword },
+    sender_keywords = senderKeywords.map { it.keyword },
     sender_match_type = senderMatchType.name,
     sms_phone_number = smsPhoneNumber,
-    include_words = includeWords.filter { it.isEnabled }.map { it.keyword },
+    include_words = includeWords.map { it.keyword },
     exclude_words = excludeWords,
     include_match_type = includeMatchType.name,
     condition_type = conditionType.name,

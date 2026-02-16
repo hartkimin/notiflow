@@ -175,7 +175,7 @@ class AiMessageClassifier @Inject constructor(
     }
 
     fun unload() {
-        performUnload()
+        scope.launch { safeUnload() }
     }
 
     private fun performUnload() {

@@ -21,7 +21,7 @@ class BackupManager @Inject constructor(
 ) {
     companion object {
         private const val BACKUP_FORMAT_VERSION = 7
-        private const val DB_VERSION = 18
+        private const val DB_VERSION = 21
     }
 
     suspend fun exportToJson(): String {

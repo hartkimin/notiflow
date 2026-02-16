@@ -10,6 +10,7 @@ import com.hart.notimgmt.MainActivity
 import com.hart.notimgmt.R
 import com.hart.notimgmt.data.preferences.AppPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,7 +22,7 @@ class CaptureNotificationHelper @Inject constructor(
     companion object {
         const val CHANNEL_ID = "capture_alerts"
         private const val CHANNEL_NAME = "캡처 알림"
-        private var notificationId = 1000
+        private val notificationId = AtomicInteger(1000)
     }
 
     init {
@@ -48,7 +49,9 @@ class CaptureNotificationHelper @Inject constructor(
     ) {
         if (!appPreferences.captureNotificationEnabled) return
 
-        val currentNotificationId = notificationId
+        val currentNotificationId = notificationId.getAndUpdate { id ->
+            if (id >= 9999) 1000 else id + 1
+        }
 
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -93,9 +96,5 @@ class CaptureNotificationHelper @Inject constructor(
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(currentNotificationId, notification)
-
-        notificationId++
-        // id overflow 방지
-        if (notificationId > 9999) notificationId = 1000
     }
 }

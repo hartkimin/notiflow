@@ -27,6 +27,10 @@ mobile app debugging, and Supabase backend stabilization.
 
 ### Mobile App (`apps/mobile`)
 
+- **Sync retry system**: added `needsSync` flag to `CapturedMessageEntity` (Room
+  migration v21→v22). Messages that fail to sync (auth not ready, network error)
+  are now automatically retried on next `initialSync()`. Fixes the issue where
+  captured messages only synced when the manual sync button was pressed.
 - **Thread safety fix**: `CaptureNotificationHelper` notification ID changed to
   `AtomicInteger` with atomic read-increment-wrap
 - **Mutex race fix**: `AiMessageClassifier.unload()` now routes through

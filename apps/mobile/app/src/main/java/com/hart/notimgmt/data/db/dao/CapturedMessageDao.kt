@@ -86,6 +86,15 @@ interface CapturedMessageDao {
     """)
     fun getCategorySummaries(firstStatusId: String, urgentThreshold: Long): Flow<List<CategorySummaryRow>>
 
+    @Query("SELECT * FROM captured_messages WHERE needsSync = 1")
+    suspend fun getPendingSync(): List<CapturedMessageEntity>
+
+    @Query("UPDATE captured_messages SET needsSync = 0 WHERE id = :id")
+    suspend fun markSynced(id: String)
+
+    @Query("UPDATE captured_messages SET needsSync = 1 WHERE id = :id")
+    suspend fun markNeedsSync(id: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(message: CapturedMessageEntity)
 

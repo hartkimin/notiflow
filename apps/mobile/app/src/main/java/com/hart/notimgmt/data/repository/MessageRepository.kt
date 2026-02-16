@@ -55,20 +55,20 @@ class MessageRepository @Inject constructor(
     fun getByIdFlow(id: String): Flow<CapturedMessageEntity?> = messageDao.getByIdFlow(id)
 
     suspend fun insert(message: CapturedMessageEntity): String {
-        val entity = message.copy(updatedAt = System.currentTimeMillis())
+        val entity = message.copy(updatedAt = System.currentTimeMillis(), needsSync = true)
         messageDao.upsert(entity)
         syncManager.syncMessage(entity)
         return entity.id
     }
 
     suspend fun update(message: CapturedMessageEntity) {
-        val entity = message.copy(updatedAt = System.currentTimeMillis())
+        val entity = message.copy(updatedAt = System.currentTimeMillis(), needsSync = true)
         messageDao.update(entity)
         syncManager.syncMessage(entity)
     }
 
     suspend fun delete(message: CapturedMessageEntity) {
-        val entity = message.copy(isDeleted = true, updatedAt = System.currentTimeMillis())
+        val entity = message.copy(isDeleted = true, updatedAt = System.currentTimeMillis(), needsSync = true)
         messageDao.update(entity)
         syncManager.syncMessage(entity)
     }

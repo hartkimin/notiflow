@@ -537,6 +537,9 @@ class SyncManager @Inject constructor(
             updateTableStatus("day_categories", if (dayCategoryPushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
                 pulledCount = dayCategoryPullCount, pushedCount = dayCategoryPushCount, errorMessage = dayCategoryPushError)
 
+            // ========== Retry pending sync messages ==========
+            syncPendingMessages()
+
             // ========== Register device info ==========
             try {
                 registerDevice()
@@ -640,13 +643,20 @@ class SyncManager @Inject constructor(
     private fun isUserLoggedIn(): Boolean = auth.currentUserOrNull() != null
 
     suspend fun syncMessage(message: CapturedMessageEntity) {
-        if (!isUserLoggedIn()) return
+        // Mark as needing sync so it persists across failures
+        capturedMessageDao.markNeedsSync(message.id)
+
+        if (!isUserLoggedIn()) {
+            Log.w(TAG, "Message sync deferred (not logged in): ${message.id}")
+            return
+        }
         try {
             supabaseDataSource.upsertMessage(message)
+            capturedMessageDao.markSynced(message.id)
             Log.d(TAG, "Message synced: ${message.id}")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to sync message to Supabase: ${e.message}", e)
-            addLog("❌ 메시지 동기화 실패: ${e.message}")
+            Log.e(TAG, "Failed to sync message (will retry): ${e.message}", e)
+            addLog("❌ 메시지 동기화 실패 (재시도 예정): ${e.message}")
         }
     }
 
@@ -724,6 +734,32 @@ class SyncManager @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to delete day category from Supabase: ${e.message}", e)
             addLog("❌ 일별 카테고리 삭제 동기화 실패: ${e.message}")
+        }
+    }
+
+    /**
+     * 동기화 보류 중인 메시지 재시도
+     */
+    private suspend fun syncPendingMessages() {
+        if (!isUserLoggedIn()) return
+        val pending = capturedMessageDao.getPendingSync()
+        if (pending.isEmpty()) return
+        addLog("보류 메시지 ${pending.size}개 동기화 중...")
+        var successCount = 0
+        for (msg in pending) {
+            try {
+                supabaseDataSource.upsertMessage(msg)
+                capturedMessageDao.markSynced(msg.id)
+                successCount++
+            } catch (e: Exception) {
+                Log.e(TAG, "Pending sync retry failed for ${msg.id}: ${e.message}", e)
+            }
+        }
+        if (successCount > 0) {
+            addLog("✓ 보류 메시지 ${successCount}/${pending.size}개 동기화 완료")
+        }
+        if (successCount < pending.size) {
+            addLog("⚠️ 보류 메시지 ${pending.size - successCount}개 동기화 실패 (다음 동기화 시 재시도)")
         }
     }
 

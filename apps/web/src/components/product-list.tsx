@@ -34,9 +34,12 @@ const CATEGORY_LABEL: Record<string, string> = {
   avf_needle: "AVF니들",
   dialysis_solution: "투석액",
   filter: "필터",
+  catheter: "카테터",
   medication: "약품",
   consumable: "소모품",
   equipment: "장비",
+  supplement: "보충제",
+  other: "기타",
 };
 
 type SortKey = "id" | "official_name" | "short_name" | "category" | "manufacturer" | "unit" | "unit_price" | "standard_code" | "is_active";
@@ -131,8 +134,8 @@ export function ProductTable({ products, hospitals }: { products: Product[]; hos
         toast.success("품목이 삭제되었습니다.");
         setDeleteId(null);
         router.refresh();
-      } catch {
-        toast.error("품목 삭제에 실패했습니다.");
+      } catch (err) {
+        toast.error(`품목 삭제 실패: ${err instanceof Error ? err.message : String(err)}`);
       }
     });
   }
@@ -352,8 +355,8 @@ function ProductFormDialog({
         }
         onClose();
         router.refresh();
-      } catch {
-        toast.error("품목 저장에 실패했습니다.");
+      } catch (err) {
+        toast.error(`품목 저장 실패: ${err instanceof Error ? err.message : String(err)}`);
       }
     });
   }
@@ -474,8 +477,8 @@ function AliasDialog({
         await deleteProductAlias(product.id, aliasId);
         toast.success("별칭이 삭제되었습니다.");
         loadAliases();
-      } catch {
-        toast.error("별칭 삭제에 실패했습니다.");
+      } catch (err) {
+        toast.error(`별칭 삭제 실패: ${err instanceof Error ? err.message : String(err)}`);
       }
     });
   }
@@ -599,8 +602,8 @@ function AliasFormDialog({
         }
         onSaved();
         onClose();
-      } catch {
-        toast.error("별칭 저장에 실패했습니다.");
+      } catch (err) {
+        toast.error(`별칭 저장 실패: ${err instanceof Error ? err.message : String(err)}`);
       }
     });
   }

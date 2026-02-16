@@ -18,7 +18,10 @@ export async function createProduct(data: {
   unit_price?: number;
 }) {
   const supabase = await createClient();
-  const { error } = await supabase.from("products").insert(data);
+  const { error } = await supabase.from("products").insert({
+    ...data,
+    name: data.official_name,
+  });
   if (error) throw error;
   revalidatePath("/products");
   return { success: true };

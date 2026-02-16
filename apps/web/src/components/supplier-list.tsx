@@ -100,8 +100,8 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
         toast.success("공급사가 삭제되었습니다.");
         setDeleteId(null);
         router.refresh();
-      } catch {
-        toast.error("공급사 삭제에 실패했습니다.");
+      } catch (err) {
+        toast.error(`공급사 삭제 실패: ${err instanceof Error ? err.message : String(err)}`);
       }
     });
   }
@@ -285,8 +285,8 @@ function SupplierFormDialog({
         }
         onClose();
         router.refresh();
-      } catch {
-        toast.error("공급사 저장에 실패했습니다.");
+      } catch (err) {
+        toast.error(`공급사 저장 실패: ${err instanceof Error ? err.message : String(err)}`);
       }
     });
   }

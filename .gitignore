@@ -19,6 +19,9 @@ apps/mobile/.gradle/
 apps/mobile/.kotlin/
 apps/mobile/local.properties
 
+# Firebase
+**/google-services.json
+
 # IDE
 .idea/
 .vscode/

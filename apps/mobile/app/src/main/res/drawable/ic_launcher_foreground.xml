@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- NotiFlow Icon: Bell + Flow Waves + N Badge -->
+    <group
+        android:translateX="27"
+        android:translateY="24">
+
+        <!-- Bell shadow -->
+        <path
+            android:fillColor="#1E375A"
+            android:fillAlpha="0.2"
+            android:pathData="M27,5 C27,3.3 25.7,2 24,2 L30,2 C28.3,2 27,3.3 27,5 L27,8 C34.7,8 41,14.3 41,22 L41,32 L45,38 L45,40 L9,40 L9,38 L13,32 L13,22 C13,14.3 19.3,8 27,8 L27,5 Z" />
+
+        <!-- Bell body -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M27,3 C27,1.3 25.7,0 24,0 L30,0 C28.3,0 27,1.3 27,3 L27,6 C34.7,6 41,12.3 41,20 L41,30 L45,36 L45,38 L9,38 L9,36 L13,30 L13,20 C13,12.3 19.3,6 27,6 L27,3 Z" />
+
+        <!-- Bell clapper -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M22,40 Q27,47 32,40 Z" />
+
+        <!-- Inner highlight (glass effect) -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.5"
+            android:pathData="M27,6 C19.3,6 13,12.3 13,20 L13,22 C13,14.3 19.3,8 27,8 C34.7,8 41,14.3 41,22 L41,20 C41,12.3 34.7,6 27,6 Z" />
+
+        <!-- Flow Wave 1 (strongest) -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.8"
+            android:pathData="M10,46 Q18,42 27,46 Q36,50 44,46"
+            android:strokeWidth="2"
+            android:strokeColor="#FFFFFF"
+            android:strokeAlpha="0.8" />
+
+        <!-- Flow Wave 2 (medium) -->
+        <path
+            android:fillColor="#00000000"
+            android:strokeWidth="1.5"
+            android:strokeColor="#FFFFFF"
+            android:strokeAlpha="0.5"
+            android:pathData="M10,50 Q18,46 27,50 Q36,54 44,50" />
+
+        <!-- Flow Wave 3 (softest) -->
+        <path
+            android:fillColor="#00000000"
+            android:strokeWidth="1"
+            android:strokeColor="#FFFFFF"
+            android:strokeAlpha="0.3"
+            android:pathData="M10,54 Q18,50 27,54 Q36,58 44,54" />
+
+        <!-- N Badge circle (mint, top-right) -->
+        <path
+            android:fillColor="#48D1CC"
+            android:pathData="M38,4 a8,8 0 1,1 16,0 a8,8 0 1,1 -16,0" />
+
+        <!-- N letter in badge -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M43,0 L43,8 L45,8 L45,2.5 L49,8 L51,8 L51,0 L49,0 L49,5.5 L45,0 Z" />
+
+        <!-- Small decorative bubbles -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.6"
+            android:pathData="M6,14 a3,3 0 1,1 6,0 a3,3 0 1,1 -6,0" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.4"
+            android:pathData="M46,26 a2,2 0 1,1 4,0 a2,2 0 1,1 -4,0" />
+    </group>
+</vector>

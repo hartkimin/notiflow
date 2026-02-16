@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Notification Message List</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#136dec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101822",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "Noto Sans KR", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Hide scrollbar for clean horizontal scrolling */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display antialiased">
+<div class="max-w-[480px] mx-auto min-h-screen flex flex-col shadow-2xl relative">
+<!-- Top App Bar -->
+<header class="sticky top-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md">
+<div class="flex items-center p-4 pb-2 justify-between">
+<div class="flex size-12 shrink-0 items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined text-2xl">arrow_back_ios_new</span>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-tight flex-1 text-center">알림</h2>
+<div class="flex w-12 items-center justify-end">
+<button class="flex size-12 items-center justify-center rounded-full hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-2xl text-white">settings</span>
+</button>
+</div>
+</div>
+<!-- Search Bar -->
+<div class="px-4 py-2">
+<label class="flex flex-col min-w-40 h-12 w-full">
+<div class="flex w-full flex-1 items-stretch rounded-xl h-full bg-slate-200/50 dark:bg-[#233348]">
+<div class="flex items-center justify-center pl-4">
+<span class="material-symbols-outlined text-[#92a9c9]">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 border-none bg-transparent focus:outline-0 focus:ring-0 text-slate-900 dark:text-white placeholder:text-[#92a9c9] px-4 pl-2 text-base font-normal leading-normal" placeholder="메시지 검색" value=""/>
+</div>
+</label>
+</div>
+<!-- Filter Chips -->
+<div class="flex gap-2 p-4 overflow-x-auto hide-scrollbar">
+<div class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-primary px-5 shadow-lg shadow-primary/20">
+<p class="text-white text-sm font-semibold">전체</p>
+</div>
+<div class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-slate-200 dark:bg-[#233348] px-5">
+<p class="text-slate-600 dark:text-[#92a9c9] text-sm font-medium">쇼핑</p>
+</div>
+<div class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-slate-200 dark:bg-[#233348] px-5">
+<p class="text-slate-600 dark:text-[#92a9c9] text-sm font-medium">금융</p>
+</div>
+<div class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-slate-200 dark:bg-[#233348] px-5">
+<p class="text-slate-600 dark:text-[#92a9c9] text-sm font-medium">소셜</p>
+</div>
+<div class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-slate-200 dark:bg-[#233348] px-5">
+<p class="text-slate-600 dark:text-[#92a9c9] text-sm font-medium">게임</p>
+</div>
+</div>
+</header>
+<!-- Message List -->
+<main class="flex-1 overflow-y-auto px-4 pb-20 space-y-2">
+<!-- Message Card 1 (Unread) -->
+<div class="flex flex-col bg-white dark:bg-[#1a2533] p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800/50">
+<div class="flex justify-between items-start mb-1">
+<div class="flex items-center gap-3">
+<div class="bg-primary/10 rounded-full p-2 flex items-center justify-center">
+<div class="size-10 rounded-full bg-cover bg-center" data-alt="Coupang company logo with delivery icon" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBDWNsjlClbCmZqMuL_DQ5A7BUN4xz8cBwhojtckX6hC_ZEZ_FfpawKmBsBTH_R1S-gBtb_K4z4Y-sLeFpRJcw66O_bQSSNB8WNKTrCvjb0O1P4pocaBelmNjU-pG9wOO-ok44AW2rjD_FrAmyOLpCJPvngy42_TLhvhTDXYJNWzYdJmJLC4Y0eGafieanI_9BOtyKx3111oWfmRUFwdiO_qfa0DKcAcfOj2tlVRvfd4dCJOGNDxftycVcnAUmJJorF84gWx3xEG9BW')"></div>
+</div>
+<div>
+<p class="text-slate-900 dark:text-white font-bold">쿠팡</p>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-500/10 text-green-500 uppercase tracking-wider">결제</span>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<p class="text-[#92a9c9] text-xs">방금 전</p>
+<div class="size-2 rounded-full bg-primary"></div>
+</div>
+</div>
+<div class="mt-2">
+<p class="text-slate-600 dark:text-[#92a9c9] text-sm leading-relaxed">주문하신 상품 '무선 키보드' 배송이 완료되었습니다. 문 앞을 확인해 주세요.</p>
+</div>
+</div>
+<!-- Message Card 2 (Unread) -->
+<div class="flex flex-col bg-white dark:bg-[#1a2533] p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800/50">
+<div class="flex justify-between items-start mb-1">
+<div class="flex items-center gap-3">
+<div class="bg-blue-500/10 rounded-full p-2 flex items-center justify-center">
+<div class="size-10 rounded-full bg-cover bg-center" data-alt="Shinhan Bank corporate brand logo" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCkbdhL6evdbfKQWs_HEud-eWqAd4GwGV59RDbb0OGo5judfCCY1RyLN9OhrpiMWwm4CHWHRdPruIJmn1Ue5cUbJoCu6xHsnT3f6j3tyACEZAG_MRWnHAKpqVJiysyg9ZC90a-EM5uOcmkvaa7uhTYAQrecP2Bm-5n1KT55ZjEGO85fMBgZKWD6rzAHo1PyN9_YgTW15gKTTtsmm3SnZ4Iq1W770C3UArdQ1bQOwpMsBButfQSaFj-fcVlgc_3ZuWGS1_skjR-xd69E')"></div>
+</div>
+<div>
+<p class="text-slate-900 dark:text-white font-bold">신한은행</p>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 text-red-500 uppercase tracking-wider">중요</span>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<p class="text-[#92a9c9] text-xs">5분 전</p>
+<div class="size-2 rounded-full bg-primary"></div>
+</div>
+</div>
+<div class="mt-2">
+<p class="text-slate-600 dark:text-[#92a9c9] text-sm leading-relaxed">[입금 확인] 홍길동님으로부터 50,000원이 입금되었습니다. 잔액: 1,240,000원</p>
+</div>
+</div>
+<!-- Message Card 3 -->
+<div class="flex flex-col bg-white dark:bg-[#1a2533] p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800/50 opacity-80">
+<div class="flex justify-between items-start mb-1">
+<div class="flex items-center gap-3">
+<div class="bg-yellow-400/10 rounded-full p-2 flex items-center justify-center">
+<div class="size-10 rounded-full bg-cover bg-center" data-alt="KakaoTalk chat application logo bubble" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAOOxerqb4seccPYgWHPcbgnnu8mQpb0TAlv28jawCGzH3NcZ4GnpklExvOCNzJdrM7jCsNA2LWvdDz1dnrOufILCo2VcpwzJz3cBXNe6dhC82helaD1XjFhGiK2iEifLTeumOUJLfSUUaTt17eSeY2jbQYGqwjLMwqy5B1J_l6ONjsJxAs-rV5aOpWlhjakCV99M0QHpMr4F4mxiLQPDQCz6fUAa0UrOLvPTjwt3DFWTNY50saa968p8ylauarSXoow85_G2tBqMAQ')"></div>
+</div>
+<div>
+<p class="text-slate-900 dark:text-white font-bold">카카오톡</p>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/10 text-slate-500 uppercase tracking-wider">소셜</span>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<p class="text-[#92a9c9] text-xs">오후 2:30</p>
+</div>
+</div>
+<div class="mt-2">
+<p class="text-slate-600 dark:text-[#92a9c9] text-sm leading-relaxed">김철수: 오늘 저녁 7시에 강남역에서 보는 거 맞지? 이따가 봐!</p>
+</div>
+</div>
+<!-- Message Card 4 -->
+<div class="flex flex-col bg-white dark:bg-[#1a2533] p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800/50 opacity-80">
+<div class="flex justify-between items-start mb-1">
+<div class="flex items-center gap-3">
+<div class="bg-purple-500/10 rounded-full p-2 flex items-center justify-center">
+<div class="size-10 rounded-full bg-cover bg-center" data-alt="Instagram social media camera icon" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDcD1gEmqal0KAnQijjWHZJnn7JfoDmJ2Yw40H_WhKlalgDExFO741TL5wnyaxDRfpS0x6SqOzxidXV5lolkQZveJU88uWBN9h9tjWjI_REr2FDv6iEKrP4-0xwWT8Ag1lulqCj9J35gRK_fhisc0C2XRwVdG29DlAJmXQcqlCw_ywstaGdUFUReEzPBi0pvcAtvcxI2mpkTaOXuj3BhLVftjaaCkdlrmPAlIla8bPGaco6uQ-4H14FHNRp-Eo8tt82WhF5H9CSAOVE')"></div>
+</div>
+<div>
+<p class="text-slate-900 dark:text-white font-bold">인스타그램</p>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/10 text-slate-500 uppercase tracking-wider">소셜</span>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<p class="text-[#92a9c9] text-xs">어제</p>
+</div>
+</div>
+<div class="mt-2">
+<p class="text-slate-600 dark:text-[#92a9c9] text-sm leading-relaxed">'lee_mirae'님이 회원님의 게시물을 좋아합니다.</p>
+</div>
+</div>
+<!-- Message Card 5 -->
+<div class="flex flex-col bg-white dark:bg-[#1a2533] p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800/50 opacity-80">
+<div class="flex justify-between items-start mb-1">
+<div class="flex items-center gap-3">
+<div class="bg-orange-500/10 rounded-full p-2 flex items-center justify-center">
+<div class="size-10 rounded-full bg-cover bg-center" data-alt="Baemin food delivery app character logo" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuACBjUkla2nENijCxb5YBxiLmlZw2LJu5FBX0sRMJBXpFt8PK_NZv4DjCMLSWZbHZsbwJ4HGqLybQbZ614dBMZeeXlu8AeuPLPm1kyiq99PpqPYXzHFCcrBWJ1lZSEFQrQ84xx5jyjAkCOKuPAdfA03w4tG0vCushYkUg-FsyoAnbqJRTWtakoIslmHgaVL2Zx1utOHQASEILpNDVe8vasm8MLuDVK6sKVw_snpmg16F0EIiyGogShy7xhsWDBR-5sLhtDlLZBYShC3')"></div>
+</div>
+<div>
+<p class="text-slate-900 dark:text-white font-bold">배달의민족</p>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-400/10 text-blue-400 uppercase tracking-wider">쇼핑</span>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<p class="text-[#92a9c9] text-xs">어제</p>
+</div>
+</div>
+<div class="mt-2">
+<p class="text-slate-600 dark:text-[#92a9c9] text-sm leading-relaxed">지금 바로 사용 가능한 3,000원 할인 쿠폰이 도착했어요! 놓치지 마세요.</p>
+</div>
+</div>
+</main>
+<!-- Floating Action Button -->
+<div class="fixed bottom-6 right-1/2 translate-x-1/2 flex justify-center w-full max-w-[480px] px-6">
+<button class="bg-primary text-white flex items-center gap-2 px-6 py-3.5 rounded-full shadow-2xl shadow-primary/40 hover:scale-105 active:scale-95 transition-transform">
+<span class="material-symbols-outlined">delete_sweep</span>
+<span class="font-bold">전체 읽음 처리</span>
+</button>
+</div>
+<!-- Bottom Tab Bar (iOS style) -->
+<nav class="sticky bottom-0 w-full bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 flex justify-around items-center py-2 pb-6">
+<div class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined fill-[1]">notifications</span>
+<span class="text-[10px] font-medium">알림</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">analytics</span>
+<span class="text-[10px] font-medium">분석</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] font-medium">마이</span>
+</div>
+</nav>
+</div>
+</body></html>

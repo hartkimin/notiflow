@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Next.js
+apps/web/.next/
+apps/web/out/
+
+# Vercel
+.vercel
+
+# Build outputs
+apps/mobile/app/build/
+apps/mobile/.gradle/
+apps/mobile/.kotlin/
+apps/mobile/local.properties
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Debug
+*.log
+firebase-debug.log
+
+# Supabase
+packages/supabase/.temp/
+
+# Playwright
+.playwright-mcp/
+
+# Temporary
+*.png
+*.tmp
+~$*

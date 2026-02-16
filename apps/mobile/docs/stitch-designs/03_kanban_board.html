@@ -1,0 +1,211 @@
+<html class="dark"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#136dec",
+            "background-light": "#f6f7f8",
+            "background-dark": "#101822",
+          },
+          fontFamily: {
+            "display": ["Inter", "Noto Sans KR", "sans-serif"]
+          },
+          borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+        },
+      },
+    }
+  </script>
+<style>
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white">
+<div class="relative flex h-screen w-full flex-col overflow-hidden">
+<!-- TopAppBar -->
+<header class="flex items-center bg-background-light dark:bg-background-dark p-4 pb-2 justify-between shrink-0">
+<div class="flex size-12 shrink-0 items-center justify-start">
+<span class="material-symbols-outlined text-slate-900 dark:text-white" style="font-size: 24px;">menu</span>
+</div>
+<h2 class="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">보드</h2>
+<div class="flex w-12 items-center justify-end">
+<button class="flex size-12 cursor-pointer items-center justify-center rounded-full bg-transparent hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-slate-900 dark:text-white" style="font-size: 24px;">notifications</span>
+</button>
+</div>
+</header>
+<!-- Chips (Categories) -->
+<div class="flex gap-3 px-4 py-2 overflow-x-auto no-scrollbar shrink-0">
+<div class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full bg-primary px-5">
+<p class="text-white text-sm font-medium">전체</p>
+</div>
+<div class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full bg-slate-200 dark:bg-slate-800 px-5">
+<p class="text-slate-700 dark:text-slate-300 text-sm font-medium">쇼핑</p>
+</div>
+<div class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full bg-slate-200 dark:bg-slate-800 px-5">
+<p class="text-slate-700 dark:text-slate-300 text-sm font-medium">금융</p>
+</div>
+<div class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full bg-slate-200 dark:bg-slate-800 px-5">
+<p class="text-slate-700 dark:text-slate-300 text-sm font-medium">소셜</p>
+</div>
+</div>
+<!-- Main Kanban Area (Horizontal Scroll) -->
+<main class="flex-1 overflow-x-auto flex gap-4 p-4 no-scrollbar items-start">
+<!-- Column: 미분류 -->
+<section class="flex flex-col min-w-[300px] max-w-[300px] h-full">
+<div class="flex items-center justify-between mb-4 px-2">
+<div class="flex items-center gap-2">
+<div class="w-2 h-6 bg-primary rounded-full"></div>
+<h3 class="text-lg font-bold">미분류</h3>
+<span class="bg-primary/20 text-primary text-xs font-bold px-2 py-0.5 rounded-full">5</span>
+</div>
+<span class="material-symbols-outlined text-slate-400">more_vert</span>
+</div>
+<div class="flex flex-col gap-4 overflow-y-auto no-scrollbar pb-8">
+<!-- Card 1 -->
+<div class="bg-white dark:bg-slate-800/50 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-800">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-10 h-10 rounded-full bg-yellow-400 flex items-center justify-center text-white overflow-hidden" data-alt="Yellow messenger app icon">
+<span class="material-symbols-outlined text-lg">chat_bubble</span>
+</div>
+<div class="flex-1">
+<p class="text-xs text-slate-500 dark:text-slate-400">방금 전</p>
+<p class="font-bold text-sm">카카오톡</p>
+</div>
+</div>
+<p class="text-slate-600 dark:text-slate-300 text-sm line-clamp-2 mb-4 leading-relaxed">
+              김철수: 오늘 점심 뭐 먹을래? 회사 근처 새로 생긴 식당 가볼까?
+            </p>
+<div class="flex justify-end">
+<button class="flex items-center gap-1 bg-primary text-white text-xs font-bold py-2 px-4 rounded-full">
+<span>이동</span>
+<span class="material-symbols-outlined text-xs">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-white dark:bg-slate-800/50 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-800">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white overflow-hidden" data-alt="Red shopping app icon">
+<span class="material-symbols-outlined text-lg">shopping_cart</span>
+</div>
+<div class="flex-1">
+<p class="text-xs text-slate-500 dark:text-slate-400">10분 전</p>
+<p class="font-bold text-sm">쿠팡</p>
+</div>
+</div>
+<p class="text-slate-600 dark:text-slate-300 text-sm line-clamp-2 mb-4 leading-relaxed">
+              주문하신 상품이 배송 완료되었습니다. 문 앞 사진을 확인하세요.
+            </p>
+<div class="flex justify-end">
+<button class="flex items-center gap-1 bg-primary text-white text-xs font-bold py-2 px-4 rounded-full">
+<span>이동</span>
+<span class="material-symbols-outlined text-xs">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-white dark:bg-slate-800/50 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-800">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white overflow-hidden" data-alt="Blue bank app icon">
+<span class="material-symbols-outlined text-lg">account_balance</span>
+</div>
+<div class="flex-1">
+<p class="text-xs text-slate-500 dark:text-slate-400">15분 전</p>
+<p class="font-bold text-sm">신한은행</p>
+</div>
+</div>
+<p class="text-slate-600 dark:text-slate-300 text-sm line-clamp-2 mb-4 leading-relaxed">
+              [입금] 50,000원 홍길동 (잔액: 1,250,000원)
+            </p>
+<div class="flex justify-end">
+<button class="flex items-center gap-1 bg-primary text-white text-xs font-bold py-2 px-4 rounded-full">
+<span>이동</span>
+<span class="material-symbols-outlined text-xs">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Column: 처리 중 -->
+<section class="flex flex-col min-w-[300px] max-w-[300px] h-full opacity-60">
+<div class="flex items-center justify-between mb-4 px-2">
+<div class="flex items-center gap-2">
+<div class="w-2 h-6 bg-orange-400 rounded-full"></div>
+<h3 class="text-lg font-bold">처리 중</h3>
+<span class="bg-orange-400/20 text-orange-400 text-xs font-bold px-2 py-0.5 rounded-full">2</span>
+</div>
+<span class="material-symbols-outlined text-slate-400">more_vert</span>
+</div>
+<div class="flex flex-col gap-4 overflow-y-auto no-scrollbar pb-8">
+<div class="bg-white dark:bg-slate-800/50 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-800">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-10 h-10 rounded-full bg-slate-600 flex items-center justify-center text-white overflow-hidden" data-alt="Calendar app icon">
+<span class="material-symbols-outlined text-lg">calendar_today</span>
+</div>
+<div class="flex-1">
+<p class="text-xs text-slate-500 dark:text-slate-400">30분 전</p>
+<p class="font-bold text-sm">일정 알림</p>
+</div>
+</div>
+<p class="text-slate-600 dark:text-slate-300 text-sm line-clamp-2 mb-4">
+              오후 3시 팀 미팅이 10분 뒤에 시작됩니다. 회의실 A로 모여주세요.
+            </p>
+<div class="flex justify-end">
+<button class="flex items-center gap-1 bg-primary text-white text-xs font-bold py-2 px-4 rounded-full">
+<span>완료</span>
+<span class="material-symbols-outlined text-xs">check</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Column: 완료 -->
+<section class="flex flex-col min-w-[300px] max-w-[300px] h-full opacity-60">
+<div class="flex items-center justify-between mb-4 px-2">
+<div class="flex items-center gap-2">
+<div class="w-2 h-6 bg-emerald-500 rounded-full"></div>
+<h3 class="text-lg font-bold">완료</h3>
+<span class="bg-emerald-500/20 text-emerald-500 text-xs font-bold px-2 py-0.5 rounded-full">12</span>
+</div>
+<span class="material-symbols-outlined text-slate-400">more_vert</span>
+</div>
+<div class="flex flex-col gap-4 overflow-y-auto no-scrollbar pb-8">
+<!-- Placeholder for finished items -->
+<div class="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-lg p-8 flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined mb-2">history</span>
+<p class="text-xs font-medium">지난 알림 보기</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation (Optional Material 3 feeling) -->
+<nav class="flex justify-around items-center bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-2 shrink-0 pb-6">
+<div class="flex flex-col items-center p-2 text-slate-400">
+<span class="material-symbols-outlined">home</span>
+<span class="text-[10px] font-bold">홈</span>
+</div>
+<div class="flex flex-col items-center p-2 text-primary">
+<span class="material-symbols-outlined">view_kanban</span>
+<span class="text-[10px] font-bold">보드</span>
+</div>
+<div class="flex flex-col items-center p-2 text-slate-400">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-bold">설정</span>
+</div>
+</nav>
+</div>
+</body></html>

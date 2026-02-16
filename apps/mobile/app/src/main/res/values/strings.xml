@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">NotiFlow</string>
+    <string name="widget_description">오늘 수신, 미처리, 긴급 메시지 건수를 홈 화면에서 확인하세요</string>
+    <string name="widget_name">NotiFlow 현황</string>
+    <string name="widget_today">오늘</string>
+    <string name="widget_pending">미처리</string>
+    <string name="widget_urgent">긴급</string>
+    <string name="widget_refresh">새로고침</string>
+    <string name="widget_last_updated">업데이트: --:--</string>
+</resources>

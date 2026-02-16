@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+KR:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#136dec",
+              "background-light": "#f6f7f8",
+              "background-dark": "#101822",
+            },
+            fontFamily: {
+              "display": ["Inter", "Noto Sans KR"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', 'Noto Sans KR', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white">
+<div class="relative flex min-h-screen w-full flex-col bg-background-light dark:bg-background-dark max-w-md mx-auto overflow-x-hidden">
+<!-- TopAppBar -->
+<div class="sticky top-0 z-10 flex items-center bg-background-light dark:bg-background-dark p-4 pb-2 justify-between">
+<div class="text-slate-900 dark:text-white flex size-12 shrink-0 items-center justify-start cursor-pointer">
+<span class="material-symbols-outlined">arrow_back_ios</span>
+</div>
+<h2 class="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">캘린더</h2>
+</div>
+<!-- CalendarPicker Section -->
+<div class="flex flex-col items-center justify-center p-4">
+<div class="w-full flex flex-col gap-0.5 bg-white dark:bg-[#1a2433] rounded-xl p-2 shadow-sm">
+<div class="flex items-center p-1 justify-between">
+<button class="text-slate-900 dark:text-white flex size-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<p class="text-slate-900 dark:text-white text-base font-bold leading-tight flex-1 text-center">2023년 10월</p>
+<button class="text-slate-900 dark:text-white flex size-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+<div class="grid grid-cols-7 text-center">
+<p class="text-red-500 text-[13px] font-bold leading-normal h-10 flex items-center justify-center">일</p>
+<p class="text-slate-500 dark:text-slate-400 text-[13px] font-bold leading-normal h-10 flex items-center justify-center">월</p>
+<p class="text-slate-500 dark:text-slate-400 text-[13px] font-bold leading-normal h-10 flex items-center justify-center">화</p>
+<p class="text-slate-500 dark:text-slate-400 text-[13px] font-bold leading-normal h-10 flex items-center justify-center">수</p>
+<p class="text-slate-500 dark:text-slate-400 text-[13px] font-bold leading-normal h-10 flex items-center justify-center">목</p>
+<p class="text-slate-500 dark:text-slate-400 text-[13px] font-bold leading-normal h-10 flex items-center justify-center">금</p>
+<p class="text-primary text-[13px] font-bold leading-normal h-10 flex items-center justify-center">토</p>
+<!-- Calendar Days -->
+<button class="h-12 w-full text-slate-400 col-start-1 text-sm font-medium"><div class="flex flex-col items-center justify-center">24</div></button>
+<button class="h-12 w-full text-slate-400 text-sm font-medium"><div class="flex flex-col items-center justify-center">25</div></button>
+<button class="h-12 w-full text-slate-400 text-sm font-medium"><div class="flex flex-col items-center justify-center">26</div></button>
+<button class="h-12 w-full text-slate-400 text-sm font-medium"><div class="flex flex-col items-center justify-center">27</div></button>
+<button class="h-12 w-full text-slate-400 text-sm font-medium"><div class="flex flex-col items-center justify-center">28</div></button>
+<button class="h-12 w-full text-slate-400 text-sm font-medium"><div class="flex flex-col items-center justify-center">29</div></button>
+<button class="h-12 w-full text-slate-400 text-sm font-medium"><div class="flex flex-col items-center justify-center">30</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">1<div class="flex gap-0.5 mt-1"><div class="size-1 rounded-full bg-primary"></div></div></div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">2</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">3<div class="flex gap-0.5 mt-1"><div class="size-1 rounded-full bg-green-500"></div></div></div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">4</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">5<div class="flex gap-0.5 mt-1"><div class="size-1 rounded-full bg-primary"></div><div class="size-1 rounded-full bg-yellow-500"></div></div></div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">6</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">7</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">8</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">9</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">10</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">11</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">12</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">13</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">14</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">15</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">16</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">17</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">18</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">19</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">20</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">21</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">22</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">23</div></button>
+<button class="h-12 w-full text-white text-sm font-bold relative">
+<div class="flex size-full flex-col items-center justify-center rounded-lg bg-primary">
+                            24
+                            <div class="flex gap-0.5 mt-0.5"><div class="size-1 rounded-full bg-white"></div><div class="size-1 rounded-full bg-white"></div></div>
+</div>
+</button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">25</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">26</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">27</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">28</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">29</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">30</div></button>
+<button class="h-12 w-full text-slate-900 dark:text-white text-sm font-medium relative"><div class="flex flex-col items-center justify-center">31</div></button>
+</div>
+</div>
+</div>
+<!-- SectionHeader -->
+<h3 class="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">10월 24일 화요일</h3>
+<!-- Accordions for grouped notifications -->
+<div class="flex flex-col p-4 gap-3">
+<!-- Category: Shopping -->
+<details class="flex flex-col rounded-xl bg-white dark:bg-[#233348] shadow-sm overflow-hidden group" open="">
+<summary class="flex cursor-pointer items-center justify-between gap-4 px-4 py-4 list-none">
+<div class="flex items-center gap-3">
+<div class="size-2 rounded-full bg-primary"></div>
+<p class="text-slate-900 dark:text-white text-base font-bold leading-normal">쇼핑 (3)</p>
+</div>
+<span class="material-symbols-outlined text-slate-400 group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="flex flex-col px-1 pb-2 border-t border-slate-100 dark:border-slate-700/50">
+<!-- ListItem 1 -->
+<div class="flex gap-4 px-3 py-4 justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg cursor-pointer">
+<div class="flex items-start gap-4">
+<div class="text-white flex items-center justify-center rounded-xl bg-primary/20 text-primary shrink-0 size-12">
+<span class="material-symbols-outlined">shopping_cart</span>
+</div>
+<div class="flex flex-1 flex-col justify-center">
+<div class="flex justify-between items-center w-full">
+<p class="text-slate-900 dark:text-white text-base font-bold leading-normal">쿠팡</p>
+<p class="text-slate-500 dark:text-[#92a9c9] text-xs font-normal">오후 2:30</p>
+</div>
+<p class="text-slate-600 dark:text-[#92a9c9] text-sm font-normal leading-tight mt-1 line-clamp-2">[배송 완료] 주문하신 상품이 현관 앞에 도착했습니다. 사진을 확인해주세요.</p>
+</div>
+</div>
+</div>
+<!-- ListItem 2 -->
+<div class="flex gap-4 px-3 py-4 justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg cursor-pointer">
+<div class="flex items-start gap-4">
+<div class="text-white flex items-center justify-center rounded-xl bg-primary/20 text-primary shrink-0 size-12">
+<span class="material-symbols-outlined">local_mall</span>
+</div>
+<div class="flex flex-1 flex-col justify-center">
+<div class="flex justify-between items-center w-full">
+<p class="text-slate-900 dark:text-white text-base font-bold leading-normal">네이버페이</p>
+<p class="text-slate-500 dark:text-[#92a9c9] text-xs font-normal">오전 10:15</p>
+</div>
+<p class="text-slate-600 dark:text-[#92a9c9] text-sm font-normal leading-tight mt-1 line-clamp-2">결제가 정상적으로 완료되었습니다. (35,000원)</p>
+</div>
+</div>
+</div>
+</div>
+</details>
+<!-- Category: Finance -->
+<details class="flex flex-col rounded-xl bg-white dark:bg-[#233348] shadow-sm overflow-hidden group">
+<summary class="flex cursor-pointer items-center justify-between gap-4 px-4 py-4 list-none">
+<div class="flex items-center gap-3">
+<div class="size-2 rounded-full bg-yellow-500"></div>
+<p class="text-slate-900 dark:text-white text-base font-bold leading-normal">금융 (2)</p>
+</div>
+<span class="material-symbols-outlined text-slate-400 group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="flex flex-col px-1 pb-2 border-t border-slate-100 dark:border-slate-700/50">
+<div class="flex gap-4 px-3 py-4 justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg cursor-pointer">
+<div class="flex items-start gap-4">
+<div class="text-white flex items-center justify-center rounded-xl bg-yellow-500/20 text-yellow-600 shrink-0 size-12">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+</div>
+<div class="flex flex-1 flex-col justify-center">
+<div class="flex justify-between items-center w-full">
+<p class="text-slate-900 dark:text-white text-base font-bold leading-normal">카카오뱅크</p>
+<p class="text-slate-500 dark:text-[#92a9c9] text-xs font-normal">오후 12:45</p>
+</div>
+<p class="text-slate-600 dark:text-[#92a9c9] text-sm font-normal leading-tight mt-1">입출금 알림: [출금] 12,500원 (신한카드 결제)</p>
+</div>
+</div>
+</div>
+</div>
+</details>
+<!-- Category: Social -->
+<details class="flex flex-col rounded-xl bg-white dark:bg-[#233348] shadow-sm overflow-hidden group">
+<summary class="flex cursor-pointer items-center justify-between gap-4 px-4 py-4 list-none">
+<div class="flex items-center gap-3">
+<div class="size-2 rounded-full bg-green-500"></div>
+<p class="text-slate-900 dark:text-white text-base font-bold leading-normal">소셜 (5)</p>
+</div>
+<span class="material-symbols-outlined text-slate-400 group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="flex flex-col px-1 pb-2 border-t border-slate-100 dark:border-slate-700/50">
+<div class="flex gap-4 px-3 py-4 justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg cursor-pointer">
+<div class="flex items-start gap-4">
+<div class="text-white flex items-center justify-center rounded-xl bg-green-500/20 text-green-600 shrink-0 size-12">
+<span class="material-symbols-outlined">chat</span>
+</div>
+<div class="flex flex-1 flex-col justify-center">
+<div class="flex justify-between items-center w-full">
+<p class="text-slate-900 dark:text-white text-base font-bold leading-normal">카카오톡</p>
+<p class="text-slate-500 dark:text-[#92a9c9] text-xs font-normal">오후 6:20</p>
+</div>
+<p class="text-slate-600 dark:text-[#92a9c9] text-sm font-normal leading-tight mt-1 line-clamp-1">김철수: 오늘 저녁 같이 먹을래? 7시에 보자.</p>
+</div>
+</div>
+</div>
+</div>
+</details>
+</div>
+<!-- Floating Add Button (Material 3 Style) -->
+<button class="fixed bottom-8 right-6 size-14 bg-primary text-white rounded-2xl shadow-xl flex items-center justify-center hover:scale-105 transition-transform">
+<span class="material-symbols-outlined !text-3xl">add</span>
+</button>
+<div class="h-10"></div>
+</div>
+</body></html>

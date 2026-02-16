@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#136dec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101822",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<title>설정 및 필터 관리</title>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-white">
+<!-- Top App Bar -->
+<div class="sticky top-0 z-50 flex items-center bg-background-light dark:bg-background-dark p-4 border-b border-gray-200 dark:border-gray-800">
+<div class="text-gray-900 dark:text-white flex size-10 shrink-0 items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined">arrow_back</span>
+</div>
+<h2 class="text-gray-900 dark:text-white text-lg font-bold leading-tight tracking-tight flex-1 ml-2">설정</h2>
+<div class="text-gray-900 dark:text-white flex size-10 shrink-0 items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined">more_vert</span>
+</div>
+</div>
+<div class="pb-10">
+<!-- Section: 앱 필터 -->
+<section>
+<h2 class="text-gray-900 dark:text-white text-[20px] font-bold px-4 pt-6 pb-2">앱 필터</h2>
+<!-- Segmented Buttons -->
+<div class="flex px-4 py-3">
+<div class="flex h-11 flex-1 items-center justify-center rounded-xl bg-gray-200 dark:bg-[#233348] p-1">
+<label class="flex cursor-pointer h-full grow items-center justify-center overflow-hidden rounded-lg px-2 has-[:checked]:bg-white dark:has-[:checked]:bg-[#111822] has-[:checked]:shadow-sm has-[:checked]:text-primary dark:has-[:checked]:text-white text-gray-500 dark:text-[#92a9c9] text-sm font-semibold transition-all">
+<span class="truncate">화이트리스트</span>
+<input checked="" class="hidden" name="filter-mode" type="radio" value="whitelist"/>
+</label>
+<label class="flex cursor-pointer h-full grow items-center justify-center overflow-hidden rounded-lg px-2 has-[:checked]:bg-white dark:has-[:checked]:bg-[#111822] has-[:checked]:shadow-sm has-[:checked]:text-primary dark:has-[:checked]:text-white text-gray-500 dark:text-[#92a9c9] text-sm font-semibold transition-all">
+<span class="truncate">블랙리스트</span>
+<input class="hidden" name="filter-mode" type="radio" value="blacklist"/>
+</label>
+</div>
+</div>
+<!-- List Item: SMS Capture -->
+<div class="flex items-center gap-4 bg-transparent px-4 min-h-[56px] justify-between">
+<div class="flex items-center gap-4">
+<div class="text-white flex items-center justify-center rounded-lg bg-primary shrink-0 size-10">
+<span class="material-symbols-outlined">sms</span>
+</div>
+<p class="text-gray-900 dark:text-white text-base font-medium leading-normal flex-1 truncate">SMS 캡처</p>
+</div>
+<div class="shrink-0">
+<label class="relative flex h-[31px] w-[51px] cursor-pointer items-center rounded-full border-none bg-gray-300 dark:bg-[#233348] p-0.5 transition-colors has-[:checked]:justify-end has-[:checked]:bg-primary">
+<div class="h-full w-[27px] rounded-full bg-white shadow-md"></div>
+<input checked="" class="hidden" type="checkbox"/>
+</label>
+</div>
+</div>
+<!-- TextGrid: App Selection -->
+<div class="grid grid-cols-2 gap-3 p-4">
+<div class="flex flex-1 gap-3 rounded-xl border border-gray-200 dark:border-[#324867] bg-white dark:bg-[#192433] p-4 items-center shadow-sm">
+<div class="bg-yellow-400 aspect-square rounded-lg w-10 shrink-0 flex items-center justify-center text-xs font-bold text-yellow-900 overflow-hidden" data-alt="Yellow KakaoTalk app icon style">
+                        TALK
+                    </div>
+<h2 class="text-gray-900 dark:text-white text-sm font-bold truncate">카카오톡</h2>
+<span class="material-symbols-outlined text-primary text-xs ml-auto">check_circle</span>
+</div>
+<div class="flex flex-1 gap-3 rounded-xl border border-gray-200 dark:border-[#324867] bg-white dark:bg-[#192433] p-4 items-center shadow-sm">
+<div class="bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 aspect-square rounded-lg w-10 shrink-0" data-alt="Gradient Instagram app icon style"></div>
+<h2 class="text-gray-900 dark:text-white text-sm font-bold truncate">인스타그램</h2>
+<span class="material-symbols-outlined text-primary text-xs ml-auto">check_circle</span>
+</div>
+</div>
+</section>
+<!-- Section: 카테고리 관리 -->
+<section class="mt-4">
+<div class="flex items-center justify-between px-4 pb-3">
+<h2 class="text-gray-900 dark:text-white text-[20px] font-bold">카테고리 관리</h2>
+<button class="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">add</span> 추가
+                </button>
+</div>
+<div class="space-y-1">
+<!-- Shopping -->
+<div class="flex items-center gap-4 bg-white dark:bg-[#192433]/40 px-4 min-h-[56px] mx-4 rounded-xl mb-2">
+<div class="size-3 rounded-full bg-orange-500"></div>
+<p class="text-gray-900 dark:text-white text-base font-medium flex-1">쇼핑</p>
+<div class="flex gap-2 text-gray-400">
+<span class="material-symbols-outlined cursor-pointer hover:text-primary">edit</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-red-500">delete</span>
+</div>
+</div>
+<!-- Finance -->
+<div class="flex items-center gap-4 bg-white dark:bg-[#192433]/40 px-4 min-h-[56px] mx-4 rounded-xl mb-2">
+<div class="size-3 rounded-full bg-emerald-500"></div>
+<p class="text-gray-900 dark:text-white text-base font-medium flex-1">금융</p>
+<div class="flex gap-2 text-gray-400">
+<span class="material-symbols-outlined cursor-pointer hover:text-primary">edit</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-red-500">delete</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Section: 상태 단계 관리 -->
+<section class="mt-6">
+<h2 class="text-gray-900 dark:text-white text-[20px] font-bold px-4 pb-3">상태 단계 관리</h2>
+<div class="bg-white dark:bg-[#192433]/20 mx-4 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800">
+<div class="flex items-center gap-4 px-4 h-14 border-b border-gray-100 dark:border-gray-800">
+<span class="material-symbols-outlined text-gray-400 cursor-move">drag_handle</span>
+<div class="size-2 rounded-full bg-gray-400"></div>
+<p class="text-gray-900 dark:text-white font-medium flex-1">대기</p>
+<span class="text-xs text-gray-400 uppercase font-bold">Step 1</span>
+</div>
+<div class="flex items-center gap-4 px-4 h-14 border-b border-gray-100 dark:border-gray-800">
+<span class="material-symbols-outlined text-gray-400 cursor-move">drag_handle</span>
+<div class="size-2 rounded-full bg-primary"></div>
+<p class="text-gray-900 dark:text-white font-medium flex-1">처리중</p>
+<span class="text-xs text-primary uppercase font-bold">Step 2</span>
+</div>
+<div class="flex items-center gap-4 px-4 h-14">
+<span class="material-symbols-outlined text-gray-400 cursor-move">drag_handle</span>
+<div class="size-2 rounded-full bg-green-500"></div>
+<p class="text-gray-900 dark:text-white font-medium flex-1">완료</p>
+<span class="text-xs text-green-500 uppercase font-bold">Step 3</span>
+</div>
+</div>
+</section>
+<!-- Section: 키워드 필터 규칙 -->
+<section class="mt-6 px-4">
+<h2 class="text-gray-900 dark:text-white text-[20px] font-bold pb-3">키워드 필터 규칙</h2>
+<div class="space-y-4">
+<!-- Rule Card 1 -->
+<div class="bg-white dark:bg-[#192433] p-5 rounded-2xl border border-gray-100 dark:border-[#324867] shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div>
+<span class="text-xs font-bold text-primary uppercase tracking-wider bg-primary/10 px-2 py-1 rounded">광고 필터</span>
+<h3 class="text-gray-900 dark:text-white font-bold mt-2 text-lg">스팸성 키워드 차단</h3>
+</div>
+<span class="material-symbols-outlined text-gray-400">settings</span>
+</div>
+<div class="grid grid-cols-2 gap-4 text-sm">
+<div>
+<p class="text-gray-400 mb-1">발신자 키워드</p>
+<p class="text-gray-900 dark:text-white font-semibold">080, 070, [광고]</p>
+</div>
+<div>
+<p class="text-gray-400 mb-1">일치 유형</p>
+<p class="text-gray-900 dark:text-white font-semibold">부분 일치</p>
+</div>
+<div class="col-span-2">
+<p class="text-gray-400 mb-1">제외 단어</p>
+<p class="text-gray-900 dark:text-white font-semibold">주문내역, 배송출발, 본인인증</p>
+</div>
+</div>
+</div>
+<!-- Rule Card 2 -->
+<div class="bg-white dark:bg-[#192433] p-5 rounded-2xl border border-gray-100 dark:border-[#324867] shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div>
+<span class="text-xs font-bold text-green-500 uppercase tracking-wider bg-green-500/10 px-2 py-1 rounded">금융 알림</span>
+<h3 class="text-gray-900 dark:text-white font-bold mt-2 text-lg">은행 입출금 알림</h3>
+</div>
+<span class="material-symbols-outlined text-gray-400">settings</span>
+</div>
+<div class="grid grid-cols-2 gap-4 text-sm">
+<div>
+<p class="text-gray-400 mb-1">발신자 키워드</p>
+<p class="text-gray-900 dark:text-white font-semibold">KB국민, 신한은행</p>
+</div>
+<div>
+<p class="text-gray-400 mb-1">일치 유형</p>
+<p class="text-gray-900 dark:text-white font-semibold">정확히 일치</p>
+</div>
+<div class="col-span-2">
+<p class="text-gray-400 mb-1">포함 단어</p>
+<p class="text-gray-900 dark:text-white font-semibold">입금, 출금, 체크카드</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Bottom Navigation Spacer -->
+<div class="h-20"></div>
+</body></html>

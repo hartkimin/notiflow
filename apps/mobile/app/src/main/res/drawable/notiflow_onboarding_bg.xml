@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="360dp"
+    android:height="800dp"
+    android:viewportWidth="360"
+    android:viewportHeight="800">
+
+    <!-- NotiFlow Onboarding Background: Vibrant Sky Blue → Mint gradient -->
+
+    <!-- Base: deep indigo-blue -->
+    <path
+        android:fillColor="#1E2D4F"
+        android:pathData="M0,0h360v800h-360z" />
+
+    <!-- Upper gradient: lighter blue region -->
+    <path
+        android:fillColor="#2E4A7A"
+        android:fillAlpha="0.6"
+        android:pathData="M0,0 h360 v400 h-360 Z" />
+
+    <!-- Sky blue accent blob (top-right) -->
+    <path
+        android:fillColor="#5DADE2"
+        android:fillAlpha="0.2"
+        android:pathData="M200,30 Q320,10 350,140 Q380,270 260,250 Q140,230 200,30 Z" />
+
+    <!-- Mint accent blob (bottom-left) -->
+    <path
+        android:fillColor="#48D1CC"
+        android:fillAlpha="0.15"
+        android:pathData="M-30,480 Q60,420 130,530 Q200,640 70,680 Q-60,720 -30,480 Z" />
+
+    <!-- Sky blue accent blob (center-left) -->
+    <path
+        android:fillColor="#5DADE2"
+        android:fillAlpha="0.1"
+        android:pathData="M-40,200 Q30,150 80,240 Q130,330 40,360 Q-50,390 -40,200 Z" />
+
+    <!-- Flow wave (middle area) -->
+    <path
+        android:fillColor="#5DADE2"
+        android:fillAlpha="0.08"
+        android:pathData="M0,330 Q90,280 180,330 Q270,380 360,330 L360,430 Q270,380 180,430 Q90,480 0,430 Z" />
+
+    <!-- Flow wave 2 (lower) -->
+    <path
+        android:fillColor="#48D1CC"
+        android:fillAlpha="0.06"
+        android:pathData="M0,560 Q120,520 240,570 Q360,620 360,570 L360,650 Q360,680 240,650 Q120,620 0,660 Z" />
+
+    <!-- Decorative circles -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.07"
+        android:pathData="M35,170 a32,32 0 1,1 64,0 a32,32 0 1,1 -64,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.05"
+        android:pathData="M275,580 a24,24 0 1,1 48,0 a24,24 0 1,1 -48,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.04"
+        android:pathData="M150,700 a20,20 0 1,1 40,0 a20,20 0 1,1 -40,0" />
+    <path
+        android:fillColor="#48D1CC"
+        android:fillAlpha="0.06"
+        android:pathData="M310,160 a15,15 0 1,1 30,0 a15,15 0 1,1 -30,0" />
+    <path
+        android:fillColor="#5DADE2"
+        android:fillAlpha="0.05"
+        android:pathData="M30,650 a12,12 0 1,1 24,0 a12,12 0 1,1 -24,0" />
+</vector>

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="360dp"
+    android:height="800dp"
+    android:viewportWidth="360"
+    android:viewportHeight="800">
+
+    <!-- NotiFlow Splash Background: Deep Navy → Sky Blue → Mint -->
+
+    <!-- Base: deep navy -->
+    <path
+        android:fillColor="#1A2744"
+        android:pathData="M0,0h360v800h-360z" />
+
+    <!-- Upper region: dark blue glow -->
+    <path
+        android:fillColor="#243B6A"
+        android:fillAlpha="0.7"
+        android:pathData="M0,0 h360 v350 Q250,300 130,350 Q30,390 0,340 Z" />
+
+    <!-- Central radial glow (sky blue) -->
+    <path
+        android:fillColor="#5DADE2"
+        android:fillAlpha="0.18"
+        android:pathData="M80,230 a100,120 0 1,1 200,0 a100,120 0 1,1 -200,0" />
+
+    <!-- Secondary glow (lighter) -->
+    <path
+        android:fillColor="#7EC8E3"
+        android:fillAlpha="0.1"
+        android:pathData="M120,200 a60,70 0 1,1 120,0 a60,70 0 1,1 -120,0" />
+
+    <!-- Flow wave 1 (sky blue, wide) -->
+    <path
+        android:fillColor="#5DADE2"
+        android:fillAlpha="0.12"
+        android:pathData="M-20,460 Q70,410 180,460 Q290,510 380,460 L380,580 Q290,530 180,580 Q70,630 -20,580 Z" />
+
+    <!-- Flow wave 2 (mint, offset) -->
+    <path
+        android:fillColor="#48D1CC"
+        android:fillAlpha="0.1"
+        android:pathData="M-20,540 Q90,490 200,540 Q310,590 380,540 L380,660 Q310,610 200,660 Q90,710 -20,660 Z" />
+
+    <!-- Flow wave 3 (subtle, bottom) -->
+    <path
+        android:fillColor="#48D1CC"
+        android:fillAlpha="0.06"
+        android:pathData="M-20,640 Q110,600 220,650 Q330,700 380,660 L380,750 Q330,720 220,750 Q110,780 -20,740 Z" />
+
+    <!-- Decorative bubbles -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.06"
+        android:pathData="M55,130 a28,28 0 1,1 56,0 a28,28 0 1,1 -56,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.04"
+        android:pathData="M265,380 a22,22 0 1,1 44,0 a22,22 0 1,1 -44,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.05"
+        android:pathData="M295,100 a16,16 0 1,1 32,0 a16,16 0 1,1 -32,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.03"
+        android:pathData="M35,520 a14,14 0 1,1 28,0 a14,14 0 1,1 -28,0" />
+    <path
+        android:fillColor="#48D1CC"
+        android:fillAlpha="0.08"
+        android:pathData="M310,680 a18,18 0 1,1 36,0 a18,18 0 1,1 -36,0" />
+</vector>

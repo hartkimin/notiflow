@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { UserMenu } from "./user-menu";
+import { ThemeToggle } from "./theme-toggle";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 
@@ -139,6 +140,7 @@ export function Nav() {
           </div>
         </form>
       </div>
+      <ThemeToggle />
       <UserMenu />
     </header>
   );

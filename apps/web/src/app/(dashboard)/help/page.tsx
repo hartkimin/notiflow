@@ -8,6 +8,8 @@ import {
   Shield,
   Trash2,
   TabletSmartphone,
+  Pencil,
+  Plus,
 } from "lucide-react";
 import {
   Card,
@@ -19,6 +21,29 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 const releases = [
+  {
+    version: "0.4.0",
+    date: "2026-02-16",
+    title: "메시지 CRUD & 기기명 추적",
+    highlights: [
+      {
+        icon: Plus,
+        text: "수동 메시지 등록 — 대시보드에서 직접 메시지를 생성하여 AI 파싱 파이프라인에 투입",
+      },
+      {
+        icon: Pencil,
+        text: "메시지 수정 기능 — 발신자, 내용, 출처, 파싱 상태를 인라인 편집",
+      },
+      {
+        icon: Smartphone,
+        text: "기기명 표시 — 모바일 캡쳐 메시지에 수신 기기명을 자동 매핑하여 테이블에 표시",
+      },
+      {
+        icon: Zap,
+        text: "captured_messages 실시간 구독 추가 — 모바일 캡쳐 시 대시보드 자동 갱신",
+      },
+    ],
+  },
   {
     version: "0.3.0",
     date: "2026-02-16",

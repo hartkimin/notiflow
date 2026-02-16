@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -17,14 +19,19 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  DialogFooter, DialogClose,
+} from "@/components/ui/dialog";
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown, Trash2,
+  LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown,
+  Trash2, Plus, Pencil, Smartphone,
 } from "lucide-react";
-import { deleteMessage } from "@/lib/actions";
+import { createMessage, updateMessage, deleteMessage } from "@/lib/actions";
 import { ManualParseForm } from "@/components/manual-parse-form";
 import type { RawMessage, Hospital, Product } from "@/lib/types";
 
@@ -49,7 +56,7 @@ const SOURCE_LABEL: Record<string, string> = {
   manual: "수동",
 };
 
-type SortKey = "id" | "sender" | "source_app" | "parse_status" | "received_at";
+type SortKey = "id" | "sender" | "source_app" | "parse_status" | "received_at" | "device_name";
 type SortDir = "asc" | "desc";
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
@@ -68,8 +75,10 @@ function formatDate(iso: string) {
 }
 
 function truncate(s: string, max = 60) {
-  return s.length > max ? s.slice(0, max) + "…" : s;
+  return s.length > max ? s.slice(0, max) + "\u2026" : s;
 }
+
+// --- Filters ---
 
 export function MessageFilters() {
   const router = useRouter();
@@ -127,7 +136,6 @@ export function MessageFilters() {
             <SelectItem value="sms">SMS</SelectItem>
             <SelectItem value="telegram">텔레그램</SelectItem>
             <SelectItem value="manual">수동</SelectItem>
-            <SelectItem value="모바일">모바일(기타)</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -135,6 +143,100 @@ export function MessageFilters() {
     </form>
   );
 }
+
+// --- Create Message Dialog ---
+
+export function CreateMessageDialog() {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const source_app = fd.get("source_app") as string;
+    const sender = fd.get("sender") as string;
+    const content = fd.get("content") as string;
+
+    if (!content.trim()) {
+      toast.error("메시지 내용을 입력해주세요.");
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        await createMessage({
+          source_app: source_app || "manual",
+          sender: sender || undefined,
+          content: content.trim(),
+        });
+        toast.success("메시지가 등록되었습니다.");
+        setOpen(false);
+        router.refresh();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "등록 실패";
+        toast.error(msg);
+      }
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm">
+          <Plus className="h-4 w-4 mr-1" />
+          메시지 등록
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>수동 메시지 등록</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>출처</Label>
+              <Select name="source_app" defaultValue="manual">
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">수동</SelectItem>
+                  <SelectItem value="kakaotalk">카카오톡</SelectItem>
+                  <SelectItem value="sms">SMS</SelectItem>
+                  <SelectItem value="telegram">텔레그램</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>발신자</Label>
+              <Input name="sender" placeholder="발신자명" />
+            </div>
+          </div>
+          <div>
+            <Label>메시지 내용</Label>
+            <Textarea
+              name="content"
+              placeholder="메시지 내용을 입력하세요..."
+              rows={5}
+              required
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">취소</Button>
+            </DialogClose>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "등록중..." : "등록"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// --- Message Table ---
 
 export function MessageTable({
   messages,
@@ -151,7 +253,43 @@ export function MessageTable({
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selected, setSelected] = useState<RawMessage | null>(null);
   const [showManualParse, setShowManualParse] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  // Edit form state
+  const [editSender, setEditSender] = useState("");
+  const [editSourceApp, setEditSourceApp] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editParseStatus, setEditParseStatus] = useState("");
+
+  function openEdit(msg: RawMessage) {
+    setEditSender(msg.sender || "");
+    setEditSourceApp(msg.source_app);
+    setEditContent(msg.content);
+    setEditParseStatus(msg.parse_status);
+    setIsEditing(true);
+  }
+
+  function handleUpdate() {
+    if (!selected) return;
+    startTransition(async () => {
+      try {
+        await updateMessage(selected.id, {
+          sender: editSender || null,
+          source_app: editSourceApp,
+          content: editContent,
+          parse_status: editParseStatus,
+        });
+        toast.success("메시지가 수정되었습니다.");
+        setIsEditing(false);
+        setSelected(null);
+        router.refresh();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "수정 실패";
+        toast.error(msg);
+      }
+    });
+  }
 
   function handleDelete(id: number) {
     startTransition(async () => {
@@ -214,9 +352,12 @@ export function MessageTable({
                 <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("sender")}>
                   <span className="inline-flex items-center">발신자<SortIcon active={sortKey === "sender"} dir={sortDir} /></span>
                 </TableHead>
-                <TableHead className="max-w-[300px]">내용</TableHead>
+                <TableHead className="max-w-[250px]">내용</TableHead>
                 <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("source_app")}>
                   <span className="inline-flex items-center">출처<SortIcon active={sortKey === "source_app"} dir={sortDir} /></span>
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("device_name")}>
+                  <span className="inline-flex items-center">기기명<SortIcon active={sortKey === "device_name"} dir={sortDir} /></span>
                 </TableHead>
                 <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("parse_status")}>
                   <span className="inline-flex items-center">상태<SortIcon active={sortKey === "parse_status"} dir={sortDir} /></span>
@@ -232,15 +373,27 @@ export function MessageTable({
                 <TableRow
                   key={msg.id}
                   className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => setSelected(msg)}
+                  onClick={() => { setSelected(msg); setIsEditing(false); setShowManualParse(false); }}
                 >
                   <TableCell className="font-mono text-xs">{msg.id}</TableCell>
                   <TableCell className="font-medium">{msg.sender || "-"}</TableCell>
-                  <TableCell className="max-w-[300px] truncate text-sm text-muted-foreground">
+                  <TableCell className="max-w-[250px] truncate text-sm text-muted-foreground">
                     {truncate(msg.content)}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">{SOURCE_LABEL[msg.source_app] || msg.source_app}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    {msg.device_name ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <Smartphone className="h-3 w-3" />
+                        {msg.device_name}
+                      </span>
+                    ) : msg.device_id?.startsWith("cap:") ? (
+                      <span className="text-xs text-muted-foreground">모바일</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={STATUS_VARIANT[msg.parse_status] || "secondary"}>
@@ -262,7 +415,7 @@ export function MessageTable({
             <Card
               key={msg.id}
               className="cursor-pointer hover:bg-muted/30 transition-colors"
-              onClick={() => setSelected(msg)}
+              onClick={() => { setSelected(msg); setIsEditing(false); setShowManualParse(false); }}
             >
               <CardContent className="p-4 space-y-2">
                 <div className="flex items-center justify-between">
@@ -279,7 +432,15 @@ export function MessageTable({
                 </p>
                 <div className="flex justify-between items-center text-xs text-muted-foreground">
                   <span>{formatDate(msg.received_at)}</span>
-                  {msg.order_id && <span className="font-mono">주문 #{msg.order_id}</span>}
+                  <div className="flex items-center gap-2">
+                    {msg.device_name && (
+                      <span className="inline-flex items-center gap-1">
+                        <Smartphone className="h-3 w-3" />
+                        {msg.device_name}
+                      </span>
+                    )}
+                    {msg.order_id && <span className="font-mono">주문 #{msg.order_id}</span>}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -287,13 +448,13 @@ export function MessageTable({
         </div>
       )}
 
-      {/* Message detail sheet */}
-      <Sheet open={selected !== null} onOpenChange={() => setSelected(null)}>
+      {/* Message detail / edit sheet */}
+      <Sheet open={selected !== null} onOpenChange={(open) => { if (!open) { setSelected(null); setIsEditing(false); } }}>
         <SheetContent className="w-[480px] sm:max-w-lg overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>메시지 상세</SheetTitle>
+            <SheetTitle>{isEditing ? "메시지 수정" : "메시지 상세"}</SheetTitle>
           </SheetHeader>
-          {selected && (
+          {selected && !isEditing && (
             <div className="space-y-4 mt-4">
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
@@ -330,16 +491,23 @@ export function MessageTable({
                     <p className="font-mono">#{selected.hospital_id}</p>
                   </div>
                 )}
-                {selected.device_id && (
-                  <div>
-                    <span className="text-muted-foreground">
-                      {selected.device_id.startsWith("cap:") ? "수신 경로" : "기기 ID"}
-                    </span>
-                    <p className="font-mono text-xs">
-                      {selected.device_id.startsWith("cap:") ? "모바일 앱 캡쳐" : selected.device_id}
-                    </p>
-                  </div>
-                )}
+                <div>
+                  <span className="text-muted-foreground">수신 기기</span>
+                  <p className="text-sm">
+                    {selected.device_name ? (
+                      <span className="inline-flex items-center gap-1">
+                        <Smartphone className="h-3.5 w-3.5" />
+                        {selected.device_name}
+                      </span>
+                    ) : selected.device_id?.startsWith("cap:") ? (
+                      "모바일 앱 캡쳐"
+                    ) : selected.device_id ? (
+                      <span className="font-mono text-xs">{selected.device_id}</span>
+                    ) : (
+                      "-"
+                    )}
+                  </p>
+                </div>
               </div>
 
               <div>
@@ -360,9 +528,21 @@ export function MessageTable({
                 </div>
               )}
 
+              {/* Edit button */}
+              <div className="border-t pt-4">
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => openEdit(selected)}
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  메시지 수정
+                </Button>
+              </div>
+
               {/* Manual parse button for failed/pending messages */}
               {(selected.parse_status === "failed" || selected.parse_status === "pending") && !selected.order_id && (
-                <div className="border-t pt-4">
+                <div>
                   {!showManualParse ? (
                     <Button
                       className="w-full"
@@ -421,6 +601,82 @@ export function MessageTable({
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+              </div>
+            </div>
+          )}
+
+          {/* Edit mode */}
+          {selected && isEditing && (
+            <div className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>출처</Label>
+                  <Select value={editSourceApp} onValueChange={setEditSourceApp}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manual">수동</SelectItem>
+                      <SelectItem value="kakaotalk">카카오톡</SelectItem>
+                      <SelectItem value="sms">SMS</SelectItem>
+                      <SelectItem value="telegram">텔레그램</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>상태</Label>
+                  <Select value={editParseStatus} onValueChange={setEditParseStatus}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">대기</SelectItem>
+                      <SelectItem value="parsed">파싱완료</SelectItem>
+                      <SelectItem value="failed">실패</SelectItem>
+                      <SelectItem value="skipped">건너뜀</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>발신자</Label>
+                <Input
+                  value={editSender}
+                  onChange={(e) => setEditSender(e.target.value)}
+                  placeholder="발신자명"
+                />
+              </div>
+              <div>
+                <Label>메시지 내용</Label>
+                <Textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  rows={8}
+                />
+              </div>
+
+              {selected.device_name && (
+                <div className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Smartphone className="h-3.5 w-3.5" />
+                  수신 기기: {selected.device_name}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setIsEditing(false)}
+                >
+                  취소
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleUpdate}
+                  disabled={isPending}
+                >
+                  {isPending ? "저장중..." : "저장"}
+                </Button>
               </div>
             </div>
           )}

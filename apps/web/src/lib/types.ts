@@ -129,6 +129,7 @@ export interface RawMessage {
   content: string;
   received_at: string;
   device_id: string | null;
+  device_name: string | null;
   hospital_id: number | null;
   parse_status: string;
   parse_method: string | null;

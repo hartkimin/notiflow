@@ -154,6 +154,38 @@ export async function updateOrder(id: number, data: Record<string, unknown>) {
 
 // --- Messages ---
 
+export async function createMessage(data: {
+  source_app: string;
+  sender?: string;
+  content: string;
+  device_name?: string;
+}) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("raw_messages").insert({
+    source_app: data.source_app,
+    sender: data.sender || null,
+    content: data.content,
+    device_name: data.device_name || null,
+    received_at: new Date().toISOString(),
+    parse_status: "pending",
+  });
+  if (error) throw error;
+  revalidatePath("/calendar");
+  revalidatePath("/messages");
+  revalidatePath("/");
+  return { success: true };
+}
+
+export async function updateMessage(id: number, data: Record<string, unknown>) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("raw_messages").update(data).eq("id", id);
+  if (error) throw error;
+  revalidatePath("/calendar");
+  revalidatePath("/messages");
+  revalidatePath("/");
+  return { success: true };
+}
+
 export async function deleteMessage(id: number) {
   const supabase = await createClient();
   const { error } = await supabase.from("raw_messages").delete().eq("id", id);

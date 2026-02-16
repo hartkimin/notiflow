@@ -1,7 +1,7 @@
 import { getMessages } from "@/lib/queries/messages";
 import { getHospitals } from "@/lib/queries/hospitals";
 import { getProducts } from "@/lib/queries/products";
-import { MessageFilters, MessageTable } from "@/components/message-list";
+import { MessageFilters, MessageTable, CreateMessageDialog } from "@/components/message-list";
 import { Pagination } from "@/components/pagination";
 import {
   Card,
@@ -46,9 +46,10 @@ export default async function MessagesPage({ searchParams }: Props) {
 
   return (
     <>
-      <RealtimeListener tables={["raw_messages"]} />
-      <div className="flex items-center">
+      <RealtimeListener tables={["raw_messages", "captured_messages"]} />
+      <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold md:text-2xl">수신메시지</h1>
+        <CreateMessageDialog />
       </div>
       <Card>
         <CardHeader>

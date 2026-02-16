@@ -31,6 +31,10 @@ mobile app debugging, and Supabase backend stabilization.
   migration v21→v22). Messages that fail to sync (auth not ready, network error)
   are now automatically retried on next `initialSync()`. Fixes the issue where
   captured messages only synced when the manual sync button was pressed.
+- **Auto-sync fix**: removed `forceSync()` call from `NotiFlowListenerService`
+  that triggered a heavy full-sync (7 tables) on every message capture. This
+  blocked second and subsequent messages from syncing (SYNCING guard). Now each
+  message is pushed individually via the lightweight `syncMessage()` path.
 - **Thread safety fix**: `CaptureNotificationHelper` notification ID changed to
   `AtomicInteger` with atomic read-increment-wrap
 - **Mutex race fix**: `AiMessageClassifier.unload()` now routes through

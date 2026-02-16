@@ -18,7 +18,6 @@ import com.hart.notimgmt.data.repository.CategoryRepository
 import com.hart.notimgmt.data.repository.FilterRuleRepository
 import com.hart.notimgmt.data.repository.MessageRepository
 import com.hart.notimgmt.data.repository.StatusStepRepository
-import com.hart.notimgmt.data.sync.SyncManager
 import com.hart.notimgmt.widget.NotiFlowWidgetProvider
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -40,7 +39,6 @@ class NotiFlowListenerService : NotificationListenerService() {
     @Inject lateinit var categoryRepository: CategoryRepository
     @Inject lateinit var appPreferences: AppPreferences
     @Inject lateinit var captureNotificationHelper: CaptureNotificationHelper
-    @Inject lateinit var syncManager: SyncManager
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
         Log.e("NotiFlowListener", "Coroutine error", throwable)
@@ -204,9 +202,6 @@ class NotiFlowListenerService : NotificationListenerService() {
         )
         val insertedId = messageRepository.insert(message)
         DeepLinkCache.store(message.id, packageName, sender, contentIntent)
-
-        // 클라우드 동기화 트리거 (이미 진행 중이면 skip)
-        syncManager.forceSync()
 
         // 위젯 업데이트
         NotiFlowWidgetProvider.updateWidgets(applicationContext)

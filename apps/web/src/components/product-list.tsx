@@ -18,6 +18,7 @@ import {
   createProduct, updateProduct, deleteProduct,
   getProductAliases, createProductAlias, updateProductAlias, deleteProductAlias,
 } from "@/lib/actions";
+import { toast } from "sonner";
 import { useResizableColumns } from "@/hooks/use-resizable-columns";
 import { ResizableTh } from "@/components/resizable-th";
 import type { Product, ProductAlias, Hospital } from "@/lib/types";
@@ -125,9 +126,14 @@ export function ProductTable({ products, hospitals }: { products: Product[]; hos
 
   function handleDelete(id: number) {
     startTransition(async () => {
-      await deleteProduct(id);
-      setDeleteId(null);
-      router.refresh();
+      try {
+        await deleteProduct(id);
+        toast.success("품목이 삭제되었습니다.");
+        setDeleteId(null);
+        router.refresh();
+      } catch {
+        toast.error("품목 삭제에 실패했습니다.");
+      }
     });
   }
 
@@ -336,13 +342,19 @@ function ProductFormDialog({
     };
 
     startTransition(async () => {
-      if (product) {
-        await updateProduct(product.id, data);
-      } else {
-        await createProduct(data);
+      try {
+        if (product) {
+          await updateProduct(product.id, data);
+          toast.success("품목이 수정되었습니다.");
+        } else {
+          await createProduct(data);
+          toast.success("품목이 추가되었습니다.");
+        }
+        onClose();
+        router.refresh();
+      } catch {
+        toast.error("품목 저장에 실패했습니다.");
       }
-      onClose();
-      router.refresh();
     });
   }
 
@@ -423,18 +435,26 @@ function AliasDialog({
 
   function loadAliases() {
     setLoading(true);
-    getProductAliases(product.id).then((aliases) => {
-      setAliases(aliases || []);
+    getProductAliases(product.id).then((data) => {
+      setAliases(data || []);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch(() => {
+      toast.error("별칭 목록을 불러오지 못했습니다.");
+      setLoading(false);
+    });
   }
 
   useEffect(() => { if (open) loadAliases(); }, [open]);
 
   function handleDelete(aliasId: number) {
     startTransition(async () => {
-      await deleteProductAlias(product.id, aliasId);
-      loadAliases();
+      try {
+        await deleteProductAlias(product.id, aliasId);
+        toast.success("별칭이 삭제되었습니다.");
+        loadAliases();
+      } catch {
+        toast.error("별칭 삭제에 실패했습니다.");
+      }
     });
   }
 
@@ -541,19 +561,25 @@ function AliasFormDialog({
     const hospitalId = fd.get("hospital_id") as string;
 
     startTransition(async () => {
-      if (alias) {
-        await updateProductAlias(productId, alias.id, {
-          alias: aliasText,
-          hospital_id: hospitalId ? parseInt(hospitalId, 10) : null,
-        });
-      } else {
-        await createProductAlias(productId, {
-          alias: aliasText,
-          hospital_id: hospitalId ? parseInt(hospitalId, 10) : null,
-        });
+      try {
+        if (alias) {
+          await updateProductAlias(productId, alias.id, {
+            alias: aliasText,
+            hospital_id: hospitalId ? parseInt(hospitalId, 10) : null,
+          });
+          toast.success("별칭이 수정되었습니다.");
+        } else {
+          await createProductAlias(productId, {
+            alias: aliasText,
+            hospital_id: hospitalId ? parseInt(hospitalId, 10) : null,
+          });
+          toast.success("별칭이 추가되었습니다.");
+        }
+        onSaved();
+        onClose();
+      } catch {
+        toast.error("별칭 저장에 실패했습니다.");
       }
-      onSaved();
-      onClose();
     });
   }
 

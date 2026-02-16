@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { createSupplier, updateSupplier, deleteSupplier } from "@/lib/actions";
+import { toast } from "sonner";
 import { useResizableColumns } from "@/hooks/use-resizable-columns";
 import { ResizableTh } from "@/components/resizable-th";
 import type { Supplier } from "@/lib/types";
@@ -94,9 +95,14 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
 
   function handleDelete(id: number) {
     startTransition(async () => {
-      await deleteSupplier(id);
-      setDeleteId(null);
-      router.refresh();
+      try {
+        await deleteSupplier(id);
+        toast.success("공급사가 삭제되었습니다.");
+        setDeleteId(null);
+        router.refresh();
+      } catch {
+        toast.error("공급사 삭제에 실패했습니다.");
+      }
     });
   }
 
@@ -269,13 +275,19 @@ function SupplierFormDialog({
     };
 
     startTransition(async () => {
-      if (supplier) {
-        await updateSupplier(supplier.id, data);
-      } else {
-        await createSupplier(data);
+      try {
+        if (supplier) {
+          await updateSupplier(supplier.id, data);
+          toast.success("공급사가 수정되었습니다.");
+        } else {
+          await createSupplier(data);
+          toast.success("공급사가 추가되었습니다.");
+        }
+        onClose();
+        router.refresh();
+      } catch {
+        toast.error("공급사 저장에 실패했습니다.");
       }
-      onClose();
-      router.refresh();
     });
   }
 

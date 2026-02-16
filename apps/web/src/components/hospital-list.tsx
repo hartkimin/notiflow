@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { createHospital, updateHospital, deleteHospital } from "@/lib/actions";
+import { toast } from "sonner";
 import { useResizableColumns } from "@/hooks/use-resizable-columns";
 import { ResizableTh } from "@/components/resizable-th";
 import type { Hospital } from "@/lib/types";
@@ -105,9 +106,14 @@ export function HospitalTable({ hospitals }: { hospitals: Hospital[] }) {
 
   function handleDelete(id: number) {
     startTransition(async () => {
-      await deleteHospital(id);
-      setDeleteId(null);
-      router.refresh();
+      try {
+        await deleteHospital(id);
+        toast.success("거래처가 삭제되었습니다.");
+        setDeleteId(null);
+        router.refresh();
+      } catch {
+        toast.error("거래처 삭제에 실패했습니다.");
+      }
     });
   }
 
@@ -309,13 +315,19 @@ function HospitalFormDialog({
     };
 
     startTransition(async () => {
-      if (hospital) {
-        await updateHospital(hospital.id, data);
-      } else {
-        await createHospital(data);
+      try {
+        if (hospital) {
+          await updateHospital(hospital.id, data);
+          toast.success("거래처가 수정되었습니다.");
+        } else {
+          await createHospital(data);
+          toast.success("거래처가 추가되었습니다.");
+        }
+        onClose();
+        router.refresh();
+      } catch {
+        toast.error("거래처 저장에 실패했습니다.");
       }
-      onClose();
-      router.refresh();
     });
   }
 

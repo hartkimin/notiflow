@@ -18,7 +18,11 @@ mobile app debugging, and Supabase backend stabilization.
 - **Browser notifications** triggered by Supabase Realtime events
 - **Responsive UI** enhancements for mobile and tablet viewports
 - **PWA support**: web manifest, service worker, offline caching
-- **Error handling**: toast notifications on all CRUD components
+- **Error handling**: toast notifications on all CRUD components now show actual
+  Supabase error messages instead of generic failure text
+- **Product insert fix**: `createProduct` now populates the required `name` column
+  from `official_name`, fixing NOT NULL constraint violation on every product create
+- **Product categories**: added missing `catheter`, `supplement`, `other` to dropdown
 - **Code quality**: all ESLint errors/warnings resolved, Next.js deprecations fixed
 
 ### Mobile App (`apps/mobile`)

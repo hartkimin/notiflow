@@ -21,15 +21,16 @@ export function TrendChart({ data }: { data: TrendPoint[] }) {
   }));
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <LineChart data={formatted}>
+    <ResponsiveContainer width="100%" height={250}>
+      <LineChart data={formatted} margin={{ left: -10, right: -10 }}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="label" fontSize={12} />
-        <YAxis yAxisId="count" fontSize={12} />
+        <XAxis dataKey="label" fontSize={11} interval="preserveStartEnd" />
+        <YAxis yAxisId="count" fontSize={11} width={35} />
         <YAxis
           yAxisId="amount"
           orientation="right"
-          fontSize={12}
+          fontSize={11}
+          width={45}
           tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`}
         />
         <Tooltip

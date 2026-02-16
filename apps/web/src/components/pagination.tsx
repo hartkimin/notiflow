@@ -38,12 +38,13 @@ export function Pagination({ currentPage, totalPages, totalCount }: PaginationPr
   }
 
   return (
-    <div className="flex items-center justify-between">
-      <p className="text-sm text-muted-foreground">전체 {totalCount}건</p>
-      <div className="flex items-center gap-1">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-sm text-muted-foreground text-center sm:text-left">전체 {totalCount}건</p>
+      <div className="flex items-center justify-center gap-1 overflow-x-auto">
         <Button
           variant="outline"
           size="sm"
+          className="shrink-0"
           onClick={() => goToPage(currentPage - 1)}
           disabled={currentPage <= 1}
         >
@@ -57,6 +58,7 @@ export function Pagination({ currentPage, totalPages, totalCount }: PaginationPr
               key={p}
               variant={p === currentPage ? "default" : "outline"}
               size="sm"
+              className="shrink-0"
               onClick={() => goToPage(p)}
             >
               {p}
@@ -66,6 +68,7 @@ export function Pagination({ currentPage, totalPages, totalCount }: PaginationPr
         <Button
           variant="outline"
           size="sm"
+          className="shrink-0"
           onClick={() => goToPage(currentPage + 1)}
           disabled={currentPage >= totalPages}
         >

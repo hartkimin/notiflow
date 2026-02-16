@@ -58,21 +58,23 @@ export default async function OrderDetailPage({ params }: Props) {
       <RealtimeListener tables={["orders", "order_items"]} />
 
       {/* Header - hidden on print */}
-      <div className="flex items-center gap-4 print:hidden">
-        <Button variant="outline" size="icon" asChild>
-          <Link href="/orders">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-lg font-semibold md:text-2xl">
-            주문 상세 - {order.order_number}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {order.order_date} | {order.hospital_name}
-          </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 print:hidden">
+        <div className="flex items-center gap-3 min-w-0">
+          <Button variant="outline" size="icon" className="shrink-0" asChild>
+            <Link href="/orders">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <div className="min-w-0">
+            <h1 className="text-lg font-semibold md:text-2xl truncate">
+              주문 상세 - {order.order_number}
+            </h1>
+            <p className="text-sm text-muted-foreground truncate">
+              {order.order_date} | {order.hospital_name}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:ml-auto shrink-0">
           <PrintButton />
           <OrderStatusActions orderId={order.id} currentStatus={order.status} />
         </div>
@@ -144,16 +146,16 @@ export default async function OrderDetailPage({ params }: Props) {
         <CardHeader>
           <CardTitle>주문 항목 ({order.items.length}건)</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[40px]">#</TableHead>
                 <TableHead>품목</TableHead>
                 <TableHead className="hidden sm:table-cell print:table-cell">원문</TableHead>
-                <TableHead className="text-right">수량</TableHead>
-                <TableHead className="text-right">단가</TableHead>
-                <TableHead className="text-right">금액</TableHead>
+                <TableHead className="text-right whitespace-nowrap">수량</TableHead>
+                <TableHead className="text-right whitespace-nowrap">단가</TableHead>
+                <TableHead className="text-right whitespace-nowrap">금액</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

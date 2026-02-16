@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { RealtimeListener } from "@/components/realtime-listener";
 
 interface Props {
   searchParams: Promise<{ search?: string; page?: string }>;
@@ -33,6 +34,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
 
   return (
     <>
+      <RealtimeListener tables={["suppliers"]} />
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">공급사 관리</h1>
         <div className="ml-auto flex items-center gap-2">

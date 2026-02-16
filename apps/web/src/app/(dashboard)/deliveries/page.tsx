@@ -2,12 +2,14 @@ import { getTodayDeliveries } from "@/lib/queries/deliveries";
 import { DeliveryList } from "@/components/delivery-list";
 import { Truck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { RealtimeListener } from "@/components/realtime-listener";
 
 export default async function DeliveriesPage() {
   const result = await getTodayDeliveries().catch(() => ({ count: 0, deliveries: [] }));
 
   return (
     <>
+      <RealtimeListener tables={["orders"]} event="UPDATE" />
       <div className="flex items-center">
         <div className="flex items-center gap-2">
           <Truck className="h-5 w-5 text-muted-foreground" />

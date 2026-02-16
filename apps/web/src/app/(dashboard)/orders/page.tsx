@@ -20,6 +20,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { RealtimeListener } from "@/components/realtime-listener";
 
 interface Props {
   searchParams: Promise<{ status?: string; from?: string; to?: string; page?: string }>;
@@ -44,6 +45,7 @@ export default async function OrdersPage({ searchParams }: Props) {
 
   return (
     <>
+      <RealtimeListener tables={["orders", "order_items"]} />
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">주문 관리</h1>
         <div className="ml-auto flex items-center gap-2">

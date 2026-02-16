@@ -6,6 +6,7 @@ import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { RealtimeListener } from "@/components/realtime-listener";
 
 interface Props {
   searchParams: Promise<{ month?: string }>;
@@ -30,6 +31,7 @@ export default async function CalendarPage({ searchParams }: Props) {
 
   return (
     <div className="flex flex-col h-full">
+      <RealtimeListener tables={["orders", "raw_messages"]} />
       <div className="flex items-center pb-4">
         <h1 className="text-lg font-semibold md:text-2xl">캘린더 ({month})</h1>
         <div className="ml-auto flex items-center gap-2">

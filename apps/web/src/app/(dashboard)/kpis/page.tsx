@@ -1,6 +1,7 @@
 import { getPendingKpis, getOverdueKpis } from "@/lib/queries/reports";
 import { KpisTable } from "@/components/kpis-table";
 import { Card, CardContent } from "@/components/ui/card";
+import { RealtimeListener } from "@/components/realtime-listener";
 
 export default async function KpisPage() {
   const [pending, overdue] = await Promise.all([
@@ -10,6 +11,7 @@ export default async function KpisPage() {
 
   return (
     <>
+      <RealtimeListener tables={["kpis_reports"]} />
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">KPIS 유통추적 신고</h1>
       </div>

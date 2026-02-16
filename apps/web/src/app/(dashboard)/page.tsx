@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { StatCard } from "@/components/stat-card";
 import { EmptyState } from "@/components/empty-state";
+import { RealtimeListener } from "@/components/realtime-listener";
 import { getDailyStats } from "@/lib/queries/stats";
 import { getOrders } from "@/lib/queries/orders";
 import { getTodayDeliveries } from "@/lib/queries/deliveries";
@@ -55,6 +56,7 @@ export default async function DashboardHome() {
 
   return (
     <>
+      <RealtimeListener tables={["orders", "raw_messages"]} />
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">대시보드</h1>
         <div className="ml-auto flex items-center gap-2">

@@ -11,6 +11,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { RealtimeListener } from "@/components/realtime-listener";
 
 export default async function UsersPage() {
   const result = await getUsers().catch(() => ({ users: [], total: 0 }));
@@ -24,6 +25,7 @@ export default async function UsersPage() {
 
   return (
     <>
+      <RealtimeListener tables={["user_profiles"]} />
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">사용자 관리</h1>
         <div className="ml-auto flex items-center gap-2">

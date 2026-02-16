@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { RealtimeListener } from "@/components/realtime-listener";
 
 interface Props {
   searchParams: Promise<{
@@ -39,6 +40,7 @@ export default async function MessagesPage({ searchParams }: Props) {
 
   return (
     <>
+      <RealtimeListener tables={["raw_messages"]} />
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">수신메시지</h1>
       </div>

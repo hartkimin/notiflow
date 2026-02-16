@@ -6,6 +6,7 @@ import { ReportFilters } from "@/components/report-filters";
 import { SalesChart } from "@/components/sales-chart";
 import { StatCard } from "@/components/stat-card";
 import { EmptyState } from "@/components/empty-state";
+import { RealtimeListener } from "@/components/realtime-listener";
 
 interface Props {
   searchParams: Promise<{ period?: string }>;
@@ -25,6 +26,7 @@ export default async function ReportsPage({ searchParams }: Props) {
 
   return (
     <>
+      <RealtimeListener tables={["orders", "order_items"]} />
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">매출 리포트</h1>
       </div>

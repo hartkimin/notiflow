@@ -18,7 +18,8 @@ import {
 import {
   LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown,
 } from "lucide-react";
-import type { RawMessage } from "@/lib/types";
+import { ManualParseForm } from "@/components/manual-parse-form";
+import type { RawMessage, Hospital, Product } from "@/lib/types";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   parsed: "default",
@@ -127,11 +128,20 @@ export function MessageFilters() {
   );
 }
 
-export function MessageTable({ messages }: { messages: RawMessage[] }) {
+export function MessageTable({
+  messages,
+  hospitals = [],
+  products = [],
+}: {
+  messages: RawMessage[];
+  hospitals?: Hospital[];
+  products?: Product[];
+}) {
   const [view, setView] = useState<"list" | "grid">("list");
   const [sortKey, setSortKey] = useState<SortKey>("received_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selected, setSelected] = useState<RawMessage | null>(null);
+  const [showManualParse, setShowManualParse] = useState(false);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -319,6 +329,31 @@ export function MessageTable({ messages }: { messages: RawMessage[] }) {
                       {JSON.stringify(selected.parse_result, null, 2)}
                     </pre>
                   </div>
+                </div>
+              )}
+
+              {/* Manual parse button for failed/pending messages */}
+              {(selected.parse_status === "failed" || selected.parse_status === "pending") && !selected.order_id && (
+                <div className="border-t pt-4">
+                  {!showManualParse ? (
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      onClick={() => setShowManualParse(true)}
+                    >
+                      수동 파싱으로 주문 생성
+                    </Button>
+                  ) : (
+                    <ManualParseForm
+                      messageId={selected.id}
+                      hospitals={hospitals}
+                      products={products}
+                      onSuccess={() => {
+                        setShowManualParse(false);
+                        setSelected(null);
+                      }}
+                    />
+                  )}
                 </div>
               )}
             </div>

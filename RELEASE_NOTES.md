@@ -31,6 +31,15 @@ mobile app debugging, and Supabase backend stabilization.
   to match actual Room database version
 - **Firebase/FCM disabled**: temporarily commented out until `google-services.json`
   is configured; `NotiFlowFcmService.kt` preserved as `.disabled`
+- **Sync fix — CategoryDto `is_active`**: field was missing from DTO, causing
+  category active state to be lost on every sync round-trip
+- **Sync fix — FilterRule keywords**: disabled keywords were filtered out before
+  push, permanently deleting them from Supabase; now all keywords are synced
+- **Sync fix — `initialSync()` push logic**: only pushed rows missing from remote;
+  locally-updated rows that already existed remotely were silently dropped.
+  Now pushes rows that are locally newer (by `updatedAt` timestamp)
+- **NotiFlow API removed**: `NotiFlowApiClient`, `NotiFlowModule` DI, and settings
+  UI section removed (unused external API); source preserved as `.disabled`
 
 ### Supabase Backend (`packages/supabase`)
 
@@ -41,6 +50,8 @@ mobile app debugging, and Supabase backend stabilization.
 - **Realtime publication**: all mobile tables added to `supabase_realtime`
 - **Idempotent migration**: `DO $$` blocks check `pg_policies` and
   `pg_publication_tables` before creating, safe for re-runs
+- **Migration `00011`**: adds `is_active BOOLEAN NOT NULL DEFAULT true` column
+  to `categories` table to match mobile Room entity
 - **Webhook triggers**: `device_tokens` table and deploy script for Edge Functions
 - **Audit logs & analytics**: RPC functions for dashboard analytics
 - **SQL fixes**: RLS consistency, missing admin policies, supplier index corrections,
@@ -51,7 +62,7 @@ mobile app debugging, and Supabase backend stabilization.
 
 - **Monorepo structure**: `apps/mobile`, `apps/web`, `packages/supabase`
 - **Vercel deployment**: production deploy from `apps/web/`
-- **Supabase CLI**: all 10 migrations applied and synced with remote
+- **Supabase CLI**: all 11 migrations applied and synced with remote
 - **Git remote**: SSH (`git@github.com:hartkimin/notiflow.git`)
 
 ### Known Limitations

@@ -20,8 +20,8 @@ android {
         applicationId = "com.hart.notiflow"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "3.4.0"
+        versionCode = 5
+        versionName = "3.4.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

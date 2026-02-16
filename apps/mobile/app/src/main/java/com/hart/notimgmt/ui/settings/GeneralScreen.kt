@@ -649,7 +649,7 @@ fun GeneralScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "버전 3.4.0",
+                        text = "버전 3.4.1",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -683,6 +683,22 @@ fun GeneralScreen(
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    ReleaseNoteItem(
+                        version = "3.4.1",
+                        date = "2026.02.16",
+                        notes = listOf(
+                            "메시지 동기화 재시도 — 인증/네트워크 오류 시 자동 재시도",
+                            "보류 메시지 추적 — needsSync 플래그로 실패한 동기화 영구 기록",
+                            "앱 시작 시 보류 메시지 자동 동기화",
+                            "동기화 실패 원인 로그 표시 개선",
+                            "DB v22 마이그레이션"
+                        )
+                    )
+
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    )
+
                     ReleaseNoteItem(
                         version = "3.4.0",
                         date = "2026.02.09",

@@ -17,6 +17,7 @@ import {
   Users,
   Brain,
   Smartphone,
+  HelpCircle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ const navGroups = [
       { href: "/users", label: "사용자", icon: Users },
       { href: "/devices", label: "모바일 기기", icon: Smartphone },
       { href: "/settings", label: "AI 설정", icon: Brain },
+      { href: "/help", label: "도움말", icon: HelpCircle },
     ],
   },
 ];

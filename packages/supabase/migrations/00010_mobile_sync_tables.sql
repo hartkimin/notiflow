@@ -145,57 +145,51 @@ ALTER TABLE public.app_filters      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.plans            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.day_categories   ENABLE ROW LEVEL SECURITY;
 
--- Categories
-CREATE POLICY "Users manage own categories"
-  ON public.categories FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
--- Status steps
-CREATE POLICY "Users manage own status_steps"
-  ON public.status_steps FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
--- Filter rules
-CREATE POLICY "Users manage own filter_rules"
-  ON public.filter_rules FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
--- Captured messages
-CREATE POLICY "Users manage own captured_messages"
-  ON public.captured_messages FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
--- App filters
-CREATE POLICY "Users manage own app_filters"
-  ON public.app_filters FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
--- Plans
-CREATE POLICY "Users manage own plans"
-  ON public.plans FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
--- Day categories
-CREATE POLICY "Users manage own day_categories"
-  ON public.day_categories FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+DO $$
+DECLARE
+  tbl TEXT;
+  pol TEXT;
+BEGIN
+  FOREACH tbl IN ARRAY ARRAY[
+    'categories','status_steps','filter_rules',
+    'captured_messages','app_filters','plans','day_categories'
+  ]
+  LOOP
+    pol := 'Users manage own ' || tbl;
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies WHERE tablename = tbl AND policyname = pol
+    ) THEN
+      EXECUTE format(
+        'CREATE POLICY %I ON public.%I FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id)',
+        pol, tbl
+      );
+    END IF;
+  END LOOP;
+END
+$$;
 
 -- ============================================================
 -- Realtime: add mobile tables to publication
+-- (Skip tables that are already members)
 -- ============================================================
 
-ALTER PUBLICATION supabase_realtime ADD TABLE
-  public.categories,
-  public.status_steps,
-  public.filter_rules,
-  public.captured_messages,
-  public.app_filters,
-  public.plans,
-  public.day_categories;
+DO $$
+DECLARE
+  tbl TEXT;
+BEGIN
+  FOREACH tbl IN ARRAY ARRAY[
+    'categories','status_steps','filter_rules',
+    'captured_messages','app_filters','plans','day_categories'
+  ]
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = tbl
+    ) THEN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', tbl);
+    END IF;
+  END LOOP;
+END
+$$;

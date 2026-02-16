@@ -56,7 +56,7 @@ export interface DailyStats {
   parse_success_rate: number;
 }
 
-export interface Delivery extends Order {}
+export type Delivery = Order;
 
 export interface KpisReport {
   id: number;

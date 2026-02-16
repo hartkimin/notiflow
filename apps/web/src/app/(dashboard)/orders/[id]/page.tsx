@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { getOrder } from "@/lib/queries/orders";
 import { Badge } from "@/components/ui/badge";

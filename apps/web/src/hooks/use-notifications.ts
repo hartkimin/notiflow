@@ -1,30 +1,36 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback, useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "notiflow-notifications-enabled";
+
+function getSupported() {
+  return typeof window !== "undefined" && "Notification" in window;
+}
+
+function getPermission(): NotificationPermission {
+  return getSupported() ? Notification.permission : "default";
+}
+
+function getStoredEnabled() {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(STORAGE_KEY) === "true";
+}
+
+// Dummy subscribe for useSyncExternalStore (values are read-once on client)
+const noop = () => () => {};
 
 /**
  * Hook for managing browser notification permissions and preferences.
  * Stores user preference in localStorage. Registers service worker on enable.
  */
 export function useNotifications() {
-  const [permission, setPermission] = useState<NotificationPermission>("default");
-  const [enabled, setEnabled] = useState(false);
-  const [supported, setSupported] = useState(false);
-
-  useEffect(() => {
-    const isSupported = typeof window !== "undefined" && "Notification" in window;
-    setSupported(isSupported);
-
-    if (isSupported) {
-      setPermission(Notification.permission);
-      setEnabled(localStorage.getItem(STORAGE_KEY) === "true");
-    }
-  }, []);
+  const supported = useSyncExternalStore(noop, getSupported, () => false);
+  const [permission, setPermission] = useState<NotificationPermission>(getPermission);
+  const [enabled, setEnabled] = useState(getStoredEnabled);
 
   const enable = useCallback(async () => {
-    if (!supported) return false;
+    if (!getSupported()) return false;
 
     let perm = Notification.permission;
     if (perm === "default") {
@@ -46,7 +52,7 @@ export function useNotifications() {
     localStorage.setItem(STORAGE_KEY, "true");
     setEnabled(true);
     return true;
-  }, [supported]);
+  }, []);
 
   const disable = useCallback(() => {
     localStorage.setItem(STORAGE_KEY, "false");
@@ -71,7 +77,7 @@ export function useNotifications() {
       try {
         const notification = new Notification(title, {
           body,
-          icon: "/next.svg",
+          icon: "/icons/icon.svg",
           tag: `notiflow-${Date.now()}`,
         });
         notification.onclick = () => {

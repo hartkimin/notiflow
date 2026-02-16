@@ -30,7 +30,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
-  Plus, Pencil, Trash2, MoreHorizontal, ArrowUp, ArrowDown, ArrowUpDown,
+  Plus, Pencil, MoreHorizontal, ArrowUp, ArrowDown, ArrowUpDown,
   LayoutList, LayoutGrid, UserPlus, ShieldCheck, Eye, UserX, UserCheck,
 } from "lucide-react";
 import { createUser, updateUser, deleteUser } from "@/lib/actions";

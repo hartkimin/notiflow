@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useTransition } from "react";
+import { useState, useEffect, useMemo, useCallback, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -433,7 +433,7 @@ function AliasDialog({
 
   const hospitalMap = new Map(hospitals.map(h => [h.id, h.name]));
 
-  function loadAliases() {
+  const loadAliases = useCallback(() => {
     setLoading(true);
     getProductAliases(product.id).then((data) => {
       setAliases(data || []);
@@ -442,9 +442,11 @@ function AliasDialog({
       toast.error("별칭 목록을 불러오지 못했습니다.");
       setLoading(false);
     });
-  }
+  }, [product.id]);
 
-  useEffect(() => { if (open) loadAliases(); }, [open]);
+  // Fetch aliases when dialog opens - setState in effect is intentional here
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (open) loadAliases(); }, [open, loadAliases]);
 
   function handleDelete(aliasId: number) {
     startTransition(async () => {

@@ -7,7 +7,6 @@ import {
   MessageSquare,
   CalendarDays,
   LayoutDashboard,
-  MoreHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

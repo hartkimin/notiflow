@@ -29,7 +29,7 @@ import {
 import { ko } from "date-fns/locale";
 import { toast } from "sonner";
 import { OrderDetail } from "@/components/order-detail";
-import { deleteOrder, deleteMessage, updateOrder } from "@/lib/actions";
+import { deleteOrder, deleteMessage } from "@/lib/actions";
 import { updateOrderStatusAction } from "@/app/(dashboard)/orders/actions";
 import type { CalendarDay, Order, RawMessage } from "@/lib/types";
 
@@ -274,7 +274,6 @@ export function OrderCalendar({ month, days, orders, messages }: OrderCalendarPr
         {viewMode === "month" && (
           <MonthView
             month={month}
-            days={days}
             dayMap={dayMap}
             orders={orders}
             selectedDate={selectedDate}
@@ -420,10 +419,9 @@ function StatusBadge({
    MONTH VIEW
    ═══════════════════════════════════════════════ */
 function MonthView({
-  month, days, dayMap, orders, selectedDate, onSelectDay, onOpenOrder,
+  month, dayMap, orders, selectedDate, onSelectDay, onOpenOrder,
 }: {
   month: string;
-  days: CalendarDay[];
   dayMap: Map<string, CalendarDay>;
   orders: Order[];
   selectedDate: string | null;
@@ -432,13 +430,13 @@ function MonthView({
 }) {
   const currentMonth = new Date(month + "-01");
   const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
   const startDayOfWeek = getDay(monthStart);
 
-  const allDays = useMemo(
-    () => eachDayOfInterval({ start: monthStart, end: monthEnd }),
-    [month],
-  );
+  const allDays = useMemo(() => {
+    const ms = startOfMonth(new Date(month + "-01"));
+    const me = endOfMonth(new Date(month + "-01"));
+    return eachDayOfInterval({ start: ms, end: me });
+  }, [month]);
 
   const selectedOrders = useMemo(() => {
     if (!selectedDate) return [];

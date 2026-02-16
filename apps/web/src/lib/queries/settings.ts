@@ -6,6 +6,7 @@ export interface AISettings {
   ai_parse_prompt: string | null;
   ai_auto_process: boolean;
   ai_confidence_threshold: number;
+  sync_interval_minutes: number;
 }
 
 export async function getSettings(): Promise<AISettings> {
@@ -20,6 +21,7 @@ export async function getSettings(): Promise<AISettings> {
       "ai_parse_prompt",
       "ai_auto_process",
       "ai_confidence_threshold",
+      "sync_interval_minutes",
     ]);
 
   if (error) throw error;
@@ -36,6 +38,7 @@ export async function getSettings(): Promise<AISettings> {
     ai_parse_prompt: (map.get("ai_parse_prompt") as string) ?? null,
     ai_auto_process: map.get("ai_auto_process") === true || map.get("ai_auto_process") === "true",
     ai_confidence_threshold: Number(map.get("ai_confidence_threshold") ?? 0.7),
+    sync_interval_minutes: Number(map.get("sync_interval_minutes") ?? 5),
   };
 }
 

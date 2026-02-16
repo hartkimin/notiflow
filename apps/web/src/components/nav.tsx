@@ -26,6 +26,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "./theme-toggle";
 import { NotificationToggle } from "./notification-toggle";
+import { AutoRefreshProvider } from "./auto-refresh";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 
@@ -65,7 +66,7 @@ const navGroups = [
   },
 ];
 
-export function Nav() {
+export function Nav({ syncInterval = 5 }: { syncInterval?: number }) {
   const pathname = usePathname();
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
@@ -145,6 +146,7 @@ export function Nav() {
           </div>
         </form>
       </div>
+      <AutoRefreshProvider intervalMinutes={syncInterval} />
       <NotificationToggle />
       <ThemeToggle />
       <UserMenu />

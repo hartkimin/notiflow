@@ -166,3 +166,27 @@ export interface SalesReport {
     total_amount: number;
   };
 }
+
+export interface HospitalStat {
+  hospital_id: number;
+  hospital_name: string;
+  order_count: number;
+  item_count: number;
+  total_amount: number;
+}
+
+export interface ProductStat {
+  product_id: number;
+  product_name: string;
+  category: string;
+  order_count: number;
+  total_quantity: number;
+  total_amount: number;
+}
+
+export interface TrendPoint {
+  date: string;
+  messages: number;
+  orders: number;
+  total_amount: number;
+}

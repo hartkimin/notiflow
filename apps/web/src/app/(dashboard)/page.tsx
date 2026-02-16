@@ -5,6 +5,8 @@ import {
   CheckCircle,
   Truck,
   Shield,
+  Building2,
+  Package,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +29,8 @@ import {
 import { StatCard } from "@/components/stat-card";
 import { EmptyState } from "@/components/empty-state";
 import { RealtimeListener } from "@/components/realtime-listener";
-import { getDailyStats } from "@/lib/queries/stats";
+import { TrendChart } from "@/components/trend-chart";
+import { getDailyStats, getTrendStats, getHospitalStats, getProductStats } from "@/lib/queries/stats";
 import { getOrders } from "@/lib/queries/orders";
 import { getTodayDeliveries } from "@/lib/queries/deliveries";
 import { getPendingKpis } from "@/lib/queries/reports";
@@ -41,7 +44,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default async function DashboardHome() {
-  const [stats, ordersRes, deliveriesRes, kpisRes] = await Promise.all([
+  const [stats, ordersRes, deliveriesRes, kpisRes, trend, hospitals, products] = await Promise.all([
     getDailyStats().catch(() => ({
       date: "",
       total_messages: 0,
@@ -52,6 +55,9 @@ export default async function DashboardHome() {
     getOrders({ limit: 5 }).catch(() => ({ orders: [], total: 0 })),
     getTodayDeliveries().catch(() => ({ count: 0, deliveries: [] })),
     getPendingKpis().catch(() => ({ count: 0, reports: [] })),
+    getTrendStats().catch(() => []),
+    getHospitalStats().catch(() => []),
+    getProductStats().catch(() => []),
   ]);
 
   return (
@@ -98,6 +104,22 @@ export default async function DashboardHome() {
           color="red"
         />
       </div>
+
+      {/* 30일 트렌드 차트 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>30일 트렌드</CardTitle>
+          <CardDescription>최근 30일간 메시지, 주문, 매출 추이</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {trend.length > 0 ? (
+            <TrendChart data={trend} />
+          ) : (
+            <EmptyState icon={ClipboardList} title="트렌드 데이터가 없습니다." />
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <CardHeader className="flex flex-row items-center">
@@ -159,7 +181,6 @@ export default async function DashboardHome() {
             {deliveriesRes.deliveries.length === 0 ? (
               <EmptyState icon={Truck} title="오늘 배송 예정이 없습니다." />
             ) : (
-              // This can also be a table if more details are needed
               <div className="space-y-3">
                  {deliveriesRes.deliveries.map((d) => (
                    <div key={d.id} className="flex items-center justify-between rounded-lg border p-3">
@@ -172,6 +193,76 @@ export default async function DashboardHome() {
                      <Badge variant="outline">배송예정</Badge>
                    </div>
                  ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 거래처별 / 제품별 TOP 5 */}
+      <div className="grid gap-4 md:gap-8 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center">
+            <div className="grid gap-2">
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-4 w-4" /> 거래처별 주문 (30일)
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {hospitals.length === 0 ? (
+              <EmptyState icon={Building2} title="거래처 데이터가 없습니다." />
+            ) : (
+              <div className="space-y-3">
+                {hospitals.slice(0, 5).map((h, i) => (
+                  <div key={h.hospital_id} className="flex items-center gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                      {i + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{h.hospital_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {h.order_count}건 / {h.item_count}품목
+                      </p>
+                    </div>
+                    <span className="text-sm font-semibold">
+                      {h.total_amount.toLocaleString("ko-KR")}원
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center">
+            <div className="grid gap-2">
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-4 w-4" /> 제품별 주문 (30일)
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {products.length === 0 ? (
+              <EmptyState icon={Package} title="제품 데이터가 없습니다." />
+            ) : (
+              <div className="space-y-3">
+                {products.slice(0, 5).map((p, i) => (
+                  <div key={p.product_id} className="flex items-center gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                      {i + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{p.product_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {p.order_count}건 / {p.total_quantity}개
+                      </p>
+                    </div>
+                    <span className="text-sm font-semibold">
+                      {p.total_amount.toLocaleString("ko-KR")}원
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>

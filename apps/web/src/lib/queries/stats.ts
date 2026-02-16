@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { DailyStats, CalendarDay } from "@/lib/types";
+import type { DailyStats, CalendarDay, HospitalStat, ProductStat, TrendPoint } from "@/lib/types";
 
 export async function getDailyStats(date?: string): Promise<DailyStats> {
   const supabase = await createClient();
@@ -19,4 +19,49 @@ export async function getCalendarStats(
   });
   if (error) throw error;
   return data as { month: string; days: CalendarDay[] };
+}
+
+export async function getHospitalStats(
+  fromDate?: string,
+  toDate?: string,
+): Promise<HospitalStat[]> {
+  const supabase = await createClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  const { data, error } = await supabase.rpc("get_hospital_stats", {
+    from_date: fromDate || thirtyDaysAgo,
+    to_date: toDate || today,
+  });
+  if (error) throw error;
+  return data as HospitalStat[];
+}
+
+export async function getProductStats(
+  fromDate?: string,
+  toDate?: string,
+): Promise<ProductStat[]> {
+  const supabase = await createClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  const { data, error } = await supabase.rpc("get_product_stats", {
+    from_date: fromDate || thirtyDaysAgo,
+    to_date: toDate || today,
+  });
+  if (error) throw error;
+  return data as ProductStat[];
+}
+
+export async function getTrendStats(
+  fromDate?: string,
+  toDate?: string,
+): Promise<TrendPoint[]> {
+  const supabase = await createClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  const { data, error } = await supabase.rpc("get_trend_stats", {
+    from_date: fromDate || thirtyDaysAgo,
+    to_date: toDate || today,
+  });
+  if (error) throw error;
+  return data as TrendPoint[];
 }

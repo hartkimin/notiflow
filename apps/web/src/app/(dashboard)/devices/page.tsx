@@ -13,7 +13,7 @@ import {
 import { RealtimeListener } from "@/components/realtime-listener";
 
 export default async function DevicesPage() {
-  const result = await getDevices().catch(() => ({ devices: [], total: 0 }));
+  const result = await getDevices();
   const { devices } = result;
 
   const activeCount = devices.filter((d) => d.is_active).length;

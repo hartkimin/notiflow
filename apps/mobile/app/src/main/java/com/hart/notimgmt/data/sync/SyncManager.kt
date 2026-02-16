@@ -141,7 +141,8 @@ class SyncManager @Inject constructor(
             device_name = Build.MODEL,
             device_model = "${Build.MANUFACTURER} ${Build.MODEL}",
             app_version = BuildConfig.VERSION_NAME,
-            os_version = Build.VERSION.RELEASE
+            os_version = Build.VERSION.RELEASE,
+            last_sync_at = java.time.Instant.now().toString()
         )
         supabaseDataSource.upsertMobileDevice(dto)
     }

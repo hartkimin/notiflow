@@ -1,4 +1,4 @@
-import { Smartphone, SmartphoneCharging, TabletSmartphone, Clock } from "lucide-react";
+import { Smartphone, SmartphoneCharging, TabletSmartphone, Activity } from "lucide-react";
 
 import { getDevices } from "@/lib/queries/devices";
 import { DeviceTable } from "@/components/device-list";
@@ -19,20 +19,16 @@ export default async function DevicesPage() {
   const activeCount = devices.filter((d) => d.is_active).length;
   const uniqueUsers = new Set(devices.map((d) => d.user_id)).size;
 
-  // Find the most recent sync
-  const lastSync = devices.length > 0
-    ? devices.reduce((latest, d) =>
-        new Date(d.last_sync_at) > new Date(latest.last_sync_at) ? d : latest
-      )
-    : null;
-  const lastSyncLabel = lastSync
-    ? new Date(lastSync.last_sync_at).toLocaleDateString("ko-KR", {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "-";
+  // Heartbeat status counts
+  const now = Date.now();
+  const onlineCount = devices.filter((d) => {
+    const diff = (now - new Date(d.last_sync_at).getTime()) / 60000;
+    return diff < 5;
+  }).length;
+  const awayCount = devices.filter((d) => {
+    const diff = (now - new Date(d.last_sync_at).getTime()) / 60000;
+    return diff >= 5 && diff < 60;
+  }).length;
 
   return (
     <>
@@ -62,10 +58,11 @@ export default async function DevicesPage() {
           color="purple"
         />
         <StatCard
-          title="마지막 동기화"
-          value={lastSyncLabel}
-          icon={Clock}
+          title="Heartbeat"
+          value={`${onlineCount} 온라인`}
+          icon={Activity}
           color="amber"
+          description={awayCount > 0 ? `자리비움 ${awayCount}대` : undefined}
         />
       </div>
 

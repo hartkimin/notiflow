@@ -13,7 +13,7 @@ import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  ArrowUp, ArrowDown, ArrowUpDown, Smartphone,
+  ArrowUp, ArrowDown, ArrowUpDown, Smartphone, Circle,
 } from "lucide-react";
 import { updateDevice } from "@/lib/actions";
 import { useResizableColumns } from "@/hooks/use-resizable-columns";
@@ -21,7 +21,23 @@ import { ResizableTh } from "@/components/resizable-th";
 import type { MobileDevice } from "@/lib/types";
 
 const COL_DEFAULTS: Record<string, number> = {
-  user_name: 100, device: 160, app_version: 90, os_version: 90, last_sync: 140, is_active: 70,
+  user_name: 100, device: 150, app_version: 80, os_version: 80, heartbeat: 80, last_sync: 130, is_active: 70,
+};
+
+type HeartbeatStatus = "online" | "away" | "offline";
+
+function getHeartbeatStatus(lastSyncAt: string): HeartbeatStatus {
+  const diff = Date.now() - new Date(lastSyncAt).getTime();
+  const minutes = diff / 60000;
+  if (minutes < 5) return "online";
+  if (minutes < 60) return "away";
+  return "offline";
+}
+
+const HEARTBEAT_CONFIG: Record<HeartbeatStatus, { label: string; color: string; description: string }> = {
+  online: { label: "온라인", color: "text-green-500", description: "5분 이내 동기화" },
+  away: { label: "자리비움", color: "text-yellow-500", description: "1시간 이내 동기화" },
+  offline: { label: "오프라인", color: "text-muted-foreground", description: "1시간 이상 미동기화" },
 };
 
 type SortKey = "user_name" | "device_name" | "app_version" | "os_version" | "last_sync_at" | "is_active";
@@ -145,6 +161,9 @@ export function DeviceTable({ devices }: { devices: MobileDevice[] }) {
             <ResizableTh width={widths.os_version} colKey="os_version" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("os_version")}>
               <span className="inline-flex items-center">OS<SortIcon active={sortKey === "os_version"} dir={sortDir} /></span>
             </ResizableTh>
+            <ResizableTh width={widths.heartbeat} colKey="heartbeat" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("last_sync_at")}>
+              <span className="inline-flex items-center">Heartbeat<SortIcon active={sortKey === "last_sync_at"} dir={sortDir} /></span>
+            </ResizableTh>
             <ResizableTh width={widths.last_sync} colKey="last_sync" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("last_sync_at")}>
               <span className="inline-flex items-center">마지막 동기화<SortIcon active={sortKey === "last_sync_at"} dir={sortDir} /></span>
             </ResizableTh>
@@ -174,6 +193,23 @@ export function DeviceTable({ devices }: { devices: MobileDevice[] }) {
               </TableCell>
               <TableCell className="overflow-hidden text-ellipsis">
                 <span className="text-xs">Android {d.os_version}</span>
+              </TableCell>
+              <TableCell className="overflow-hidden text-ellipsis">
+                {(() => {
+                  const status = getHeartbeatStatus(d.last_sync_at);
+                  const config = HEARTBEAT_CONFIG[status];
+                  return (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-1.5 cursor-default">
+                          <Circle className={`h-2.5 w-2.5 fill-current ${config.color}`} />
+                          <span className={`text-xs font-medium ${config.color}`}>{config.label}</span>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>{config.description}</TooltipContent>
+                    </Tooltip>
+                  );
+                })()}
               </TableCell>
               <TableCell className="overflow-hidden text-ellipsis">
                 <Tooltip>

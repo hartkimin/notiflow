@@ -236,6 +236,28 @@ export async function updateDevice(id: string, data: Record<string, unknown>) {
   return { success: true };
 }
 
+export async function requestDeviceSync(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("mobile_devices")
+    .update({ sync_requested_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/devices");
+  return { success: true };
+}
+
+export async function requestAllDevicesSync() {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("mobile_devices")
+    .update({ sync_requested_at: new Date().toISOString() })
+    .eq("is_active", true);
+  if (error) throw error;
+  revalidatePath("/devices");
+  return { success: true };
+}
+
 // --- Users (via manage-users Edge Function) ---
 
 export async function createUser(data: {

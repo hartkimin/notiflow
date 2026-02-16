@@ -13,9 +13,10 @@ import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  ArrowUp, ArrowDown, ArrowUpDown, Smartphone, Circle,
+  ArrowUp, ArrowDown, ArrowUpDown, Smartphone, Circle, RefreshCw,
 } from "lucide-react";
-import { updateDevice } from "@/lib/actions";
+import { Button } from "@/components/ui/button";
+import { updateDevice, requestDeviceSync } from "@/lib/actions";
 import { useResizableColumns } from "@/hooks/use-resizable-columns";
 import { ResizableTh } from "@/components/resizable-th";
 import type { MobileDevice } from "@/lib/types";
@@ -128,6 +129,19 @@ export function DeviceTable({ devices }: { devices: MobileDevice[] }) {
     });
   }
 
+  function handleRequestSync(device: MobileDevice) {
+    startTransition(async () => {
+      try {
+        await requestDeviceSync(device.id);
+        toast.success(`${device.device_name} 기기에 동기화 요청을 보냈습니다.`);
+        router.refresh();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "동기화 요청 실패";
+        toast.error(msg);
+      }
+    });
+  }
+
   if (devices.length === 0) {
     return (
       <Card>
@@ -170,6 +184,9 @@ export function DeviceTable({ devices }: { devices: MobileDevice[] }) {
             <ResizableTh width={widths.is_active} colKey="is_active" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("is_active")}>
               <span className="inline-flex items-center">상태<SortIcon active={sortKey === "is_active"} dir={sortDir} /></span>
             </ResizableTh>
+            <th className="w-[60px] px-2 text-center text-xs font-medium text-muted-foreground">
+              동기화
+            </th>
           </TableRow>
         </thead>
         <TableBody>
@@ -231,10 +248,52 @@ export function DeviceTable({ devices }: { devices: MobileDevice[] }) {
                   aria-label={d.is_active ? "비활성화" : "활성화"}
                 />
               </TableCell>
+              <TableCell className="text-center">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      disabled={isPending || !d.is_active}
+                      onClick={() => handleRequestSync(d)}
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>보류 메시지 동기화 요청</TooltipContent>
+                </Tooltip>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
     </div>
+  );
+}
+
+export function SyncAllButton() {
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function handleSyncAll() {
+    startTransition(async () => {
+      try {
+        const { requestAllDevicesSync } = await import("@/lib/actions");
+        await requestAllDevicesSync();
+        toast.success("모든 활성 기기에 동기화 요청을 보냈습니다.");
+        router.refresh();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "동기화 요청 실패";
+        toast.error(msg);
+      }
+    });
+  }
+
+  return (
+    <Button variant="outline" size="sm" disabled={isPending} onClick={handleSyncAll}>
+      <RefreshCw className={`h-4 w-4 mr-2 ${isPending ? "animate-spin" : ""}`} />
+      전체 동기화
+    </Button>
   );
 }

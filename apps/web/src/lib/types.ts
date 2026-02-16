@@ -203,6 +203,7 @@ export interface MobileDevice {
   platform: string;
   is_active: boolean;
   last_sync_at: string;
+  sync_requested_at: string | null;
   created_at: string;
   updated_at: string;
 }

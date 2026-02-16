@@ -35,6 +35,7 @@ export async function getDevices(): Promise<{ devices: MobileDevice[]; total: nu
     platform: row.platform as string,
     is_active: row.is_active as boolean,
     last_sync_at: row.last_sync_at as string,
+    sync_requested_at: row.sync_requested_at as string | null,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
   }));

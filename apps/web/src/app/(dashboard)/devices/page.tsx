@@ -1,7 +1,7 @@
 import { Smartphone, SmartphoneCharging, TabletSmartphone, Activity } from "lucide-react";
 
 import { getDevices } from "@/lib/queries/devices";
-import { DeviceTable } from "@/components/device-list";
+import { DeviceTable, SyncAllButton } from "@/components/device-list";
 import { StatCard } from "@/components/stat-card";
 import {
   Card,
@@ -33,8 +33,9 @@ export default async function DevicesPage() {
   return (
     <>
       <RealtimeListener tables={["mobile_devices"]} />
-      <div className="flex items-center">
+      <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold md:text-2xl">모바일 기기 관리</h1>
+        <SyncAllButton />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">

@@ -632,5 +632,6 @@ data class MobileDeviceDto(
     val app_version: String,
     val os_version: String,
     val platform: String = "android",
-    val last_sync_at: String? = null
+    val last_sync_at: String? = null,
+    val sync_requested_at: String? = null
 )

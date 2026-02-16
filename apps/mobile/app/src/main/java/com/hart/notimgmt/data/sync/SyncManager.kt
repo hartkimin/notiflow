@@ -8,6 +8,12 @@ import com.hart.notimgmt.BuildConfig
 import com.hart.notimgmt.data.db.dao.*
 import com.hart.notimgmt.data.db.entity.*
 import com.hart.notimgmt.data.supabase.*
+import androidx.work.BackoffPolicy
+import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.realtime.Realtime
@@ -25,6 +31,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -86,7 +93,8 @@ class SyncManager @Inject constructor(
     private val planDao: PlanDao,
     private val dayCategoryDao: DayCategoryDao,
     private val auth: Auth,
-    private val realtime: Realtime
+    private val realtime: Realtime,
+    private val workManager: WorkManager
 ) {
     companion object {
         private const val TAG = "SyncManager"
@@ -104,6 +112,8 @@ class SyncManager @Inject constructor(
 
     private var isListening = false
     private var channelSubscribed = false
+    private var lastDeviceUpdateMs = 0L
+    private val DEVICE_UPDATE_THROTTLE_MS = 60_000L
 
     private fun addLog(message: String) {
         Log.d(TAG, message)
@@ -615,6 +625,13 @@ class SyncManager @Inject constructor(
                 handleDayCategoryChange(action, userId)
             }.launchIn(scope)
 
+            // Mobile devices changes (sync trigger from web dashboard)
+            channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                table = SupabaseDataSource.MOBILE_DEVICES_TABLE
+            }.onEach { action ->
+                handleMobileDeviceChange(action, userId)
+            }.launchIn(scope)
+
             channel.subscribe()
             channelSubscribed = true
             Log.d(TAG, "Subscribed to realtime changes")
@@ -644,20 +661,22 @@ class SyncManager @Inject constructor(
     private fun isUserLoggedIn(): Boolean = auth.currentUserOrNull() != null
 
     suspend fun syncMessage(message: CapturedMessageEntity) {
-        // Mark as needing sync so it persists across failures
         capturedMessageDao.markNeedsSync(message.id)
 
         if (!isUserLoggedIn()) {
             Log.w(TAG, "Message sync deferred (not logged in): ${message.id}")
+            scheduleSyncRetry()
             return
         }
         try {
             supabaseDataSource.upsertMessage(message)
             capturedMessageDao.markSynced(message.id)
             Log.d(TAG, "Message synced: ${message.id}")
+            updateHeartbeatThrottled()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to sync message (will retry): ${e.message}", e)
             addLog("❌ 메시지 동기화 실패 (재시도 예정): ${e.message}")
+            scheduleSyncRetry()
         }
     }
 
@@ -741,7 +760,7 @@ class SyncManager @Inject constructor(
     /**
      * 동기화 보류 중인 메시지 재시도
      */
-    private suspend fun syncPendingMessages() {
+    internal suspend fun syncPendingMessages() {
         if (!isUserLoggedIn()) return
         val pending = capturedMessageDao.getPendingSync()
         if (pending.isEmpty()) return
@@ -761,6 +780,35 @@ class SyncManager @Inject constructor(
         }
         if (successCount < pending.size) {
             addLog("⚠️ 보류 메시지 ${pending.size - successCount}개 동기화 실패 (다음 동기화 시 재시도)")
+        }
+    }
+
+    private fun scheduleSyncRetry() {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val request = OneTimeWorkRequestBuilder<SyncRetryWorker>()
+            .setConstraints(constraints)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .build()
+
+        workManager.enqueueUniqueWork(
+            SyncRetryWorker.WORK_NAME,
+            ExistingWorkPolicy.KEEP,
+            request
+        )
+        Log.d(TAG, "Sync retry worker scheduled")
+    }
+
+    private suspend fun updateHeartbeatThrottled() {
+        val now = System.currentTimeMillis()
+        if (now - lastDeviceUpdateMs < DEVICE_UPDATE_THROTTLE_MS) return
+        try {
+            registerDevice()
+            lastDeviceUpdateMs = now
+        } catch (e: Exception) {
+            Log.e(TAG, "Heartbeat update failed (non-blocking): ${e.message}")
         }
     }
 
@@ -1022,6 +1070,31 @@ class SyncManager @Inject constructor(
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error handling day category change", e)
+        }
+    }
+
+    @Suppress("HardwareIds")
+    private suspend fun handleMobileDeviceChange(action: PostgresAction, currentUserId: String) {
+        try {
+            when (action) {
+                is PostgresAction.Update -> {
+                    val dto = json.decodeFromJsonElement<MobileDeviceDto>(action.record)
+                    if (dto.user_id != currentUserId) return
+                    val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+                    val myDeviceId = "${currentUserId}_${androidId}"
+                    if (dto.id != myDeviceId) return
+
+                    if (dto.sync_requested_at != null) {
+                        Log.d(TAG, "Remote sync request received from web dashboard")
+                        addLog("🔄 웹 대시보드에서 동기화 요청 수신")
+                        syncPendingMessages()
+                        updateHeartbeatThrottled()
+                    }
+                }
+                else -> {}
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling mobile device change", e)
         }
     }
 }

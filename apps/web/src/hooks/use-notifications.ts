@@ -87,13 +87,17 @@ export function useNotifications() {
         };
       } catch {
         // Fallback: use service worker if direct Notification fails
-        navigator.serviceWorker?.ready.then((registration) => {
-          registration.showNotification(title, {
-            body,
-            data: { url: url || "/orders" },
-            tag: `notiflow-${Date.now()}`,
+        navigator.serviceWorker?.ready
+          .then((registration) => {
+            registration.showNotification(title, {
+              body,
+              data: { url: url || "/orders" },
+              tag: `notiflow-${Date.now()}`,
+            });
+          })
+          .catch(() => {
+            // Service worker not available — notification silently dropped
           });
-        });
       }
     },
     [enabled, permission],

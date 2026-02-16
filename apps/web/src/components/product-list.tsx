@@ -444,9 +444,29 @@ function AliasDialog({
     });
   }, [product.id]);
 
-  // Fetch aliases when dialog opens - setState in effect is intentional here
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { if (open) loadAliases(); }, [open, loadAliases]);
+  // Fetch aliases when dialog opens — uses AbortController for cleanup
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController();
+    // Loading state is set via transition to avoid synchronous setState in effect
+    startTransition(() => setLoading(true));
+    getProductAliases(product.id)
+      .then((data) => {
+        if (!controller.signal.aborted) {
+          startTransition(() => {
+            setAliases(data || []);
+            setLoading(false);
+          });
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          toast.error("별칭 목록을 불러오지 못했습니다.");
+          startTransition(() => setLoading(false));
+        }
+      });
+    return () => controller.abort();
+  }, [open, product.id, startTransition]);
 
   function handleDelete(aliasId: number) {
     startTransition(async () => {

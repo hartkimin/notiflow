@@ -3,24 +3,26 @@
 -- and clean up old notification_logs and audit_logs
 
 -- ─── Archived Messages Table ────────────────────────────────────
--- Same structure as raw_messages for compliance/historical queries
+-- Mirrors raw_messages schema for compliance/historical queries
 CREATE TABLE IF NOT EXISTS public.archived_messages (
-  id bigint PRIMARY KEY,
-  sender_name text,
-  sender_number text,
-  app_name text,
+  id integer PRIMARY KEY,
+  source_app varchar(50),
+  sender varchar(255),
   content text,
   received_at timestamptz,
+  device_id varchar(100),
+  hospital_id int,
   parse_status text,
-  parse_method text,
-  confidence_score numeric(4,3),
-  order_id bigint,
-  created_at timestamptz,
+  parse_method varchar(20),
+  parse_result json,
+  order_id int,
+  is_order_message boolean,
+  synced_at timestamptz,
   archived_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_archived_messages_received_at ON archived_messages(received_at);
-CREATE INDEX idx_archived_messages_sender ON archived_messages(sender_name);
+CREATE INDEX idx_archived_messages_sender ON archived_messages(sender);
 
 ALTER TABLE public.archived_messages ENABLE ROW LEVEL SECURITY;
 
@@ -45,23 +47,23 @@ BEGIN
 
   -- Insert into archive (ignore duplicates)
   INSERT INTO archived_messages (
-    id, sender_name, sender_number, app_name, content,
-    received_at, parse_status, parse_method, confidence_score,
-    order_id, created_at
+    id, source_app, sender, content,
+    received_at, device_id, hospital_id, parse_status, parse_method,
+    parse_result, order_id, is_order_message, synced_at
   )
   SELECT
-    id, sender_name, sender_number, app_name, content,
-    received_at, parse_status, parse_method, confidence_score,
-    order_id, created_at
+    id, source_app, sender, content,
+    received_at, device_id, hospital_id, parse_status::text, parse_method,
+    parse_result, order_id, is_order_message, synced_at
   FROM raw_messages
-  WHERE created_at < cutoff_date
+  WHERE received_at < cutoff_date
   ON CONFLICT (id) DO NOTHING;
 
   GET DIAGNOSTICS archived_count = ROW_COUNT;
 
   -- Delete archived rows from active table
   DELETE FROM raw_messages
-  WHERE created_at < cutoff_date
+  WHERE received_at < cutoff_date
     AND id IN (SELECT id FROM archived_messages);
 
   RETURN archived_count;
@@ -93,3 +95,7 @@ BEGIN
   );
 END;
 $$;
+
+-- ─── Missing Index ──────────────────────────────────────────────
+-- notification_logs.sent_at is used in cleanup_old_logs DELETE
+CREATE INDEX IF NOT EXISTS idx_notification_logs_sent_at ON notification_logs(sent_at);

@@ -22,26 +22,36 @@ export function GlobalNotifications() {
       .on(
         "postgres_changes" as never,
         { event: "INSERT", schema: "public", table: "orders" },
-        (payload: { new: { order_number?: string; hospital_name?: string; total_items?: number; id?: number } }) => {
-          const order = payload.new;
-          showNotification(
-            `새 주문: ${order.order_number || ""}`,
-            `${order.hospital_name || "거래처"} | ${order.total_items || 0}건 품목`,
-            order.id ? `/orders/${order.id}` : "/orders",
-          );
+        (payload: unknown) => {
+          try {
+            const { new: order } = payload as { new?: Record<string, unknown> };
+            if (!order) return;
+            showNotification(
+              `새 주문: ${(order.order_number as string) || ""}`,
+              `${(order.hospital_name as string) || "거래처"} | ${(order.total_items as number) || 0}건 품목`,
+              order.id ? `/orders/${order.id}` : "/orders",
+            );
+          } catch {
+            // Malformed payload — ignore silently
+          }
         },
       )
       .on(
         "postgres_changes" as never,
         { event: "INSERT", schema: "public", table: "raw_messages" },
-        (payload: { new: { sender_name?: string; content?: string } }) => {
-          const msg = payload.new;
-          const preview = msg.content?.slice(0, 50) || "새로운 메시지";
-          showNotification(
-            `메시지 수신: ${msg.sender_name || "알 수 없음"}`,
-            preview,
-            "/messages",
-          );
+        (payload: unknown) => {
+          try {
+            const { new: msg } = payload as { new?: Record<string, unknown> };
+            if (!msg) return;
+            const preview = ((msg.content as string) || "").slice(0, 50) || "새로운 메시지";
+            showNotification(
+              `메시지 수신: ${(msg.sender as string) || "알 수 없음"}`,
+              preview,
+              "/messages",
+            );
+          } catch {
+            // Malformed payload — ignore silently
+          }
         },
       )
       .subscribe();

@@ -98,7 +98,7 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- FCM Service for push notifications -->
+        <!-- FCM Service — disabled until google-services.json is added
         <service
             android:name=".service.fcm.NotiFlowFcmService"
             android:exported="false">
@@ -110,6 +110,7 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="orders" />
+        -->
 
         <!-- Home Screen Widget -->
         <receiver

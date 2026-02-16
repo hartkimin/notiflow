@@ -15,8 +15,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
-import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -127,7 +127,7 @@ private fun WeeklyTotalRow(summary: WeeklySummary) {
         val isUp = delta >= 0
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                imageVector = if (isUp) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
+                imageVector = if (isUp) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
                 tint = if (isUp) Color(0xFFF59E0B) else Color(0xFF10B981)

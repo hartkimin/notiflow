@@ -131,6 +131,7 @@ fun NotiFlowTheme(
         SideEffect {
             val window = (view.context as Activity).window
             // Make status bar transparent for glassmorphism effect
+            @Suppress("DEPRECATION")
             window.statusBarColor = Color.Transparent.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }

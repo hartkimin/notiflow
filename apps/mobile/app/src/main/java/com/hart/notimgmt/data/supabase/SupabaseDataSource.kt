@@ -492,6 +492,7 @@ private fun CategoryEntity.toSupabaseDto(userId: String) = CategoryDto(
     updated_at = updatedAt
 )
 
+@Suppress("DEPRECATION")
 private fun FilterRuleEntity.toSupabaseDto(userId: String) = FilterRuleDto(
     id = id,
     user_id = userId,

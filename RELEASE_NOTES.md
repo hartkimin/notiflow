@@ -7,6 +7,9 @@ mobile app debugging, and Supabase backend stabilization.
 
 ### Web Dashboard (`apps/web`)
 
+- **Device sync buttons**: per-device and bulk "전체 동기화" buttons on
+  `/devices` page. Sets `sync_requested_at` in Supabase, triggering mobile
+  sync via Realtime subscription.
 - **Realtime subscriptions** on all dashboard pages (hospitals, products, orders,
   suppliers) via Supabase Realtime
 - **Order detail page** with print/PDF export
@@ -35,6 +38,13 @@ mobile app debugging, and Supabase backend stabilization.
   that triggered a heavy full-sync (7 tables) on every message capture. This
   blocked second and subsequent messages from syncing (SYNCING guard). Now each
   message is pushed individually via the lightweight `syncMessage()` path.
+- **WorkManager auto-retry**: `SyncRetryWorker` (`@HiltWorker`) automatically
+  retries failed syncs when network is available. Exponential backoff (30s→8min),
+  max 5 attempts. `HiltWorkerFactory` configured in `NotiFlowApp`.
+- **Web-triggered sync**: mobile subscribes to `mobile_devices` Realtime changes;
+  when web dashboard sets `sync_requested_at`, device runs `syncPendingMessages()`
+- **Heartbeat throttle**: `registerDevice()` called on every successful sync
+  (throttled to 1-minute intervals) for accurate `last_sync_at` tracking
 - **Thread safety fix**: `CaptureNotificationHelper` notification ID changed to
   `AtomicInteger` with atomic read-increment-wrap
 - **Mutex race fix**: `AiMessageClassifier.unload()` now routes through

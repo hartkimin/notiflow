@@ -21,7 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { OrderDetail } from "@/components/order-detail";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import type { Order } from "@/lib/types";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -130,6 +131,12 @@ export function OrderTable({ orders }: { orders: Order[] }) {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => setSelectedId(order.id)}>상세보기</DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/orders/${order.id}`}>
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            전체 페이지
+                          </Link>
+                        </DropdownMenuItem>
                         <DropdownMenuItem>상태 변경</DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive">삭제</DropdownMenuItem>
                       </DropdownMenuContent>

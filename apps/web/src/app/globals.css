@@ -179,3 +179,35 @@
     border-radius: 999px;
   }
 }
+
+/* ── Print styles ─────────────────────────────── */
+@media print {
+  /* Hide sidebar and navigation */
+  body > div > div:first-child {
+    display: none !important;
+  }
+  nav, header {
+    display: none !important;
+  }
+  .print\:hidden {
+    display: none !important;
+  }
+  .print\:block {
+    display: block !important;
+  }
+  .print\:table-cell {
+    display: table-cell !important;
+  }
+  /* Remove shadows and backgrounds */
+  [data-slot="card"] {
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+  /* Ensure content fills page */
+  main {
+    padding: 0 !important;
+  }
+  @page {
+    margin: 15mm;
+  }
+}

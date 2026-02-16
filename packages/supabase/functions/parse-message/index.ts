@@ -4,15 +4,18 @@
  * Trigger: DB Webhook on raw_messages INSERT
  * Flow:
  *   1. Read AI settings from settings table
- *   2. If AI disabled → mark message as pending_manual
- *   3. Call Claude API with configured model + prompt
+ *   2. If AI disabled or no API key → mark message as pending_manual
+ *   3. Call AI (Claude / Gemini / OpenAI) with configured model + prompt
  *   4. Match products via 5-level matcher
  *   5. If auto_process=false OR low confidence → needs_review
  *   6. Otherwise → create order + order_items
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import Anthropic from "npm:@anthropic-ai/sdk";
+import {
+  callAI,
+  resolveAIProvider,
+} from "../_shared/ai-client.ts";
 import {
   regexParse,
   buildParsePrompt,
@@ -29,7 +32,9 @@ import {
 
 interface AISettings {
   ai_enabled: boolean;
+  ai_provider: string;
   ai_model: string;
+  ai_api_key: string | null;
   ai_parse_prompt: string | null;
   ai_auto_process: boolean;
   ai_confidence_threshold: number;
@@ -41,6 +46,22 @@ interface MatchedOrderItem {
 }
 
 // ---------------------------------------------------------------------------
+// Settings keys to query
+// ---------------------------------------------------------------------------
+
+const SETTINGS_KEYS = [
+  "ai_enabled",
+  "ai_provider",
+  "ai_model",
+  "ai_parse_prompt",
+  "ai_auto_process",
+  "ai_confidence_threshold",
+  "ai_api_key_anthropic",
+  "ai_api_key_google",
+  "ai_api_key_openai",
+];
+
+// ---------------------------------------------------------------------------
 // Read AI settings from DB
 // ---------------------------------------------------------------------------
 
@@ -50,23 +71,19 @@ async function getAISettings(
   const { data } = await supabase
     .from("settings")
     .select("key, value")
-    .in("key", [
-      "ai_enabled",
-      "ai_model",
-      "ai_parse_prompt",
-      "ai_auto_process",
-      "ai_confidence_threshold",
-    ]);
+    .in("key", SETTINGS_KEYS);
 
   const map = new Map(
     (data ?? []).map((s: { key: string; value: unknown }) => [s.key, s.value]),
   );
 
+  const resolved = resolveAIProvider(map);
+
   return {
     ai_enabled: map.get("ai_enabled") === true || map.get("ai_enabled") === "true",
-    ai_model: (typeof map.get("ai_model") === "string"
-      ? (map.get("ai_model") as string).replace(/^"|"$/g, "")
-      : "claude-haiku-4-5-20251001"),
+    ai_provider: resolved?.provider ?? "anthropic",
+    ai_model: resolved?.model ?? "claude-haiku-4-5-20251001",
+    ai_api_key: resolved?.apiKey ?? null,
     ai_parse_prompt: (map.get("ai_parse_prompt") as string) ?? null,
     ai_auto_process: map.get("ai_auto_process") === true || map.get("ai_auto_process") === "true",
     ai_confidence_threshold: Number(map.get("ai_confidence_threshold") ?? 0.7),
@@ -95,7 +112,7 @@ async function getHospitalAliases(
 }
 
 // ---------------------------------------------------------------------------
-// AI parse via Claude
+// AI parse — routes to the selected provider
 // ---------------------------------------------------------------------------
 
 async function aiParse(
@@ -111,8 +128,7 @@ async function aiParse(
 }> {
   const startTime = performance.now();
 
-  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!apiKey || !settings.ai_enabled) {
+  if (!settings.ai_api_key || !settings.ai_enabled) {
     const items = regexParse(content);
     return {
       items,
@@ -123,35 +139,33 @@ async function aiParse(
   }
 
   try {
-    const anthropic = new Anthropic({ apiKey });
     const prompt = settings.ai_parse_prompt
       ? `${settings.ai_parse_prompt}\n\n주문 메시지:\n${content}`
       : buildParsePrompt(hospitalName, aliases, content);
 
-    const response = await anthropic.messages.create({
-      model: settings.ai_model,
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
-    });
+    const result = await callAI(
+      settings.ai_provider,
+      settings.ai_api_key,
+      settings.ai_model,
+      prompt,
+    );
 
     const latencyMs = Math.round(performance.now() - startTime);
-    const textBlock = response.content.find(
-      (block: { type: string }) => block.type === "text",
-    );
-    if (!textBlock || textBlock.type !== "text") {
+
+    if (!result.text) {
       return {
         items: regexParse(content),
         method: "regex",
         latencyMs,
         tokenUsage: {
-          input_tokens: response.usage?.input_tokens ?? 0,
-          output_tokens: response.usage?.output_tokens ?? 0,
+          input_tokens: result.inputTokens,
+          output_tokens: result.outputTokens,
         },
       };
     }
 
     // Extract JSON from response
-    let jsonStr = textBlock.text.trim();
+    let jsonStr = result.text.trim();
     const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (codeBlockMatch) jsonStr = codeBlockMatch[1].trim();
 
@@ -172,8 +186,8 @@ async function aiParse(
       method: "llm",
       latencyMs,
       tokenUsage: {
-        input_tokens: response.usage?.input_tokens ?? 0,
-        output_tokens: response.usage?.output_tokens ?? 0,
+        input_tokens: result.inputTokens,
+        output_tokens: result.outputTokens,
       },
     };
   } catch (err) {
@@ -291,7 +305,9 @@ Deno.serve(async (req) => {
     await supabase.from("parse_history").insert({
       message_id: messageId,
       parse_method: parseResult.method,
-      llm_model: parseResult.method === "llm" ? settings.ai_model : null,
+      llm_model: parseResult.method === "llm"
+        ? `${settings.ai_provider}/${settings.ai_model}`
+        : null,
       input_text: content,
       raw_output: parseResult.items,
       parsed_items: matchedItems.map((m) => ({

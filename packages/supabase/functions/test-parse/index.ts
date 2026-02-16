@@ -1,5 +1,12 @@
+/**
+ * test-parse Edge Function
+ *
+ * Called from the Dashboard "파싱 테스트" UI.
+ * Parses a message using the configured AI provider WITHOUT saving to DB.
+ */
+
 import { createClient } from "npm:@supabase/supabase-js@2";
-import Anthropic from "npm:@anthropic-ai/sdk";
+import { callAI, resolveAIProvider } from "../_shared/ai-client.ts";
 
 // ---------------------------------------------------------------------------
 // CORS headers for browser requests from the Dashboard
@@ -7,7 +14,8 @@ import Anthropic from "npm:@anthropic-ai/sdk";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -36,7 +44,9 @@ async function verifyAuth(
 ): Promise<{ userId: string } | { error: Response }> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return { error: errorResponse("Missing or invalid Authorization header", 401) };
+    return {
+      error: errorResponse("Missing or invalid Authorization header", 401),
+    };
   }
 
   const token = authHeader.replace("Bearer ", "");
@@ -77,11 +87,13 @@ interface ParsedItem {
 
 function regexParse(content: string): ParsedItem[] {
   const items: ParsedItem[] = [];
-  const lines = content.split(/\n|,|\//).map((l) => l.trim()).filter(Boolean);
+  const lines = content
+    .split(/\n|,|\//)
+    .map((l) => l.trim())
+    .filter(Boolean);
 
   for (const line of lines) {
     // Pattern: product_name + quantity + unit
-    // Examples: "EK15 10박스", "투석액 3봉", "헤파린 2개", "AV니들 5box"
     const match = line.match(
       /^(.+?)\s+(\d+)\s*(박스|box|BOX|개|봉|팩|pack|ea|EA|세트|set|병|통|매|장|롤|캔)?$/i,
     );
@@ -98,7 +110,6 @@ function regexParse(content: string): ParsedItem[] {
     }
 
     // Pattern: quantity + unit + product_name
-    // Examples: "10박스 EK15", "3봉 투석액"
     const reverseMatch = line.match(
       /^(\d+)\s*(박스|box|BOX|개|봉|팩|pack|ea|EA|세트|set|병|통|매|장|롤|캔)?\s+(.+)$/i,
     );
@@ -114,7 +125,7 @@ function regexParse(content: string): ParsedItem[] {
       continue;
     }
 
-    // Pattern: product_name only with embedded number (e.g. "EK15x10", "EK15*10")
+    // Pattern: product_name with embedded number (e.g. "EK15x10")
     const embeddedMatch = line.match(
       /^(.+?)\s*[xX*]\s*(\d+)\s*(박스|box|BOX|개|봉|팩|pack|ea|EA|세트|set|병|통|매|장|롤|캔)?$/i,
     );
@@ -136,16 +147,16 @@ function regexParse(content: string): ParsedItem[] {
 function normalizeUnit(unit: string): string {
   const unitMap: Record<string, string> = {
     "박스": "box",
-    "box": "box",
-    "BOX": "box",
+    box: "box",
+    BOX: "box",
     "개": "ea",
-    "ea": "ea",
-    "EA": "ea",
+    ea: "ea",
+    EA: "ea",
     "봉": "bag",
     "팩": "pack",
-    "pack": "pack",
+    pack: "pack",
     "세트": "set",
-    "set": "set",
+    set: "set",
     "병": "bottle",
     "통": "can",
     "매": "sheet",
@@ -196,41 +207,26 @@ ${content}`;
 }
 
 // ---------------------------------------------------------------------------
-// AI parse (Claude)
+// AI parse — uses the shared multi-provider client
 // ---------------------------------------------------------------------------
 
 async function aiParse(
   content: string,
+  provider: string,
+  apiKey: string,
   model: string,
   customPrompt: string | null,
   aliases: Array<{ alias: string; product_name: string }>,
 ): Promise<{ items: ParsedItem[]; tokenUsage: unknown } | null> {
-  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!apiKey) {
-    console.warn("ANTHROPIC_API_KEY not set, skipping AI parse");
-    return null;
-  }
-
   try {
-    const anthropic = new Anthropic({ apiKey });
     const prompt = buildParsePrompt(content, customPrompt, aliases);
 
-    const response = await anthropic.messages.create({
-      model: model || "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    });
+    const result = await callAI(provider, apiKey, model, prompt);
 
-    const textBlock = response.content.find((block) => block.type === "text");
-    if (!textBlock || textBlock.type !== "text") return null;
+    if (!result.text) return null;
 
     // Extract JSON from response (handle markdown code blocks)
-    let jsonStr = textBlock.text.trim();
+    let jsonStr = result.text.trim();
     const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (codeBlockMatch) {
       jsonStr = codeBlockMatch[1].trim();
@@ -249,18 +245,18 @@ async function aiParse(
     return {
       items,
       tokenUsage: {
-        input_tokens: response.usage?.input_tokens ?? 0,
-        output_tokens: response.usage?.output_tokens ?? 0,
+        input_tokens: result.inputTokens,
+        output_tokens: result.outputTokens,
       },
     };
   } catch (err) {
     console.error("AI parse failed:", err);
-    return null;
+    throw err; // Re-throw so the caller can show the actual error to the user
   }
 }
 
 // ---------------------------------------------------------------------------
-// Product matching: match parsed items against products/aliases in DB
+// Product matching
 // ---------------------------------------------------------------------------
 
 interface MatchedItem extends ParsedItem {
@@ -287,7 +283,9 @@ async function matchProducts(
     .select("product_id, alias, alias_normalized");
 
   if (hospitalId) {
-    aliasQuery = aliasQuery.or(`hospital_id.eq.${hospitalId},hospital_id.is.null`);
+    aliasQuery = aliasQuery.or(
+      `hospital_id.eq.${hospitalId},hospital_id.is.null`,
+    );
   }
 
   const { data: aliases } = await aliasQuery;
@@ -299,7 +297,10 @@ async function matchProducts(
     aliasMap.set(key, a.product_id);
   }
 
-  const productMap = new Map<number, { name: string; official_name: string | null }>();
+  const productMap = new Map<
+    number,
+    { name: string; official_name: string | null }
+  >();
   const productNameMap = new Map<string, number>();
   for (const p of products ?? []) {
     productMap.set(p.id, { name: p.name, official_name: p.official_name });
@@ -322,7 +323,8 @@ async function matchProducts(
       return {
         ...item,
         product_id: aliasProductId,
-        product_official_name: product?.official_name ?? product?.name ?? null,
+        product_official_name:
+          product?.official_name ?? product?.name ?? null,
         match_confidence: 1.0,
         match_status: "matched",
       };
@@ -335,13 +337,14 @@ async function matchProducts(
       return {
         ...item,
         product_id: nameProductId,
-        product_official_name: product?.official_name ?? product?.name ?? null,
+        product_official_name:
+          product?.official_name ?? product?.name ?? null,
         match_confidence: 1.0,
         match_status: "matched",
       };
     }
 
-    // 3. Partial / fuzzy match: check if item name is contained in a product name or vice versa
+    // 3. Partial / fuzzy match
     let bestMatch: { id: number; confidence: number } | null = null;
 
     for (const [pName, pId] of productNameMap) {
@@ -373,7 +376,8 @@ async function matchProducts(
       return {
         ...item,
         product_id: bestMatch.id,
-        product_official_name: product?.official_name ?? product?.name ?? null,
+        product_official_name:
+          product?.official_name ?? product?.name ?? null,
         match_confidence: Math.round(bestMatch.confidence * 100) / 100,
         match_status: bestMatch.confidence >= 0.8 ? "matched" : "review",
       };
@@ -389,6 +393,20 @@ async function matchProducts(
     };
   });
 }
+
+// ---------------------------------------------------------------------------
+// Settings keys
+// ---------------------------------------------------------------------------
+
+const SETTINGS_KEYS = [
+  "ai_enabled",
+  "ai_provider",
+  "ai_model",
+  "ai_parse_prompt",
+  "ai_api_key_anthropic",
+  "ai_api_key_google",
+  "ai_api_key_openai",
+];
 
 // ---------------------------------------------------------------------------
 // Edge Function entry point
@@ -415,10 +433,15 @@ Deno.serve(async (req) => {
     const auth = await verifyAuth(req, supabase);
     if ("error" in auth) return auth.error;
 
-    const { content, hospital_id } = await req.json();
+    const body = await req.json();
+    // Accept both "content" and "message" field names for backwards compatibility
+    const content: string | undefined = body.content || body.message;
+    const hospital_id: number | undefined = body.hospital_id;
 
     if (!content || typeof content !== "string" || content.trim().length === 0) {
-      return errorResponse("content is required and must be a non-empty string");
+      return errorResponse(
+        "content is required and must be a non-empty string",
+      );
     }
 
     const startTime = performance.now();
@@ -429,17 +452,22 @@ Deno.serve(async (req) => {
     const { data: settings } = await supabase
       .from("settings")
       .select("key, value")
-      .in("key", ["ai_enabled", "ai_model", "ai_parse_prompt"]);
+      .in("key", SETTINGS_KEYS);
 
     const settingsMap = new Map(
-      (settings ?? []).map((s) => [s.key, s.value]),
+      (settings ?? []).map((s: { key: string; value: unknown }) => [
+        s.key,
+        s.value,
+      ]),
     );
 
-    const aiEnabled = settingsMap.get("ai_enabled") === true || settingsMap.get("ai_enabled") === "true";
-    const aiModel = (typeof settingsMap.get("ai_model") === "string"
-      ? (settingsMap.get("ai_model") as string).replace(/^"|"$/g, "")
-      : null) ?? "claude-haiku-4-5-20251001";
+    const aiEnabled =
+      settingsMap.get("ai_enabled") === true ||
+      settingsMap.get("ai_enabled") === "true";
     const aiParsePrompt = settingsMap.get("ai_parse_prompt") as string | null;
+
+    // Resolve provider, API key, and model via shared helper
+    const resolved = resolveAIProvider(settingsMap);
 
     // ------------------------------------------------------------------
     // 2. Get hospital aliases if hospital_id is provided
@@ -454,31 +482,48 @@ Deno.serve(async (req) => {
 
       aliases = (aliasData ?? []).map((a) => ({
         alias: a.alias,
-        product_name: (a as unknown as { products: { name: string } | null }).products?.name ?? "",
+        product_name:
+          (a as unknown as { products: { name: string } | null }).products
+            ?.name ?? "",
       }));
     }
 
     // ------------------------------------------------------------------
-    // 3. AI parse (Claude) -> fallback to regex
+    // 3. AI parse → fallback to regex
     // ------------------------------------------------------------------
     let parsedItems: ParsedItem[];
     let method: "llm" | "regex";
     let tokenUsage: unknown = null;
 
-    if (aiEnabled) {
-      const aiResult = await aiParse(content, aiModel, aiParsePrompt, aliases);
+    if (aiEnabled && resolved) {
+      try {
+        const aiResult = await aiParse(
+          content,
+          resolved.provider,
+          resolved.apiKey,
+          resolved.model,
+          aiParsePrompt,
+          aliases,
+        );
 
-      if (aiResult && aiResult.items.length > 0) {
-        parsedItems = aiResult.items;
-        method = "llm";
-        tokenUsage = aiResult.tokenUsage;
-      } else {
-        // Fallback to regex
-        parsedItems = regexParse(content);
-        method = "regex";
+        if (aiResult && aiResult.items.length > 0) {
+          parsedItems = aiResult.items;
+          method = "llm";
+          tokenUsage = aiResult.tokenUsage;
+        } else {
+          // Fallback to regex
+          parsedItems = regexParse(content);
+          method = "regex";
+        }
+      } catch (err) {
+        // Show the AI error to the user for debugging
+        return errorResponse(
+          `AI 파싱 오류: ${(err as Error).message}`,
+          502,
+        );
       }
     } else {
-      // AI disabled, use regex only
+      // AI disabled or no API key, use regex only
       parsedItems = regexParse(content);
       method = "regex";
     }
@@ -486,7 +531,11 @@ Deno.serve(async (req) => {
     // ------------------------------------------------------------------
     // 4. Match products (NO DB save)
     // ------------------------------------------------------------------
-    const matchedItems = await matchProducts(supabase, parsedItems, hospital_id);
+    const matchedItems = await matchProducts(
+      supabase,
+      parsedItems,
+      hospital_id,
+    );
 
     const latencyMs = Math.round(performance.now() - startTime);
 
@@ -498,17 +547,23 @@ Deno.serve(async (req) => {
       items: matchedItems,
       method,
       latency_ms: latencyMs,
-      ai_model: method === "llm" ? aiModel : null,
+      ai_provider: method === "llm" ? resolved?.provider : null,
+      ai_model: method === "llm" ? resolved?.model : null,
       token_usage: tokenUsage,
       item_count: matchedItems.length,
       match_summary: {
-        matched: matchedItems.filter((i) => i.match_status === "matched").length,
+        matched: matchedItems.filter((i) => i.match_status === "matched")
+          .length,
         review: matchedItems.filter((i) => i.match_status === "review").length,
-        unmatched: matchedItems.filter((i) => i.match_status === "unmatched").length,
+        unmatched: matchedItems.filter((i) => i.match_status === "unmatched")
+          .length,
       },
     });
   } catch (err) {
     console.error("test-parse unexpected error:", err);
-    return errorResponse(`Internal server error: ${(err as Error).message}`, 500);
+    return errorResponse(
+      `Internal server error: ${(err as Error).message}`,
+      500,
+    );
   }
 });

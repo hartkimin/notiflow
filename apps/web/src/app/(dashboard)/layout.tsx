@@ -1,5 +1,7 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import { Nav } from "@/components/nav";
+import { MobileNav } from "@/components/mobile-nav";
+import { GlobalNotifications } from "@/components/global-notifications";
 import { requireAuth } from "@/lib/auth";
 
 export default async function DashboardLayout({
@@ -14,10 +16,12 @@ export default async function DashboardLayout({
       <AppSidebar userName={user.name} />
       <div className="flex flex-col">
         <Nav />
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto">
+        <GlobalNotifications />
+        <main className="flex flex-1 flex-col gap-4 p-4 pb-20 md:pb-4 lg:gap-6 lg:p-6 lg:pb-6 overflow-auto">
           {children}
         </main>
       </div>
+      <MobileNav />
     </div>
   );
 }

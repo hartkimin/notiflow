@@ -3,10 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import {
-  Bell,
-  Home,
   Package,
   Package2,
   Users,
@@ -20,6 +17,7 @@ import {
   Building2,
   Factory,
 } from "lucide-react";
+import { NotificationToggle } from "./notification-toggle";
 
 const navGroups = [
   {
@@ -70,14 +68,9 @@ export function AppSidebar({ userName }: { userName?: string }) {
             <Package2 className="h-6 w-6 text-primary" />
             <span>NotiFlow</span>
           </Link>
-          <Button
-            variant="outline"
-            size="icon"
-            className="ml-auto h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors"
-          >
-            <Bell className="h-4 w-4" />
-            <span className="sr-only">Toggle notifications</span>
-          </Button>
+          <div className="ml-auto">
+            <NotificationToggle />
+          </div>
         </div>
 
         {/* Navigation */}

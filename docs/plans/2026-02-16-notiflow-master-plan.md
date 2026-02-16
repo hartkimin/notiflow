@@ -525,18 +525,18 @@ Vercel         ─           ─          ←Host      ━━━
 | 3.6 | C | 분석용 RPC 함수 추가 | `00008_analytics_functions.sql` | ✅ |
 | 3.7 | D | Vercel Cron Jobs | `/api/cron/daily-report` + `monthly-report` | ✅ |
 
-### Phase 4: 사용자 경험 강화 🔄 진행중
+### Phase 4: 사용자 경험 강화 ✅ 완료 (코드 구현)
 
 > 목표: 사용성 개선 및 접근성 확장
 
 | # | 영역 | 과제 | 산출물 | 상태 |
 |---|------|------|--------|------|
-| 4.1 | B | 웹 푸시 알림 | Web Push API 연동 | ⬜ |
-| 4.2 | B | 반응형 UI 강화 | 태블릿/모바일 뷰 최적화 | ⬜ |
+| 4.1 | B | 웹 알림 | `NotificationToggle` + `GlobalNotifications` + Service Worker | ✅ |
+| 4.2 | B | 반응형 UI 강화 | `MobileNav` 하단바 + 터치 타겟 + 페이지네이션 반응형 | ✅ |
 | 4.3 | B | 다크 모드 | `ThemeProvider` + `ThemeToggle` | ✅ |
-| 4.4 | A | AI 모델 업그레이드 | 최신 On-device AI 모델 | ⬜ |
+| 4.4 | A | AI 모델 업그레이드 | 최신 On-device AI 모델 | ⬜ (모바일 앱 배포 후) |
 | 4.5 | D | Vercel Analytics | `@vercel/analytics` + `@vercel/speed-insights` | ✅ |
-| 4.6 | D | 커스텀 도메인 | Vercel Dashboard 수동 설정 | ⬜ |
+| 4.6 | D | 커스텀 도메인 | Vercel Dashboard 수동 설정 | ⬜ (수동 설정) |
 
 ### Phase 5: 확장성 (향후)
 

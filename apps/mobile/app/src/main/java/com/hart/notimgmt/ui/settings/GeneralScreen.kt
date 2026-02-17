@@ -288,9 +288,9 @@ fun GeneralScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            if (userEmail != null) {
+                            userEmail?.let { email ->
                                 Text(
-                                    text = userEmail!!,
+                                    text = email,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -477,26 +477,48 @@ fun GeneralScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // 수동 동기화 버튼
+                // 업로드 버튼 (로컬 → 원격)
                 OutlinedButton(
                     onClick = {
                         showSyncDetails = true
                         showSyncLogs = true
-                        settingsViewModel.triggerManualSync()
+                        settingsViewModel.triggerUploadSync()
                         coroutineScope.launch {
-                            snackbarHostState.showSnackbar("동기화를 시작합니다")
+                            snackbarHostState.showSnackbar("업로드를 시작합니다")
                         }
                     },
                     enabled = isLoggedIn && syncStatus != SyncStatus.SYNCING,
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Sync,
+                        imageVector = Icons.Outlined.CloudUpload,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("동기화")
+                    Text("업로드")
+                }
+
+                // 복원 버튼 (원격 → 로컬)
+                OutlinedButton(
+                    onClick = {
+                        showSyncDetails = true
+                        showSyncLogs = true
+                        settingsViewModel.triggerDownloadSync()
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("복원을 시작합니다")
+                        }
+                    },
+                    enabled = isLoggedIn && syncStatus != SyncStatus.SYNCING,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.CloudDownload,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("복원")
                 }
 
                 // 로그아웃 버튼

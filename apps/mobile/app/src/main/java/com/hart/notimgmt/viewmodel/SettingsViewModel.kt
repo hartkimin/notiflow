@@ -46,6 +46,14 @@ class SettingsViewModel @Inject constructor(
         syncManager.forceSync()
     }
 
+    fun triggerUploadSync() {
+        syncManager.forceUpload()
+    }
+
+    fun triggerDownloadSync() {
+        syncManager.forceDownload()
+    }
+
     fun logout(onLogoutComplete: () -> Unit) {
         viewModelScope.launch {
             _isLoggingOut.value = true

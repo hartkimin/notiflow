@@ -40,12 +40,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -53,6 +56,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hart.notimgmt.viewmodel.AppFilterViewModel
 import com.hart.notimgmt.viewmodel.InstalledApp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun AppFilterScreen(
@@ -64,47 +69,65 @@ fun AppFilterScreen(
     var showAllApps by remember { mutableStateOf(false) }
     val allApps = remember { mutableStateListOf<InstalledApp>() }
 
-    // Load ALL installed apps (QUERY_ALL_PACKAGES 권한 사용)
-    LaunchedEffect(appFilters) {
-        val pm = context.packageManager
-        val selectedPackages = appFilters.filter { it.isAllowed }.map { it.packageName }.toSet()
+    // Load ALL installed apps on IO thread (QUERY_ALL_PACKAGES 권한 사용)
+    LaunchedEffect(Unit) {
+        val apps = withContext(Dispatchers.IO) {
+            val pm = context.packageManager
+            val selectedPackages = appFilters.filter { it.isAllowed }.map { it.packageName }.toSet()
 
-        val allInstalled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
-        } else {
-            @Suppress("DEPRECATION")
-            pm.getInstalledApplications(0)
-        }
-
-        val apps = allInstalled
-            .filter { it.packageName != context.packageName }
-            .map { appInfo ->
-                InstalledApp(
-                    packageName = appInfo.packageName,
-                    appName = pm.getApplicationLabel(appInfo).toString(),
-                    isSelected = selectedPackages.contains(appInfo.packageName)
-                )
+            val allInstalled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                pm.getInstalledApplications(0)
             }
 
+            allInstalled
+                .filter { it.packageName != context.packageName }
+                .map { appInfo ->
+                    InstalledApp(
+                        packageName = appInfo.packageName,
+                        appName = pm.getApplicationLabel(appInfo).toString(),
+                        isSelected = selectedPackages.contains(appInfo.packageName)
+                    )
+                }
+        }
         allApps.clear()
         allApps.addAll(apps)
     }
 
-    val selectedApps = remember(allApps.toList()) {
-        allApps.filter { it.isSelected }.sortedBy { it.appName }
+    // Update selection state when appFilters changes (without reloading all apps)
+    LaunchedEffect(appFilters) {
+        if (allApps.isEmpty()) return@LaunchedEffect
+        val selectedPackages = appFilters.filter { it.isAllowed }.map { it.packageName }.toSet()
+        for (index in allApps.indices) {
+            val app = allApps[index]
+            val shouldBeSelected = selectedPackages.contains(app.packageName)
+            if (app.isSelected != shouldBeSelected) {
+                allApps[index] = app.copy(isSelected = shouldBeSelected)
+            }
+        }
+    }
+
+    val selectedApps by remember {
+        derivedStateOf {
+            allApps.filter { it.isSelected }.sortedBy { it.appName }
+        }
     }
 
     // Sort: selected first, then alphabetical (for expanded view)
-    val sortedAllApps = remember(allApps.toList(), searchQuery) {
-        val base = if (searchQuery.isBlank()) {
-            allApps.toList()
-        } else {
-            allApps.filter {
-                it.appName.contains(searchQuery, ignoreCase = true) ||
-                    it.packageName.contains(searchQuery, ignoreCase = true)
+    val sortedAllApps by remember {
+        derivedStateOf {
+            val base = if (searchQuery.isBlank()) {
+                allApps.toList()
+            } else {
+                allApps.filter {
+                    it.appName.contains(searchQuery, ignoreCase = true) ||
+                        it.packageName.contains(searchQuery, ignoreCase = true)
+                }
             }
+            base.sortedWith(compareByDescending<InstalledApp> { it.isSelected }.thenBy { it.appName })
         }
-        base.sortedWith(compareByDescending<InstalledApp> { it.isSelected }.thenBy { it.appName })
     }
 
     val selectedCount = allApps.count { it.isSelected }
@@ -306,17 +329,19 @@ private fun AppFilterRow(
 ) {
     val context = LocalContext.current
 
-    val appIconBitmap = remember(app.packageName) {
-        try {
-            val drawable = context.packageManager.getApplicationIcon(app.packageName)
-            val size = 64
-            val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
-            val canvas = android.graphics.Canvas(bmp)
-            drawable.setBounds(0, 0, size, size)
-            drawable.draw(canvas)
-            bmp.asImageBitmap()
-        } catch (_: Exception) {
-            null
+    val appIconBitmap by produceState<ImageBitmap?>(initialValue = null, key1 = app.packageName) {
+        value = withContext(Dispatchers.IO) {
+            try {
+                val drawable = context.packageManager.getApplicationIcon(app.packageName)
+                val size = 64
+                val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+                val canvas = android.graphics.Canvas(bmp)
+                drawable.setBounds(0, 0, size, size)
+                drawable.draw(canvas)
+                bmp.asImageBitmap()
+            } catch (_: Exception) {
+                null
+            }
         }
     }
 
@@ -326,9 +351,10 @@ private fun AppFilterRow(
             .padding(horizontal = 4.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (appIconBitmap != null) {
+        val icon = appIconBitmap
+        if (icon != null) {
             Image(
-                bitmap = appIconBitmap,
+                bitmap = icon,
                 contentDescription = app.appName,
                 modifier = Modifier
                     .size(40.dp)

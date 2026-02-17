@@ -10,6 +10,9 @@ import com.hart.notimgmt.data.supabase.SupabaseDataSource
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.status.SessionStatus
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 @HiltWorker
 class SyncRetryWorker @AssistedInject constructor(
@@ -26,8 +29,12 @@ class SyncRetryWorker @AssistedInject constructor(
     }
 
     override suspend fun doWork(): Result {
-        if (auth.currentUserOrNull() == null) {
-            Log.w(TAG, "Not logged in, retrying later")
+        // 세션이 디스크에서 로딩 완료될 때까지 최대 5초 대기
+        val sessionStatus = withTimeoutOrNull(5_000L) {
+            auth.sessionStatus.first { it !is SessionStatus.Initializing }
+        }
+        if (sessionStatus !is SessionStatus.Authenticated) {
+            Log.w(TAG, "Not logged in (status: $sessionStatus), retrying later")
             return Result.retry()
         }
 

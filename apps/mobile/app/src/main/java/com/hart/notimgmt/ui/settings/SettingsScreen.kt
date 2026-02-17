@@ -73,7 +73,6 @@ fun SettingsScreen(onLogout: () -> Unit = {}) {
 
             HorizontalPager(
                 state = pagerState,
-                beyondViewportPageCount = 1,
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 when (page) {

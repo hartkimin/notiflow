@@ -33,6 +33,7 @@ class AuthManager @Inject constructor(
         // 앱 시작 시 로그인 상태면 동기화 시작
         if (isLoggedIn) {
             syncManager.startListening()
+            syncManager.schedulePeriodicSync()
         }
     }
 
@@ -59,6 +60,7 @@ class AuthManager @Inject constructor(
                 Log.d(TAG, "Sign-in success: ${user.email}")
                 // 로그인 성공 시 동기화 시작
                 syncManager.startListening()
+                syncManager.schedulePeriodicSync()
                 Result.success(user)
             } else {
                 Result.failure(Exception("로그인 결과에서 사용자 정보를 찾을 수 없습니다"))
@@ -90,6 +92,7 @@ class AuthManager @Inject constructor(
                 Log.d(TAG, "Sign-up success: ${user.email}")
                 // 회원가입 성공 시 동기화 시작
                 syncManager.startListening()
+                syncManager.schedulePeriodicSync()
                 Result.success(user)
             } else {
                 Result.failure(Exception("회원가입 결과에서 사용자 정보를 찾을 수 없습니다"))

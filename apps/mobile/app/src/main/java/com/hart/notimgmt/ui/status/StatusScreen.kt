@@ -26,7 +26,6 @@ import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -56,23 +55,10 @@ fun StatusScreen(
     var editingStep by remember { mutableStateOf<StatusStepEntity?>(null) }
     var deletingStep by remember { mutableStateOf<StatusStepEntity?>(null) }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                containerColor = MaterialTheme.colorScheme.onSurface,
-                contentColor = MaterialTheme.colorScheme.surface,
-                elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "상태 단계 추가")
-            }
-        }
-    ) { innerPadding ->
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
                 .padding(16.dp)
         ) {
             if (steps.isEmpty()) {
@@ -100,16 +86,20 @@ fun StatusScreen(
                             isFirst = index == 0,
                             isLast = index == steps.lastIndex,
                             onMoveUp = {
-                                val reordered = steps.toMutableList()
-                                val item = reordered.removeAt(index)
-                                reordered.add(index - 1, item)
-                                viewModel.reorderSteps(reordered)
+                                val currentSteps = steps.toMutableList()
+                                if (index > 0 && index < currentSteps.size) {
+                                    val item = currentSteps.removeAt(index)
+                                    currentSteps.add(index - 1, item)
+                                    viewModel.reorderSteps(currentSteps)
+                                }
                             },
                             onMoveDown = {
-                                val reordered = steps.toMutableList()
-                                val item = reordered.removeAt(index)
-                                reordered.add(index + 1, item)
-                                viewModel.reorderSteps(reordered)
+                                val currentSteps = steps.toMutableList()
+                                if (index >= 0 && index < currentSteps.size - 1) {
+                                    val item = currentSteps.removeAt(index)
+                                    currentSteps.add(index + 1, item)
+                                    viewModel.reorderSteps(currentSteps)
+                                }
                             },
                             onEdit = { editingStep = step },
                             onDelete = { deletingStep = step }
@@ -117,6 +107,18 @@ fun StatusScreen(
                     }
                 }
             }
+        }
+
+        FloatingActionButton(
+            onClick = { showAddDialog = true },
+            containerColor = MaterialTheme.colorScheme.onSurface,
+            contentColor = MaterialTheme.colorScheme.surface,
+            elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "상태 단계 추가")
         }
     }
 

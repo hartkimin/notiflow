@@ -2,14 +2,18 @@ package com.hart.notimgmt.service.fcm
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.hart.notimgmt.MainActivity
 import com.hart.notimgmt.R
 import com.hart.notimgmt.data.preferences.AppPreferences
+import com.hart.notimgmt.data.sync.SyncManager
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -18,6 +22,9 @@ class NotiFlowFcmService : FirebaseMessagingService() {
 
     @Inject
     lateinit var appPreferences: AppPreferences
+
+    @Inject
+    lateinit var syncManager: SyncManager
 
     companion object {
         private const val TAG = "NotiFlowFcm"
@@ -34,6 +41,8 @@ class NotiFlowFcmService : FirebaseMessagingService() {
         super.onNewToken(token)
         Log.d(TAG, "FCM token refreshed")
         appPreferences.fcmToken = token
+        // 새 토큰을 Supabase에 즉시 등록
+        syncManager.refreshDeviceRegistration()
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
@@ -57,12 +66,23 @@ class NotiFlowFcmService : FirebaseMessagingService() {
         val notificationId = data["order_id"]?.toIntOrNull()
             ?: System.currentTimeMillis().toInt()
 
+        // 알림 클릭 시 앱 실행
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            data["order_id"]?.let { putExtra("order_id", it) }
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this, notificationId, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
             .setContentText(body)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
             .build()
 
         notificationManager.notify(notificationId, notification)

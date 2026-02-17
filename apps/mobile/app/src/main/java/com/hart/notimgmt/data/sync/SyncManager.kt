@@ -36,6 +36,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
+import com.hart.notimgmt.data.preferences.AppPreferences
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
@@ -100,7 +101,8 @@ class SyncManager @Inject constructor(
     private val dayCategoryDao: DayCategoryDao,
     private val auth: Auth,
     private val realtime: Realtime,
-    private val workManager: WorkManager
+    private val workManager: WorkManager,
+    private val appPreferences: AppPreferences
 ) {
     companion object {
         private const val TAG = "SyncManager"
@@ -158,6 +160,7 @@ class SyncManager @Inject constructor(
             device_model = "${Build.MANUFACTURER} ${Build.MODEL}",
             app_version = BuildConfig.VERSION_NAME,
             os_version = Build.VERSION.RELEASE,
+            fcm_token = appPreferences.fcmToken,
             last_sync_at = java.time.Instant.now().toString()
         )
         supabaseDataSource.upsertMobileDevice(dto)
@@ -307,6 +310,20 @@ class SyncManager @Inject constructor(
             addLog("❌ 동기화 실패: ${e.message}")
             _syncStatus.value = SyncStatus.ERROR
             _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.ERROR)
+        }
+    }
+
+    /**
+     * FCM 토큰 갱신 시 호출 — 기기 정보를 Supabase에 재등록
+     */
+    fun refreshDeviceRegistration() {
+        scope.launch {
+            try {
+                registerDevice()
+                Log.d(TAG, "Device re-registered with new FCM token")
+            } catch (e: Exception) {
+                Log.e(TAG, "FCM token re-registration failed: ${e.message}", e)
+            }
         }
     }
 

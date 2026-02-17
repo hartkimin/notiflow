@@ -317,6 +317,44 @@ class MessageViewModel @Inject constructor(
         }
     }
 
+    // ── 휴지통 (Trash) ──
+
+    val deletedMessages: StateFlow<List<CapturedMessageEntity>> =
+        messageRepository.getDeleted()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val deletedCount: StateFlow<Int> =
+        messageRepository.getDeletedCount()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    fun restoreMessage(messageId: String) {
+        viewModelScope.launch { messageRepository.restore(messageId) }
+    }
+
+    fun bulkRestore() {
+        val ids = _selectedIds.value.toList()
+        viewModelScope.launch {
+            messageRepository.restoreByIds(ids)
+            exitSelectionMode()
+        }
+    }
+
+    fun permanentDeleteMessage(messageId: String) {
+        viewModelScope.launch { messageRepository.permanentDeleteByIds(listOf(messageId)) }
+    }
+
+    fun bulkPermanentDelete() {
+        val ids = _selectedIds.value.toList()
+        viewModelScope.launch {
+            messageRepository.permanentDeleteByIds(ids)
+            exitSelectionMode()
+        }
+    }
+
+    fun emptyTrash() {
+        viewModelScope.launch { messageRepository.emptyTrash() }
+    }
+
     fun moveToNextStatus(message: CapturedMessageEntity) {
         viewModelScope.launch {
             val steps = allStatusSteps.value

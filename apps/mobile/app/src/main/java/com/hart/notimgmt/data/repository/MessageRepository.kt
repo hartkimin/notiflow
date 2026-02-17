@@ -152,4 +152,33 @@ class MessageRepository @Inject constructor(
     suspend fun softDeleteOlderThan(beforeTimestamp: Long) {
         messageDao.softDeleteOlderThan(beforeTimestamp)
     }
+
+    // ── 휴지통 (Trash) ──
+
+    fun getDeleted(): Flow<List<CapturedMessageEntity>> = messageDao.getDeleted()
+
+    fun getDeletedCount(): Flow<Int> = messageDao.getDeletedCount()
+
+    suspend fun restore(messageId: String) {
+        messageDao.restoreById(messageId)
+        messageDao.getById(messageId)?.let { syncManager.syncMessage(it) }
+    }
+
+    suspend fun restoreByIds(ids: List<String>) {
+        messageDao.restoreByIds(ids)
+        ids.forEach { id ->
+            messageDao.getById(id)?.let { syncManager.syncMessage(it) }
+        }
+    }
+
+    suspend fun permanentDeleteByIds(ids: List<String>) {
+        messageDao.permanentDeleteByIds(ids)
+    }
+
+    suspend fun emptyTrash() {
+        val deleted = messageDao.getDeletedOnce()
+        if (deleted.isNotEmpty()) {
+            messageDao.permanentDeleteByIds(deleted.map { it.id })
+        }
+    }
 }

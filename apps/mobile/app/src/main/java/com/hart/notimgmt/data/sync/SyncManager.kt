@@ -10,12 +10,15 @@ import com.hart.notimgmt.data.db.entity.*
 import com.hart.notimgmt.data.supabase.*
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.realtime.Realtime
 import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.postgresChangeFlow
@@ -26,12 +29,15 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -111,7 +117,7 @@ class SyncManager @Inject constructor(
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
     private var isListening = false
-    private var channelSubscribed = false
+    private val channelSubscribed = AtomicBoolean(false)
     private var lastDeviceUpdateMs = 0L
     private val DEVICE_UPDATE_THROTTLE_MS = 60_000L
 
@@ -158,7 +164,7 @@ class SyncManager @Inject constructor(
     }
 
     /**
-     * 수동 동기화 (강제)
+     * 수동 동기화 (강제 - 양방향)
      */
     fun forceSync() {
         val userId = auth.currentUserOrNull()?.id
@@ -175,12 +181,79 @@ class SyncManager @Inject constructor(
         scope.launch {
             try {
                 initialSync()
-                if (!channelSubscribed) {
+                if (!channelSubscribed.get()) {
                     subscribeToRealtimeChanges(userId)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Force sync failed", e)
                 addLog("❌ 동기화 실패: ${e.message}")
+                _syncStatus.value = SyncStatus.ERROR
+                _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.ERROR)
+            }
+        }
+    }
+
+    /**
+     * 업로드 전용 (로컬 → 원격)
+     */
+    fun forceUpload() {
+        val userId = auth.currentUserOrNull()?.id
+        if (userId == null) {
+            addLog("❌ 로그인이 필요합니다")
+            return
+        }
+        if (_syncStatus.value == SyncStatus.SYNCING) {
+            addLog("⚠️ 동기화가 이미 진행 중입니다")
+            return
+        }
+        scope.launch {
+            _syncStatus.value = SyncStatus.SYNCING
+            _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.SYNCING)
+            resetTableStatuses()
+            try {
+                addLog("업로드 시작...")
+                syncPush()
+                syncPendingMessages()
+                registerDeviceSilently()
+                _syncStatus.value = SyncStatus.IDLE
+                _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.IDLE)
+                addLog("✅ 업로드 완료!")
+            } catch (e: Exception) {
+                Log.e(TAG, "Upload sync failed", e)
+                addLog("❌ 업로드 실패: ${e.message}")
+                _syncStatus.value = SyncStatus.ERROR
+                _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.ERROR)
+            }
+        }
+    }
+
+    /**
+     * 복원 전용 (원격 → 로컬)
+     */
+    fun forceDownload() {
+        val userId = auth.currentUserOrNull()?.id
+        if (userId == null) {
+            addLog("❌ 로그인이 필요합니다")
+            return
+        }
+        if (_syncStatus.value == SyncStatus.SYNCING) {
+            addLog("⚠️ 동기화가 이미 진행 중입니다")
+            return
+        }
+        scope.launch {
+            _syncStatus.value = SyncStatus.SYNCING
+            _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.SYNCING)
+            resetTableStatuses()
+            try {
+                addLog("복원 시작...")
+                syncPull()
+                registerDeviceSilently()
+                _syncStatus.value = SyncStatus.IDLE
+                _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.IDLE)
+                addLog("✅ 복원 완료!")
+            } catch (e: Exception) {
+                Log.e(TAG, "Download sync failed", e)
+                addLog("❌ 복원 실패: ${e.message}")
                 _syncStatus.value = SyncStatus.ERROR
                 _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.ERROR)
             }
@@ -221,343 +294,10 @@ class SyncManager @Inject constructor(
         addLog("동기화 시작...")
 
         try {
-            // ========== Pull from Supabase (remote -> local) ==========
-
-            // Sync categories from remote
-            addLog("카테고리 가져오는 중...")
-            updateTableStatus("categories", TableSyncStatus.PULLING)
-            val remoteCategories = try {
-                supabaseDataSource.getCategories()
-            } catch (e: Exception) {
-                addLog("❌ 카테고리 가져오기 실패: ${e.message}")
-                updateTableStatus("categories", TableSyncStatus.ERROR, errorMessage = e.message)
-                emptyList()
-            }
-            var categoryPullCount = 0
-            remoteCategories.forEach { dto ->
-                val local = categoryDao.getById(dto.id)
-                if (local == null || dto.updated_at > local.updatedAt) {
-                    categoryDao.upsert(dto.toEntity())
-                    categoryPullCount++
-                }
-            }
-            addLog("✓ 카테고리 ${remoteCategories.size}개 확인, ${categoryPullCount}개 업데이트")
-
-            // Sync status steps from remote
-            addLog("상태 단계 가져오는 중...")
-            updateTableStatus("status_steps", TableSyncStatus.PULLING)
-            val remoteStatusSteps = try {
-                supabaseDataSource.getStatusSteps()
-            } catch (e: Exception) {
-                addLog("❌ 상태 단계 가져오기 실패: ${e.message}")
-                updateTableStatus("status_steps", TableSyncStatus.ERROR, errorMessage = e.message)
-                emptyList()
-            }
-            var stepPullCount = 0
-            remoteStatusSteps.forEach { dto ->
-                val local = statusStepDao.getById(dto.id)
-                if (local == null || dto.updated_at > local.updatedAt) {
-                    statusStepDao.upsert(dto.toEntity())
-                    stepPullCount++
-                }
-            }
-            addLog("✓ 상태 단계 ${remoteStatusSteps.size}개 확인, ${stepPullCount}개 업데이트")
-
-            // Sync filter rules from remote
-            addLog("필터 규칙 가져오는 중...")
-            updateTableStatus("filter_rules", TableSyncStatus.PULLING)
-            val remoteFilterRules = try {
-                supabaseDataSource.getFilterRules()
-            } catch (e: Exception) {
-                addLog("❌ 필터 규칙 가져오기 실패: ${e.message}")
-                updateTableStatus("filter_rules", TableSyncStatus.ERROR, errorMessage = e.message)
-                emptyList()
-            }
-            // Get valid category IDs for FK validation
-            val validCategoryIdsForRules = categoryDao.getAllOnce().map { it.id }.toSet()
-            var rulePullCount = 0
-            var ruleSkipCount = 0
-            remoteFilterRules.forEach { dto ->
-                // Skip if category doesn't exist locally (FK constraint)
-                if (dto.category_id !in validCategoryIdsForRules) {
-                    ruleSkipCount++
-                    return@forEach
-                }
-                val local = filterRuleDao.getById(dto.id)
-                if (local == null || dto.updated_at > local.updatedAt) {
-                    filterRuleDao.upsert(dto.toEntity())
-                    rulePullCount++
-                }
-            }
-            if (ruleSkipCount > 0) {
-                addLog("⚠️ 필터 규칙 ${ruleSkipCount}개 건너뜀 (카테고리 없음)")
-            }
-            addLog("✓ 필터 규칙 ${remoteFilterRules.size}개 확인, ${rulePullCount}개 업데이트")
-
-            // Sync messages from remote
-            addLog("메시지 가져오는 중...")
-            updateTableStatus("captured_messages", TableSyncStatus.PULLING)
-            val remoteMessages = try {
-                supabaseDataSource.getMessages()
-            } catch (e: Exception) {
-                addLog("❌ 메시지 가져오기 실패: ${e.message}")
-                updateTableStatus("captured_messages", TableSyncStatus.ERROR, errorMessage = e.message)
-                emptyList()
-            }
-            // Collect valid foreign key IDs to avoid FK constraint errors
-            val validCategoryIds = categoryDao.getAllOnce().map { it.id }.toSet()
-            val validStatusIds = statusStepDao.getAllOnce().map { it.id }.toSet()
-            val validRuleIds = filterRuleDao.getAllOnce().map { it.id }.toSet()
-
-            var messagePullCount = 0
-            remoteMessages.forEach { dto ->
-                val local = capturedMessageDao.getById(dto.id)
-                if (local == null || dto.updated_at > local.updatedAt) {
-                    // Validate foreign keys - set to null if referenced entity doesn't exist
-                    val entity = dto.toEntity().copy(
-                        categoryId = if (dto.category_id in validCategoryIds) dto.category_id else null,
-                        statusId = if (dto.status_id in validStatusIds) dto.status_id else null,
-                        matchedRuleId = if (dto.matched_rule_id in validRuleIds) dto.matched_rule_id else null
-                    )
-                    capturedMessageDao.upsert(entity)
-                    messagePullCount++
-                }
-            }
-            addLog("✓ 메시지 ${remoteMessages.size}개 확인, ${messagePullCount}개 업데이트")
-
-            // Sync app filters from remote
-            addLog("앱 필터 가져오는 중...")
-            updateTableStatus("app_filters", TableSyncStatus.PULLING)
-            val remoteAppFilters = try {
-                supabaseDataSource.getAppFilters()
-            } catch (e: Exception) {
-                addLog("❌ 앱 필터 가져오기 실패: ${e.message}")
-                updateTableStatus("app_filters", TableSyncStatus.ERROR, errorMessage = e.message)
-                emptyList()
-            }
-            var appFilterPullCount = 0
-            remoteAppFilters.forEach { dto ->
-                val local = appFilterDao.getByPackageName(dto.package_name)
-                if (local == null || dto.updated_at > local.updatedAt) {
-                    appFilterDao.upsert(dto.toEntity())
-                    appFilterPullCount++
-                }
-            }
-            addLog("✓ 앱 필터 ${remoteAppFilters.size}개 확인, ${appFilterPullCount}개 업데이트")
-
-            // ========== Push to Supabase (local -> remote) ==========
-            addLog("로컬 데이터 업로드 중...")
-
-            // Push local categories that are missing or newer than remote
-            updateTableStatus("categories", TableSyncStatus.PUSHING, pulledCount = categoryPullCount)
-            val remoteCategoryMap = remoteCategories.associateBy { it.id }
-            var categoryPushCount = 0
-            var categoryPushError: String? = null
-            categoryDao.getAllOnce().forEach { local ->
-                val remote = remoteCategoryMap[local.id]
-                if (remote == null || local.updatedAt > remote.updated_at) {
-                    try {
-                        supabaseDataSource.upsertCategory(local)
-                        categoryPushCount++
-                        addLog("↑ 카테고리 업로드: ${local.name}")
-                    } catch (e: Exception) {
-                        addLog("❌ 카테고리 업로드 실패 (${local.name}): ${e.message}")
-                        categoryPushError = e.message
-                    }
-                }
-            }
-            updateTableStatus("categories", if (categoryPushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
-                pulledCount = categoryPullCount, pushedCount = categoryPushCount, errorMessage = categoryPushError)
-
-            // Push local status steps that are missing or newer than remote
-            updateTableStatus("status_steps", TableSyncStatus.PUSHING, pulledCount = stepPullCount)
-            val remoteStepMap = remoteStatusSteps.associateBy { it.id }
-            var stepPushCount = 0
-            var stepPushError: String? = null
-            statusStepDao.getAllOnce().forEach { local ->
-                val remote = remoteStepMap[local.id]
-                if (remote == null || local.updatedAt > remote.updated_at) {
-                    try {
-                        supabaseDataSource.upsertStatusStep(local)
-                        stepPushCount++
-                        addLog("↑ 상태 단계 업로드: ${local.name}")
-                    } catch (e: Exception) {
-                        addLog("❌ 상태 단계 업로드 실패 (${local.name}): ${e.message}")
-                        stepPushError = e.message
-                    }
-                }
-            }
-            updateTableStatus("status_steps", if (stepPushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
-                pulledCount = stepPullCount, pushedCount = stepPushCount, errorMessage = stepPushError)
-
-            // Push local filter rules that are missing or newer than remote
-            updateTableStatus("filter_rules", TableSyncStatus.PUSHING, pulledCount = rulePullCount)
-            val remoteRuleMap = remoteFilterRules.associateBy { it.id }
-            var rulePushCount = 0
-            var rulePushError: String? = null
-            filterRuleDao.getAllOnce().forEach { local ->
-                val remote = remoteRuleMap[local.id]
-                if (remote == null || local.updatedAt > remote.updated_at) {
-                    try {
-                        supabaseDataSource.upsertFilterRule(local)
-                        rulePushCount++
-                        addLog("↑ 필터 규칙 업로드")
-                    } catch (e: Exception) {
-                        addLog("❌ 필터 규칙 업로드 실패: ${e.message}")
-                        rulePushError = e.message
-                    }
-                }
-            }
-            updateTableStatus("filter_rules", if (rulePushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
-                pulledCount = rulePullCount, pushedCount = rulePushCount, errorMessage = rulePushError)
-
-            // Push local messages that are missing or newer than remote
-            updateTableStatus("captured_messages", TableSyncStatus.PUSHING, pulledCount = messagePullCount)
-            val remoteMessageMap = remoteMessages.associateBy { it.id }
-            var messagePushCount = 0
-            var messagePushError: String? = null
-            capturedMessageDao.getAllOnce().forEach { local ->
-                val remote = remoteMessageMap[local.id]
-                if (remote == null || local.updatedAt > remote.updated_at) {
-                    try {
-                        supabaseDataSource.upsertMessage(local)
-                        messagePushCount++
-                    } catch (e: Exception) {
-                        addLog("❌ 메시지 업로드 실패: ${e.message}")
-                        messagePushError = e.message
-                    }
-                }
-            }
-            if (messagePushCount > 0) addLog("↑ 메시지 ${messagePushCount}개 업로드")
-            updateTableStatus("captured_messages", if (messagePushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
-                pulledCount = messagePullCount, pushedCount = messagePushCount, errorMessage = messagePushError)
-
-            // Push local app filters that are missing or newer than remote
-            updateTableStatus("app_filters", TableSyncStatus.PUSHING, pulledCount = appFilterPullCount)
-            val remoteAppFilterMap = remoteAppFilters.associateBy { it.package_name }
-            var appFilterPushCount = 0
-            var appFilterPushError: String? = null
-            appFilterDao.getAllOnce().forEach { local ->
-                val remote = remoteAppFilterMap[local.packageName]
-                if (remote == null || local.updatedAt > remote.updated_at) {
-                    try {
-                        supabaseDataSource.upsertAppFilter(local)
-                        appFilterPushCount++
-                        addLog("↑ 앱 필터 업로드: ${local.appName}")
-                    } catch (e: Exception) {
-                        addLog("❌ 앱 필터 업로드 실패 (${local.appName}): ${e.message}")
-                        appFilterPushError = e.message
-                    }
-                }
-            }
-            updateTableStatus("app_filters", if (appFilterPushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
-                pulledCount = appFilterPullCount, pushedCount = appFilterPushCount, errorMessage = appFilterPushError)
-
-            // Sync plans from remote
-            addLog("플랜 가져오는 중...")
-            updateTableStatus("plans", TableSyncStatus.PULLING)
-            val remotePlans = try {
-                supabaseDataSource.getPlans()
-            } catch (e: Exception) {
-                addLog("❌ 플랜 가져오기 실패: ${e.message}")
-                updateTableStatus("plans", TableSyncStatus.ERROR, errorMessage = e.message)
-                emptyList()
-            }
-            val validCategoryIdsForPlans = categoryDao.getAllOnce().map { it.id }.toSet()
-            var planPullCount = 0
-            remotePlans.forEach { dto ->
-                val local = planDao.getById(dto.id)
-                if (local == null || dto.updated_at > local.updatedAt) {
-                    val entity = dto.toEntity().copy(
-                        categoryId = if (dto.category_id in validCategoryIdsForPlans) dto.category_id else null
-                    )
-                    planDao.upsert(entity)
-                    planPullCount++
-                }
-            }
-            addLog("✓ 플랜 ${remotePlans.size}개 확인, ${planPullCount}개 업데이트")
-
-            // Push local plans that are missing or newer than remote
-            updateTableStatus("plans", TableSyncStatus.PUSHING, pulledCount = planPullCount)
-            val remotePlanMap = remotePlans.associateBy { it.id }
-            var planPushCount = 0
-            var planPushError: String? = null
-            planDao.getAllOnce().forEach { local ->
-                val remote = remotePlanMap[local.id]
-                if (remote == null || local.updatedAt > remote.updated_at) {
-                    try {
-                        supabaseDataSource.upsertPlan(local)
-                        planPushCount++
-                    } catch (e: Exception) {
-                        addLog("❌ 플랜 업로드 실패: ${e.message}")
-                        planPushError = e.message
-                    }
-                }
-            }
-            if (planPushCount > 0) addLog("↑ 플랜 ${planPushCount}개 업로드")
-            updateTableStatus("plans", if (planPushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
-                pulledCount = planPullCount, pushedCount = planPushCount, errorMessage = planPushError)
-
-            // Sync day categories from remote
-            addLog("일별 카테고리 가져오는 중...")
-            updateTableStatus("day_categories", TableSyncStatus.PULLING)
-            val remoteDayCategories = try {
-                supabaseDataSource.getDayCategories()
-            } catch (e: Exception) {
-                addLog("❌ 일별 카테고리 가져오기 실패: ${e.message}")
-                updateTableStatus("day_categories", TableSyncStatus.ERROR, errorMessage = e.message)
-                emptyList()
-            }
-            val validCategoryIdsForDayCats = categoryDao.getAllOnce().map { it.id }.toSet()
-            var dayCategoryPullCount = 0
-            var dayCategorySkipCount = 0
-            remoteDayCategories.forEach { dto ->
-                if (dto.category_id !in validCategoryIdsForDayCats) {
-                    dayCategorySkipCount++
-                    return@forEach
-                }
-                val local = dayCategoryDao.getById(dto.id)
-                if (local == null || dto.updated_at > local.updatedAt) {
-                    dayCategoryDao.upsert(dto.toEntity())
-                    dayCategoryPullCount++
-                }
-            }
-            if (dayCategorySkipCount > 0) {
-                addLog("⚠️ 일별 카테고리 ${dayCategorySkipCount}개 건너뜀 (카테고리 없음)")
-            }
-            addLog("✓ 일별 카테고리 ${remoteDayCategories.size}개 확인, ${dayCategoryPullCount}개 업데이트")
-
-            // Push local day categories that are missing or newer than remote
-            updateTableStatus("day_categories", TableSyncStatus.PUSHING, pulledCount = dayCategoryPullCount)
-            val remoteDayCategoryMap = remoteDayCategories.associateBy { it.id }
-            var dayCategoryPushCount = 0
-            var dayCategoryPushError: String? = null
-            dayCategoryDao.getAllOnce().forEach { local ->
-                val remote = remoteDayCategoryMap[local.id]
-                if (remote == null || local.updatedAt > remote.updated_at) {
-                    try {
-                        supabaseDataSource.upsertDayCategory(local)
-                        dayCategoryPushCount++
-                    } catch (e: Exception) {
-                        addLog("❌ 일별 카테고리 업로드 실패: ${e.message}")
-                        dayCategoryPushError = e.message
-                    }
-                }
-            }
-            if (dayCategoryPushCount > 0) addLog("↑ 일별 카테고리 ${dayCategoryPushCount}개 업로드")
-            updateTableStatus("day_categories", if (dayCategoryPushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
-                pulledCount = dayCategoryPullCount, pushedCount = dayCategoryPushCount, errorMessage = dayCategoryPushError)
-
-            // ========== Retry pending sync messages ==========
+            syncPull()
+            syncPush()
             syncPendingMessages()
-
-            // ========== Register device info ==========
-            try {
-                registerDevice()
-                addLog("✓ 기기 정보 등록 완료")
-            } catch (e: Exception) {
-                Log.e(TAG, "Device registration failed (non-blocking): ${e.message}", e)
-            }
+            registerDeviceSilently()
 
             _syncStatus.value = SyncStatus.IDLE
             _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.IDLE)
@@ -570,8 +310,362 @@ class SyncManager @Inject constructor(
         }
     }
 
+    private fun registerDeviceSilently() {
+        scope.launch {
+            try {
+                registerDevice()
+                addLog("✓ 기기 정보 등록 완료")
+            } catch (e: Exception) {
+                Log.e(TAG, "Device registration failed (non-blocking): ${e.message}", e)
+            }
+        }
+    }
+
+    /**
+     * Pull: 원격 → 로컬 (모든 테이블)
+     */
+    private suspend fun syncPull() {
+        // ── 카테고리 ──
+        addLog("카테고리 가져오는 중...")
+        updateTableStatus("categories", TableSyncStatus.PULLING)
+        val remoteCategories = try {
+            supabaseDataSource.getCategories()
+        } catch (e: Exception) {
+            addLog("❌ 카테고리 가져오기 실패: ${e.message}")
+            updateTableStatus("categories", TableSyncStatus.ERROR, errorMessage = e.message)
+            emptyList()
+        }
+        var categoryPullCount = 0
+        remoteCategories.forEach { dto ->
+            val local = categoryDao.getById(dto.id)
+            if (local == null || dto.updated_at > local.updatedAt) {
+                categoryDao.upsert(dto.toEntity())
+                categoryPullCount++
+            }
+        }
+        addLog("✓ 카테고리 ${remoteCategories.size}개 확인, ${categoryPullCount}개 업데이트")
+        updateTableStatus("categories", TableSyncStatus.COMPLETED, pulledCount = categoryPullCount)
+
+        // ── 상태 단계 ──
+        addLog("상태 단계 가져오는 중...")
+        updateTableStatus("status_steps", TableSyncStatus.PULLING)
+        val remoteStatusSteps = try {
+            supabaseDataSource.getStatusSteps()
+        } catch (e: Exception) {
+            addLog("❌ 상태 단계 가져오기 실패: ${e.message}")
+            updateTableStatus("status_steps", TableSyncStatus.ERROR, errorMessage = e.message)
+            emptyList()
+        }
+        var stepPullCount = 0
+        remoteStatusSteps.forEach { dto ->
+            val local = statusStepDao.getById(dto.id)
+            if (local == null || dto.updated_at > local.updatedAt) {
+                statusStepDao.upsert(dto.toEntity())
+                stepPullCount++
+            }
+        }
+        addLog("✓ 상태 단계 ${remoteStatusSteps.size}개 확인, ${stepPullCount}개 업데이트")
+        updateTableStatus("status_steps", TableSyncStatus.COMPLETED, pulledCount = stepPullCount)
+
+        // ── 필터 규칙 ──
+        addLog("필터 규칙 가져오는 중...")
+        updateTableStatus("filter_rules", TableSyncStatus.PULLING)
+        val remoteFilterRules = try {
+            supabaseDataSource.getFilterRules()
+        } catch (e: Exception) {
+            addLog("❌ 필터 규칙 가져오기 실패: ${e.message}")
+            updateTableStatus("filter_rules", TableSyncStatus.ERROR, errorMessage = e.message)
+            emptyList()
+        }
+        val validCategoryIdsForRules = categoryDao.getAllOnce().map { it.id }.toSet()
+        var rulePullCount = 0
+        var ruleSkipCount = 0
+        remoteFilterRules.forEach { dto ->
+            if (dto.category_id !in validCategoryIdsForRules) {
+                ruleSkipCount++
+                return@forEach
+            }
+            val local = filterRuleDao.getById(dto.id)
+            if (local == null || dto.updated_at > local.updatedAt) {
+                filterRuleDao.upsert(dto.toEntity())
+                rulePullCount++
+            }
+        }
+        if (ruleSkipCount > 0) {
+            addLog("⚠️ 필터 규칙 ${ruleSkipCount}개 건너뜀 (카테고리 없음)")
+        }
+        addLog("✓ 필터 규칙 ${remoteFilterRules.size}개 확인, ${rulePullCount}개 업데이트")
+        updateTableStatus("filter_rules", TableSyncStatus.COMPLETED, pulledCount = rulePullCount)
+
+        // ── 메시지 ──
+        addLog("메시지 가져오는 중...")
+        updateTableStatus("captured_messages", TableSyncStatus.PULLING)
+        val remoteMessages = try {
+            supabaseDataSource.getMessages()
+        } catch (e: Exception) {
+            addLog("❌ 메시지 가져오기 실패: ${e.message}")
+            updateTableStatus("captured_messages", TableSyncStatus.ERROR, errorMessage = e.message)
+            emptyList()
+        }
+        val validCategoryIds = categoryDao.getAllOnce().map { it.id }.toSet()
+        val validStatusIds = statusStepDao.getAllOnce().map { it.id }.toSet()
+        val validRuleIds = filterRuleDao.getAllOnce().map { it.id }.toSet()
+        var messagePullCount = 0
+        remoteMessages.forEach { dto ->
+            val local = capturedMessageDao.getById(dto.id)
+            if (local == null || dto.updated_at > local.updatedAt) {
+                val entity = dto.toEntity().copy(
+                    categoryId = if (dto.category_id in validCategoryIds) dto.category_id else null,
+                    statusId = if (dto.status_id in validStatusIds) dto.status_id else null,
+                    matchedRuleId = if (dto.matched_rule_id in validRuleIds) dto.matched_rule_id else null
+                )
+                capturedMessageDao.upsert(entity)
+                messagePullCount++
+            }
+        }
+        addLog("✓ 메시지 ${remoteMessages.size}개 확인, ${messagePullCount}개 업데이트")
+        updateTableStatus("captured_messages", TableSyncStatus.COMPLETED, pulledCount = messagePullCount)
+
+        // ── 앱 필터 ──
+        addLog("앱 필터 가져오는 중...")
+        updateTableStatus("app_filters", TableSyncStatus.PULLING)
+        val remoteAppFilters = try {
+            supabaseDataSource.getAppFilters()
+        } catch (e: Exception) {
+            addLog("❌ 앱 필터 가져오기 실패: ${e.message}")
+            updateTableStatus("app_filters", TableSyncStatus.ERROR, errorMessage = e.message)
+            emptyList()
+        }
+        var appFilterPullCount = 0
+        remoteAppFilters.forEach { dto ->
+            val local = appFilterDao.getByPackageName(dto.package_name)
+            if (local == null || dto.updated_at > local.updatedAt) {
+                appFilterDao.upsert(dto.toEntity())
+                appFilterPullCount++
+            }
+        }
+        addLog("✓ 앱 필터 ${remoteAppFilters.size}개 확인, ${appFilterPullCount}개 업데이트")
+        updateTableStatus("app_filters", TableSyncStatus.COMPLETED, pulledCount = appFilterPullCount)
+
+        // ── 플랜 ──
+        addLog("플랜 가져오는 중...")
+        updateTableStatus("plans", TableSyncStatus.PULLING)
+        val remotePlans = try {
+            supabaseDataSource.getPlans()
+        } catch (e: Exception) {
+            addLog("❌ 플랜 가져오기 실패: ${e.message}")
+            updateTableStatus("plans", TableSyncStatus.ERROR, errorMessage = e.message)
+            emptyList()
+        }
+        val validCategoryIdsForPlans = categoryDao.getAllOnce().map { it.id }.toSet()
+        var planPullCount = 0
+        remotePlans.forEach { dto ->
+            val local = planDao.getById(dto.id)
+            if (local == null || dto.updated_at > local.updatedAt) {
+                val entity = dto.toEntity().copy(
+                    categoryId = if (dto.category_id in validCategoryIdsForPlans) dto.category_id else null
+                )
+                planDao.upsert(entity)
+                planPullCount++
+            }
+        }
+        addLog("✓ 플랜 ${remotePlans.size}개 확인, ${planPullCount}개 업데이트")
+        updateTableStatus("plans", TableSyncStatus.COMPLETED, pulledCount = planPullCount)
+
+        // ── 일별 카테고리 ──
+        addLog("일별 카테고리 가져오는 중...")
+        updateTableStatus("day_categories", TableSyncStatus.PULLING)
+        val remoteDayCategories = try {
+            supabaseDataSource.getDayCategories()
+        } catch (e: Exception) {
+            addLog("❌ 일별 카테고리 가져오기 실패: ${e.message}")
+            updateTableStatus("day_categories", TableSyncStatus.ERROR, errorMessage = e.message)
+            emptyList()
+        }
+        val validCategoryIdsForDayCats = categoryDao.getAllOnce().map { it.id }.toSet()
+        var dayCategoryPullCount = 0
+        var dayCategorySkipCount = 0
+        remoteDayCategories.forEach { dto ->
+            if (dto.category_id !in validCategoryIdsForDayCats) {
+                dayCategorySkipCount++
+                return@forEach
+            }
+            val local = dayCategoryDao.getById(dto.id)
+            if (local == null || dto.updated_at > local.updatedAt) {
+                dayCategoryDao.upsert(dto.toEntity())
+                dayCategoryPullCount++
+            }
+        }
+        if (dayCategorySkipCount > 0) {
+            addLog("⚠️ 일별 카테고리 ${dayCategorySkipCount}개 건너뜀 (카테고리 없음)")
+        }
+        addLog("✓ 일별 카테고리 ${remoteDayCategories.size}개 확인, ${dayCategoryPullCount}개 업데이트")
+        updateTableStatus("day_categories", TableSyncStatus.COMPLETED, pulledCount = dayCategoryPullCount)
+    }
+
+    /**
+     * Push: 로컬 → 원격 (모든 테이블, 비교 후 newer만 업로드)
+     */
+    private suspend fun syncPush() {
+        addLog("로컬 데이터 업로드 중...")
+
+        // ── 카테고리 ──
+        updateTableStatus("categories", TableSyncStatus.PUSHING)
+        val remoteCategories = try { supabaseDataSource.getCategories() } catch (_: Exception) { emptyList() }
+        val remoteCategoryMap = remoteCategories.associateBy { it.id }
+        var categoryPushCount = 0
+        var categoryPushError: String? = null
+        categoryDao.getAllOnce().forEach { local ->
+            val remote = remoteCategoryMap[local.id]
+            if (remote == null || local.updatedAt > remote.updated_at) {
+                try {
+                    supabaseDataSource.upsertCategory(local)
+                    categoryPushCount++
+                    addLog("↑ 카테고리 업로드: ${local.name}")
+                } catch (e: Exception) {
+                    addLog("❌ 카테고리 업로드 실패 (${local.name}): ${e.message}")
+                    categoryPushError = e.message
+                }
+            }
+        }
+        updateTableStatus("categories", if (categoryPushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
+            pushedCount = categoryPushCount, errorMessage = categoryPushError)
+
+        // ── 상태 단계 ──
+        updateTableStatus("status_steps", TableSyncStatus.PUSHING)
+        val remoteStatusSteps = try { supabaseDataSource.getStatusSteps() } catch (_: Exception) { emptyList() }
+        val remoteStepMap = remoteStatusSteps.associateBy { it.id }
+        var stepPushCount = 0
+        var stepPushError: String? = null
+        statusStepDao.getAllOnce().forEach { local ->
+            val remote = remoteStepMap[local.id]
+            if (remote == null || local.updatedAt > remote.updated_at) {
+                try {
+                    supabaseDataSource.upsertStatusStep(local)
+                    stepPushCount++
+                    addLog("↑ 상태 단계 업로드: ${local.name}")
+                } catch (e: Exception) {
+                    addLog("❌ 상태 단계 업로드 실패 (${local.name}): ${e.message}")
+                    stepPushError = e.message
+                }
+            }
+        }
+        updateTableStatus("status_steps", if (stepPushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
+            pushedCount = stepPushCount, errorMessage = stepPushError)
+
+        // ── 필터 규칙 ──
+        updateTableStatus("filter_rules", TableSyncStatus.PUSHING)
+        val remoteFilterRules = try { supabaseDataSource.getFilterRules() } catch (_: Exception) { emptyList() }
+        val remoteRuleMap = remoteFilterRules.associateBy { it.id }
+        var rulePushCount = 0
+        var rulePushError: String? = null
+        filterRuleDao.getAllOnce().forEach { local ->
+            val remote = remoteRuleMap[local.id]
+            if (remote == null || local.updatedAt > remote.updated_at) {
+                try {
+                    supabaseDataSource.upsertFilterRule(local)
+                    rulePushCount++
+                    addLog("↑ 필터 규칙 업로드")
+                } catch (e: Exception) {
+                    addLog("❌ 필터 규칙 업로드 실패: ${e.message}")
+                    rulePushError = e.message
+                }
+            }
+        }
+        updateTableStatus("filter_rules", if (rulePushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
+            pushedCount = rulePushCount, errorMessage = rulePushError)
+
+        // ── 메시지 ──
+        updateTableStatus("captured_messages", TableSyncStatus.PUSHING)
+        val remoteMessages = try { supabaseDataSource.getMessages() } catch (_: Exception) { emptyList() }
+        val remoteMessageMap = remoteMessages.associateBy { it.id }
+        var messagePushCount = 0
+        var messagePushError: String? = null
+        capturedMessageDao.getAllActiveOnce().forEach { local ->
+            val remote = remoteMessageMap[local.id]
+            if (remote == null || local.updatedAt > remote.updated_at) {
+                try {
+                    supabaseDataSource.upsertMessage(local)
+                    messagePushCount++
+                } catch (e: Exception) {
+                    addLog("❌ 메시지 업로드 실패: ${e.message}")
+                    messagePushError = e.message
+                }
+            }
+        }
+        if (messagePushCount > 0) addLog("↑ 메시지 ${messagePushCount}개 업로드")
+        updateTableStatus("captured_messages", if (messagePushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
+            pushedCount = messagePushCount, errorMessage = messagePushError)
+
+        // ── 앱 필터 ──
+        updateTableStatus("app_filters", TableSyncStatus.PUSHING)
+        val remoteAppFilters = try { supabaseDataSource.getAppFilters() } catch (_: Exception) { emptyList() }
+        val remoteAppFilterMap = remoteAppFilters.associateBy { it.package_name }
+        var appFilterPushCount = 0
+        var appFilterPushError: String? = null
+        appFilterDao.getAllOnce().forEach { local ->
+            val remote = remoteAppFilterMap[local.packageName]
+            if (remote == null || local.updatedAt > remote.updated_at) {
+                try {
+                    supabaseDataSource.upsertAppFilter(local)
+                    appFilterPushCount++
+                    addLog("↑ 앱 필터 업로드: ${local.appName}")
+                } catch (e: Exception) {
+                    addLog("❌ 앱 필터 업로드 실패 (${local.appName}): ${e.message}")
+                    appFilterPushError = e.message
+                }
+            }
+        }
+        updateTableStatus("app_filters", if (appFilterPushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
+            pushedCount = appFilterPushCount, errorMessage = appFilterPushError)
+
+        // ── 플랜 ──
+        updateTableStatus("plans", TableSyncStatus.PUSHING)
+        val remotePlans = try { supabaseDataSource.getPlans() } catch (_: Exception) { emptyList() }
+        val remotePlanMap = remotePlans.associateBy { it.id }
+        var planPushCount = 0
+        var planPushError: String? = null
+        planDao.getAllOnce().forEach { local ->
+            val remote = remotePlanMap[local.id]
+            if (remote == null || local.updatedAt > remote.updated_at) {
+                try {
+                    supabaseDataSource.upsertPlan(local)
+                    planPushCount++
+                } catch (e: Exception) {
+                    addLog("❌ 플랜 업로드 실패: ${e.message}")
+                    planPushError = e.message
+                }
+            }
+        }
+        if (planPushCount > 0) addLog("↑ 플랜 ${planPushCount}개 업로드")
+        updateTableStatus("plans", if (planPushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
+            pushedCount = planPushCount, errorMessage = planPushError)
+
+        // ── 일별 카테고리 ──
+        updateTableStatus("day_categories", TableSyncStatus.PUSHING)
+        val remoteDayCategories = try { supabaseDataSource.getDayCategories() } catch (_: Exception) { emptyList() }
+        val remoteDayCategoryMap = remoteDayCategories.associateBy { it.id }
+        var dayCategoryPushCount = 0
+        var dayCategoryPushError: String? = null
+        dayCategoryDao.getAllOnce().forEach { local ->
+            val remote = remoteDayCategoryMap[local.id]
+            if (remote == null || local.updatedAt > remote.updated_at) {
+                try {
+                    supabaseDataSource.upsertDayCategory(local)
+                    dayCategoryPushCount++
+                } catch (e: Exception) {
+                    addLog("❌ 일별 카테고리 업로드 실패: ${e.message}")
+                    dayCategoryPushError = e.message
+                }
+            }
+        }
+        if (dayCategoryPushCount > 0) addLog("↑ 일별 카테고리 ${dayCategoryPushCount}개 업로드")
+        updateTableStatus("day_categories", if (dayCategoryPushError != null) TableSyncStatus.ERROR else TableSyncStatus.COMPLETED,
+            pushedCount = dayCategoryPushCount, errorMessage = dayCategoryPushError)
+    }
+
     private suspend fun subscribeToRealtimeChanges(userId: String) {
-        if (channelSubscribed) return
+        if (!channelSubscribed.compareAndSet(false, true)) return
 
         try {
             val channel = realtime.channel("db-changes")
@@ -633,9 +727,9 @@ class SyncManager @Inject constructor(
             }.launchIn(scope)
 
             channel.subscribe()
-            channelSubscribed = true
             Log.d(TAG, "Subscribed to realtime changes")
         } catch (e: Exception) {
+            channelSubscribed.set(false)
             Log.e(TAG, "Failed to subscribe to realtime changes", e)
         }
     }
@@ -645,7 +739,7 @@ class SyncManager @Inject constructor(
      */
     fun stopListening() {
         isListening = false
-        channelSubscribed = false
+        channelSubscribed.set(false)
         scope.launch {
             try {
                 realtime.removeAllChannels()
@@ -660,10 +754,27 @@ class SyncManager @Inject constructor(
 
     private fun isUserLoggedIn(): Boolean = auth.currentUserOrNull() != null
 
+    /**
+     * 세션이 디스크에서 로딩 완료될 때까지 최대 5초 대기 후 로그인 여부 반환.
+     * Auth 플러그인은 앱 프로세스 시작 시 세션을 비동기로 복원하므로,
+     * 복원 완료 전에 currentUserOrNull()을 호출하면 false negative가 발생한다.
+     */
+    private suspend fun awaitUserLoggedIn(): Boolean {
+        if (isUserLoggedIn()) return true
+        // 세션이 아직 로딩 중일 수 있으므로 대기
+        val status = withTimeoutOrNull(5_000L) {
+            auth.sessionStatus.first { it !is SessionStatus.Initializing }
+        }
+        return when (status) {
+            is SessionStatus.Authenticated -> true
+            else -> false
+        }
+    }
+
     suspend fun syncMessage(message: CapturedMessageEntity) {
         capturedMessageDao.markNeedsSync(message.id)
 
-        if (!isUserLoggedIn()) {
+        if (!awaitUserLoggedIn()) {
             Log.w(TAG, "Message sync deferred (not logged in): ${message.id}")
             scheduleSyncRetry()
             return
@@ -795,10 +906,33 @@ class SyncManager @Inject constructor(
 
         workManager.enqueueUniqueWork(
             SyncRetryWorker.WORK_NAME,
-            ExistingWorkPolicy.KEEP,
+            ExistingWorkPolicy.REPLACE,
             request
         )
         Log.d(TAG, "Sync retry worker scheduled")
+    }
+
+    /**
+     * 주기적 동기화 워커 등록 (15분 간격).
+     * needsSync=true 메시지를 주기적으로 sweep하여 동기화 누락을 방지한다.
+     */
+    fun schedulePeriodicSync() {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val request = PeriodicWorkRequestBuilder<SyncRetryWorker>(
+            15, TimeUnit.MINUTES
+        )
+            .setConstraints(constraints)
+            .build()
+
+        workManager.enqueueUniquePeriodicWork(
+            "periodic_sync",
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
+        Log.d(TAG, "Periodic sync worker scheduled (every 15 min)")
     }
 
     private suspend fun updateHeartbeatThrottled() {

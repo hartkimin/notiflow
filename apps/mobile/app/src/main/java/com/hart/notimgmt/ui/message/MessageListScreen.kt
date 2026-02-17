@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Notifications
@@ -96,6 +97,7 @@ import com.hart.notimgmt.ui.components.PermissionBanner
 import com.hart.notimgmt.data.model.SortOrder
 import com.hart.notimgmt.ui.components.ConfirmDialog
 import com.hart.notimgmt.ui.navigation.LocalSnackbarHostState
+import com.hart.notimgmt.ui.navigation.Routes
 import com.hart.notimgmt.ui.theme.DEFAULT_CATEGORY_COLOR
 import com.hart.notimgmt.viewmodel.CalendarViewModel
 import com.hart.notimgmt.viewmodel.MessageViewModel
@@ -132,6 +134,7 @@ fun MessageListScreen(
     val selectedIds by viewModel.selectedIds.collectAsState()
     val selectedCategoryIds by viewModel.selectedCategoryIds.collectAsState()
     val showCategoryFilter by viewModel.showCategoryFilter.collectAsState()
+    val deletedCount by viewModel.deletedCount.collectAsState()
     val snackbarHostState = LocalSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -354,6 +357,33 @@ fun MessageListScreen(
                                         showSortMenu = false
                                     }
                                 )
+                            }
+                        }
+                    }
+                    IconButton(onClick = { navController.navigate(Routes.TRASH) }) {
+                        Box {
+                            Icon(
+                                Icons.Default.DeleteOutline,
+                                contentDescription = "휴지통",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (deletedCount > 0) {
+                                Surface(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .size(16.dp),
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.error
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = if (deletedCount > 99) "99+" else "$deletedCount",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onError,
+                                            fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.8f
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

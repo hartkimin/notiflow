@@ -49,6 +49,7 @@ import com.hart.notimgmt.ui.onboarding.OnboardingScreen
 import com.hart.notimgmt.ui.chat.AiChatScreen
 import com.hart.notimgmt.ui.settings.SettingsScreen
 import com.hart.notimgmt.ui.splash.SplashScreen
+import com.hart.notimgmt.ui.trash.TrashScreen
 import com.hart.notimgmt.ui.theme.TwsTheme
 
 val LocalSnackbarHostState = compositionLocalOf<SnackbarHostState> {
@@ -130,10 +131,11 @@ fun MainScreen(onLogout: () -> Unit = {}) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val isDetailScreen = currentDestination?.route?.startsWith("message_detail") == true
+    val isTrashScreen = currentDestination?.route == Routes.TRASH
     val isAiChat = currentDestination?.route == Screen.AiChat.route
     val density = LocalDensity.current
     val imeVisible = WindowInsets.ime.getBottom(density) > 0
-    val hideBottomBar = isDetailScreen || (isAiChat && imeVisible)
+    val hideBottomBar = isDetailScreen || isTrashScreen || (isAiChat && imeVisible)
 
     CompositionLocalProvider(LocalSnackbarHostState provides snackbarHostState) {
         Scaffold(
@@ -300,6 +302,18 @@ private fun MainNavHost(navController: NavHostController, modifier: Modifier = M
             enterTransition = { fadeIn(tween(200)) },
             exitTransition = { fadeOut(tween(200)) }
         ) { SettingsScreen(onLogout = onLogout) }
+        composable(
+            Routes.TRASH,
+            enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
+            exitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
+        ) {
+            TrashScreen(
+                onMessageClick = { messageId ->
+                    navController.navigate(Routes.messageDetail(messageId))
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
         composable(
             route = Routes.MESSAGE_DETAIL,
             arguments = listOf(navArgument("messageId") { type = NavType.StringType }),

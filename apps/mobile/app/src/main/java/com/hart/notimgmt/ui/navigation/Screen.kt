@@ -30,6 +30,7 @@ object Routes {
     const val ONBOARDING = "onboarding"
     const val MAIN = "main"
     const val MESSAGE_DETAIL = "message_detail/{messageId}"
+    const val TRASH = "trash"
 
     fun messageDetail(messageId: String) = "message_detail/$messageId"
 }

@@ -172,6 +172,29 @@ interface CapturedMessageDao {
 
     @Query("DELETE FROM captured_messages WHERE isDeleted = 1 AND updatedAt < :beforeTimestamp")
     suspend fun cleanupDeleted(beforeTimestamp: Long)
+
+    // ── 휴지통 (Trash) ──
+
+    @Query("SELECT * FROM captured_messages WHERE isDeleted = 1 ORDER BY updatedAt DESC")
+    fun getDeleted(): Flow<List<CapturedMessageEntity>>
+
+    @Query("SELECT COUNT(*) FROM captured_messages WHERE isDeleted = 1")
+    fun getDeletedCount(): Flow<Int>
+
+    @Query("SELECT * FROM captured_messages WHERE isDeleted = 1")
+    suspend fun getDeletedOnce(): List<CapturedMessageEntity>
+
+    @Query("UPDATE captured_messages SET isDeleted = 0, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun restoreById(id: String, updatedAt: Long = System.currentTimeMillis())
+
+    @Query("UPDATE captured_messages SET isDeleted = 0, updatedAt = :updatedAt WHERE id IN (:ids)")
+    suspend fun restoreByIds(ids: List<String>, updatedAt: Long = System.currentTimeMillis())
+
+    @Query("DELETE FROM captured_messages WHERE id IN (:ids)")
+    suspend fun permanentDeleteByIds(ids: List<String>)
+
+    @Query("SELECT * FROM captured_messages WHERE isDeleted = 0 ORDER BY receivedAt DESC")
+    suspend fun getAllActiveOnce(): List<CapturedMessageEntity>
 }
 
 data class StatusCount(val statusId: String?, val count: Int)

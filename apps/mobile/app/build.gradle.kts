@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
-    // alias(libs.plugins.google.services) // TODO: re-enable when google-services.json is added
+    alias(libs.plugins.google.services)
 }
 
 ksp {
@@ -110,9 +110,9 @@ dependencies {
     // Browser (CustomTabs for license agreement)
     implementation(libs.androidx.browser)
 
-    // Firebase — disabled until google-services.json is added
-    // implementation(platform(libs.firebase.bom))
-    // implementation(libs.firebase.messaging)
+    // Firebase
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")

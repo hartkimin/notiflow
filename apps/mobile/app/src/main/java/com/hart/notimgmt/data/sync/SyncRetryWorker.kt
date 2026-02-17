@@ -29,8 +29,8 @@ class SyncRetryWorker @AssistedInject constructor(
     }
 
     override suspend fun doWork(): Result {
-        // 세션이 디스크에서 로딩 완료될 때까지 최대 5초 대기
-        val sessionStatus = withTimeoutOrNull(5_000L) {
+        // 세션이 디스크에서 로딩 완료될 때까지 최대 15초 대기
+        val sessionStatus = withTimeoutOrNull(15_000L) {
             auth.sessionStatus.first { it !is SessionStatus.Initializing }
         }
         if (sessionStatus !is SessionStatus.Authenticated) {

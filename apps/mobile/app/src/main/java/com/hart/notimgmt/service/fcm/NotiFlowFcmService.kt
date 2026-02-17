@@ -49,10 +49,17 @@ class NotiFlowFcmService : FirebaseMessagingService() {
         super.onMessageReceived(message)
         Log.d(TAG, "FCM message received: ${message.data}")
 
-        val title = message.notification?.title ?: message.data["title"] ?: "NotiFlow"
-        val body = message.notification?.body ?: message.data["body"] ?: ""
-
-        showNotification(title, body, message.data)
+        when (message.data["type"]) {
+            "sync_request" -> {
+                Log.d(TAG, "Sync request received via FCM")
+                syncManager.forceSync()
+            }
+            else -> {
+                val title = message.notification?.title ?: message.data["title"] ?: "NotiFlow"
+                val body = message.notification?.body ?: message.data["body"] ?: ""
+                showNotification(title, body, message.data)
+            }
+        }
     }
 
     private fun showNotification(

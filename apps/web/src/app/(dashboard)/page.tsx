@@ -29,6 +29,7 @@ import {
 import { StatCard } from "@/components/stat-card";
 import { EmptyState } from "@/components/empty-state";
 import { RealtimeListener } from "@/components/realtime-listener";
+import { SyncAllButton } from "@/components/device-list";
 import { TrendChart } from "@/components/trend-chart";
 import { getDailyStats, getTrendStats, getHospitalStats, getProductStats } from "@/lib/queries/stats";
 import { getOrders } from "@/lib/queries/orders";
@@ -66,6 +67,7 @@ export default async function DashboardHome() {
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">대시보드</h1>
         <div className="ml-auto flex items-center gap-2">
+          <SyncAllButton />
           <Button size="sm" className="h-8 gap-1">
             <ClipboardList className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">

@@ -6,8 +6,12 @@ import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserInfo
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,6 +24,9 @@ class AuthManager @Inject constructor(
         private const val TAG = "AuthManager"
     }
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var syncStarted = false
+
     val currentUser: UserInfo?
         get() = auth.currentUserOrNull()
 
@@ -30,10 +37,30 @@ class AuthManager @Inject constructor(
         get() = currentUser?.id
 
     init {
-        // 앱 시작 시 로그인 상태면 동기화 시작
-        if (isLoggedIn) {
-            syncManager.startListening()
-            syncManager.schedulePeriodicSync()
+        // 세션 상태를 비동기로 관찰하여 복원 완료 시 동기화 시작.
+        // Supabase Auth는 세션을 디스크에서 비동기로 복원하므로,
+        // init{} 시점에서 currentUserOrNull()은 항상 null을 반환한다.
+        scope.launch {
+            auth.sessionStatus.collect { status ->
+                when (status) {
+                    is SessionStatus.Authenticated -> {
+                        if (!syncStarted) {
+                            Log.d(TAG, "Session restored — starting sync")
+                            syncStarted = true
+                            syncManager.startListening()
+                            syncManager.schedulePeriodicSync()
+                        }
+                    }
+                    is SessionStatus.NotAuthenticated -> {
+                        if (syncStarted) {
+                            Log.d(TAG, "Session lost — stopping sync")
+                            syncStarted = false
+                            syncManager.stopListening()
+                        }
+                    }
+                    else -> {} // Initializing, RefreshFailure — 대기
+                }
+            }
         }
     }
 

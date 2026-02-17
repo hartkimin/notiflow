@@ -772,14 +772,15 @@ class SyncManager @Inject constructor(
     private fun isUserLoggedIn(): Boolean = auth.currentUserOrNull() != null
 
     /**
-     * 세션이 디스크에서 로딩 완료될 때까지 최대 5초 대기 후 로그인 여부 반환.
+     * 세션이 디스크에서 로딩 완료될 때까지 최대 15초 대기 후 로그인 여부 반환.
      * Auth 플러그인은 앱 프로세스 시작 시 세션을 비동기로 복원하므로,
      * 복원 완료 전에 currentUserOrNull()을 호출하면 false negative가 발생한다.
+     * 15초: 디스크 읽기 + JWT 토큰 갱신 네트워크 왕복 시간 고려.
      */
     private suspend fun awaitUserLoggedIn(): Boolean {
         if (isUserLoggedIn()) return true
         // 세션이 아직 로딩 중일 수 있으므로 대기
-        val status = withTimeoutOrNull(5_000L) {
+        val status = withTimeoutOrNull(15_000L) {
             auth.sessionStatus.first { it !is SessionStatus.Initializing }
         }
         return when (status) {
@@ -1236,10 +1237,9 @@ class SyncManager @Inject constructor(
                     if (dto.id != myDeviceId) return
 
                     if (dto.sync_requested_at != null) {
-                        Log.d(TAG, "Remote sync request received from web dashboard")
+                        Log.d(TAG, "Remote sync request received from web dashboard (Realtime)")
                         addLog("🔄 웹 대시보드에서 동기화 요청 수신")
-                        syncPendingMessages()
-                        updateHeartbeatThrottled()
+                        forceSync()
                     }
                 }
                 else -> {}

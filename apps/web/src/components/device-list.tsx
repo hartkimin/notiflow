@@ -132,8 +132,12 @@ export function DeviceTable({ devices }: { devices: MobileDevice[] }) {
   function handleRequestSync(device: MobileDevice) {
     startTransition(async () => {
       try {
-        await requestDeviceSync(device.id);
-        toast.success(`${device.device_name} 기기에 동기화 요청을 보냈습니다.`);
+        const result = await requestDeviceSync(device.id);
+        if (result.fcm_sent > 0) {
+          toast.success(`${device.device_name} 기기에 동기화 푸시를 보냈습니다.`);
+        } else {
+          toast.success(`${device.device_name} 기기에 Realtime으로 동기화 요청을 보냈습니다.`);
+        }
         router.refresh();
       } catch (err) {
         const msg = err instanceof Error ? err.message : "동기화 요청 실패";
@@ -280,8 +284,12 @@ export function SyncAllButton() {
     startTransition(async () => {
       try {
         const { requestAllDevicesSync } = await import("@/lib/actions");
-        await requestAllDevicesSync();
-        toast.success("모든 활성 기기에 동기화 요청을 보냈습니다.");
+        const result = await requestAllDevicesSync();
+        if (result.fcm_sent > 0) {
+          toast.success(`${result.fcm_sent}대 기기에 동기화 푸시를 보냈습니다.`);
+        } else {
+          toast.success("모든 활성 기기에 Realtime으로 동기화 요청을 보냈습니다.");
+        }
         router.refresh();
       } catch (err) {
         const msg = err instanceof Error ? err.message : "동기화 요청 실패";

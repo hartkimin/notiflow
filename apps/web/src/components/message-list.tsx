@@ -56,7 +56,7 @@ const SOURCE_LABEL: Record<string, string> = {
   manual: "수동",
 };
 
-type SortKey = "id" | "sender" | "source_app" | "parse_status" | "received_at" | "device_name";
+type SortKey = "id" | "sender" | "source_app" | "parse_status" | "received_at" | "synced_at" | "device_name";
 type SortDir = "asc" | "desc";
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
@@ -365,6 +365,9 @@ export function MessageTable({
                 <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("received_at")}>
                   <span className="inline-flex items-center">수신시간<SortIcon active={sortKey === "received_at"} dir={sortDir} /></span>
                 </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("synced_at")}>
+                  <span className="inline-flex items-center">동기화<SortIcon active={sortKey === "synced_at"} dir={sortDir} /></span>
+                </TableHead>
                 <TableHead>주문</TableHead>
               </TableRow>
             </TableHeader>
@@ -401,6 +404,7 @@ export function MessageTable({
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm whitespace-nowrap">{formatDate(msg.received_at)}</TableCell>
+                  <TableCell className="text-sm whitespace-nowrap">{msg.synced_at ? formatDate(msg.synced_at) : "-"}</TableCell>
                   <TableCell className="font-mono text-xs">
                     {msg.order_id ? `#${msg.order_id}` : "-"}
                   </TableCell>
@@ -431,7 +435,10 @@ export function MessageTable({
                   {msg.content}
                 </p>
                 <div className="flex justify-between items-center text-xs text-muted-foreground">
-                  <span>{formatDate(msg.received_at)}</span>
+                  <div className="flex flex-col">
+                    <span>수신: {formatDate(msg.received_at)}</span>
+                    {msg.synced_at && <span>동기화: {formatDate(msg.synced_at)}</span>}
+                  </div>
                   <div className="flex items-center gap-2">
                     {msg.device_name && (
                       <span className="inline-flex items-center gap-1">
@@ -480,6 +487,10 @@ export function MessageTable({
                 <div>
                   <span className="text-muted-foreground">수신시간</span>
                   <p>{new Date(selected.received_at).toLocaleString("ko-KR")}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">동기화 시간</span>
+                  <p>{selected.synced_at ? new Date(selected.synced_at).toLocaleString("ko-KR") : "-"}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">주문 ID</span>

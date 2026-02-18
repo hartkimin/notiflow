@@ -9,7 +9,10 @@ export async function getDevices(): Promise<{ devices: MobileDevice[]; total: nu
     .select("*", { count: "exact" })
     .order("last_sync_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) {
+    console.error("getDevices failed:", error.message);
+    return { devices: [], total: 0 };
+  }
 
   // Fetch user names for all unique user_ids
   const userIds = [...new Set((data ?? []).map((r: Record<string, unknown>) => r.user_id as string))];

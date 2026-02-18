@@ -18,6 +18,11 @@ export async function getUsers(): Promise<{ users: UserProfile[]; total: number 
     method: "GET",
   });
 
-  if (error) throw error;
-  return data as { users: UserProfile[]; total: number };
+  if (error) {
+    console.error("getUsers failed:", error.message);
+    return { users: [], total: 0 };
+  }
+
+  const result = data as { users?: UserProfile[]; total?: number } | null;
+  return { users: result?.users ?? [], total: result?.total ?? 0 };
 }

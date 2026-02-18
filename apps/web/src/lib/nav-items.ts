@@ -13,6 +13,7 @@ import {
   Factory,
   Smartphone,
   HelpCircle,
+  LayoutDashboard,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -31,6 +32,7 @@ export const navGroups: NavGroup[] = [
   {
     label: "메인",
     items: [
+      { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
       { href: "/orders", label: "주문관리", icon: ClipboardList },
       { href: "/messages", label: "수신메시지", icon: MessageSquare },
       { href: "/calendar", label: "캘린더", icon: CalendarDays },

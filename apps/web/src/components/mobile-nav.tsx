@@ -11,7 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const mobileNavItems = [
-  { href: "/", label: "대시보드", icon: LayoutDashboard },
+  { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
   { href: "/orders", label: "주문", icon: ClipboardList },
   { href: "/messages", label: "메시지", icon: MessageSquare },
   { href: "/calendar", label: "캘린더", icon: CalendarDays },
@@ -29,9 +29,7 @@ export function MobileNav() {
       <div className="flex items-center justify-around h-14">
         {mobileNavItems.map((item) => {
           const isActive =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
+            item.href === pathname || pathname.startsWith(item.href + "/");
           return (
             <Link
               key={item.href}

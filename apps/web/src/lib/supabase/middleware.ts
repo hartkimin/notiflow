@@ -40,10 +40,10 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect logged-in users away from login page to dashboard
-  if (user && pathname.startsWith("/login")) {
+  // Redirect logged-in users away from landing/login to dashboard
+  if (user && (pathname === "/" || pathname.startsWith("/login"))) {
     const url = request.nextUrl.clone();
-    url.pathname = "/orders";
+    url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 

@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useMemo, useTransition, useCallback } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -24,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ChevronLeft, ChevronRight, Plus, X, Link2, Hash, Trash2,
-  Copy, ClipboardPaste, CalendarPlus, MessageSquare, Calendar,
+  Copy, ClipboardPaste, CalendarPlus, MessageSquare,
 } from "lucide-react";
 import {
   createPlan, togglePlanCompletion, deletePlan, linkPlanToMessage,
@@ -132,228 +131,117 @@ export function ScheduleView({
   }
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-8rem)]">
-      {/* ─── Sidebar ─── */}
-      <aside className="w-64 shrink-0 space-y-4 overflow-y-auto">
-        <MiniCalendar
-          currentMonday={monday}
-          onSelectWeek={navigateToWeekOf}
-        />
+    <div className="flex flex-col h-[calc(100vh-8rem)]">
+      {/* ─── Week Header ─── */}
+      <div className="flex items-center gap-2 mb-3">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateWeek(-1)}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <h2 className="text-lg font-semibold whitespace-nowrap">
+          {formatWeekLabel(monday)}
+        </h2>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateWeek(1)}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => navigateToWeekOf(new Date())}
+        >
+          오늘
+        </Button>
 
-        <Card>
-          <CardContent className="p-3 space-y-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">카테고리</h3>
-            {categories.length === 0 ? (
-              <p className="text-xs text-muted-foreground">카테고리가 없습니다.</p>
-            ) : (
-              <div className="space-y-1">
-                {categories.map((c) => (
-                  <div key={c.id} className="flex items-center gap-2 text-sm">
-                    <span
-                      className="h-3 w-3 rounded-full shrink-0"
-                      style={{ backgroundColor: argbToHex(c.color) }}
-                    />
-                    <span className="truncate">{c.name}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Week actions */}
+        <div className="ml-auto flex items-center gap-1">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5" disabled={isPending}>
+                <ClipboardPaste className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">전주 불러오기</span>
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>전주 플랜을 불러올까요?</AlertDialogTitle>
+                <AlertDialogDescription>이전 주의 플랜과 카테고리가 현재 주로 복사됩니다.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction onClick={handleCopyPrevWeek}>불러오기</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
-        <Card>
-          <CardContent className="p-3 space-y-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">주간 작업</h3>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full justify-start gap-2" disabled={isPending}>
-                  <ClipboardPaste className="h-3.5 w-3.5" /> 전주 불러오기
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>전주 플랜을 불러올까요?</AlertDialogTitle>
-                  <AlertDialogDescription>이전 주의 플랜과 카테고리가 현재 주로 복사됩니다.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>취소</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleCopyPrevWeek}>불러오기</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5" disabled={isPending}>
+                <CalendarPlus className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">전체 카테고리</span>
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>전체 카테고리를 추가할까요?</AlertDialogTitle>
+                <AlertDialogDescription>모든 활성 카테고리를 이번 주 7일 모두에 추가합니다.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction onClick={handleAddAllCategories}>추가</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full justify-start gap-2" disabled={isPending}>
-                  <CalendarPlus className="h-3.5 w-3.5" /> 전체 카테고리 추가
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>전체 카테고리를 추가할까요?</AlertDialogTitle>
-                  <AlertDialogDescription>모든 활성 카테고리를 이번 주 7일 모두에 추가합니다.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>취소</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleAddAllCategories}>추가</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full justify-start gap-2" disabled={isPending}>
-                  <Copy className="h-3.5 w-3.5" /> 다음주로 복사
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>다음주로 복사할까요?</AlertDialogTitle>
-                  <AlertDialogDescription>현재 주의 플랜과 카테고리가 다음 주로 복사됩니다.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>취소</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleCopyToNext}>복사</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </CardContent>
-        </Card>
-      </aside>
-
-      {/* ─── Main Area ─── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Week Header */}
-        <div className="flex items-center gap-3 mb-3">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateWeek(-1)}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <h2 className="text-lg font-semibold whitespace-nowrap">
-            {formatWeekLabel(monday)}
-          </h2>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateWeek(1)}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-2"
-            onClick={() => navigateToWeekOf(new Date())}
-          >
-            오늘
-          </Button>
-        </div>
-
-        {/* Day Columns */}
-        <div className="grid grid-cols-7 gap-2 flex-1 min-h-0 overflow-y-auto">
-          {weekDates.map((date, i) => {
-            const dayMs = startOfDayMs(date);
-            const isToday = startOfDayMs(new Date()) === dayMs;
-            const isSaturday = i === 5;
-            const isSunday = i === 6;
-
-            return (
-              <DayColumn
-                key={dayMs}
-                date={date}
-                dayMs={dayMs}
-                dayLabel={DAY_LABELS[i]}
-                isToday={isToday}
-                isSaturday={isSaturday}
-                isSunday={isSunday}
-                categories={categories}
-                categoryMap={categoryMap}
-                dayCategories={dayCatsByDay.get(dayMs) ?? []}
-                plans={plansByDay.get(dayMs) ?? []}
-                messages={messagesByDay.get(dayMs) ?? []}
-                isPending={isPending}
-                startTransition={startTransition}
-                router={router}
-              />
-            );
-          })}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5" disabled={isPending}>
+                <Copy className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">다음주로 복사</span>
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>다음주로 복사할까요?</AlertDialogTitle>
+                <AlertDialogDescription>현재 주의 플랜과 카테고리가 다음 주로 복사됩니다.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction onClick={handleCopyToNext}>복사</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
+
+      {/* ─── Day Columns (full width) ─── */}
+      <div className="grid grid-cols-7 gap-2 flex-1 min-h-0 overflow-y-auto">
+        {weekDates.map((date, i) => {
+          const dayMs = startOfDayMs(date);
+          const isToday = startOfDayMs(new Date()) === dayMs;
+          const isSaturday = i === 5;
+          const isSunday = i === 6;
+
+          return (
+            <DayColumn
+              key={dayMs}
+              date={date}
+              dayMs={dayMs}
+              dayLabel={DAY_LABELS[i]}
+              isToday={isToday}
+              isSaturday={isSaturday}
+              isSunday={isSunday}
+              categories={categories}
+              categoryMap={categoryMap}
+              dayCategories={dayCatsByDay.get(dayMs) ?? []}
+              plans={plansByDay.get(dayMs) ?? []}
+              messages={messagesByDay.get(dayMs) ?? []}
+              isPending={isPending}
+              startTransition={startTransition}
+              router={router}
+            />
+          );
+        })}
+      </div>
     </div>
-  );
-}
-
-// ─── Mini Calendar ─────────────────────────────────────────────
-
-function MiniCalendar({
-  currentMonday,
-  onSelectWeek,
-}: {
-  currentMonday: Date;
-  onSelectWeek: (date: Date) => void;
-}) {
-  const [viewMonth, setViewMonth] = useState(() => {
-    return new Date(currentMonday.getFullYear(), currentMonday.getMonth(), 1);
-  });
-
-  const year = viewMonth.getFullYear();
-  const month = viewMonth.getMonth();
-
-  // Build 6-week grid
-  const firstDay = new Date(year, month, 1);
-  const startOffset = (firstDay.getDay() + 6) % 7; // Monday = 0
-  const gridStart = new Date(year, month, 1 - startOffset);
-
-  const days: Date[] = [];
-  for (let i = 0; i < 42; i++) {
-    const d = new Date(gridStart);
-    d.setDate(d.getDate() + i);
-    days.push(d);
-  }
-
-  const todayMs = startOfDayMs(new Date());
-  const currentWeekMs = startOfDayMs(currentMonday);
-
-  function prevMonth() { setViewMonth(new Date(year, month - 1, 1)); }
-  function nextMonth() { setViewMonth(new Date(year, month + 1, 1)); }
-
-  return (
-    <Card>
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between mb-2">
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={prevMonth}>
-            <ChevronLeft className="h-3 w-3" />
-          </Button>
-          <span className="text-sm font-medium">{year}년 {month + 1}월</span>
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={nextMonth}>
-            <ChevronRight className="h-3 w-3" />
-          </Button>
-        </div>
-        <div className="grid grid-cols-7 gap-0 text-center">
-          {["월", "화", "수", "목", "금", "토", "일"].map((d) => (
-            <div key={d} className="text-[10px] text-muted-foreground font-medium py-1">{d}</div>
-          ))}
-          {days.map((d, i) => {
-            const dMs = startOfDayMs(d);
-            const isCurrentMonth = d.getMonth() === month;
-            const isToday = dMs === todayMs;
-            const dayMonday = getWeekMonday(d);
-            const isSelectedWeek = startOfDayMs(dayMonday) === currentWeekMs;
-
-            return (
-              <button
-                key={i}
-                onClick={() => onSelectWeek(d)}
-                className={[
-                  "text-[11px] py-0.5 rounded transition-colors",
-                  !isCurrentMonth && "text-muted-foreground/40",
-                  isSelectedWeek && "bg-primary/10",
-                  isToday && "font-bold text-primary",
-                  "hover:bg-muted",
-                ].filter(Boolean).join(" ")}
-              >
-                {d.getDate()}
-              </button>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 

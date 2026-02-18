@@ -276,7 +276,9 @@ export async function createUser(data: {
     method: "POST",
     body: data,
   });
-  if (error) throw error;
+  if (error) {
+    return { error: result?.error ?? error.message ?? "사용자 생성 실패" };
+  }
   revalidatePath("/users");
   return result;
 }
@@ -287,7 +289,9 @@ export async function updateUser(id: string, data: Record<string, unknown>) {
     method: "PATCH",
     body: { id, ...data },
   });
-  if (error) throw error;
+  if (error) {
+    return { error: result?.error ?? error.message ?? "사용자 수정 실패" };
+  }
   revalidatePath("/users");
   return result;
 }
@@ -298,7 +302,9 @@ export async function deleteUser(id: string) {
     method: "DELETE",
     body: { id },
   });
-  if (error) throw error;
+  if (error) {
+    return { error: result?.error ?? error.message ?? "사용자 비활성화 실패" };
+  }
   revalidatePath("/users");
   return result;
 }

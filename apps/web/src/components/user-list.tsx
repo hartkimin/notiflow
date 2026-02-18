@@ -105,41 +105,33 @@ export function UserTable({ users }: { users: DashboardUser[] }) {
 
   function handleDelete(user: DashboardUser) {
     startTransition(async () => {
-      try {
-        await deleteUser(user.id);
-        setDeleteTarget(null);
-        toast.success(`${user.name} 계정이 비활성화되었습니다.`);
-        router.refresh();
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "비활성화 실패";
-        if (msg.includes("last admin")) {
-          toast.error("마지막 관리자 계정은 비활성화할 수 없습니다.");
-        } else {
-          toast.error(msg);
-        }
+      const result = await deleteUser(user.id);
+      if (result?.error) {
+        const msg = String(result.error);
+        toast.error(msg.includes("last admin") ? "마지막 관리자 계정은 비활성화할 수 없습니다." : msg);
+        return;
       }
+      setDeleteTarget(null);
+      toast.success(`${user.name} 계정이 비활성화되었습니다.`);
+      router.refresh();
     });
   }
 
   function handleToggleActive(user: DashboardUser) {
     startTransition(async () => {
-      try {
-        if (user.is_active) {
-          await deleteUser(user.id);
-          toast.success(`${user.name} 계정이 비활성화되었습니다.`);
-        } else {
-          await updateUser(user.id, { is_active: true });
-          toast.success(`${user.name} 계정이 활성화되었습니다.`);
-        }
-        router.refresh();
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "상태 변경 실패";
-        if (msg.includes("last admin")) {
-          toast.error("마지막 관리자 계정은 비활성화할 수 없습니다.");
-        } else {
-          toast.error(msg);
-        }
+      const result = user.is_active
+        ? await deleteUser(user.id)
+        : await updateUser(user.id, { is_active: true });
+      if (result?.error) {
+        const msg = String(result.error);
+        toast.error(msg.includes("last admin") ? "마지막 관리자 계정은 비활성화할 수 없습니다." : msg);
+        return;
       }
+      toast.success(user.is_active
+        ? `${user.name} 계정이 비활성화되었습니다.`
+        : `${user.name} 계정이 활성화되었습니다.`
+      );
+      router.refresh();
     });
   }
 
@@ -391,36 +383,38 @@ function UserFormDialog({
     const fd = new FormData(e.currentTarget);
 
     startTransition(async () => {
-      try {
-        if (isEdit && user) {
-          const data: Record<string, unknown> = {
-            name: fd.get("name") as string,
-            role,
-          };
-          const password = fd.get("password") as string;
-          if (password) data.password = password;
-          await updateUser(user.id, data);
-          toast.success(`${data.name} 사용자 정보가 수정되었습니다.`);
-        } else {
-          const name = fd.get("name") as string;
-          await createUser({
-            email: fd.get("email") as string,
-            password: fd.get("password") as string,
-            name,
-            role,
-          });
-          toast.success(`${name} 사용자가 추가되었습니다.`);
-        }
-        onClose();
-        router.refresh();
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "저장 실패";
+      let result;
+      if (isEdit && user) {
+        const data: Record<string, unknown> = {
+          name: fd.get("name") as string,
+          role,
+        };
+        const password = fd.get("password") as string;
+        if (password) data.password = password;
+        result = await updateUser(user.id, data);
+      } else {
+        result = await createUser({
+          email: fd.get("email") as string,
+          password: fd.get("password") as string,
+          name: fd.get("name") as string,
+          role,
+        });
+      }
+
+      if (result?.error) {
+        const msg = String(result.error);
         if (msg.includes("already exists") || msg.includes("23505") || msg.includes("already_exists")) {
           setError("이미 사용 중인 이메일입니다.");
         } else {
           setError(msg);
         }
+        return;
       }
+
+      const displayName = fd.get("name") as string;
+      toast.success(isEdit ? `${displayName} 사용자 정보가 수정되었습니다.` : `${displayName} 사용자가 추가되었습니다.`);
+      onClose();
+      router.refresh();
     });
   }
 

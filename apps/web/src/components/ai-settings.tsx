@@ -187,7 +187,7 @@ export function AISettingsForm({ settings }: { settings: AISettings }) {
             <Switch
               checked={enabled}
               disabled={isPending}
-              onCheckedChange={(v) => {
+              onCheckedChange={(v: boolean) => {
                 setEnabled(v);
                 saveSetting("ai_enabled", v);
               }}
@@ -208,7 +208,7 @@ export function AISettingsForm({ settings }: { settings: AISettings }) {
           <Select
             value={provider}
             disabled={isPending}
-            onValueChange={(v) => handleProviderChange(v as AIProvider)}
+            onValueChange={(v: string) => handleProviderChange(v as AIProvider)}
           >
             <SelectTrigger>
               <SelectValue />
@@ -313,7 +313,7 @@ export function AISettingsForm({ settings }: { settings: AISettings }) {
           <Select
             value={model}
             disabled={isPending}
-            onValueChange={(v) => {
+            onValueChange={(v: string) => {
               setModel(v);
               saveSetting("ai_model", v);
             }}
@@ -383,7 +383,7 @@ export function AISettingsForm({ settings }: { settings: AISettings }) {
             <Switch
               checked={autoProcess}
               disabled={isPending}
-              onCheckedChange={(v) => {
+              onCheckedChange={(v: boolean) => {
                 setAutoProcess(v);
                 saveSetting("ai_auto_process", v);
               }}

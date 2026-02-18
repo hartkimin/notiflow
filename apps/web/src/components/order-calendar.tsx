@@ -307,7 +307,7 @@ export function OrderCalendar({ month, days, orders, messages }: OrderCalendarPr
       </div>
 
       {/* Order Detail Sheet */}
-      <Sheet open={sheetOrderId !== null} onOpenChange={(open) => { if (!open) setSheetOrderId(null); }}>
+      <Sheet open={sheetOrderId !== null} onOpenChange={(open: boolean) => { if (!open) setSheetOrderId(null); }}>
         <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
             <SheetTitle>주문 상세</SheetTitle>
@@ -335,7 +335,7 @@ export function OrderCalendar({ month, days, orders, messages }: OrderCalendarPr
       </Sheet>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+      <Dialog open={deleteTarget !== null} onOpenChange={(open: boolean) => { if (!open) setDeleteTarget(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>삭제 확인</DialogTitle>

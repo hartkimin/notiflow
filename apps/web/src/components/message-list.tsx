@@ -456,7 +456,7 @@ export function MessageTable({
       )}
 
       {/* Message detail / edit sheet */}
-      <Sheet open={selected !== null} onOpenChange={(open) => { if (!open) { setSelected(null); setIsEditing(false); } }}>
+      <Sheet open={selected !== null} onOpenChange={(open: boolean) => { if (!open) { setSelected(null); setIsEditing(false); } }}>
         <SheetContent className="w-[480px] sm:max-w-lg overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{isEditing ? "메시지 수정" : "메시지 상세"}</SheetTitle>

@@ -148,7 +148,7 @@ export function OrderTable({ orders }: { orders: Order[] }) {
           </TableBody>
         </Table>
       </div>
-      <Sheet open={selectedId !== null} onOpenChange={(open) => !open && setSelectedId(null)}>
+      <Sheet open={selectedId !== null} onOpenChange={(open: boolean) => !open && setSelectedId(null)}>
         <SheetContent className="w-[480px] sm:max-w-lg overflow-y-auto">
           <SheetHeader>
             <SheetTitle>주문 상세</SheetTitle>

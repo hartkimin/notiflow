@@ -120,7 +120,7 @@ export function ManualParseForm({
               {idx === 0 && <span className="text-xs text-muted-foreground">품목</span>}
               <Select
                 value={item.product_id}
-                onValueChange={(v) => updateItem(idx, "product_id", v)}
+                onValueChange={(v: string) => updateItem(idx, "product_id", v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="품목 선택" />

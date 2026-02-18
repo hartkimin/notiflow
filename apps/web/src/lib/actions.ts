@@ -139,7 +139,7 @@ export async function deleteOrder(id: number) {
   if (error) throw error;
   revalidatePath("/calendar");
   revalidatePath("/orders");
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -149,7 +149,7 @@ export async function updateOrder(id: number, data: Record<string, unknown>) {
   if (error) throw error;
   revalidatePath("/calendar");
   revalidatePath("/orders");
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -173,7 +173,7 @@ export async function createMessage(data: {
   if (error) throw error;
   revalidatePath("/calendar");
   revalidatePath("/messages");
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -183,7 +183,7 @@ export async function updateMessage(id: number, data: Record<string, unknown>) {
   if (error) throw error;
   revalidatePath("/calendar");
   revalidatePath("/messages");
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -193,7 +193,7 @@ export async function deleteMessage(id: number) {
   if (error) throw error;
   revalidatePath("/calendar");
   revalidatePath("/messages");
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -242,9 +242,11 @@ export async function requestDeviceSync(id: string) {
   const { data, error } = await supabase.functions.invoke("trigger-sync", {
     body: { device_id: id },
   });
-  if (error) throw error;
+  if (error) {
+    return { success: false, error: error.message ?? "동기화 요청 실패", fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
+  }
   revalidatePath("/devices");
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   return data as { success: boolean; fcm_sent: number; fcm_failed: number; realtime_updated: number };
 }
 
@@ -253,9 +255,11 @@ export async function requestAllDevicesSync() {
   const { data, error } = await supabase.functions.invoke("trigger-sync", {
     body: { device_id: "all" },
   });
-  if (error) throw error;
+  if (error) {
+    return { success: false, error: error.message ?? "동기화 요청 실패", fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
+  }
   revalidatePath("/devices");
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   return data as { success: boolean; fcm_sent: number; fcm_failed: number; realtime_updated: number };
 }
 

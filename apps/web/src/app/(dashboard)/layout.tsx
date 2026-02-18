@@ -1,4 +1,4 @@
-import { AppSidebar } from "@/components/app-sidebar";
+import { DashboardShell } from "@/components/dashboard-shell";
 import { Nav } from "@/components/nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { GlobalNotifications } from "@/components/global-notifications";
@@ -14,8 +14,7 @@ export default async function DashboardLayout({
   const settings = await getSettings().catch(() => ({ sync_interval_minutes: 5 }));
 
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
-      <AppSidebar userName={user.name} />
+    <DashboardShell userName={user.name}>
       <div className="flex flex-col">
         <Nav syncInterval={settings.sync_interval_minutes} />
         <GlobalNotifications />
@@ -24,6 +23,6 @@ export default async function DashboardLayout({
         </main>
       </div>
       <MobileNav />
-    </div>
+    </DashboardShell>
   );
 }

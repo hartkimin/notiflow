@@ -1,0 +1,20 @@
+# Mobile app (not deployed to Vercel)
+apps/mobile/
+
+# Supabase (deployed separately)
+packages/supabase/
+
+# Docs
+docs/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Debug / Temp
+*.log
+*.tmp
+~$*

@@ -207,3 +207,41 @@ export interface MobileDevice {
   created_at: string;
   updated_at: string;
 }
+
+// --- Mobile Sync (shared with mobile app) ---
+
+export interface MobileCategory {
+  id: string;
+  name: string;
+  color: number;       // ARGB integer from Android
+  order_index: number;
+  is_active: boolean;
+}
+
+export interface Plan {
+  id: string;
+  category_id: string | null;
+  date: number;           // epoch ms
+  title: string;
+  is_completed: boolean;
+  linked_message_id: string | null;
+  order_number: string | null;
+  order_index: number;
+}
+
+export interface DayCategory {
+  id: string;
+  date: number;           // epoch ms
+  category_id: string;
+}
+
+export interface CapturedMessage {
+  id: string;
+  app_name: string;
+  sender: string;
+  content: string;
+  received_at: number;    // epoch ms
+  category_id: string | null;
+  status_id: string | null;
+  is_archived: boolean;
+}

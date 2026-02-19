@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import React, { useState, useMemo, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -27,11 +27,14 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
 import {
   LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown,
-  Trash2, Plus, Pencil, Smartphone,
+  Trash2, Plus, Pencil, Smartphone, Bot, Loader2, CheckCircle, AlertTriangle,
+  Inbox, Cpu, PackageSearch, ClipboardList, ChevronRight, XCircle, Circle,
 } from "lucide-react";
 import { createMessage, updateMessage, deleteMessage } from "@/lib/actions";
+import { createClient } from "@/lib/supabase/client";
 import { ManualParseForm } from "@/components/manual-parse-form";
 import type { RawMessage, Hospital, Product } from "@/lib/types";
 
@@ -236,6 +239,168 @@ export function CreateMessageDialog() {
   );
 }
 
+// --- Parse Stepper ---
+
+interface StepInfo {
+  label: string;
+  icon: React.ReactNode;
+  status: "done" | "fail" | "pending" | "na";
+  detail: string;
+  sub: string;
+}
+
+function ParseStepper({ msg }: { msg: RawMessage }) {
+  const parseResult = msg.parse_result as Record<string, unknown> | null;
+  const items = Array.isArray(parseResult) ? parseResult : [];
+  const hasParsed = msg.parse_status === "parsed";
+  const hasFailed = msg.parse_status === "failed";
+
+  let matched = 0, review = 0, unmatched = 0;
+  for (const it of items) {
+    const r = it as Record<string, unknown>;
+    if (r.match_status === "matched") matched++;
+    else if (r.match_status === "review") review++;
+    else unmatched++;
+  }
+
+  const steps: StepInfo[] = [
+    {
+      label: "메시지 수신",
+      icon: <Inbox className="h-4 w-4" />,
+      status: "done",
+      detail: formatDate(msg.received_at),
+      sub: SOURCE_LABEL[msg.source_app] || msg.source_app,
+    },
+    {
+      label: "AI 파싱",
+      icon: <Cpu className="h-4 w-4" />,
+      status: hasFailed ? "fail" : hasParsed ? "done" : "pending",
+      detail: hasParsed
+        ? msg.parse_method === "llm" ? "AI" : msg.parse_method === "regex" ? "정규식" : (msg.parse_method || "-")
+        : hasFailed ? "실패" : "대기중",
+      sub: hasParsed && items.length > 0 ? `${items.length}개 항목` : "",
+    },
+    {
+      label: "제품 매칭",
+      icon: <PackageSearch className="h-4 w-4" />,
+      status: !hasParsed ? (hasFailed ? "fail" : "na") : items.length > 0 ? "done" : "na",
+      detail: hasParsed && items.length > 0
+        ? `매칭 ${matched}`
+        : "-",
+      sub: hasParsed && (review > 0 || unmatched > 0)
+        ? `검토 ${review} / 미매칭 ${unmatched}`
+        : "",
+    },
+    {
+      label: "주문 생성",
+      icon: <ClipboardList className="h-4 w-4" />,
+      status: msg.order_id ? "done" : "na",
+      detail: msg.order_id ? `#${msg.order_id}` : "-",
+      sub: "",
+    },
+  ];
+
+  const statusColor: Record<string, string> = {
+    done: "text-green-600 bg-green-50 border-green-200",
+    fail: "text-red-600 bg-red-50 border-red-200",
+    pending: "text-yellow-600 bg-yellow-50 border-yellow-200",
+    na: "text-muted-foreground bg-muted/30 border-muted",
+  };
+
+  const statusIcon: Record<string, React.ReactNode> = {
+    done: <CheckCircle className="h-3.5 w-3.5 text-green-600" />,
+    fail: <XCircle className="h-3.5 w-3.5 text-red-600" />,
+    pending: <Circle className="h-3.5 w-3.5 text-yellow-500" />,
+    na: <Circle className="h-3.5 w-3.5 text-muted-foreground/40" />,
+  };
+
+  return (
+    <div className="flex items-start gap-1 overflow-x-auto py-2">
+      {steps.map((step, i) => (
+        <div key={step.label} className="flex items-start">
+          <div className={`flex flex-col items-center gap-1 rounded-lg border px-3 py-2 min-w-[120px] ${statusColor[step.status]}`}>
+            <div className="flex items-center gap-1.5">
+              {statusIcon[step.status]}
+              <span className="text-xs font-medium">{step.label}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              {step.icon}
+              <span className="text-xs">{step.detail}</span>
+            </div>
+            {step.sub && <span className="text-[10px] opacity-70">{step.sub}</span>}
+          </div>
+          {i < steps.length - 1 && (
+            <ChevronRight className="h-4 w-4 text-muted-foreground mt-4 mx-0.5 shrink-0" />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// --- Parse Result Table ---
+
+function ParseResultTable({ msg }: { msg: RawMessage }) {
+  const parseResult = msg.parse_result;
+  const items = Array.isArray(parseResult) ? parseResult : [];
+
+  if (items.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground py-2">
+        {msg.parse_status === "parsed" ? "파싱 결과가 없습니다." : "아직 파싱되지 않았습니다."}
+      </p>
+    );
+  }
+
+  return (
+    <div className="rounded-md border overflow-hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b bg-muted/50">
+            <th className="text-left p-2 font-medium">원문</th>
+            <th className="text-left p-2 font-medium">매칭 제품</th>
+            <th className="text-center p-2 font-medium">수량</th>
+            <th className="text-center p-2 font-medium">단위</th>
+            <th className="text-center p-2 font-medium">신뢰도</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((raw, i) => {
+            const it = raw as Record<string, unknown>;
+            const conf = Number(it.confidence ?? 0);
+            const status = String(it.match_status ?? "unmatched");
+            return (
+              <tr key={i} className="border-b last:border-0">
+                <td className="p-2 text-xs font-mono">{String(it.item ?? "")}</td>
+                <td className="p-2 text-sm">
+                  {it.product_name ? String(it.product_name) : (
+                    <span className="text-muted-foreground italic">미매칭</span>
+                  )}
+                </td>
+                <td className="p-2 text-center font-mono">{String(it.qty ?? "")}</td>
+                <td className="p-2 text-center text-xs">{String(it.unit ?? "")}</td>
+                <td className="p-2 text-center">
+                  <Badge
+                    variant={status === "matched" ? "default" : status === "review" ? "secondary" : "outline"}
+                    className={
+                      status === "matched" ? "bg-green-100 text-green-800 hover:bg-green-100" :
+                      status === "review" ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100" :
+                      "bg-red-50 text-red-700"
+                    }
+                  >
+                    {status === "matched" ? "매칭" : status === "review" ? "검토" : "미매칭"}
+                    {conf > 0 && ` ${Math.round(conf * 100)}%`}
+                  </Badge>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // --- Message Table ---
 
 export function MessageTable({
@@ -255,6 +420,19 @@ export function MessageTable({
   const [showManualParse, setShowManualParse] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  // Expanded row for parse visibility
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  // AI parsing state (Sheet)
+  const [aiResult, setAiResult] = useState<Record<string, unknown> | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [isAiParsing, setIsAiParsing] = useState(false);
+
+  // Inline reparse state (expanded row)
+  const [inlineAiResult, setInlineAiResult] = useState<Record<string, unknown> | null>(null);
+  const [inlineAiError, setInlineAiError] = useState<string | null>(null);
+  const [inlineAiParsing, setInlineAiParsing] = useState(false);
 
   // Edit form state
   const [editSender, setEditSender] = useState("");
@@ -311,6 +489,42 @@ export function MessageTable({
     } else {
       setSortKey(key);
       setSortDir("asc");
+    }
+  }
+
+  async function handleAiParse(content: string, hospitalId?: number | null) {
+    setIsAiParsing(true);
+    setAiResult(null);
+    setAiError(null);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.functions.invoke("test-parse", {
+        body: { message: content, hospital_id: hospitalId ?? undefined },
+      });
+      if (error) throw error;
+      setAiResult(data);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "AI 파싱 실패");
+    } finally {
+      setIsAiParsing(false);
+    }
+  }
+
+  async function handleInlineReparse(content: string, hospitalId?: number | null) {
+    setInlineAiParsing(true);
+    setInlineAiResult(null);
+    setInlineAiError(null);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.functions.invoke("test-parse", {
+        body: { message: content, hospital_id: hospitalId ?? undefined },
+      });
+      if (error) throw error;
+      setInlineAiResult(data);
+    } catch (err) {
+      setInlineAiError(err instanceof Error ? err.message : "AI 파싱 실패");
+    } finally {
+      setInlineAiParsing(false);
     }
   }
 
@@ -373,42 +587,140 @@ export function MessageTable({
             </TableHeader>
             <TableBody>
               {sorted.map((msg) => (
-                <TableRow
-                  key={msg.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => { setSelected(msg); setIsEditing(false); setShowManualParse(false); }}
-                >
-                  <TableCell className="font-mono text-xs">{msg.id}</TableCell>
-                  <TableCell className="font-medium">{msg.sender || "-"}</TableCell>
-                  <TableCell className="max-w-[250px] truncate text-sm text-muted-foreground">
-                    {truncate(msg.content)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{SOURCE_LABEL[msg.source_app] || msg.source_app}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {msg.device_name ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <Smartphone className="h-3 w-3" />
-                        {msg.device_name}
+                <React.Fragment key={msg.id}>
+                  <TableRow
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => { const newId = expandedId === msg.id ? null : msg.id; setExpandedId(newId); if (newId !== expandedId) { setInlineAiResult(null); setInlineAiError(null); } }}
+                  >
+                    <TableCell className="font-mono text-xs">
+                      <span className="inline-flex items-center gap-1">
+                        <ChevronRight className={`h-3 w-3 transition-transform ${expandedId === msg.id ? "rotate-90" : ""}`} />
+                        {msg.id}
                       </span>
-                    ) : msg.device_id?.startsWith("cap:") ? (
-                      <span className="text-xs text-muted-foreground">모바일</span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={STATUS_VARIANT[msg.parse_status] || "secondary"}>
-                      {STATUS_LABEL[msg.parse_status] || msg.parse_status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm whitespace-nowrap">{formatDate(msg.received_at)}</TableCell>
-                  <TableCell className="text-sm whitespace-nowrap">{msg.synced_at ? formatDate(msg.synced_at) : "-"}</TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {msg.order_id ? `#${msg.order_id}` : "-"}
-                  </TableCell>
-                </TableRow>
+                    </TableCell>
+                    <TableCell className="font-medium">{msg.sender || "-"}</TableCell>
+                    <TableCell className="max-w-[250px] truncate text-sm text-muted-foreground">
+                      {truncate(msg.content)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{SOURCE_LABEL[msg.source_app] || msg.source_app}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {msg.device_name ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                          <Smartphone className="h-3 w-3" />
+                          {msg.device_name}
+                        </span>
+                      ) : msg.device_id?.startsWith("cap:") ? (
+                        <span className="text-xs text-muted-foreground">모바일</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={STATUS_VARIANT[msg.parse_status] || "secondary"}>
+                        {STATUS_LABEL[msg.parse_status] || msg.parse_status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm whitespace-nowrap">{formatDate(msg.received_at)}</TableCell>
+                    <TableCell className="text-sm whitespace-nowrap">{msg.synced_at ? formatDate(msg.synced_at) : "-"}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {msg.order_id ? `#${msg.order_id}` : "-"}
+                    </TableCell>
+                  </TableRow>
+                  {expandedId === msg.id && (
+                    <TableRow className="bg-muted/20 hover:bg-muted/20">
+                      <TableCell colSpan={9} className="p-4">
+                        <div className="space-y-3">
+                          <ParseStepper msg={msg} />
+                          <ParseResultTable msg={msg} />
+                          <div className="flex items-center gap-2 justify-end">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelected(msg);
+                                setIsEditing(false);
+                                setShowManualParse(false);
+                                setAiResult(null);
+                                setAiError(null);
+                              }}
+                            >
+                              <Pencil className="h-3.5 w-3.5 mr-1" />
+                              상세
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={inlineAiParsing}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleInlineReparse(msg.content, msg.hospital_id);
+                              }}
+                            >
+                              {inlineAiParsing ? (
+                                <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />파싱중</>
+                              ) : (
+                                <><Bot className="h-3.5 w-3.5 mr-1" />AI 재파싱</>
+                              )}
+                            </Button>
+                          </div>
+                          {inlineAiError && (
+                            <div className="rounded-md bg-destructive/10 p-3 flex items-start gap-2">
+                              <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                              <p className="text-sm text-destructive">{inlineAiError}</p>
+                            </div>
+                          )}
+                          {inlineAiResult && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <span className="text-sm font-medium">재파싱 결과</span>
+                                {inlineAiResult.ai_provider != null && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {String(inlineAiResult.ai_provider)}/{String(inlineAiResult.ai_model)}
+                                  </Badge>
+                                )}
+                                {inlineAiResult.latency_ms != null && (
+                                  <span className="text-xs text-muted-foreground">{String(inlineAiResult.latency_ms)}ms</span>
+                                )}
+                              </div>
+                              {Array.isArray(inlineAiResult.items) && inlineAiResult.items.length > 0 && (
+                                <div className="rounded-md border overflow-hidden">
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="border-b bg-muted/50">
+                                        <th className="text-left p-2 font-medium">원문</th>
+                                        <th className="text-left p-2 font-medium">매칭 제품</th>
+                                        <th className="text-center p-2 font-medium">수량</th>
+                                        <th className="text-center p-2 font-medium">신뢰도</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {(inlineAiResult.items as Array<Record<string, unknown>>).map((item, i) => (
+                                        <tr key={i} className="border-b last:border-0">
+                                          <td className="p-2 text-xs font-mono">{String(item.original_text ?? item.product_name ?? "")}</td>
+                                          <td className="p-2">{item.product_official_name ? String(item.product_official_name) : <span className="text-muted-foreground italic">미매칭</span>}</td>
+                                          <td className="p-2 text-center font-mono">{String(item.quantity ?? "")}{item.unit ? ` ${item.unit}` : ""}</td>
+                                          <td className="p-2 text-center">
+                                            <Badge variant={item.match_status === "matched" ? "default" : item.match_status === "review" ? "secondary" : "outline"}>
+                                              {item.match_status === "matched" ? "매칭" : item.match_status === "review" ? "검토" : "미매칭"}
+                                            </Badge>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
               ))}
             </TableBody>
           </Table>
@@ -416,41 +728,130 @@ export function MessageTable({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sorted.map((msg) => (
-            <Card
-              key={msg.id}
-              className="cursor-pointer hover:bg-muted/30 transition-colors"
-              onClick={() => { setSelected(msg); setIsEditing(false); setShowManualParse(false); }}
-            >
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{msg.sender || "알 수 없음"}</span>
-                  <div className="flex items-center gap-1">
-                    <Badge variant="outline" className="text-xs">{SOURCE_LABEL[msg.source_app] || msg.source_app}</Badge>
-                    <Badge variant={STATUS_VARIANT[msg.parse_status] || "secondary"} className="text-xs">
-                      {STATUS_LABEL[msg.parse_status] || msg.parse_status}
-                    </Badge>
+            <div key={msg.id} className={expandedId === msg.id ? "sm:col-span-2 lg:col-span-3" : ""}>
+              <Card
+                className="cursor-pointer hover:bg-muted/30 transition-colors"
+                onClick={() => { const newId = expandedId === msg.id ? null : msg.id; setExpandedId(newId); if (newId !== expandedId) { setInlineAiResult(null); setInlineAiError(null); } }}
+              >
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">{msg.sender || "알 수 없음"}</span>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="outline" className="text-xs">{SOURCE_LABEL[msg.source_app] || msg.source_app}</Badge>
+                      <Badge variant={STATUS_VARIANT[msg.parse_status] || "secondary"} className="text-xs">
+                        {STATUS_LABEL[msg.parse_status] || msg.parse_status}
+                      </Badge>
+                    </div>
                   </div>
+                  <p className="text-sm text-muted-foreground line-clamp-3 whitespace-pre-wrap">
+                    {msg.content}
+                  </p>
+                  <div className="flex justify-between items-center text-xs text-muted-foreground">
+                    <div className="flex flex-col">
+                      <span>수신: {formatDate(msg.received_at)}</span>
+                      {msg.synced_at && <span>동기화: {formatDate(msg.synced_at)}</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {msg.device_name && (
+                        <span className="inline-flex items-center gap-1">
+                          <Smartphone className="h-3 w-3" />
+                          {msg.device_name}
+                        </span>
+                      )}
+                      {msg.order_id && <span className="font-mono">주문 #{msg.order_id}</span>}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              {expandedId === msg.id && (
+                <div className="mt-2 rounded-lg border bg-muted/20 p-4 space-y-3">
+                  <ParseStepper msg={msg} />
+                  <ParseResultTable msg={msg} />
+                  <div className="flex items-center gap-2 justify-end">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelected(msg);
+                        setIsEditing(false);
+                        setShowManualParse(false);
+                        setAiResult(null);
+                        setAiError(null);
+                      }}
+                    >
+                      <Pencil className="h-3.5 w-3.5 mr-1" />
+                      상세
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={inlineAiParsing}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleInlineReparse(msg.content, msg.hospital_id);
+                      }}
+                    >
+                      {inlineAiParsing ? (
+                        <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />파싱중</>
+                      ) : (
+                        <><Bot className="h-3.5 w-3.5 mr-1" />AI 재파싱</>
+                      )}
+                    </Button>
+                  </div>
+                  {inlineAiError && (
+                    <div className="rounded-md bg-destructive/10 p-3 flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                      <p className="text-sm text-destructive">{inlineAiError}</p>
+                    </div>
+                  )}
+                  {inlineAiResult && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <span className="text-sm font-medium">재파싱 결과</span>
+                        {inlineAiResult.ai_provider != null && (
+                          <Badge variant="secondary" className="text-xs">
+                            {String(inlineAiResult.ai_provider)}/{String(inlineAiResult.ai_model)}
+                          </Badge>
+                        )}
+                        {inlineAiResult.latency_ms != null && (
+                          <span className="text-xs text-muted-foreground">{String(inlineAiResult.latency_ms)}ms</span>
+                        )}
+                      </div>
+                      {Array.isArray(inlineAiResult.items) && inlineAiResult.items.length > 0 && (
+                        <div className="rounded-md border overflow-hidden">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b bg-muted/50">
+                                <th className="text-left p-2 font-medium">원문</th>
+                                <th className="text-left p-2 font-medium">매칭 제품</th>
+                                <th className="text-center p-2 font-medium">수량</th>
+                                <th className="text-center p-2 font-medium">신뢰도</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(inlineAiResult.items as Array<Record<string, unknown>>).map((item, i) => (
+                                <tr key={i} className="border-b last:border-0">
+                                  <td className="p-2 text-xs font-mono">{String(item.original_text ?? item.product_name ?? "")}</td>
+                                  <td className="p-2">{item.product_official_name ? String(item.product_official_name) : <span className="text-muted-foreground italic">미매칭</span>}</td>
+                                  <td className="p-2 text-center font-mono">{String(item.quantity ?? "")}{item.unit ? ` ${item.unit}` : ""}</td>
+                                  <td className="p-2 text-center">
+                                    <Badge variant={item.match_status === "matched" ? "default" : item.match_status === "review" ? "secondary" : "outline"}>
+                                      {item.match_status === "matched" ? "매칭" : item.match_status === "review" ? "검토" : "미매칭"}
+                                    </Badge>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm text-muted-foreground line-clamp-3 whitespace-pre-wrap">
-                  {msg.content}
-                </p>
-                <div className="flex justify-between items-center text-xs text-muted-foreground">
-                  <div className="flex flex-col">
-                    <span>수신: {formatDate(msg.received_at)}</span>
-                    {msg.synced_at && <span>동기화: {formatDate(msg.synced_at)}</span>}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {msg.device_name && (
-                      <span className="inline-flex items-center gap-1">
-                        <Smartphone className="h-3 w-3" />
-                        {msg.device_name}
-                      </span>
-                    )}
-                    {msg.order_id && <span className="font-mono">주문 #{msg.order_id}</span>}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -528,13 +929,126 @@ export function MessageTable({
                 </div>
               </div>
 
-              {selected.parse_result && Object.keys(selected.parse_result).length > 0 && (
+              {/* AI Parse button + result */}
+              <div>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  disabled={isAiParsing}
+                  onClick={() => handleAiParse(selected.content, selected.hospital_id)}
+                >
+                  {isAiParsing ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> 분석중...</>
+                  ) : (
+                    <><Bot className="h-4 w-4 mr-2" /> AI 파싱</>
+                  )}
+                </Button>
+
+                {aiError && (
+                  <div className="mt-2 rounded-md bg-destructive/10 p-3 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                    <p className="text-sm text-destructive">{aiError}</p>
+                  </div>
+                )}
+
+                {aiResult && (
+                  <div className="mt-3 space-y-3">
+                    <Separator />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium">파싱 결과</span>
+                      {aiResult.ai_provider != null && (
+                        <Badge variant="secondary" className="text-xs">
+                          {String(aiResult.ai_provider)}/{String(aiResult.ai_model)}
+                        </Badge>
+                      )}
+                      {aiResult.method === "regex" && (
+                        <Badge variant="outline" className="text-xs">
+                          정규식 (AI 미사용)
+                        </Badge>
+                      )}
+                      {aiResult.match_summary != null && (
+                        <div className="flex gap-1.5 ml-auto">
+                          <Badge variant="default">{(aiResult.match_summary as Record<string, number>).matched ?? 0} 매칭</Badge>
+                          <Badge variant="secondary">{(aiResult.match_summary as Record<string, number>).review ?? 0} 검토</Badge>
+                          <Badge variant="outline">{(aiResult.match_summary as Record<string, number>).unmatched ?? 0} 미매칭</Badge>
+                        </div>
+                      )}
+                    </div>
+
+                    {Array.isArray(aiResult.items) && aiResult.items.length > 0 && (
+                      <div className="rounded-md border overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b bg-muted/50">
+                              <th className="text-left p-2 font-medium">원문</th>
+                              <th className="text-left p-2 font-medium">매칭 품목</th>
+                              <th className="text-center p-2 font-medium">수량</th>
+                              <th className="text-center p-2 font-medium">신뢰도</th>
+                              <th className="text-center p-2 font-medium">상태</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(aiResult.items as Array<Record<string, unknown>>).map((item, i) => (
+                              <tr key={i} className="border-b last:border-0">
+                                <td className="p-2 text-xs text-muted-foreground max-w-[150px] truncate">
+                                  {String(item.original_text ?? item.product_name ?? "")}
+                                </td>
+                                <td className="p-2">
+                                  {item.product_official_name ? String(item.product_official_name) : (
+                                    <span className="text-muted-foreground italic">미매칭</span>
+                                  )}
+                                </td>
+                                <td className="p-2 text-center">
+                                  {String(item.quantity ?? "")}{item.unit ? ` ${item.unit}` : ""}
+                                </td>
+                                <td className="p-2 text-center">
+                                  {item.match_confidence != null && (
+                                    <Badge
+                                      variant={
+                                        Number(item.match_confidence) >= 0.8 ? "default" :
+                                        Number(item.match_confidence) >= 0.5 ? "secondary" : "outline"
+                                      }
+                                    >
+                                      {Math.round(Number(item.match_confidence) * 100)}%
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td className="p-2 text-center">
+                                  <Badge
+                                    variant={
+                                      item.match_status === "matched" ? "default" :
+                                      item.match_status === "review" ? "secondary" : "outline"
+                                    }
+                                  >
+                                    {item.match_status === "matched" ? "매칭" :
+                                     item.match_status === "review" ? "검토" : "미매칭"}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {aiResult.method != null && aiResult.latency_ms != null && (
+                      <p className="text-xs text-muted-foreground">
+                        파싱 방법: {String(aiResult.method)} | 소요시간: {String(aiResult.latency_ms)}ms
+                        {aiResult.token_usage != null && (
+                          <> | 토큰: {String((aiResult.token_usage as Record<string, number>).input_tokens)}→{String((aiResult.token_usage as Record<string, number>).output_tokens)}</>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {selected.parse_result && (
                 <div>
                   <span className="text-sm text-muted-foreground">파싱 결과</span>
-                  <div className="mt-1 rounded-md border bg-muted/30 p-3">
-                    <pre className="text-xs whitespace-pre-wrap font-mono">
-                      {JSON.stringify(selected.parse_result, null, 2)}
-                    </pre>
+                  <div className="mt-2">
+                    <ParseResultTable msg={selected} />
                   </div>
                 </div>
               )}

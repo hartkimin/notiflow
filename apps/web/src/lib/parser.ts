@@ -4,7 +4,7 @@
  * Korean medical supply order text parser with:
  * - regexParse: regex-based item extraction
  * - buildParsePrompt: AI prompt builder with hospital aliases
- * - matchProductsBulk: 5-level product matching (bulk, 2 queries)
+ * - matchProductsBulk: 7-level product matching (bulk, 2 queries)
  * - generateOrderNumber: daily sequential order numbers
  */
 
@@ -33,6 +33,17 @@ export interface MatchResult {
 export interface BulkMatchedItem {
   parsed: ParsedItem;
   match: MatchResult;
+}
+
+export interface ParseResult {
+  items: ParsedItem[];
+  method: 'llm' | 'regex';
+  ai_provider?: string;
+  ai_model?: string;
+  latency_ms: number;
+  token_usage?: { input_tokens: number; output_tokens: number };
+  warnings: string[];
+  error?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,6 +116,38 @@ const FEW_SHOT_EXAMPLES: FewShotExample[] = [
     output: [
       { item: "b", qty: 20, unit: "piece", matched_product: "헤모시스비액 12.6L" },
       { item: "G", qty: 20, unit: "piece", matched_product: "헤모시스에이지액 10L" },
+    ],
+  },
+  {
+    input: "20개 A타입 니들",
+    aliases: [{ alias: "A타입 니들", product_name: "AVF NEEDLE 17G" }],
+    output: [
+      { item: "A타입 니들", qty: 20, unit: "piece", matched_product: "AVF NEEDLE 17G" },
+    ],
+  },
+  {
+    input: "감사합니다 내일 뵙겠습니다",
+    aliases: [],
+    output: [],
+  },
+  {
+    input: "A 5박스 B 20개 C 3팩",
+    aliases: [
+      { alias: "A", product_name: "혈액투석여과기 APS-15SA" },
+      { alias: "B", product_name: "헤모시스비액 12.6L" },
+      { alias: "C", product_name: "에이프리석시네이트투석액" },
+    ],
+    output: [
+      { item: "A", qty: 5, unit: "box", matched_product: "혈액투석여과기 APS-15SA" },
+      { item: "B", qty: 20, unit: "piece", matched_product: "헤모시스비액 12.6L" },
+      { item: "C", qty: 3, unit: "pack", matched_product: "에이프리석시네이트투석액" },
+    ],
+  },
+  {
+    input: "니들",
+    aliases: [{ alias: "니들", product_name: "AVF NEEDLE 16G" }],
+    output: [
+      { item: "니들", qty: 1, unit: "piece", matched_product: "AVF NEEDLE 16G" },
     ],
   },
 ];
@@ -200,29 +243,26 @@ export function regexParse(message: string): ParsedItem[] {
 
 interface AliasEntry { alias: string; product_name: string; }
 
+export interface ProductCatalogEntry {
+  official_name: string;
+  short_name: string | null;
+}
+
 function buildFewShotSection(): string {
-  const examples = FEW_SHOT_EXAMPLES.slice(0, 2);
-  if (examples.length === 0) return "";
+  if (FEW_SHOT_EXAMPLES.length === 0) return "";
   const parts: string[] = ["\n## 파싱 예시"];
-  for (const ex of examples) {
-    parts.push(`\n입력: "${ex.input}"`);
+  for (const ex of FEW_SHOT_EXAMPLES) {
+    const aliasCtx = ex.aliases.length > 0
+      ? ` (별칭: ${ex.aliases.map(a => `"${a.alias}"→${a.product_name}`).join(", ")})`
+      : "";
+    parts.push(`\n입력${aliasCtx}: "${ex.input}"`);
     parts.push(`출력: ${JSON.stringify(ex.output)}`);
   }
   return parts.join("\n");
 }
 
-export function buildParsePrompt(
-  hospitalName: string | null | undefined,
-  aliases: AliasEntry[] | null | undefined,
-  message: string,
-): string {
-  const aliasSection =
-    aliases && aliases.length > 0
-      ? `\n## 병원 별칭 목록 (${hospitalName})\n이 병원에서 사용하는 품목 약어입니다. 반드시 이 목록을 기준으로 매칭하세요:\n${aliases.map((a) => `- "${a.alias}" → ${a.product_name}`).join("\n")}\n`
-      : "";
-
-  const fewShotSection = buildFewShotSection();
-
+/** System prompt: static rules, unit table, schema. */
+export function buildSystemPrompt(): string {
   return `당신은 혈액투석 의료용품 주문 메시지를 파싱하는 전문가입니다.
 
 ## 핵심 규칙
@@ -232,21 +272,68 @@ export function buildParsePrompt(
 4. 단위 매핑:
    - "박스", "box", "bx", "B" → unit: "box"
    - "개", "ea" → unit: "piece"
-   - "팩", "pack" → unit: "pack"
+   - "팩", "pack", "봉" → unit: "pack"
+   - "세트", "set" → unit: "set"
+   - "병" → unit: "bottle"
+   - "통", "캔" → unit: "can"
+   - "매", "장" → unit: "sheet"
+   - "롤" → unit: "roll"
    - 단위 없으면 → "piece"
 5. **별칭 매칭이 최우선**: 별칭 목록에 정확히 일치하는 약어가 있으면 반드시 해당 제품으로 매칭하세요.
 6. 단일 문자("b", "G", "A" 등)도 별칭 목록에 있으면 유효한 품목명입니다.
 7. 영문+숫자 조합("EK15", "NV13")도 별칭 목록에 있으면 품목 코드입니다.
-8. 인사말, 질문, 비주문 내용은 빈 배열 []로 반환하세요.
-9. 별칭 목록에 없는 품목은 matched_product를 null로 설정하세요.
-${aliasSection}${fewShotSection}
-## 주문 메시지 (${hospitalName || "미확인"})
-${message}
+8. 인사말, 질문, 비주문 내용은 is_order=false로 반환하세요.
+9. **품목 카탈로그 활용**: 별칭에 없더라도 등록된 품목 카탈로그에서 유사한 제품을 찾으면 해당 정식 품목명(official_name)으로 matched_product를 설정하세요.
+10. 별칭 목록에도 없고 품목 카탈로그와도 유사하지 않은 품목만 matched_product를 null로 설정하세요.
 
-## 출력 형식 (JSON만 출력)
-[
-  { "item": "원문 약어", "qty": 수량, "unit": "box|piece|pack", "matched_product": "매칭된 정식 제품명 또는 null" }
-]`;
+## 출력 스키마
+{
+  "is_order": boolean,
+  "items": [
+    {
+      "item": "원문 약어",
+      "qty": 수량(정수, 최소 1),
+      "unit": "box|piece|pack|set|bottle|can|sheet|roll",
+      "matched_product": "매칭된 정식 제품명 또는 null",
+      "confidence": 0.0~1.0
+    }
+  ],
+  "rejection_reason": "비주문 메시지인 경우 사유 (주문이면 null)"
+}`;
+}
+
+/** User prompt: dynamic data (aliases, catalog, examples, message). */
+export function buildUserPrompt(
+  hospitalName: string | null | undefined,
+  aliases: AliasEntry[] | null | undefined,
+  message: string,
+  products?: ProductCatalogEntry[] | null,
+): string {
+  const aliasSection =
+    aliases && aliases.length > 0
+      ? `\n## 병원 별칭 목록 (${hospitalName})\n이 병원에서 사용하는 품목 약어입니다. 반드시 이 목록을 기준으로 매칭하세요:\n${aliases.map((a) => `- "${a.alias}" → ${a.product_name}`).join("\n")}\n`
+      : "";
+
+  const productSection =
+    products && products.length > 0
+      ? `\n## 등록된 품목 카탈로그\n${products.map((p) => p.short_name ? `- ${p.official_name} (약칭: ${p.short_name})` : `- ${p.official_name}`).join("\n")}\n`
+      : "";
+
+  const fewShotSection = buildFewShotSection();
+
+  return `${aliasSection}${productSection}${fewShotSection}
+
+## 주문 메시지 (${hospitalName || "미확인"})
+${message}`;
+}
+
+export function buildParsePrompt(
+  hospitalName: string | null | undefined,
+  aliases: AliasEntry[] | null | undefined,
+  message: string,
+  products?: ProductCatalogEntry[] | null,
+): string {
+  return `${buildSystemPrompt()}\n\n${buildUserPrompt(hospitalName, aliases, message, products)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -255,6 +342,23 @@ ${message}
 
 export function normalize(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+export function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
 }
 
 export async function matchProductsBulk(
@@ -308,6 +412,26 @@ export async function matchProductsBulk(
 
   const results: BulkMatchedItem[] = items.map((parsed) => {
     const norm = normalize(parsed.item);
+
+    // Level 0: AI matched_product priority — if AI already found a match
+    if (parsed.matched_product) {
+      const aiNorm = parsed.matched_product.toLowerCase().trim();
+      const aiProductId = productNameMap.get(aiNorm);
+      if (aiProductId) {
+        const product = productMap.get(aiProductId);
+        return {
+          parsed,
+          match: {
+            product_id: aiProductId,
+            product_name: product?.official_name ?? product?.name ?? null,
+            confidence: 0.95,
+            method: "ai_matched",
+            match_status: "matched",
+          },
+        };
+      }
+      // AI match not found in DB, fall through to standard matching
+    }
 
     // Level 1: Hospital-specific exact alias (1.0)
     if (hospitalId) {
@@ -408,7 +532,51 @@ export async function matchProductsBulk(
       };
     }
 
-    // Level 5: Unmatched
+    // Level 5: Levenshtein fuzzy match (distance ≤ 2, confidence 0.5)
+    if (norm.length >= 2) {
+      let bestFuzzy: { id: number; name: string; distance: number } | null = null;
+
+      // Check product names
+      for (const [pName, pId] of productNameMap) {
+        if (Math.abs(pName.length - norm.length) > 2) continue;
+        const dist = levenshtein(norm, pName);
+        if (dist <= 2 && (!bestFuzzy || dist < bestFuzzy.distance)) {
+          const product = productMap.get(pId);
+          bestFuzzy = { id: pId, name: product?.official_name ?? product?.name ?? pName, distance: dist };
+        }
+      }
+
+      // Also check aliases
+      for (const a of aliases ?? []) {
+        const aKey = (a.alias_normalized || a.alias).toLowerCase().trim();
+        if (Math.abs(aKey.length - norm.length) > 2) continue;
+        const dist = levenshtein(norm, aKey);
+        if (dist <= 2 && (!bestFuzzy || dist < bestFuzzy.distance)) {
+          const product = productMap.get(a.product_id);
+          matchedAliasIds.push(a.id);
+          bestFuzzy = {
+            id: a.product_id,
+            name: product?.official_name ?? product?.name ?? aKey,
+            distance: dist,
+          };
+        }
+      }
+
+      if (bestFuzzy) {
+        return {
+          parsed,
+          match: {
+            product_id: bestFuzzy.id,
+            product_name: bestFuzzy.name,
+            confidence: 0.5,
+            method: "fuzzy",
+            match_status: "review",
+          },
+        };
+      }
+    }
+
+    // Level 6: Unmatched
     return {
       parsed,
       match: {

@@ -19,6 +19,12 @@ export interface AIProviderSettings {
   model: string;
 }
 
+export interface AIStructuredResult {
+  parsed: unknown;
+  inputTokens: number;
+  outputTokens: number;
+}
+
 // ---------------------------------------------------------------------------
 // Provider calls
 // ---------------------------------------------------------------------------
@@ -94,6 +100,167 @@ export function callAI(provider: string, apiKey: string, model: string, prompt: 
     case "google": return callGemini(apiKey, model, prompt);
     case "openai": return callOpenAI(apiKey, model, prompt);
     default: return callClaude(apiKey, model, prompt);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Structured output (JSON schema-based)
+// ---------------------------------------------------------------------------
+
+const PARSE_ORDER_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    is_order: { type: "boolean" as const, description: "주문 메시지 여부" },
+    items: {
+      type: "array" as const,
+      items: {
+        type: "object" as const,
+        properties: {
+          item: { type: "string" as const, description: "원문 약어/품목명" },
+          qty: { type: "integer" as const, minimum: 1, description: "수량" },
+          unit: {
+            type: "string" as const,
+            enum: ["box", "piece", "pack", "set", "bottle", "can", "sheet", "roll"],
+            description: "단위",
+          },
+          matched_product: {
+            type: ["string", "null"] as const,
+            description: "매칭된 정식 제품명 (없으면 null)",
+          },
+          confidence: {
+            type: "number" as const,
+            minimum: 0,
+            maximum: 1,
+            description: "매칭 확신도",
+          },
+        },
+        required: ["item", "qty", "unit"],
+      },
+    },
+    rejection_reason: {
+      type: ["string", "null"] as const,
+      description: "비주문 메시지인 경우 사유",
+    },
+  },
+  required: ["is_order", "items"],
+};
+
+async function callClaudeStructured(
+  apiKey: string, model: string, system: string, user: string,
+): Promise<AIStructuredResult> {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1024,
+      system,
+      messages: [{ role: "user", content: user }],
+      tools: [{
+        name: "parse_order",
+        description: "주문 메시지 파싱 결과를 구조화된 형식으로 반환합니다.",
+        input_schema: PARSE_ORDER_SCHEMA,
+      }],
+      tool_choice: { type: "tool", name: "parse_order" },
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Anthropic API error (${res.status}): ${err}`);
+  }
+  const data = await res.json();
+  const toolBlock = data.content?.find((b: { type: string }) => b.type === "tool_use");
+  return {
+    parsed: toolBlock?.input ?? null,
+    inputTokens: data.usage?.input_tokens ?? 0,
+    outputTokens: data.usage?.output_tokens ?? 0,
+  };
+}
+
+async function callGeminiStructured(
+  apiKey: string, model: string, system: string, user: string,
+): Promise<AIStructuredResult> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ parts: [{ text: user }] }],
+      generationConfig: {
+        maxOutputTokens: 1024,
+        responseMimeType: "application/json",
+        responseSchema: PARSE_ORDER_SCHEMA,
+      },
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gemini API error (${res.status}): ${err}`);
+  }
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  let parsed: unknown = null;
+  try { parsed = JSON.parse(text); } catch { parsed = null; }
+  return {
+    parsed,
+    inputTokens: data.usageMetadata?.promptTokenCount ?? 0,
+    outputTokens: data.usageMetadata?.candidatesTokenCount ?? 0,
+  };
+}
+
+async function callOpenAIStructured(
+  apiKey: string, model: string, system: string, user: string,
+): Promise<AIStructuredResult> {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      max_tokens: 1024,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "parse_order",
+          strict: true,
+          schema: PARSE_ORDER_SCHEMA,
+        },
+      },
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`OpenAI API error (${res.status}): ${err}`);
+  }
+  const data = await res.json();
+  const text = data.choices?.[0]?.message?.content ?? "";
+  let parsed: unknown = null;
+  try { parsed = JSON.parse(text); } catch { parsed = null; }
+  return {
+    parsed,
+    inputTokens: data.usage?.prompt_tokens ?? 0,
+    outputTokens: data.usage?.completion_tokens ?? 0,
+  };
+}
+
+export function callAIStructured(
+  provider: string, apiKey: string, model: string, system: string, user: string,
+): Promise<AIStructuredResult> {
+  switch (provider) {
+    case "google": return callGeminiStructured(apiKey, model, system, user);
+    case "openai": return callOpenAIStructured(apiKey, model, system, user);
+    default: return callClaudeStructured(apiKey, model, system, user);
   }
 }
 

@@ -38,8 +38,7 @@ import {
   Check, ChevronsUpDown, Building2,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { createMessage, updateMessage, deleteMessage, deleteMessages, reparseMessage, reparseMessages } from "@/lib/actions";
-import { createClient } from "@/lib/supabase/client";
+import { createMessage, updateMessage, deleteMessage, deleteMessages, reparseMessage, reparseMessages, testParseMessage } from "@/lib/actions";
 import { ManualParseForm } from "@/components/manual-parse-form";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import type { RawMessage, Hospital, Product } from "@/lib/types";
@@ -515,12 +514,8 @@ export function MessageTable({
     setAiResult(null);
     setAiError(null);
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase.functions.invoke("test-parse", {
-        body: { message: content, hospital_id: hospitalId ?? undefined },
-      });
-      if (error) throw error;
-      setAiResult(data);
+      const data = await testParseMessage(content, hospitalId ?? undefined);
+      setAiResult(data as Record<string, unknown>);
     } catch (err) {
       setAiError(err instanceof Error ? err.message : "AI 파싱 실패");
     } finally {
@@ -533,12 +528,8 @@ export function MessageTable({
     setInlineAiResult(null);
     setInlineAiError(null);
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase.functions.invoke("test-parse", {
-        body: { message: content, hospital_id: hospitalId ?? undefined },
-      });
-      if (error) throw error;
-      setInlineAiResult(data);
+      const data = await testParseMessage(content, hospitalId ?? undefined);
+      setInlineAiResult(data as Record<string, unknown>);
     } catch (err) {
       setInlineAiError(err instanceof Error ? err.message : "AI 파싱 실패");
     } finally {

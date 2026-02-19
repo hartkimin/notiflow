@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { generateId } from "@/lib/schedule-utils";
 import type { ProductAlias } from "@/lib/types";
 import { getAISettings } from "@/lib/ai-client";
-import { parseMessageCore } from "@/lib/parse-service";
+import { parseMessageCore, getHospitalAliases, aiParse } from "@/lib/parse-service";
+import { matchProductsBulk, type ProductCatalogEntry } from "@/lib/parser";
 
 // --- Products ---
 
@@ -215,6 +216,65 @@ export async function deleteMessage(id: number) {
   revalidatePath("/messages");
   revalidatePath("/dashboard");
   return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Test parse (AI 테스트 — no DB writes, just parse + match)
+// ---------------------------------------------------------------------------
+
+export async function testParseMessage(content: string, hospitalId?: number) {
+  const supabase = await createClient();
+  const settings = await getAISettings();
+
+  let hospitalName: string | null = null;
+  let aliases: { alias: string; product_name: string }[] = [];
+
+  if (hospitalId) {
+    const { data: hospital } = await supabase
+      .from("hospitals")
+      .select("name")
+      .eq("id", hospitalId)
+      .single();
+    hospitalName = hospital?.name ?? null;
+    aliases = await getHospitalAliases(supabase, hospitalId);
+  }
+
+  const { data: productRows } = await supabase
+    .from("products")
+    .select("official_name, short_name")
+    .eq("is_active", true);
+
+  const products: ProductCatalogEntry[] = (productRows ?? []).map(
+    (p: { official_name: string; short_name: string | null }) => ({
+      official_name: p.official_name,
+      short_name: p.short_name,
+    }),
+  );
+
+  const parseResult = await aiParse(content, settings, hospitalName, aliases, products);
+
+  const matchedItems = parseResult.items.length > 0
+    ? await matchProductsBulk(supabase, parseResult.items, hospitalId)
+    : [];
+
+  return {
+    method: parseResult.method,
+    ai_provider: parseResult.ai_provider ?? null,
+    ai_model: parseResult.ai_model ?? null,
+    latency_ms: parseResult.latency_ms,
+    token_usage: parseResult.token_usage ?? null,
+    warnings: parseResult.warnings,
+    items: matchedItems.map((m) => ({
+      item: m.parsed.item,
+      qty: m.parsed.qty,
+      unit: m.parsed.unit,
+      product_id: m.match.product_id,
+      product_name: m.match.product_name,
+      confidence: m.match.confidence,
+      match_status: m.match.match_status,
+      method: m.match.method,
+    })),
+  };
 }
 
 // ---------------------------------------------------------------------------

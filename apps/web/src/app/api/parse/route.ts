@@ -61,9 +61,16 @@ export async function POST(req: Request) {
 
   const { message_id, content, hospital_id, force_order, test_only } = body;
 
-  if (message_id == null || !content) {
+  if (!content) {
     return NextResponse.json(
-      { error: "message_id and content are required" },
+      { error: "content is required" },
+      { status: 400 },
+    );
+  }
+
+  if (!test_only && message_id == null) {
+    return NextResponse.json(
+      { error: "message_id is required for non-test requests" },
       { status: 400 },
     );
   }
@@ -114,7 +121,7 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         test_only: true,
-        message_id,
+        message_id: message_id ?? null,
         method: parseResult.method,
         ai_provider: parseResult.ai_provider ?? null,
         ai_model: parseResult.ai_model ?? null,
@@ -135,11 +142,11 @@ export async function POST(req: Request) {
       });
     }
 
-    // ---- Full pipeline mode ----
+    // ---- Full pipeline mode (message_id guaranteed non-null by validation above) ----
     const result = await parseMessageCore(
       supabase,
       settings,
-      message_id,
+      message_id!,
       content,
       hospital_id ?? null,
       force_order ?? false,

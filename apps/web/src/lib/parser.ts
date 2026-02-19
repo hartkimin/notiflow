@@ -4,7 +4,7 @@
  * Korean medical supply order text parser with:
  * - regexParse: regex-based item extraction
  * - buildParsePrompt: AI prompt builder with hospital aliases
- * - matchProductsBulk: 5-level product matching (bulk, 2 queries)
+ * - matchProductsBulk: 7-level product matching (bulk, 2 queries)
  * - generateOrderNumber: daily sequential order numbers
  */
 
@@ -413,6 +413,26 @@ export async function matchProductsBulk(
   const results: BulkMatchedItem[] = items.map((parsed) => {
     const norm = normalize(parsed.item);
 
+    // Level 0: AI matched_product priority — if AI already found a match
+    if (parsed.matched_product) {
+      const aiNorm = parsed.matched_product.toLowerCase().trim();
+      const aiProductId = productNameMap.get(aiNorm);
+      if (aiProductId) {
+        const product = productMap.get(aiProductId);
+        return {
+          parsed,
+          match: {
+            product_id: aiProductId,
+            product_name: product?.official_name ?? product?.name ?? null,
+            confidence: 0.95,
+            method: "ai_matched",
+            match_status: "matched",
+          },
+        };
+      }
+      // AI match not found in DB, fall through to standard matching
+    }
+
     // Level 1: Hospital-specific exact alias (1.0)
     if (hospitalId) {
       const ha = hospitalAliasMap.get(norm);
@@ -512,7 +532,51 @@ export async function matchProductsBulk(
       };
     }
 
-    // Level 5: Unmatched
+    // Level 5: Levenshtein fuzzy match (distance ≤ 2, confidence 0.5)
+    if (norm.length >= 2) {
+      let bestFuzzy: { id: number; name: string; distance: number } | null = null;
+
+      // Check product names
+      for (const [pName, pId] of productNameMap) {
+        if (Math.abs(pName.length - norm.length) > 2) continue;
+        const dist = levenshtein(norm, pName);
+        if (dist <= 2 && (!bestFuzzy || dist < bestFuzzy.distance)) {
+          const product = productMap.get(pId);
+          bestFuzzy = { id: pId, name: product?.official_name ?? product?.name ?? pName, distance: dist };
+        }
+      }
+
+      // Also check aliases
+      for (const a of aliases ?? []) {
+        const aKey = (a.alias_normalized || a.alias).toLowerCase().trim();
+        if (Math.abs(aKey.length - norm.length) > 2) continue;
+        const dist = levenshtein(norm, aKey);
+        if (dist <= 2 && (!bestFuzzy || dist < bestFuzzy.distance)) {
+          const product = productMap.get(a.product_id);
+          matchedAliasIds.push(a.id);
+          bestFuzzy = {
+            id: a.product_id,
+            name: product?.official_name ?? product?.name ?? aKey,
+            distance: dist,
+          };
+        }
+      }
+
+      if (bestFuzzy) {
+        return {
+          parsed,
+          match: {
+            product_id: bestFuzzy.id,
+            product_name: bestFuzzy.name,
+            confidence: 0.5,
+            method: "fuzzy",
+            match_status: "review",
+          },
+        };
+      }
+    }
+
+    // Level 6: Unmatched
     return {
       parsed,
       match: {

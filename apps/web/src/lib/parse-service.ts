@@ -36,6 +36,47 @@ export interface ParseMessageResult {
 }
 
 // ---------------------------------------------------------------------------
+// resolveHospitalFromSender — auto-match sender name to hospital
+// ---------------------------------------------------------------------------
+
+export async function resolveHospitalFromSender(
+  supabase: SupabaseClient,
+  sender: string | null | undefined,
+): Promise<{ id: number; name: string } | null> {
+  if (!sender || sender.trim().length === 0) return null;
+
+  const term = sender.trim();
+
+  // Exact match on name or short_name
+  const { data: exact } = await supabase
+    .from("hospitals")
+    .select("id, name")
+    .or(`name.eq.${term},short_name.eq.${term}`)
+    .limit(1);
+
+  if (exact && exact.length > 0) return exact[0];
+
+  // Contains match (sender contains hospital name or vice versa)
+  const { data: all } = await supabase
+    .from("hospitals")
+    .select("id, name, short_name");
+
+  const termLower = term.toLowerCase();
+  for (const h of all ?? []) {
+    const nameLower = h.name.toLowerCase();
+    const shortLower = (h.short_name ?? "").toLowerCase();
+    if (
+      nameLower.includes(termLower) || termLower.includes(nameLower) ||
+      (shortLower && (shortLower.includes(termLower) || termLower.includes(shortLower)))
+    ) {
+      return { id: h.id, name: h.name };
+    }
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // getHospitalAliases
 // ---------------------------------------------------------------------------
 

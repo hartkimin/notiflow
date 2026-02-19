@@ -509,12 +509,12 @@ export function MessageTable({
     }
   }
 
-  async function handleAiParse(content: string, hospitalId?: number | null) {
+  async function handleAiParse(content: string, hospitalId?: number | null, sender?: string | null) {
     setIsAiParsing(true);
     setAiResult(null);
     setAiError(null);
     try {
-      const data = await testParseMessage(content, hospitalId ?? undefined);
+      const data = await testParseMessage(content, hospitalId ?? undefined, sender ?? undefined);
       setAiResult(data as Record<string, unknown>);
     } catch (err) {
       setAiError(err instanceof Error ? err.message : "AI 파싱 실패");
@@ -523,12 +523,12 @@ export function MessageTable({
     }
   }
 
-  async function handleInlineReparse(content: string, hospitalId?: number | null) {
+  async function handleInlineReparse(content: string, hospitalId?: number | null, sender?: string | null) {
     setInlineAiParsing(true);
     setInlineAiResult(null);
     setInlineAiError(null);
     try {
-      const data = await testParseMessage(content, hospitalId ?? undefined);
+      const data = await testParseMessage(content, hospitalId ?? undefined, sender ?? undefined);
       setInlineAiResult(data as Record<string, unknown>);
     } catch (err) {
       setInlineAiError(err instanceof Error ? err.message : "AI 파싱 실패");
@@ -743,7 +743,7 @@ export function MessageTable({
                               disabled={inlineAiParsing}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleInlineReparse(msg.content, msg.hospital_id);
+                                handleInlineReparse(msg.content, msg.hospital_id, msg.sender);
                               }}
                             >
                               {inlineAiParsing ? (
@@ -890,7 +890,7 @@ export function MessageTable({
                       disabled={inlineAiParsing}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleInlineReparse(msg.content, msg.hospital_id);
+                        handleInlineReparse(msg.content, msg.hospital_id, msg.sender);
                       }}
                     >
                       {inlineAiParsing ? (
@@ -1167,7 +1167,7 @@ export function MessageTable({
                   className="flex-1"
                   variant="outline"
                   disabled={isAiParsing}
-                  onClick={() => handleAiParse(selected.content, selected.hospital_id)}
+                  onClick={() => handleAiParse(selected.content, selected.hospital_id, selected.sender)}
                 >
                   {isAiParsing ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> 분석중...</>

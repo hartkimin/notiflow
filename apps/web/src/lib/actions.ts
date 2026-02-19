@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { generateId } from "@/lib/schedule-utils";
 import type { ProductAlias } from "@/lib/types";
 import { getAISettings } from "@/lib/ai-client";
-import { parseMessageCore, getHospitalAliases, aiParse } from "@/lib/parse-service";
+import { parseMessageCore, getHospitalAliases, aiParse, resolveHospitalFromSender } from "@/lib/parse-service";
 import { matchProductsBulk, type ProductCatalogEntry } from "@/lib/parser";
 
 // --- Products ---
@@ -222,21 +222,31 @@ export async function deleteMessage(id: number) {
 // Test parse (AI 테스트 — no DB writes, just parse + match)
 // ---------------------------------------------------------------------------
 
-export async function testParseMessage(content: string, hospitalId?: number) {
+export async function testParseMessage(content: string, hospitalId?: number, sender?: string) {
   const supabase = await createClient();
   const settings = await getAISettings();
 
+  let resolvedHospitalId = hospitalId ?? null;
   let hospitalName: string | null = null;
   let aliases: { alias: string; product_name: string }[] = [];
 
-  if (hospitalId) {
+  // Auto-resolve hospital from sender if no hospitalId
+  if (!resolvedHospitalId && sender) {
+    const resolved = await resolveHospitalFromSender(supabase, sender);
+    if (resolved) {
+      resolvedHospitalId = resolved.id;
+      console.log(`[testParse] Auto-matched sender "${sender}" → hospital "${resolved.name}" (id=${resolved.id})`);
+    }
+  }
+
+  if (resolvedHospitalId) {
     const { data: hospital } = await supabase
       .from("hospitals")
       .select("name")
-      .eq("id", hospitalId)
+      .eq("id", resolvedHospitalId)
       .single();
     hospitalName = hospital?.name ?? null;
-    aliases = await getHospitalAliases(supabase, hospitalId);
+    aliases = await getHospitalAliases(supabase, resolvedHospitalId);
   }
 
   const { data: productRows } = await supabase
@@ -254,7 +264,7 @@ export async function testParseMessage(content: string, hospitalId?: number) {
   const parseResult = await aiParse(content, settings, hospitalName, aliases, products);
 
   const matchedItems = parseResult.items.length > 0
-    ? await matchProductsBulk(supabase, parseResult.items, hospitalId)
+    ? await matchProductsBulk(supabase, parseResult.items, resolvedHospitalId)
     : [];
 
   // Build match_summary counts
@@ -305,12 +315,27 @@ export async function reparseMessage(id: number, hospitalId?: number) {
 
   const { data: msg, error: fetchErr } = await supabase
     .from("raw_messages")
-    .select("id, content, hospital_id")
+    .select("id, content, hospital_id, sender")
     .eq("id", id)
     .single();
   if (fetchErr || !msg) throw fetchErr ?? new Error("메시지를 찾을 수 없습니다.");
 
-  const result = await parseMessageCore(supabase, settings, msg.id, msg.content, msg.hospital_id, true);
+  // Auto-resolve hospital from sender if still no hospital_id
+  let effectiveHospitalId = msg.hospital_id;
+  if (!effectiveHospitalId && msg.sender) {
+    const resolved = await resolveHospitalFromSender(supabase, msg.sender);
+    if (resolved) {
+      effectiveHospitalId = resolved.id;
+      // Persist the resolved hospital_id on the message
+      await supabase
+        .from("raw_messages")
+        .update({ hospital_id: resolved.id })
+        .eq("id", id);
+      console.log(`[reparseMessage] Auto-matched sender "${msg.sender}" → hospital "${resolved.name}" (id=${resolved.id})`);
+    }
+  }
+
+  const result = await parseMessageCore(supabase, settings, msg.id, msg.content, effectiveHospitalId, true);
   revalidatePath("/calendar");
   revalidatePath("/messages");
   revalidatePath("/dashboard");

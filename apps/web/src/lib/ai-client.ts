@@ -181,10 +181,30 @@ async function callClaudeStructured(
   };
 }
 
+// Convert JSON Schema type:["string","null"] → Gemini's nullable:true format
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toGeminiSchema(schema: any): any {
+  if (!schema || typeof schema !== "object") return schema;
+  const result = { ...schema };
+  if (Array.isArray(result.type)) {
+    const types = result.type.filter((t: string) => t !== "null");
+    result.type = types.length === 1 ? types[0] : types;
+    result.nullable = true;
+  }
+  if (result.properties) {
+    result.properties = Object.fromEntries(
+      Object.entries(result.properties).map(([k, v]) => [k, toGeminiSchema(v)]),
+    );
+  }
+  if (result.items) result.items = toGeminiSchema(result.items);
+  return result;
+}
+
 async function callGeminiStructured(
   apiKey: string, model: string, system: string, user: string,
 ): Promise<AIStructuredResult> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const geminiSchema = toGeminiSchema(PARSE_ORDER_SCHEMA);
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -194,7 +214,7 @@ async function callGeminiStructured(
       generationConfig: {
         maxOutputTokens: 1024,
         responseMimeType: "application/json",
-        responseSchema: PARSE_ORDER_SCHEMA,
+        responseSchema: geminiSchema,
       },
     }),
   });

@@ -283,8 +283,11 @@ export function buildSystemPrompt(): string {
 6. 단일 문자("b", "G", "A" 등)도 별칭 목록에 있으면 유효한 품목명입니다.
 7. 영문+숫자 조합("EK15", "NV13")도 별칭 목록에 있으면 품목 코드입니다.
 8. 인사말, 질문, 비주문 내용은 is_order=false로 반환하세요.
-9. **품목 카탈로그 활용**: 별칭에 없더라도 등록된 품목 카탈로그에서 유사한 제품을 찾으면 해당 정식 품목명(official_name)으로 matched_product를 설정하세요.
-10. 별칭 목록에도 없고 품목 카탈로그와도 유사하지 않은 품목만 matched_product를 null로 설정하세요.
+9. **품목 카탈로그 매칭 필수**: 모든 파싱된 품목에 대해 아래 우선순위로 matched_product를 설정하세요:
+   - 1순위: 별칭 목록에서 일치 → 해당 제품의 정식명
+   - 2순위: 품목 카탈로그에서 official_name 또는 약칭(short_name)이 유사 → 해당 official_name을 **정확히 그대로 복사**
+   - matched_product 값은 반드시 품목 카탈로그의 official_name 문자열과 동일해야 합니다 (임의 수정 금지).
+10. 카탈로그에 전혀 유사한 품목이 없는 경우에만 matched_product를 null로 설정하세요.
 
 ## 출력 스키마
 {
@@ -321,10 +324,14 @@ export function buildUserPrompt(
 
   const fewShotSection = buildFewShotSection();
 
+  const matchReminder = products && products.length > 0
+    ? `\n**중요**: 각 품목의 matched_product는 반드시 위 품목 카탈로그의 official_name을 정확히 복사하세요.`
+    : "";
+
   return `${aliasSection}${productSection}${fewShotSection}
 
 ## 주문 메시지 (${hospitalName || "미확인"})
-${message}`;
+${message}${matchReminder}`;
 }
 
 export function buildParsePrompt(
@@ -416,6 +423,8 @@ export async function matchProductsBulk(
     // Level 0: AI matched_product priority — if AI already found a match
     if (parsed.matched_product) {
       const aiNorm = parsed.matched_product.toLowerCase().trim();
+
+      // 0a: Exact match on product name/official_name/short_name
       const aiProductId = productNameMap.get(aiNorm);
       if (aiProductId) {
         const product = productMap.get(aiProductId);
@@ -430,7 +439,56 @@ export async function matchProductsBulk(
           },
         };
       }
-      // AI match not found in DB, fall through to standard matching
+
+      // 0b: Contains match — AI name includes product name or vice versa
+      let bestAiContains: { id: number; name: string; ratio: number } | null = null;
+      for (const [pName, pId] of productNameMap) {
+        if (pName.includes(aiNorm) || aiNorm.includes(pName)) {
+          const ratio = Math.min(pName.length, aiNorm.length) / Math.max(pName.length, aiNorm.length);
+          if (!bestAiContains || ratio > bestAiContains.ratio) {
+            const product = productMap.get(pId);
+            bestAiContains = { id: pId, name: product?.official_name ?? product?.name ?? pName, ratio };
+          }
+        }
+      }
+      if (bestAiContains && bestAiContains.ratio >= 0.4) {
+        return {
+          parsed,
+          match: {
+            product_id: bestAiContains.id,
+            product_name: bestAiContains.name,
+            confidence: bestAiContains.ratio >= 0.7 ? 0.9 : 0.8,
+            method: "ai_matched_contains",
+            match_status: bestAiContains.ratio >= 0.6 ? "matched" : "review",
+          },
+        };
+      }
+
+      // 0c: Levenshtein fuzzy on AI's matched_product (distance ≤ 3)
+      if (aiNorm.length >= 3) {
+        let bestAiFuzzy: { id: number; name: string; distance: number } | null = null;
+        for (const [pName, pId] of productNameMap) {
+          if (Math.abs(pName.length - aiNorm.length) > 3) continue;
+          const dist = levenshtein(aiNorm, pName);
+          if (dist <= 3 && (!bestAiFuzzy || dist < bestAiFuzzy.distance)) {
+            const product = productMap.get(pId);
+            bestAiFuzzy = { id: pId, name: product?.official_name ?? product?.name ?? pName, distance: dist };
+          }
+        }
+        if (bestAiFuzzy) {
+          return {
+            parsed,
+            match: {
+              product_id: bestAiFuzzy.id,
+              product_name: bestAiFuzzy.name,
+              confidence: bestAiFuzzy.distance <= 1 ? 0.9 : 0.8,
+              method: "ai_matched_fuzzy",
+              match_status: bestAiFuzzy.distance <= 2 ? "matched" : "review",
+            },
+          };
+        }
+      }
+      // Fall through to standard matching (Levels 1-6)
     }
 
     // Level 1: Hospital-specific exact alias (1.0)

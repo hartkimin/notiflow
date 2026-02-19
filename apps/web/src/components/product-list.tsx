@@ -14,7 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Tags, LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Tags, LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown, Loader2, Sparkles } from "lucide-react";
 import {
   createProduct, updateProduct, deleteProduct, deleteProducts,
   getProductAliases, createProductAlias, updateProductAlias, deleteProductAlias,
@@ -358,20 +358,79 @@ function ProductFormDialog({
   product?: Product;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [isAiSearching, setIsAiSearching] = useState(false);
   const router = useRouter();
+
+  // Controlled form state
+  const [officialName, setOfficialName] = useState(product?.official_name || "");
+  const [shortName, setShortName] = useState(product?.short_name || "");
+  const [category, setCategory] = useState(product?.category || "consumable");
+  const [manufacturer, setManufacturer] = useState(product?.manufacturer || "");
+  const [ingredient, setIngredient] = useState(product?.ingredient || "");
+  const [standardCode, setStandardCode] = useState(product?.standard_code || "");
+  const [unit, setUnit] = useState(product?.unit || "개");
+  const [unitPrice, setUnitPrice] = useState(product?.unit_price != null ? String(product.unit_price) : "");
+  const [efficacy, setEfficacy] = useState(product?.efficacy || "");
+
+  // Reset form when product changes (edit vs create)
+  useEffect(() => {
+    setOfficialName(product?.official_name || "");
+    setShortName(product?.short_name || "");
+    setCategory(product?.category || "consumable");
+    setManufacturer(product?.manufacturer || "");
+    setIngredient(product?.ingredient || "");
+    setStandardCode(product?.standard_code || "");
+    setUnit(product?.unit || "개");
+    setUnitPrice(product?.unit_price != null ? String(product.unit_price) : "");
+    setEfficacy(product?.efficacy || "");
+  }, [product]);
+
+  async function handleAiSearch() {
+    if (!officialName.trim()) {
+      toast.error("품목명을 먼저 입력해주세요.");
+      return;
+    }
+    setIsAiSearching(true);
+    try {
+      const res = await fetch("/api/ai-product-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: officialName.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "AI 검색 실패");
+
+      const p = data.product;
+      if (p.official_name) setOfficialName(p.official_name);
+      if (p.short_name) setShortName(p.short_name);
+      if (p.category) setCategory(p.category);
+      if (p.manufacturer) setManufacturer(p.manufacturer);
+      if (p.ingredient) setIngredient(p.ingredient);
+      if (p.efficacy) setEfficacy(p.efficacy);
+      if (p.standard_code) setStandardCode(p.standard_code);
+      if (p.unit) setUnit(p.unit);
+
+      const providerLabel = data.ai_provider === "google" ? "Gemini" : data.ai_provider === "openai" ? "GPT" : "Claude";
+      toast.success(`AI 검색 완료 (${providerLabel}, ${data.latency_ms}ms)`);
+    } catch (err) {
+      toast.error(`AI 검색 실패: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsAiSearching(false);
+    }
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const fd = new FormData(e.currentTarget);
     const data = {
-      official_name: fd.get("official_name") as string,
-      short_name: fd.get("short_name") as string || undefined,
-      category: fd.get("category") as string,
-      manufacturer: fd.get("manufacturer") as string || undefined,
-      ingredient: fd.get("ingredient") as string || undefined,
-      standard_code: fd.get("standard_code") as string || undefined,
-      unit: fd.get("unit") as string || undefined,
-      unit_price: fd.get("unit_price") ? parseFloat(fd.get("unit_price") as string) : undefined,
+      official_name: officialName,
+      short_name: shortName || undefined,
+      category,
+      manufacturer: manufacturer || undefined,
+      ingredient: ingredient || undefined,
+      efficacy: efficacy || undefined,
+      standard_code: standardCode || undefined,
+      unit: unit || undefined,
+      unit_price: unitPrice ? parseFloat(unitPrice) : undefined,
     };
 
     startTransition(async () => {
@@ -401,15 +460,38 @@ function ProductFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1">
               <Label>품목명 *</Label>
-              <Input name="official_name" required defaultValue={product?.official_name || ""} />
+              <div className="flex gap-2">
+                <Input
+                  name="official_name"
+                  required
+                  value={officialName}
+                  onChange={(e) => setOfficialName(e.target.value)}
+                  placeholder="품목명을 입력하세요"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isAiSearching || !officialName.trim()}
+                  onClick={handleAiSearch}
+                  className="shrink-0"
+                >
+                  {isAiSearching ? (
+                    <><Loader2 className="h-4 w-4 mr-1 animate-spin" />검색중</>
+                  ) : (
+                    <><Sparkles className="h-4 w-4 mr-1" />AI 검색</>
+                  )}
+                </Button>
+              </div>
             </div>
             <div className="space-y-1">
               <Label>약칭</Label>
-              <Input name="short_name" defaultValue={product?.short_name || ""} />
+              <Input name="short_name" value={shortName} onChange={(e) => setShortName(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label>카테고리</Label>
-              <select name="category" defaultValue={product?.category || "consumable"} className="w-full rounded-md border px-3 py-2 text-sm bg-background">
+              <select name="category" value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-md border px-3 py-2 text-sm bg-background">
                 {Object.entries(CATEGORY_LABEL).map(([key, label]) => (
                   <option key={key} value={key}>{label}</option>
                 ))}
@@ -417,23 +499,27 @@ function ProductFormDialog({
             </div>
             <div className="space-y-1">
               <Label>제조사</Label>
-              <Input name="manufacturer" defaultValue={product?.manufacturer || ""} />
+              <Input name="manufacturer" value={manufacturer} onChange={(e) => setManufacturer(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label>단위</Label>
-              <Input name="unit" defaultValue={product?.unit || "개"} />
+              <Input name="unit" value={unit} onChange={(e) => setUnit(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label>단가</Label>
-              <Input name="unit_price" type="number" min={0} step="any" defaultValue={product?.unit_price ?? ""} />
+              <Input name="unit_price" type="number" min={0} step="any" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
             </div>
             <div className="col-span-2 space-y-1">
               <Label>성분</Label>
-              <Input name="ingredient" defaultValue={product?.ingredient || ""} />
+              <Input name="ingredient" value={ingredient} onChange={(e) => setIngredient(e.target.value)} />
+            </div>
+            <div className="col-span-2 space-y-1">
+              <Label>효능/용도</Label>
+              <Input name="efficacy" value={efficacy} onChange={(e) => setEfficacy(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label>표준코드</Label>
-              <Input name="standard_code" defaultValue={product?.standard_code || ""} />
+              <Input name="standard_code" value={standardCode} onChange={(e) => setStandardCode(e.target.value)} />
             </div>
           </div>
           <DialogFooter>

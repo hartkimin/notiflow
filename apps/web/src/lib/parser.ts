@@ -1,15 +1,14 @@
 /**
- * Shared Parser Module for Supabase Edge Functions
+ * Parser Module (Node.js port of packages/supabase/functions/_shared/parser.ts)
  *
- * Ports three Node.js modules to Deno TypeScript:
- * - regexParser.js  — Korean medical supply order text parser
- * - prompts.js      — Claude AI prompt builder
- * - productMatcher.js — 5-level product matching (without Redis)
- *
- * Also provides order number generation and text normalization utilities.
+ * Korean medical supply order text parser with:
+ * - regexParse: regex-based item extraction
+ * - buildParsePrompt: AI prompt builder with hospital aliases
+ * - matchProductsBulk: 5-level product matching (bulk, 2 queries)
+ * - generateOrderNumber: daily sequential order numbers
  */
 
-import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -31,55 +30,43 @@ export interface MatchResult {
   original_text?: string;
 }
 
+export interface BulkMatchedItem {
+  parsed: ParsedItem;
+  match: MatchResult;
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const UNIT_MAP: Record<string, string> = {
-  "박스": "box",
-  "box": "box",
-  "bx": "box",
-  "개": "piece",
-  "ea": "piece",
-  "piece": "piece",
-  "봉": "pack",
-  "팩": "pack",
-  "pack": "pack",
-  "세트": "set",
-  "set": "set",
-  "병": "bottle",
-  "통": "can",
-  "캔": "can",
-  "매": "sheet",
-  "장": "sheet",
-  "롤": "roll",
+  "박스": "box", "box": "box", "bx": "box",
+  "개": "piece", "ea": "piece", "piece": "piece",
+  "봉": "pack", "팩": "pack", "pack": "pack",
+  "세트": "set", "set": "set",
+  "병": "bottle", "통": "can", "캔": "can",
+  "매": "sheet", "장": "sheet", "롤": "roll",
 };
 
-// All recognized unit suffixes for regex patterns
 const UNIT_REGEX = "박스|box|bx|개|ea|봉|팩|pack|세트|set|병|통|캔|매|장|롤";
 
-// Main pattern: item name followed by quantity and optional unit
 const LINE_PATTERN = new RegExp(
   `^([가-힣A-Za-z][\\w가-힣A-Za-z\\-\\/\\.\\s]*?)\\s+(\\d+)\\s*(${UNIT_REGEX})?\\s*$`,
   "i",
 );
 
-// Reversed: quantity before item name (e.g. "10 EK15")
 const REVERSED_PATTERN = new RegExp(
   `^(\\d+)\\s+([\\w가-힣A-Za-z\\-\\/\\.]+(?:\\s+[\\w가-힣A-Za-z\\-\\/\\.]+)*?)\\s*(${UNIT_REGEX})?\\s*$`,
   "i",
 );
 
-// Inline pattern for "b 20 G 20" style: single-token items with qty
 const INLINE_PATTERN = new RegExp(
   `([\\w가-힣A-Za-z\\-\\/\\.]+)\\s+(\\d+)\\s*(${UNIT_REGEX})?`,
   "gi",
 );
 
-// Standalone item pattern: just a product name/alias with no quantity
 const STANDALONE_PATTERN = /^([가-힣A-Za-z][\w가-힣A-Za-z\-\/\.]*)\s*$/;
 
-// Filter out greetings, questions, and non-order content
 const NON_ORDER_PATTERNS: RegExp[] = [
   /^(감사|안녕|수고|죄송|네|예|좋|확인|알겠)/,
   /\?$/,
@@ -88,7 +75,7 @@ const NON_ORDER_PATTERNS: RegExp[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Few-shot examples for the prompt builder
+// Few-shot examples
 // ---------------------------------------------------------------------------
 
 interface FewShotExample {
@@ -126,13 +113,11 @@ const FEW_SHOT_EXAMPLES: FewShotExample[] = [
 // 1. regexParse
 // ---------------------------------------------------------------------------
 
-/** Map a raw Korean/English unit string to a normalized unit. */
 function mapUnit(raw: string | undefined | null): string {
   if (!raw) return "piece";
   return UNIT_MAP[raw.toLowerCase()] || "piece";
 }
 
-/** Parse inline "token qty token qty ..." patterns from a single line. */
 function parseInline(line: string): ParsedItem[] {
   const results: ParsedItem[] = [];
   let match: RegExpExecArray | null;
@@ -148,84 +133,60 @@ function parseInline(line: string): ParsedItem[] {
   return results;
 }
 
-/** Parse a single line into zero or more ParsedItem entries. */
 function parseLine(line: string): ParsedItem[] {
-  // Skip non-order lines
   for (const pattern of NON_ORDER_PATTERNS) {
     if (pattern.test(line)) return [];
   }
 
-  // Count space-separated number-like tokens
   const tokens = line.split(/\s+/);
   const numberTokenCount = tokens.filter((t) =>
     /^\d+(박스|box|bx|개|ea|팩|pack)?$/i.test(t)
   ).length;
 
-  // If multiple standalone numbers, try inline pattern first (e.g. "b 20 G 20")
   if (numberTokenCount >= 2) {
     const inlineResults = parseInline(line);
     if (inlineResults.length >= 2) return inlineResults;
   }
 
-  // Try standard pattern: "item qty unit"
   const stdMatch = line.match(LINE_PATTERN);
   if (stdMatch) {
-    return [
-      {
-        item: stdMatch[1].trim(),
-        qty: parseInt(stdMatch[2], 10),
-        unit: mapUnit(stdMatch[3]),
-        matched_product: null,
-      },
-    ];
+    return [{
+      item: stdMatch[1].trim(),
+      qty: parseInt(stdMatch[2], 10),
+      unit: mapUnit(stdMatch[3]),
+      matched_product: null,
+    }];
   }
 
-  // Try reversed pattern: "qty item"
   const revMatch = line.match(REVERSED_PATTERN);
   if (revMatch) {
-    return [
-      {
-        item: revMatch[2].trim(),
-        qty: parseInt(revMatch[1], 10),
-        unit: mapUnit(revMatch[3]),
-        matched_product: null,
-      },
-    ];
+    return [{
+      item: revMatch[2].trim(),
+      qty: parseInt(revMatch[1], 10),
+      unit: mapUnit(revMatch[3]),
+      matched_product: null,
+    }];
   }
 
-  // Fallback to inline pattern
   const inlineFallback = parseInline(line);
   if (inlineFallback.length > 0) return inlineFallback;
 
-  // Standalone item name (implicit qty=1)
   const standaloneMatch = line.match(STANDALONE_PATTERN);
   if (standaloneMatch) {
-    return [
-      {
-        item: standaloneMatch[1].trim(),
-        qty: 1,
-        unit: "piece",
-        matched_product: null,
-      },
-    ];
+    return [{
+      item: standaloneMatch[1].trim(),
+      qty: 1,
+      unit: "piece",
+      matched_product: null,
+    }];
   }
 
   return [];
 }
 
-/**
- * Parse a Korean medical supply order message into structured items using
- * regex patterns. Works as a fast, offline fallback when the AI parser is
- * unavailable.
- */
 export function regexParse(message: string): ParsedItem[] {
   if (!message || !message.trim()) return [];
-
-  const lines = message
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-
+  const lines = message.split("\n").map((l) => l.trim()).filter(Boolean);
   const results: ParsedItem[] = [];
   for (const line of lines) {
     results.push(...parseLine(line));
@@ -237,16 +198,11 @@ export function regexParse(message: string): ParsedItem[] {
 // 2. buildParsePrompt
 // ---------------------------------------------------------------------------
 
-interface AliasEntry {
-  alias: string;
-  product_name: string;
-}
+interface AliasEntry { alias: string; product_name: string; }
 
-/** Build the few-shot examples section of the prompt. */
 function buildFewShotSection(): string {
   const examples = FEW_SHOT_EXAMPLES.slice(0, 2);
   if (examples.length === 0) return "";
-
   const parts: string[] = ["\n## 파싱 예시"];
   for (const ex of examples) {
     parts.push(`\n입력: "${ex.input}"`);
@@ -255,11 +211,6 @@ function buildFewShotSection(): string {
   return parts.join("\n");
 }
 
-/**
- * Build a structured prompt for Claude to parse a hemodialysis medical supply
- * order message. Includes hospital-specific alias context and few-shot
- * examples.
- */
 export function buildParsePrompt(
   hospitalName: string | null | undefined,
   aliases: AliasEntry[] | null | undefined,
@@ -299,209 +250,13 @@ ${message}
 }
 
 // ---------------------------------------------------------------------------
-// 3. matchProduct
+// 3. matchProductsBulk
 // ---------------------------------------------------------------------------
 
-/**
- * Look up the official product name by product_id from the products table.
- */
-async function getProductName(
-  productId: number | null,
-  supabase: SupabaseClient,
-): Promise<string | null> {
-  if (!productId) return null;
-  try {
-    const { data } = await supabase
-      .from("products")
-      .select("official_name")
-      .eq("id", productId)
-      .single();
-    return data?.official_name ?? null;
-  } catch {
-    return null;
-  }
+export function normalize(text: string): string {
+  return text.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-/** Level 1: Hospital-specific exact alias match (confidence 1.0). */
-async function matchHospitalAlias(
-  normalized: string,
-  hospitalId: number,
-  supabase: SupabaseClient,
-): Promise<MatchResult | null> {
-  const { data } = await supabase
-    .from("product_aliases")
-    .select("product_id")
-    .eq("hospital_id", hospitalId)
-    .eq("alias_normalized", normalized)
-    .limit(1);
-
-  if (data && data.length > 0) {
-    const productName = await getProductName(data[0].product_id, supabase);
-    return {
-      product_id: data[0].product_id,
-      product_name: productName,
-      confidence: 1.0,
-      method: "hospital_alias",
-      match_status: "matched",
-    };
-  }
-  return null;
-}
-
-/** Level 2: Global exact alias match (confidence 0.95). */
-async function matchGlobalAlias(
-  normalized: string,
-  supabase: SupabaseClient,
-): Promise<MatchResult | null> {
-  const { data } = await supabase
-    .from("product_aliases")
-    .select("product_id")
-    .is("hospital_id", null)
-    .eq("alias_normalized", normalized)
-    .limit(1);
-
-  if (data && data.length > 0) {
-    const productName = await getProductName(data[0].product_id, supabase);
-    return {
-      product_id: data[0].product_id,
-      product_name: productName,
-      confidence: 0.95,
-      method: "global_alias",
-      match_status: "matched",
-    };
-  }
-  return null;
-}
-
-/** Level 3: Contains match on alias text (confidence 0.8-0.9). */
-async function matchContains(
-  normalized: string,
-  hospitalId: number | null,
-  supabase: SupabaseClient,
-): Promise<MatchResult | null> {
-  const { data } = await supabase
-    .from("product_aliases")
-    .select("product_id, hospital_id")
-    .ilike("alias", `%${normalized}%`)
-    .limit(5);
-
-  if (!data || data.length === 0) return null;
-
-  // Prefer hospital-specific matches
-  if (hospitalId) {
-    const hospitalMatch = data.find(
-      (r: { product_id: number; hospital_id: number | null }) =>
-        r.hospital_id === hospitalId,
-    );
-    if (hospitalMatch) {
-      const productName = await getProductName(
-        hospitalMatch.product_id,
-        supabase,
-      );
-      return {
-        product_id: hospitalMatch.product_id,
-        product_name: productName,
-        confidence: 0.9,
-        method: "contains",
-        match_status: "review",
-      };
-    }
-  }
-
-  const productName = await getProductName(data[0].product_id, supabase);
-  return {
-    product_id: data[0].product_id,
-    product_name: productName,
-    confidence: 0.8,
-    method: "contains",
-    match_status: "review",
-  };
-}
-
-/** Level 4: Product name contains match (confidence 0.6). */
-async function matchProductName(
-  normalized: string,
-  supabase: SupabaseClient,
-): Promise<MatchResult | null> {
-  const { data } = await supabase
-    .from("products")
-    .select("id, official_name")
-    .or(`official_name.ilike.%${normalized}%,short_name.ilike.%${normalized}%`)
-    .limit(1);
-
-  if (data && data.length > 0) {
-    return {
-      product_id: data[0].id,
-      product_name: data[0].official_name,
-      confidence: 0.6,
-      method: "name_contains",
-      match_status: "review",
-    };
-  }
-  return null;
-}
-
-/**
- * 5-level product matching against Supabase tables.
- *
- * Priority:
- * 1. Hospital-specific exact alias  (confidence 1.0)
- * 2. Global exact alias             (confidence 0.95)
- * 3. Contains match on alias        (confidence 0.8-0.9)
- * 4. Product name contains          (confidence 0.6)
- * 5. Unmatched                      (confidence 0)
- */
-export async function matchProduct(
-  text: string,
-  hospitalId: number | null,
-  supabase: SupabaseClient,
-): Promise<MatchResult> {
-  const normalized = normalize(text);
-  let result: MatchResult | null = null;
-
-  // Level 1: Hospital-specific exact alias
-  if (hospitalId) {
-    result = await matchHospitalAlias(normalized, hospitalId, supabase);
-    if (result) return result;
-  }
-
-  // Level 2: Global exact alias
-  result = await matchGlobalAlias(normalized, supabase);
-  if (result) return result;
-
-  // Level 3: Contains match on alias
-  result = await matchContains(normalized, hospitalId, supabase);
-  if (result) return result;
-
-  // Level 4: Product name contains
-  result = await matchProductName(normalized, supabase);
-  if (result) return result;
-
-  // Level 5: Unmatched
-  return {
-    product_id: null,
-    product_name: null,
-    confidence: 0,
-    method: "unmatched",
-    match_status: "unmatched",
-    original_text: text,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// 3b. matchProductsBulk — efficient bulk matching (2 queries instead of N+1)
-// ---------------------------------------------------------------------------
-
-export interface BulkMatchedItem {
-  parsed: ParsedItem;
-  match: MatchResult;
-}
-
-/**
- * Match an array of parsed items against products and aliases using
- * in-memory bulk lookups. Only issues 2 DB queries total (products + aliases)
- * regardless of item count, then optionally updates match tracking stats.
- */
 export async function matchProductsBulk(
   supabase: SupabaseClient,
   items: ParsedItem[],
@@ -509,13 +264,11 @@ export async function matchProductsBulk(
 ): Promise<BulkMatchedItem[]> {
   if (items.length === 0) return [];
 
-  // --- Bulk load products ---
   const { data: products } = await supabase
     .from("products")
     .select("id, name, official_name, short_name")
     .eq("is_active", true);
 
-  // --- Bulk load aliases (scoped to hospital if given) ---
   let aliasQuery = supabase
     .from("product_aliases")
     .select("id, product_id, alias, alias_normalized, hospital_id");
@@ -528,15 +281,9 @@ export async function matchProductsBulk(
 
   const { data: aliases } = await aliasQuery;
 
-  // --- Build in-memory lookup maps ---
-  const hospitalAliasMap = new Map<
-    string,
-    { product_id: number; alias_id: number }
-  >();
-  const globalAliasMap = new Map<
-    string,
-    { product_id: number; alias_id: number }
-  >();
+  // Build in-memory lookup maps
+  const hospitalAliasMap = new Map<string, { product_id: number; alias_id: number }>();
+  const globalAliasMap = new Map<string, { product_id: number; alias_id: number }>();
 
   for (const a of aliases ?? []) {
     const key = (a.alias_normalized || a.alias).toLowerCase().trim();
@@ -547,34 +294,22 @@ export async function matchProductsBulk(
     }
   }
 
-  const productMap = new Map<
-    number,
-    { name: string; official_name: string | null; short_name: string | null }
-  >();
+  const productMap = new Map<number, { name: string; official_name: string | null; short_name: string | null }>();
   const productNameMap = new Map<string, number>();
 
   for (const p of products ?? []) {
-    productMap.set(p.id, {
-      name: p.name,
-      official_name: p.official_name,
-      short_name: p.short_name,
-    });
+    productMap.set(p.id, { name: p.name, official_name: p.official_name, short_name: p.short_name });
     productNameMap.set(p.name.toLowerCase().trim(), p.id);
-    if (p.short_name) {
-      productNameMap.set(p.short_name.toLowerCase().trim(), p.id);
-    }
-    if (p.official_name) {
-      productNameMap.set(p.official_name.toLowerCase().trim(), p.id);
-    }
+    if (p.short_name) productNameMap.set(p.short_name.toLowerCase().trim(), p.id);
+    if (p.official_name) productNameMap.set(p.official_name.toLowerCase().trim(), p.id);
   }
 
-  // --- Match each item ---
   const matchedAliasIds: number[] = [];
 
   const results: BulkMatchedItem[] = items.map((parsed) => {
     const norm = normalize(parsed.item);
 
-    // Level 1: Hospital-specific exact alias (confidence 1.0)
+    // Level 1: Hospital-specific exact alias (1.0)
     if (hospitalId) {
       const ha = hospitalAliasMap.get(norm);
       if (ha) {
@@ -593,7 +328,7 @@ export async function matchProductsBulk(
       }
     }
 
-    // Level 2: Global exact alias (confidence 0.95)
+    // Level 2: Global exact alias (0.95)
     const ga = globalAliasMap.get(norm);
     if (ga) {
       const product = productMap.get(ga.product_id);
@@ -610,13 +345,8 @@ export async function matchProductsBulk(
       };
     }
 
-    // Level 3: Contains match on alias text (confidence by similarity ratio)
-    let bestAlias: {
-      product_id: number;
-      confidence: number;
-      alias_id: number;
-      isHospital: boolean;
-    } | null = null;
+    // Level 3: Contains match on alias text
+    let bestAlias: { product_id: number; confidence: number; alias_id: number; isHospital: boolean } | null = null;
 
     for (const a of aliases ?? []) {
       const aKey = (a.alias_normalized || a.alias).toLowerCase().trim();
@@ -626,17 +356,8 @@ export async function matchProductsBulk(
         const confidence = shorter / longer;
         const isHospital = a.hospital_id === hospitalId;
 
-        if (
-          !bestAlias ||
-          confidence > bestAlias.confidence ||
-          (isHospital && !bestAlias.isHospital)
-        ) {
-          bestAlias = {
-            product_id: a.product_id,
-            confidence,
-            alias_id: a.id,
-            isHospital,
-          };
+        if (!bestAlias || confidence > bestAlias.confidence || (isHospital && !bestAlias.isHospital)) {
+          bestAlias = { product_id: a.product_id, confidence, alias_id: a.id, isHospital };
         }
       }
     }
@@ -659,7 +380,7 @@ export async function matchProductsBulk(
       };
     }
 
-    // Level 4: Product name contains (confidence 0.6)
+    // Level 4: Product name contains (0.6)
     let bestProduct: { id: number; confidence: number } | null = null;
 
     for (const [pName, pId] of productNameMap) {
@@ -667,7 +388,6 @@ export async function matchProductsBulk(
         const longer = Math.max(pName.length, norm.length);
         const shorter = Math.min(pName.length, norm.length);
         const confidence = shorter / longer;
-
         if (!bestProduct || confidence > bestProduct.confidence) {
           bestProduct = { id: pId, confidence };
         }
@@ -702,15 +422,12 @@ export async function matchProductsBulk(
     };
   });
 
-  // --- Update match_count / last_matched_at for matched aliases ---
+  // Update match_count / last_matched_at for matched aliases
   if (matchedAliasIds.length > 0) {
     const uniqueIds = [...new Set(matchedAliasIds)];
     try {
-      await supabase.rpc("increment_alias_match_counts", {
-        alias_ids: uniqueIds,
-      });
+      await supabase.rpc("increment_alias_match_counts", { alias_ids: uniqueIds });
     } catch {
-      // Fallback if RPC not yet deployed: update last_matched_at only
       await supabase
         .from("product_aliases")
         .update({ last_matched_at: new Date().toISOString() })
@@ -725,12 +442,7 @@ export async function matchProductsBulk(
 // 4. generateOrderNumber
 // ---------------------------------------------------------------------------
 
-/**
- * Generate a daily sequential order number in the format `ORD-YYYYMMDD-NNN`.
- */
-export async function generateOrderNumber(
-  supabase: SupabaseClient,
-): Promise<string> {
+export async function generateOrderNumber(supabase: SupabaseClient): Promise<string> {
   const today = new Date();
   const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
   const prefix = `ORD-${dateStr}`;
@@ -742,15 +454,4 @@ export async function generateOrderNumber(
 
   const seq = String((count || 0) + 1).padStart(3, "0");
   return `${prefix}-${seq}`;
-}
-
-// ---------------------------------------------------------------------------
-// 5. normalize
-// ---------------------------------------------------------------------------
-
-/**
- * Normalize text for matching: trim, lowercase, and collapse whitespace.
- */
-export function normalize(text: string): string {
-  return text.trim().toLowerCase().replace(/\s+/g, " ");
 }

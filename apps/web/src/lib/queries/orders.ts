@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Order, OrderDetail, OrderItem } from "@/lib/types";
+import type { Order, OrderDetail, OrderItem, OrderItemFlat } from "@/lib/types";
 
 export async function getOrders(params: {
   status?: string;
@@ -34,6 +34,90 @@ export async function getOrders(params: {
   }));
 
   return { orders, total: count ?? 0 };
+}
+
+export async function getOrderItems(params: {
+  status?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<{ items: OrderItemFlat[]; total: number }> {
+  const supabase = await createClient();
+
+  // Supabase PostgREST: select from order_items with nested joins
+  const selectStr = [
+    "id",
+    "order_id",
+    "quantity",
+    "unit_type",
+    "match_status",
+    "box_spec_id",
+    "calculated_pieces",
+    "orders!inner(order_number, order_date, delivery_date, status, hospitals(name))",
+    "products(official_name, short_name)",
+    "suppliers(name)",
+    "product_box_specs(qty_per_box)",
+    "kpis_reports(report_status, notes)",
+  ].join(",");
+
+  let query = supabase
+    .from("order_items")
+    .select(selectStr, { count: "exact" });
+
+  if (params.status) query = query.eq("orders.status", params.status);
+  if (params.from) query = query.gte("orders.order_date", params.from);
+  if (params.to) query = query.lte("orders.order_date", params.to);
+
+  query = query
+    .order("order_id", { ascending: false })
+    .order("id", { ascending: true })
+    .range(params.offset || 0, (params.offset || 0) + (params.limit || 25) - 1);
+
+  const { data, count, error } = await query;
+  if (error) throw error;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const items: OrderItemFlat[] = (data ?? []).map((row: any) => {
+    const order = row.orders;
+    const product = row.products;
+    const supplier = row.suppliers;
+    const boxSpec = row.product_box_specs;
+    const kpis = Array.isArray(row.kpis_reports) ? row.kpis_reports[0] : row.kpis_reports;
+
+    // Calculate box quantity: if box_spec exists use its qty_per_box, else null
+    const qtyPerBox = boxSpec?.qty_per_box ?? null;
+    let boxQuantity: number | null = null;
+    if (qtyPerBox && qtyPerBox > 0) {
+      if (row.unit_type === "box") {
+        boxQuantity = row.quantity;
+      } else {
+        boxQuantity = Math.floor(row.quantity / qtyPerBox);
+      }
+    }
+
+    return {
+      id: row.id,
+      order_id: row.order_id,
+      order_number: order?.order_number ?? "",
+      order_date: order?.order_date ?? "",
+      delivery_date: order?.delivery_date ?? null,
+      hospital_name: order?.hospitals?.name ?? "",
+      product_name: product?.official_name ?? product?.short_name ?? "",
+      quantity: row.unit_type === "box" && qtyPerBox
+        ? row.quantity * qtyPerBox
+        : row.calculated_pieces ?? row.quantity,
+      unit_type: row.unit_type,
+      box_quantity: boxQuantity,
+      supplier_name: supplier?.name ?? null,
+      kpis_status: kpis?.report_status ?? null,
+      kpis_notes: kpis?.notes ?? null,
+      status: order?.status ?? "",
+      match_status: row.match_status,
+    };
+  });
+
+  return { items, total: count ?? 0 };
 }
 
 export async function getOrder(id: number): Promise<OrderDetail> {

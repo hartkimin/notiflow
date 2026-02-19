@@ -41,6 +41,9 @@ packages/supabase/.temp/
 # Playwright
 .playwright-mcp/
 
+# Agent Skills (npx skills)
+.agents/
+
 # Temporary
 *.png
 *.tmp

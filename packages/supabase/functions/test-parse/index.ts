@@ -1,12 +1,20 @@
 /**
  * test-parse Edge Function
  *
- * Called from the Dashboard "파싱 테스트" UI.
+ * Called from the Dashboard "파싱 테스트" UI (Settings page + Message detail).
  * Parses a message using the configured AI provider WITHOUT saving to DB.
+ * Uses the same shared parser and matcher as the production parse-message.
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { callAI, resolveAIProvider } from "../_shared/ai-client.ts";
+import {
+  regexParse,
+  buildParsePrompt,
+  matchProductsBulk,
+  type ParsedItem,
+  type BulkMatchedItem,
+} from "../_shared/parser.ts";
 
 // ---------------------------------------------------------------------------
 // CORS headers for browser requests from the Dashboard
@@ -75,139 +83,7 @@ async function verifyAuth(
 }
 
 // ---------------------------------------------------------------------------
-// Regex fallback parser
-// ---------------------------------------------------------------------------
-
-interface ParsedItem {
-  product_name: string;
-  quantity: number;
-  unit: string;
-  original_text: string;
-}
-
-function regexParse(content: string): ParsedItem[] {
-  const items: ParsedItem[] = [];
-  const lines = content
-    .split(/\n|,|\//)
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  for (const line of lines) {
-    // Pattern: product_name + quantity + unit
-    const match = line.match(
-      /^(.+?)\s+(\d+)\s*(박스|box|BOX|개|봉|팩|pack|ea|EA|세트|set|병|통|매|장|롤|캔)?$/i,
-    );
-
-    if (match) {
-      const [, name, qty, unit] = match;
-      items.push({
-        product_name: name.trim(),
-        quantity: parseInt(qty, 10),
-        unit: normalizeUnit(unit || "개"),
-        original_text: line,
-      });
-      continue;
-    }
-
-    // Pattern: quantity + unit + product_name
-    const reverseMatch = line.match(
-      /^(\d+)\s*(박스|box|BOX|개|봉|팩|pack|ea|EA|세트|set|병|통|매|장|롤|캔)?\s+(.+)$/i,
-    );
-
-    if (reverseMatch) {
-      const [, qty, unit, name] = reverseMatch;
-      items.push({
-        product_name: name.trim(),
-        quantity: parseInt(qty, 10),
-        unit: normalizeUnit(unit || "개"),
-        original_text: line,
-      });
-      continue;
-    }
-
-    // Pattern: product_name with embedded number (e.g. "EK15x10")
-    const embeddedMatch = line.match(
-      /^(.+?)\s*[xX*]\s*(\d+)\s*(박스|box|BOX|개|봉|팩|pack|ea|EA|세트|set|병|통|매|장|롤|캔)?$/i,
-    );
-
-    if (embeddedMatch) {
-      const [, name, qty, unit] = embeddedMatch;
-      items.push({
-        product_name: name.trim(),
-        quantity: parseInt(qty, 10),
-        unit: normalizeUnit(unit || "개"),
-        original_text: line,
-      });
-    }
-  }
-
-  return items;
-}
-
-function normalizeUnit(unit: string): string {
-  const unitMap: Record<string, string> = {
-    "박스": "box",
-    box: "box",
-    BOX: "box",
-    "개": "ea",
-    ea: "ea",
-    EA: "ea",
-    "봉": "bag",
-    "팩": "pack",
-    pack: "pack",
-    "세트": "set",
-    set: "set",
-    "병": "bottle",
-    "통": "can",
-    "매": "sheet",
-    "장": "sheet",
-    "롤": "roll",
-    "캔": "can",
-  };
-  return unitMap[unit] ?? unit.toLowerCase();
-}
-
-// ---------------------------------------------------------------------------
-// Build AI parse prompt
-// ---------------------------------------------------------------------------
-
-function buildParsePrompt(
-  content: string,
-  customPrompt: string | null,
-  aliases: Array<{ alias: string; product_name: string }>,
-): string {
-  const aliasSection =
-    aliases.length > 0
-      ? `\n\n참고할 제품 별칭 목록:\n${aliases.map((a) => `- "${a.alias}" → ${a.product_name}`).join("\n")}`
-      : "";
-
-  const basePrompt =
-    customPrompt ??
-    `당신은 의료기기 주문 메시지를 파싱하는 전문가입니다.
-주어진 텍스트에서 주문 품목을 추출하여 JSON 배열로 반환하세요.
-
-각 항목은 다음 형식이어야 합니다:
-{
-  "product_name": "제품명",
-  "quantity": 숫자,
-  "unit": "단위 (box, ea, bag, pack, set 등)",
-  "original_text": "원본 텍스트"
-}
-
-규칙:
-- 단위가 명시되지 않으면 "ea"로 기본 설정
-- 숫자가 없으면 1로 기본 설정
-- 제품명은 가능한 정확히 추출
-- JSON 배열만 반환하고 다른 텍스트는 포함하지 마세요`;
-
-  return `${basePrompt}${aliasSection}
-
-주문 메시지:
-${content}`;
-}
-
-// ---------------------------------------------------------------------------
-// AI parse — uses the shared multi-provider client
+// AI parse — uses shared prompt builder + multi-provider client
 // ---------------------------------------------------------------------------
 
 async function aiParse(
@@ -216,10 +92,14 @@ async function aiParse(
   apiKey: string,
   model: string,
   customPrompt: string | null,
+  hospitalName: string | null,
   aliases: Array<{ alias: string; product_name: string }>,
 ): Promise<{ items: ParsedItem[]; tokenUsage: unknown } | null> {
   try {
-    const prompt = buildParsePrompt(content, customPrompt, aliases);
+    // Use custom prompt if configured, otherwise shared prompt builder
+    const prompt = customPrompt
+      ? `${customPrompt}\n\n주문 메시지:\n${content}`
+      : buildParsePrompt(hospitalName, aliases, content);
 
     const result = await callAI(provider, apiKey, model, prompt);
 
@@ -233,12 +113,15 @@ async function aiParse(
     }
 
     const parsed = JSON.parse(jsonStr);
+    // Normalize to shared ParsedItem format (handle both field name conventions)
     const items: ParsedItem[] = Array.isArray(parsed)
       ? parsed.map((item: Record<string, unknown>) => ({
-          product_name: String(item.product_name ?? ""),
-          quantity: Number(item.quantity ?? 1),
-          unit: normalizeUnit(String(item.unit ?? "ea")),
-          original_text: String(item.original_text ?? ""),
+          item: String(item.item ?? item.product_name ?? ""),
+          qty: Number(item.qty ?? item.quantity ?? 1),
+          unit: String(item.unit ?? "piece"),
+          matched_product: item.matched_product
+            ? String(item.matched_product)
+            : null,
         }))
       : [];
 
@@ -253,145 +136,6 @@ async function aiParse(
     console.error("AI parse failed:", err);
     throw err; // Re-throw so the caller can show the actual error to the user
   }
-}
-
-// ---------------------------------------------------------------------------
-// Product matching
-// ---------------------------------------------------------------------------
-
-interface MatchedItem extends ParsedItem {
-  product_id: number | null;
-  product_official_name: string | null;
-  match_confidence: number;
-  match_status: "matched" | "review" | "unmatched";
-}
-
-async function matchProducts(
-  supabase: ReturnType<typeof createClient>,
-  items: ParsedItem[],
-  hospitalId?: number,
-): Promise<MatchedItem[]> {
-  // Fetch all active products
-  const { data: products } = await supabase
-    .from("products")
-    .select("id, name, official_name, short_name")
-    .eq("is_active", true);
-
-  // Fetch aliases (optionally scoped to hospital)
-  let aliasQuery = supabase
-    .from("product_aliases")
-    .select("product_id, alias, alias_normalized");
-
-  if (hospitalId) {
-    aliasQuery = aliasQuery.or(
-      `hospital_id.eq.${hospitalId},hospital_id.is.null`,
-    );
-  }
-
-  const { data: aliases } = await aliasQuery;
-
-  // Build lookup maps
-  const aliasMap = new Map<string, number>();
-  for (const a of aliases ?? []) {
-    const key = (a.alias_normalized || a.alias).toLowerCase().trim();
-    aliasMap.set(key, a.product_id);
-  }
-
-  const productMap = new Map<
-    number,
-    { name: string; official_name: string | null }
-  >();
-  const productNameMap = new Map<string, number>();
-  for (const p of products ?? []) {
-    productMap.set(p.id, { name: p.name, official_name: p.official_name });
-    productNameMap.set(p.name.toLowerCase().trim(), p.id);
-    if (p.short_name) {
-      productNameMap.set(p.short_name.toLowerCase().trim(), p.id);
-    }
-    if (p.official_name) {
-      productNameMap.set(p.official_name.toLowerCase().trim(), p.id);
-    }
-  }
-
-  return items.map((item): MatchedItem => {
-    const nameLower = item.product_name.toLowerCase().trim();
-
-    // 1. Exact alias match
-    const aliasProductId = aliasMap.get(nameLower);
-    if (aliasProductId !== undefined) {
-      const product = productMap.get(aliasProductId);
-      return {
-        ...item,
-        product_id: aliasProductId,
-        product_official_name:
-          product?.official_name ?? product?.name ?? null,
-        match_confidence: 1.0,
-        match_status: "matched",
-      };
-    }
-
-    // 2. Exact product name match
-    const nameProductId = productNameMap.get(nameLower);
-    if (nameProductId !== undefined) {
-      const product = productMap.get(nameProductId);
-      return {
-        ...item,
-        product_id: nameProductId,
-        product_official_name:
-          product?.official_name ?? product?.name ?? null,
-        match_confidence: 1.0,
-        match_status: "matched",
-      };
-    }
-
-    // 3. Partial / fuzzy match
-    let bestMatch: { id: number; confidence: number } | null = null;
-
-    for (const [pName, pId] of productNameMap) {
-      if (pName.includes(nameLower) || nameLower.includes(pName)) {
-        const longer = Math.max(pName.length, nameLower.length);
-        const shorter = Math.min(pName.length, nameLower.length);
-        const confidence = shorter / longer;
-
-        if (!bestMatch || confidence > bestMatch.confidence) {
-          bestMatch = { id: pId, confidence };
-        }
-      }
-    }
-
-    for (const [aName, aProductId] of aliasMap) {
-      if (aName.includes(nameLower) || nameLower.includes(aName)) {
-        const longer = Math.max(aName.length, nameLower.length);
-        const shorter = Math.min(aName.length, nameLower.length);
-        const confidence = shorter / longer;
-
-        if (!bestMatch || confidence > bestMatch.confidence) {
-          bestMatch = { id: aProductId, confidence };
-        }
-      }
-    }
-
-    if (bestMatch && bestMatch.confidence >= 0.5) {
-      const product = productMap.get(bestMatch.id);
-      return {
-        ...item,
-        product_id: bestMatch.id,
-        product_official_name:
-          product?.official_name ?? product?.name ?? null,
-        match_confidence: Math.round(bestMatch.confidence * 100) / 100,
-        match_status: bestMatch.confidence >= 0.8 ? "matched" : "review",
-      };
-    }
-
-    // 4. No match
-    return {
-      ...item,
-      product_id: null,
-      product_official_name: null,
-      match_confidence: 0,
-      match_status: "unmatched",
-    };
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -470,22 +214,30 @@ Deno.serve(async (req) => {
     const resolved = resolveAIProvider(settingsMap);
 
     // ------------------------------------------------------------------
-    // 2. Get hospital aliases if hospital_id is provided
+    // 2. Get hospital info + aliases if hospital_id is provided
     // ------------------------------------------------------------------
+    let hospitalName: string | null = null;
     let aliases: Array<{ alias: string; product_name: string }> = [];
 
     if (hospital_id) {
+      const { data: hospital } = await supabase
+        .from("hospitals")
+        .select("name")
+        .eq("id", hospital_id)
+        .single();
+      hospitalName = hospital?.name ?? null;
+
       const { data: aliasData } = await supabase
         .from("product_aliases")
-        .select("alias, products(name)")
+        .select("alias, products(official_name)")
         .or(`hospital_id.eq.${hospital_id},hospital_id.is.null`);
 
-      aliases = (aliasData ?? []).map((a) => ({
-        alias: a.alias,
-        product_name:
-          (a as unknown as { products: { name: string } | null }).products
-            ?.name ?? "",
-      }));
+      aliases = (aliasData ?? []).map(
+        (a: { alias: string; products: { official_name: string } | null }) => ({
+          alias: a.alias,
+          product_name: a.products?.official_name ?? "",
+        }),
+      );
     }
 
     // ------------------------------------------------------------------
@@ -503,6 +255,7 @@ Deno.serve(async (req) => {
           resolved.apiKey,
           resolved.model,
           aiParsePrompt,
+          hospitalName,
           aliases,
         );
 
@@ -529,9 +282,9 @@ Deno.serve(async (req) => {
     }
 
     // ------------------------------------------------------------------
-    // 4. Match products (NO DB save)
+    // 4. Match products via shared bulk matcher (NO DB save)
     // ------------------------------------------------------------------
-    const matchedItems = await matchProducts(
+    const matchedItems: BulkMatchedItem[] = await matchProductsBulk(
       supabase,
       parsedItems,
       hospital_id,
@@ -540,22 +293,33 @@ Deno.serve(async (req) => {
     const latencyMs = Math.round(performance.now() - startTime);
 
     // ------------------------------------------------------------------
-    // 5. Return results
+    // 5. Map to UI response format and return
     // ------------------------------------------------------------------
+    const responseItems = matchedItems.map((m) => ({
+      product_name: m.parsed.item,
+      quantity: m.parsed.qty,
+      unit: m.parsed.unit,
+      original_text: m.parsed.item,
+      product_id: m.match.product_id,
+      product_official_name: m.match.product_name,
+      match_confidence: m.match.confidence,
+      match_status: m.match.match_status,
+    }));
+
     return jsonResponse({
       success: true,
-      items: matchedItems,
+      items: responseItems,
       method,
       latency_ms: latencyMs,
       ai_provider: method === "llm" ? resolved?.provider : null,
       ai_model: method === "llm" ? resolved?.model : null,
       token_usage: tokenUsage,
-      item_count: matchedItems.length,
+      item_count: responseItems.length,
       match_summary: {
-        matched: matchedItems.filter((i) => i.match_status === "matched")
+        matched: responseItems.filter((i) => i.match_status === "matched")
           .length,
-        review: matchedItems.filter((i) => i.match_status === "review").length,
-        unmatched: matchedItems.filter((i) => i.match_status === "unmatched")
+        review: responseItems.filter((i) => i.match_status === "review").length,
+        unmatched: responseItems.filter((i) => i.match_status === "unmatched")
           .length,
       },
     });

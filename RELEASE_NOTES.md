@@ -1,5 +1,39 @@
 # NotiFlow Release Notes
 
+## v0.2.0 — 2026-02-19
+
+주문서 양식 변경, 파싱 로직 통합, AI 제품 검색 기능 추가.
+
+### Web Dashboard (`apps/web`)
+
+- **주문 플랫 테이블**: `/orders` 페이지를 주문 단위 목록에서 아이템별 플랫
+  테이블로 변경. 컬럼: 발주일, 배송일, 병원명, 품목, 수량/개, 수량/박스, 매입처,
+  KPIS신고. 날짜 형식 MM/DD, 행 클릭 시 주문 상세 Sheet 유지.
+  - `OrderItemFlat` 타입 추가 (`types.ts`)
+  - `getOrderItems()` 쿼리: order_items 기반 플랫 조인
+    (orders → hospitals → products → suppliers → product_box_specs → kpis_reports)
+  - 박스 수량 자동 계산 (`product_box_specs.qty_per_box` 기반)
+- **파싱 로직 통합**: "AI 테스트"와 "파싱 실행" 버튼의 파싱 로직 일치화.
+  기존에는 AI 비활성화 시 파싱 실행이 즉시 중단(`pending_manual`)되었으나,
+  이제 regex 폴백으로 정상 처리. `aiParse()` 내부의 폴백 로직에 위임.
+- **주문 생성 보강**: `parseMessageDirect`에서 order_items 생성 시
+  `box_spec_id`(제품 기본 박스 스펙)와 `calculated_pieces`(개수 환산) 자동 설정
+- **AI 제품 검색**: `/api/ai-product-search` API 라우트 추가
+- **파서 모듈 포팅**: Edge Function의 공유 파서를 Next.js Server Action용으로
+  포팅 (`parser.ts`, `ai-client.ts`). 동일한 regex/AI/매칭 로직 공유.
+- **메시지 목록 개선**: 인라인 AI 테스트, 병원 선택 다이얼로그 등 UX 보강
+- **품목 목록 개선**: AI 기반 제품 검색 통합
+
+### Supabase Backend (`packages/supabase`)
+
+- **Migration `00017`**: `increment_alias_match_counts` RPC 함수 추가
+  (별칭 매칭 횟수 추적)
+- **공유 파서 개선**: `_shared/parser.ts`에 few-shot 예시, 인라인 파싱,
+  역순 패턴 등 파싱 정확도 향상
+- **test-parse 리팩토링**: Edge Function이 공유 모듈 사용하도록 간소화
+
+---
+
 ## v0.1.0 — 2026-02-16
 
 Initial integrated release after monorepo restructure. Covers web dashboard,

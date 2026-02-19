@@ -15,7 +15,7 @@
 |--------|------|------|
 | 대시보드 | `/` | 오늘의 주문/메시지 요약, KPI 카드 |
 | 스케줄 | `/calendar` | 주간 카테고리별 플랜 관리 (모바일 동기화) |
-| 주문 | `/orders` | 주문 목록, 상세, 수정 |
+| 주문 | `/orders` | 아이템별 플랫 테이블 (발주일/배송일/병원/품목/수량/매입처/KPIS) |
 | 메시지 | `/messages` | 수신 메시지 목록, AI 파싱 결과 |
 | 납품 | `/deliveries` | 납품 일정 관리 |
 | 병원 | `/hospitals` | 거래처(병원) 관리 |
@@ -80,7 +80,9 @@ src/
 ├── lib/
 │   ├── supabase/          # Supabase 클라이언트 (server/client)
 │   ├── queries/           # 데이터 조회 함수
-│   ├── actions.ts         # Server Actions
+│   ├── actions.ts         # Server Actions (파싱, 주문 생성)
+│   ├── parser.ts          # 주문 메시지 파서 (regex + AI)
+│   ├── ai-client.ts       # AI 멀티프로바이더 클라이언트
 │   ├── types.ts           # TypeScript 타입 정의
 │   └── schedule-utils.ts  # 스케줄 유틸리티
 └── hooks/                 # React 커스텀 훅

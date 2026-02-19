@@ -4,6 +4,15 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { generateId } from "@/lib/schedule-utils";
 import type { ProductAlias } from "@/lib/types";
+import { callAI, getAISettings } from "@/lib/ai-client";
+import {
+  regexParse,
+  buildParsePrompt,
+  matchProductsBulk,
+  generateOrderNumber,
+  type ParsedItem,
+  type BulkMatchedItem,
+} from "@/lib/parser";
 
 // --- Products ---
 
@@ -215,8 +224,315 @@ export async function deleteMessage(id: number) {
   return { success: true };
 }
 
-export async function reparseMessage(id: number) {
+// ---------------------------------------------------------------------------
+// Direct parse-message logic (replaces Edge Function call)
+// ---------------------------------------------------------------------------
+
+async function getHospitalAliases(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  hospitalId: number,
+): Promise<{ alias: string; product_name: string }[]> {
+  const { data } = await supabase
+    .from("product_aliases")
+    .select("alias, product_id, products(official_name)")
+    .or(`hospital_id.eq.${hospitalId},hospital_id.is.null`);
+
+  return (data ?? []).map(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (a: any) => ({
+      alias: a.alias as string,
+      product_name: (Array.isArray(a.products) ? a.products[0]?.official_name : a.products?.official_name) ?? "",
+    }),
+  );
+}
+
+async function aiParse(
+  content: string,
+  settings: Awaited<ReturnType<typeof getAISettings>>,
+  hospitalName: string | null,
+  aliases: { alias: string; product_name: string }[],
+): Promise<{
+  items: ParsedItem[];
+  method: "llm" | "regex";
+  latencyMs: number;
+  tokenUsage: { input_tokens: number; output_tokens: number } | null;
+}> {
+  const startTime = performance.now();
+
+  if (!settings.ai_api_key || !settings.ai_enabled) {
+    console.log(`[aiParse] No API key or AI disabled → regex fallback | hasKey=${!!settings.ai_api_key} enabled=${settings.ai_enabled}`);
+    const items = regexParse(content);
+    console.log(`[aiParse] regex result: ${items.length} items`);
+    return {
+      items,
+      method: "regex",
+      latencyMs: Math.round(performance.now() - startTime),
+      tokenUsage: null,
+    };
+  }
+
+  try {
+    const useCustomPrompt = !!settings.ai_parse_prompt;
+    const prompt = settings.ai_parse_prompt
+      ? `${settings.ai_parse_prompt}\n\n주문 메시지:\n${content}`
+      : buildParsePrompt(hospitalName, aliases, content);
+
+    console.log(`[aiParse] customPrompt=${useCustomPrompt} | prompt length=${prompt.length}`);
+    console.log(`[aiParse] PROMPT START >>>>\n${prompt.slice(0, 800)}\n<<<< PROMPT END`);
+    console.log(`[aiParse] Calling ${settings.ai_provider}/${settings.ai_model}...`);
+
+    const result = await callAI(
+      settings.ai_provider,
+      settings.ai_api_key,
+      settings.ai_model,
+      prompt,
+    );
+
+    const latencyMs = Math.round(performance.now() - startTime);
+    console.log(`[aiParse] AI response: ${result.text.length} chars | tokens: in=${result.inputTokens} out=${result.outputTokens} | ${latencyMs}ms`);
+    console.log(`[aiParse] AI raw text: ${result.text.slice(0, 500)}`);
+
+    if (!result.text) {
+      console.log(`[aiParse] Empty AI response → regex fallback`);
+      return {
+        items: regexParse(content),
+        method: "regex",
+        latencyMs,
+        tokenUsage: { input_tokens: result.inputTokens, output_tokens: result.outputTokens },
+      };
+    }
+
+    let jsonStr = result.text.trim();
+    const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) jsonStr = codeBlockMatch[1].trim();
+
+    const parsed = JSON.parse(jsonStr);
+    const items: ParsedItem[] = Array.isArray(parsed)
+      ? parsed.map((item: Record<string, unknown>) => ({
+          item: String(item.item ?? item.product_name ?? ""),
+          qty: Number(item.qty ?? item.quantity ?? 1),
+          unit: String(item.unit ?? "piece"),
+          matched_product: item.matched_product ? String(item.matched_product) : null,
+        }))
+      : [];
+
+    console.log(`[aiParse] Parsed ${items.length} items from AI response`);
+
+    return {
+      items,
+      method: "llm",
+      latencyMs,
+      tokenUsage: { input_tokens: result.inputTokens, output_tokens: result.outputTokens },
+    };
+  } catch (err) {
+    console.error("[aiParse] AI parse failed, falling back to regex:", err);
+    const items = regexParse(content);
+    console.log(`[aiParse] regex fallback: ${items.length} items`);
+    return {
+      items,
+      method: "regex",
+      latencyMs: Math.round(performance.now() - startTime),
+      tokenUsage: null,
+    };
+  }
+}
+
+async function parseMessageDirect(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  messageId: number,
+  content: string,
+  hospitalId: number | null,
+  forceOrder: boolean,
+): Promise<{ message_id: number; status: string; order_id?: number; items?: number }> {
+  const settings = await getAISettings();
+
+  console.log(`[parseMessage] id=${messageId} | ai_enabled=${settings.ai_enabled} | provider=${settings.ai_provider} | model=${settings.ai_model} | hasApiKey=${!!settings.ai_api_key} | hospitalId=${hospitalId}`);
+
+  // Get hospital info + aliases
+  let hospitalName: string | null = null;
+  let aliases: { alias: string; product_name: string }[] = [];
+
+  if (hospitalId) {
+    const { data: hospital } = await supabase
+      .from("hospitals")
+      .select("name")
+      .eq("id", hospitalId)
+      .single();
+    hospitalName = hospital?.name ?? null;
+    aliases = await getHospitalAliases(supabase, hospitalId);
+  }
+
+  console.log(`[parseMessage] id=${messageId} | hospital=${hospitalName} | aliases=${aliases.length}개 | content="${content.slice(0, 80)}..."`);
+
+  // Parse via AI (with regex fallback)
+  const parseResult = await aiParse(content, settings, hospitalName, aliases);
+
+  console.log(`[parseMessage] id=${messageId} | method=${parseResult.method} | items=${parseResult.items.length} | latency=${parseResult.latencyMs}ms`);
+  if (parseResult.items.length > 0) {
+    console.log(`[parseMessage] id=${messageId} | parsed items:`, JSON.stringify(parseResult.items));
+  }
+
+  if (parseResult.items.length === 0) {
+    console.log(`[parseMessage] id=${messageId} | NO ITEMS PARSED → failed`);
+    await supabase
+      .from("raw_messages")
+      .update({
+        parse_status: "failed",
+        parse_method: parseResult.method,
+        is_order_message: false,
+      })
+      .eq("id", messageId);
+    return { message_id: messageId, status: "no_items_parsed", items: 0 };
+  }
+
+  // Match products (bulk)
+  const matchedItems: BulkMatchedItem[] = await matchProductsBulk(supabase, parseResult.items, hospitalId);
+
+  // Log parse history
+  await supabase.from("parse_history").insert({
+    message_id: messageId,
+    parse_method: parseResult.method,
+    llm_model: parseResult.method === "llm"
+      ? `${settings.ai_provider}/${settings.ai_model}`
+      : null,
+    input_text: content,
+    raw_output: parseResult.items,
+    parsed_items: matchedItems.map((m) => ({
+      item: m.parsed.item,
+      qty: m.parsed.qty,
+      unit: m.parsed.unit,
+      product_id: m.match.product_id,
+      product_name: m.match.product_name,
+      confidence: m.match.confidence,
+      match_status: m.match.match_status,
+    })),
+    latency_ms: parseResult.latencyMs,
+    token_usage: parseResult.tokenUsage,
+  });
+
+  // Check auto-process conditions
+  const minConfidence = Math.min(...matchedItems.map((m) => m.match.confidence));
+  const hasUnmatched = matchedItems.some((m) => m.match.match_status === "unmatched");
+  const shouldAutoCreate =
+    hospitalId != null &&
+    (forceOrder || (
+      settings.ai_auto_process &&
+      !hasUnmatched &&
+      minConfidence >= settings.ai_confidence_threshold
+    ));
+
+  if (!shouldAutoCreate) {
+    await supabase
+      .from("raw_messages")
+      .update({
+        parse_status: "parsed",
+        parse_method: parseResult.method,
+        parse_result: matchedItems.map((m) => ({
+          item: m.parsed.item,
+          qty: m.parsed.qty,
+          unit: m.parsed.unit,
+          product_id: m.match.product_id,
+          product_name: m.match.product_name,
+          confidence: m.match.confidence,
+          match_status: m.match.match_status,
+        })),
+        is_order_message: true,
+      })
+      .eq("id", messageId);
+    return { message_id: messageId, status: "needs_review", items: matchedItems.length };
+  }
+
+  // Auto-create order + order_items
+  const orderNumber = await generateOrderNumber(supabase);
+
+  const { data: order, error: orderError } = await supabase
+    .from("orders")
+    .insert({
+      order_number: orderNumber,
+      order_date: new Date().toISOString().slice(0, 10),
+      hospital_id: hospitalId,
+      message_id: messageId,
+      status: "draft",
+      total_items: matchedItems.length,
+    })
+    .select("id")
+    .single();
+
+  if (orderError || !order) {
+    throw new Error(`주문 생성 실패: ${orderError?.message ?? "Unknown error"}`);
+  }
+
+  // Look up default box specs for matched products
+  const productIds = matchedItems
+    .map((m) => m.match.product_id)
+    .filter((id): id is number => id != null);
+
+  const boxSpecMap = new Map<number, { id: number; qty_per_box: number }>();
+  if (productIds.length > 0) {
+    const { data: specs } = await supabase
+      .from("product_box_specs")
+      .select("id, product_id, qty_per_box")
+      .in("product_id", productIds)
+      .eq("is_default", true);
+    for (const s of specs ?? []) {
+      boxSpecMap.set(s.product_id, { id: s.id, qty_per_box: s.qty_per_box });
+    }
+  }
+
+  const orderItems = matchedItems.map((m) => {
+    const spec = m.match.product_id ? boxSpecMap.get(m.match.product_id) : undefined;
+    const calculatedPieces = spec
+      ? (m.parsed.unit === "box" ? m.parsed.qty * spec.qty_per_box : m.parsed.qty)
+      : m.parsed.qty;
+
+    return {
+      order_id: order.id,
+      product_id: m.match.product_id,
+      original_text: m.parsed.item,
+      quantity: m.parsed.qty,
+      unit_type: m.parsed.unit,
+      box_spec_id: spec?.id ?? null,
+      calculated_pieces: calculatedPieces,
+      match_status: m.match.match_status,
+      match_confidence: m.match.confidence,
+    };
+  });
+
+  await supabase.from("order_items").insert(orderItems);
+
+  await supabase
+    .from("raw_messages")
+    .update({
+      parse_status: "parsed",
+      parse_method: parseResult.method,
+      parse_result: matchedItems.map((m) => ({
+        item: m.parsed.item,
+        qty: m.parsed.qty,
+        unit: m.parsed.unit,
+        product_id: m.match.product_id,
+        product_name: m.match.product_name,
+        confidence: m.match.confidence,
+      })),
+      order_id: order.id,
+      is_order_message: true,
+    })
+    .eq("id", messageId);
+
+  return { message_id: messageId, status: "order_created", order_id: order.id, items: matchedItems.length };
+}
+
+export async function reparseMessage(id: number, hospitalId?: number) {
   const supabase = await createClient();
+
+  // If hospitalId provided, update the message first
+  if (hospitalId) {
+    const { error: updErr } = await supabase
+      .from("raw_messages")
+      .update({ hospital_id: hospitalId })
+      .eq("id", id);
+    if (updErr) throw updErr;
+  }
+
   const { data: msg, error: fetchErr } = await supabase
     .from("raw_messages")
     .select("id, content, hospital_id")
@@ -224,19 +540,34 @@ export async function reparseMessage(id: number) {
     .single();
   if (fetchErr || !msg) throw fetchErr ?? new Error("메시지를 찾을 수 없습니다.");
 
-  const { data, error } = await supabase.functions.invoke("parse-message", {
-    body: { record: { id: msg.id, content: msg.content, hospital_id: msg.hospital_id }, force_order: true },
-  });
-  if (error) throw error;
+  const result = await parseMessageDirect(supabase, msg.id, msg.content, msg.hospital_id, true);
   revalidatePath("/calendar");
   revalidatePath("/messages");
   revalidatePath("/dashboard");
-  return data as { message_id: number; status: string; order_id?: number; items?: number };
+  return result;
 }
 
-export async function reparseMessages(ids: number[]) {
+export async function reparseMessages(ids: number[], hospitalId?: number) {
   if (ids.length === 0) return { success: true, results: [] };
   const supabase = await createClient();
+
+  // If hospitalId provided, update messages that don't have one
+  if (hospitalId) {
+    const { data: noHospital } = await supabase
+      .from("raw_messages")
+      .select("id")
+      .in("id", ids)
+      .is("hospital_id", null);
+    const noHospitalIds = (noHospital ?? []).map((m) => m.id);
+    if (noHospitalIds.length > 0) {
+      const { error: updErr } = await supabase
+        .from("raw_messages")
+        .update({ hospital_id: hospitalId })
+        .in("id", noHospitalIds);
+      if (updErr) throw updErr;
+    }
+  }
+
   const { data: msgs, error: fetchErr } = await supabase
     .from("raw_messages")
     .select("id, content, hospital_id")
@@ -245,10 +576,12 @@ export async function reparseMessages(ids: number[]) {
 
   const results = [];
   for (const msg of msgs ?? []) {
-    const { data, error } = await supabase.functions.invoke("parse-message", {
-      body: { record: { id: msg.id, content: msg.content, hospital_id: msg.hospital_id }, force_order: true },
-    });
-    results.push({ id: msg.id, data, error: error?.message ?? null });
+    try {
+      const data = await parseMessageDirect(supabase, msg.id, msg.content, msg.hospital_id, true);
+      results.push({ id: msg.id, data, error: null });
+    } catch (err) {
+      results.push({ id: msg.id, data: null, error: (err as Error).message });
+    }
   }
   revalidatePath("/calendar");
   revalidatePath("/messages");

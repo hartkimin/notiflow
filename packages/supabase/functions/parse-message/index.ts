@@ -378,7 +378,7 @@ Deno.serve(async (req) => {
         order_date: new Date().toISOString().slice(0, 10),
         hospital_id: hospitalId,
         message_id: messageId,
-        status: "pending",
+        status: "draft",
         total_items: matchedItems.length,
       })
       .select("id")

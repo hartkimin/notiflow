@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PlusCircle, File } from "lucide-react";
 
-import { getOrders } from "@/lib/queries/orders";
+import { getOrderItems } from "@/lib/queries/orders";
 import { OrderTable } from "@/components/order-table";
 import { OrderFilters } from "@/components/order-filters";
 import { Pagination } from "@/components/pagination";
@@ -33,13 +33,13 @@ export default async function OrdersPage({ searchParams }: Props) {
   const limit = 20;
   const offset = (page - 1) * limit;
 
-  const result = await getOrders({
+  const result = await getOrderItems({
     status: status,
     from: params.from,
     to: params.to,
     limit,
     offset,
-  }).catch(() => ({ orders: [], total: 0 }));
+  }).catch(() => ({ items: [], total: 0 }));
 
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
@@ -81,7 +81,7 @@ export default async function OrdersPage({ searchParams }: Props) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <OrderTable orders={result.orders} />
+              <OrderTable items={result.items} />
             </CardContent>
             <CardFooter>
               <Pagination currentPage={page} totalPages={totalPages} totalCount={result.total} />

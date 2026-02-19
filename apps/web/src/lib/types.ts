@@ -48,6 +48,24 @@ export interface OrderDetail extends Order {
   items: OrderItem[];
 }
 
+export interface OrderItemFlat {
+  id: number;
+  order_id: number;
+  order_number: string;
+  order_date: string;
+  delivery_date: string | null;
+  hospital_name: string;
+  product_name: string;
+  quantity: number;
+  unit_type: string;
+  box_quantity: number | null;
+  supplier_name: string | null;
+  kpis_status: string | null;
+  kpis_notes: string | null;
+  status: string;
+  match_status: string;
+}
+
 export interface DailyStats {
   date: string;
   total_messages: number;

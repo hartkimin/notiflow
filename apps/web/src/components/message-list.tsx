@@ -29,9 +29,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import {
+  Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem,
+} from "@/components/ui/command";
+import {
   LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown,
   Trash2, Plus, Pencil, Smartphone, Bot, Loader2, CheckCircle, AlertTriangle,
   Inbox, Cpu, PackageSearch, ClipboardList, ChevronRight, XCircle, Circle, X,
+  Check, ChevronsUpDown, Building2,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { createMessage, updateMessage, deleteMessage, deleteMessages, reparseMessage, reparseMessages } from "@/lib/actions";
@@ -444,6 +448,10 @@ export function MessageTable({
   const [inlineAiError, setInlineAiError] = useState<string | null>(null);
   const [inlineAiParsing, setInlineAiParsing] = useState(false);
 
+  // Hospital selection dialog for reparse
+  const [reparseTarget, setReparseTarget] = useState<{ ids: number[]; mode: "single" | "bulk" } | null>(null);
+  const [selectedHospitalId, setSelectedHospitalId] = useState<string>("");
+
   // Edit form state
   const [editSender, setEditSender] = useState("");
   const [editSourceApp, setEditSourceApp] = useState("");
@@ -538,10 +546,10 @@ export function MessageTable({
     }
   }
 
-  function handleReparse(id: number) {
+  function handleReparse(id: number, hospitalId?: number) {
     startTransition(async () => {
       try {
-        const result = await reparseMessage(id);
+        const result = await reparseMessage(id, hospitalId);
         if (result.order_id) {
           toast.success(`파싱 완료 — 주문 #${result.order_id} 생성됨`);
         } else {
@@ -554,11 +562,45 @@ export function MessageTable({
     });
   }
 
-  function handleBulkReparse() {
+  function triggerReparse(msg: RawMessage) {
+    if (!msg.hospital_id) {
+      setReparseTarget({ ids: [msg.id], mode: "single" });
+      setSelectedHospitalId("");
+    } else {
+      handleReparse(msg.id);
+    }
+  }
+
+  function triggerBulkReparse() {
     const ids = Array.from(rowSelection.selected);
+    const hasNoHospital = ids.some((id) => {
+      const msg = messages.find((m) => m.id === id);
+      return msg && !msg.hospital_id;
+    });
+    if (hasNoHospital) {
+      setReparseTarget({ ids, mode: "bulk" });
+      setSelectedHospitalId("");
+    } else {
+      executeBulkReparse(ids);
+    }
+  }
+
+  function confirmHospitalAndReparse() {
+    if (!reparseTarget || !selectedHospitalId) return;
+    const hid = Number(selectedHospitalId);
+    if (reparseTarget.mode === "single") {
+      handleReparse(reparseTarget.ids[0], hid);
+    } else {
+      executeBulkReparse(reparseTarget.ids, hid);
+    }
+    setReparseTarget(null);
+    setSelectedHospitalId("");
+  }
+
+  function executeBulkReparse(ids: number[], hospitalId?: number) {
     startTransition(async () => {
       try {
-        const { results } = await reparseMessages(ids);
+        const { results } = await reparseMessages(ids, hospitalId);
         const ok = results.filter((r) => !r.error).length;
         const fail = results.filter((r) => r.error).length;
         toast.success(`${ok}개 파싱 완료${fail > 0 ? `, ${fail}개 실패` : ""}`);
@@ -724,7 +766,7 @@ export function MessageTable({
                               disabled={isPending}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleReparse(msg.id);
+                                triggerReparse(msg);
                               }}
                             >
                               {isPending ? (
@@ -871,7 +913,7 @@ export function MessageTable({
                       disabled={isPending}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleReparse(msg.id);
+                        triggerReparse(msg);
                       }}
                     >
                       {isPending ? (
@@ -941,7 +983,7 @@ export function MessageTable({
       {rowSelection.count > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg border bg-background/95 backdrop-blur px-4 py-2.5 shadow-lg">
           <span className="text-sm font-medium whitespace-nowrap">{rowSelection.count}개 선택됨</span>
-          <Button size="sm" disabled={isPending} onClick={handleBulkReparse}>
+          <Button size="sm" disabled={isPending} onClick={triggerBulkReparse}>
             {isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Bot className="h-4 w-4 mr-1" />}
             일괄 파싱
           </Button>
@@ -983,6 +1025,77 @@ export function MessageTable({
           </Button>
         </div>
       )}
+
+      {/* Hospital selection dialog for reparse */}
+      <Dialog open={reparseTarget !== null} onOpenChange={(open: boolean) => { if (!open) { setReparseTarget(null); setSelectedHospitalId(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>거래처 선택</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {reparseTarget?.mode === "single"
+              ? "이 메시지에 연결된 거래처가 없습니다. 파싱 실행을 위해 거래처를 선택해주세요."
+              : "선택한 메시지 중 거래처가 없는 메시지가 있습니다. 거래처를 선택해주세요."}
+          </p>
+          <Command className="rounded-md border">
+            <CommandInput placeholder="거래처명 검색..." />
+            <CommandList>
+              <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
+              <CommandGroup>
+                {hospitals.map((h) => (
+                  <CommandItem
+                    key={h.id}
+                    value={`${h.name} ${h.short_name || ""}`}
+                    onSelect={() => setSelectedHospitalId(String(h.id))}
+                    className="cursor-pointer"
+                  >
+                    <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="truncate">{h.name}</span>
+                      {h.short_name && <span className="text-xs text-muted-foreground">{h.short_name}</span>}
+                    </div>
+                    {selectedHospitalId === String(h.id) && (
+                      <Check className="h-4 w-4 ml-auto shrink-0 text-primary" />
+                    )}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+          {selectedHospitalId && (
+            <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2">
+              <Check className="h-4 w-4 text-primary shrink-0" />
+              <span className="text-sm font-medium truncate">
+                {hospitals.find((h) => String(h.id) === selectedHospitalId)?.name}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 ml-auto shrink-0"
+                onClick={() => setSelectedHospitalId("")}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">취소</Button>
+            </DialogClose>
+            <Button
+              disabled={!selectedHospitalId || isPending}
+              onClick={confirmHospitalAndReparse}
+            >
+              {isPending ? (
+                <><Loader2 className="h-4 w-4 mr-1 animate-spin" />실행중...</>
+              ) : (
+                "파싱 실행"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Message detail / edit sheet */}
       <Sheet open={selected !== null} onOpenChange={(open: boolean) => { if (!open) { setSelected(null); setIsEditing(false); } }}>
@@ -1074,7 +1187,7 @@ export function MessageTable({
                 <Button
                   className="flex-1"
                   disabled={isPending}
-                  onClick={() => handleReparse(selected.id)}
+                  onClick={() => triggerReparse(selected)}
                 >
                   {isPending ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> 실행중...</>

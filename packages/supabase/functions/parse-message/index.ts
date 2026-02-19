@@ -19,11 +19,10 @@ import {
 import {
   regexParse,
   buildParsePrompt,
-  matchProduct,
+  matchProductsBulk,
   generateOrderNumber,
-  normalize,
   type ParsedItem,
-  type MatchResult,
+  type BulkMatchedItem,
 } from "../_shared/parser.ts";
 
 // ---------------------------------------------------------------------------
@@ -38,11 +37,6 @@ interface AISettings {
   ai_parse_prompt: string | null;
   ai_auto_process: boolean;
   ai_confidence_threshold: number;
-}
-
-interface MatchedOrderItem {
-  parsed: ParsedItem;
-  match: MatchResult;
 }
 
 // ---------------------------------------------------------------------------
@@ -227,6 +221,7 @@ Deno.serve(async (req) => {
     const messageId: number = record.id;
     const content: string = record.content;
     const hospitalId: number | null = record.hospital_id;
+    const forceOrder: boolean = body.force_order === true;
 
     // ------------------------------------------------------------------
     // 2. Read AI settings
@@ -239,7 +234,7 @@ Deno.serve(async (req) => {
     if (!settings.ai_enabled) {
       await supabase
         .from("raw_messages")
-        .update({ parse_status: "pending", parse_method: "manual" })
+        .update({ parse_status: "pending", parse_method: "ai_disabled" })
         .eq("id", messageId);
 
       return new Response(
@@ -290,14 +285,13 @@ Deno.serve(async (req) => {
     }
 
     // ------------------------------------------------------------------
-    // 6. Match products
+    // 6. Match products (bulk — 2 queries instead of N+1)
     // ------------------------------------------------------------------
-    const matchedItems: MatchedOrderItem[] = [];
-
-    for (const parsed of parseResult.items) {
-      const match = await matchProduct(parsed.item, hospitalId, supabase);
-      matchedItems.push({ parsed, match });
-    }
+    const matchedItems: BulkMatchedItem[] = await matchProductsBulk(
+      supabase,
+      parseResult.items,
+      hospitalId,
+    );
 
     // ------------------------------------------------------------------
     // 7. Log parse history
@@ -333,9 +327,12 @@ Deno.serve(async (req) => {
       (m) => m.match.match_status === "unmatched",
     );
     const shouldAutoCreate =
-      settings.ai_auto_process &&
-      !hasUnmatched &&
-      minConfidence >= settings.ai_confidence_threshold;
+      hospitalId != null && // orders.hospital_id is NOT NULL — guard against constraint violation
+      (forceOrder || (
+        settings.ai_auto_process &&
+        !hasUnmatched &&
+        minConfidence >= settings.ai_confidence_threshold
+      ));
 
     if (!shouldAutoCreate) {
       // Mark message as needs_review
@@ -441,7 +438,7 @@ Deno.serve(async (req) => {
     console.error("parse-message unexpected error:", err);
     return new Response(
       JSON.stringify({ error: (err as Error).message }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 });

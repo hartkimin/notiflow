@@ -31,13 +31,12 @@ import { Separator } from "@/components/ui/separator";
 import {
   LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown,
   Trash2, Plus, Pencil, Smartphone, Bot, Loader2, CheckCircle, AlertTriangle,
-  Inbox, Cpu, PackageSearch, ClipboardList, ChevronRight, XCircle, Circle,
+  Inbox, Cpu, PackageSearch, ClipboardList, ChevronRight, XCircle, Circle, X,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { createMessage, updateMessage, deleteMessage, deleteMessages } from "@/lib/actions";
+import { createMessage, updateMessage, deleteMessage, deleteMessages, reparseMessage, reparseMessages } from "@/lib/actions";
 import { createClient } from "@/lib/supabase/client";
 import { ManualParseForm } from "@/components/manual-parse-form";
-import { BulkActionBar } from "@/components/bulk-action-bar";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import type { RawMessage, Hospital, Product } from "@/lib/types";
 
@@ -539,6 +538,38 @@ export function MessageTable({
     }
   }
 
+  function handleReparse(id: number) {
+    startTransition(async () => {
+      try {
+        const result = await reparseMessage(id);
+        if (result.order_id) {
+          toast.success(`파싱 완료 — 주문 #${result.order_id} 생성됨`);
+        } else {
+          toast.success(`파싱 완료 (${result.status})`);
+        }
+        router.refresh();
+      } catch (err) {
+        toast.error(`파싱 실패: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    });
+  }
+
+  function handleBulkReparse() {
+    const ids = Array.from(rowSelection.selected);
+    startTransition(async () => {
+      try {
+        const { results } = await reparseMessages(ids);
+        const ok = results.filter((r) => !r.error).length;
+        const fail = results.filter((r) => r.error).length;
+        toast.success(`${ok}개 파싱 완료${fail > 0 ? `, ${fail}개 실패` : ""}`);
+        rowSelection.clear();
+        router.refresh();
+      } catch (err) {
+        toast.error(`일괄 파싱 실패: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    });
+  }
+
   const sorted = useMemo(() => {
     return [...messages].sort((a, b) => {
       const av = a[sortKey] ?? "";
@@ -685,7 +716,21 @@ export function MessageTable({
                               {inlineAiParsing ? (
                                 <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />파싱중</>
                               ) : (
-                                <><Bot className="h-3.5 w-3.5 mr-1" />AI 재파싱</>
+                                <><Bot className="h-3.5 w-3.5 mr-1" />AI 테스트</>
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              disabled={isPending}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleReparse(msg.id);
+                              }}
+                            >
+                              {isPending ? (
+                                <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />실행중</>
+                              ) : (
+                                <><Bot className="h-3.5 w-3.5 mr-1" />파싱 실행</>
                               )}
                             </Button>
                           </div>
@@ -818,7 +863,21 @@ export function MessageTable({
                       {inlineAiParsing ? (
                         <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />파싱중</>
                       ) : (
-                        <><Bot className="h-3.5 w-3.5 mr-1" />AI 재파싱</>
+                        <><Bot className="h-3.5 w-3.5 mr-1" />AI 테스트</>
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={isPending}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleReparse(msg.id);
+                      }}
+                    >
+                      {isPending ? (
+                        <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />실행중</>
+                      ) : (
+                        <><Bot className="h-3.5 w-3.5 mr-1" />파싱 실행</>
                       )}
                     </Button>
                   </div>
@@ -879,12 +938,51 @@ export function MessageTable({
         </div>
       )}
 
-      <BulkActionBar
-        count={rowSelection.count}
-        onClear={rowSelection.clear}
-        onDelete={() => deleteMessages(Array.from(rowSelection.selected))}
-        label="메시지"
-      />
+      {rowSelection.count > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg border bg-background/95 backdrop-blur px-4 py-2.5 shadow-lg">
+          <span className="text-sm font-medium whitespace-nowrap">{rowSelection.count}개 선택됨</span>
+          <Button size="sm" disabled={isPending} onClick={handleBulkReparse}>
+            {isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Bot className="h-4 w-4 mr-1" />}
+            일괄 파싱
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="destructive" disabled={isPending}>
+                <Trash2 className="h-4 w-4 mr-1" />삭제
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{rowSelection.count}개 메시지를 삭제하시겠습니까?</AlertDialogTitle>
+                <AlertDialogDescription>이 작업은 되돌릴 수 없습니다.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    startTransition(async () => {
+                      try {
+                        await deleteMessages(Array.from(rowSelection.selected));
+                        toast.success(`${rowSelection.count}개 메시지가 삭제되었습니다.`);
+                        rowSelection.clear();
+                        router.refresh();
+                      } catch (err) {
+                        toast.error(`삭제 실패: ${err instanceof Error ? err.message : String(err)}`);
+                      }
+                    });
+                  }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  삭제
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button size="sm" variant="ghost" onClick={rowSelection.clear} className="h-8 w-8 p-0">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
 
       {/* Message detail / edit sheet */}
       <Sheet open={selected !== null} onOpenChange={(open: boolean) => { if (!open) { setSelected(null); setIsEditing(false); } }}>
@@ -959,10 +1057,10 @@ export function MessageTable({
                 </div>
               </div>
 
-              {/* AI Parse button + result */}
-              <div>
+              {/* AI Parse buttons */}
+              <div className="flex gap-2">
                 <Button
-                  className="w-full"
+                  className="flex-1"
                   variant="outline"
                   disabled={isAiParsing}
                   onClick={() => handleAiParse(selected.content, selected.hospital_id)}
@@ -970,9 +1068,22 @@ export function MessageTable({
                   {isAiParsing ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> 분석중...</>
                   ) : (
-                    <><Bot className="h-4 w-4 mr-2" /> AI 파싱</>
+                    <><Bot className="h-4 w-4 mr-2" /> AI 테스트</>
                   )}
                 </Button>
+                <Button
+                  className="flex-1"
+                  disabled={isPending}
+                  onClick={() => handleReparse(selected.id)}
+                >
+                  {isPending ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> 실행중...</>
+                  ) : (
+                    <><Bot className="h-4 w-4 mr-2" /> 파싱 실행</>
+                  )}
+                </Button>
+              </div>
+              <div>
 
                 {aiError && (
                   <div className="mt-2 rounded-md bg-destructive/10 p-3 flex items-start gap-2">

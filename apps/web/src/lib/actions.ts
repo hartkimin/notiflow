@@ -215,6 +215,47 @@ export async function deleteMessage(id: number) {
   return { success: true };
 }
 
+export async function reparseMessage(id: number) {
+  const supabase = await createClient();
+  const { data: msg, error: fetchErr } = await supabase
+    .from("raw_messages")
+    .select("id, content, hospital_id")
+    .eq("id", id)
+    .single();
+  if (fetchErr || !msg) throw fetchErr ?? new Error("메시지를 찾을 수 없습니다.");
+
+  const { data, error } = await supabase.functions.invoke("parse-message", {
+    body: { record: { id: msg.id, content: msg.content, hospital_id: msg.hospital_id }, force_order: true },
+  });
+  if (error) throw error;
+  revalidatePath("/calendar");
+  revalidatePath("/messages");
+  revalidatePath("/dashboard");
+  return data as { message_id: number; status: string; order_id?: number; items?: number };
+}
+
+export async function reparseMessages(ids: number[]) {
+  if (ids.length === 0) return { success: true, results: [] };
+  const supabase = await createClient();
+  const { data: msgs, error: fetchErr } = await supabase
+    .from("raw_messages")
+    .select("id, content, hospital_id")
+    .in("id", ids);
+  if (fetchErr) throw fetchErr;
+
+  const results = [];
+  for (const msg of msgs ?? []) {
+    const { data, error } = await supabase.functions.invoke("parse-message", {
+      body: { record: { id: msg.id, content: msg.content, hospital_id: msg.hospital_id }, force_order: true },
+    });
+    results.push({ id: msg.id, data, error: error?.message ?? null });
+  }
+  revalidatePath("/calendar");
+  revalidatePath("/messages");
+  revalidatePath("/dashboard");
+  return { success: true, results };
+}
+
 export async function deleteMessages(ids: number[]) {
   if (ids.length === 0) return { success: true };
   const supabase = await createClient();

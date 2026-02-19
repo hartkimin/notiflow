@@ -257,6 +257,14 @@ export async function testParseMessage(content: string, hospitalId?: number) {
     ? await matchProductsBulk(supabase, parseResult.items, hospitalId)
     : [];
 
+  // Build match_summary counts
+  let matched = 0, review = 0, unmatched = 0;
+  for (const m of matchedItems) {
+    if (m.match.match_status === "matched") matched++;
+    else if (m.match.match_status === "review") review++;
+    else unmatched++;
+  }
+
   return {
     method: parseResult.method,
     ai_provider: parseResult.ai_provider ?? null,
@@ -264,15 +272,16 @@ export async function testParseMessage(content: string, hospitalId?: number) {
     latency_ms: parseResult.latency_ms,
     token_usage: parseResult.token_usage ?? null,
     warnings: parseResult.warnings,
+    match_summary: { matched, review, unmatched },
     items: matchedItems.map((m) => ({
-      item: m.parsed.item,
-      qty: m.parsed.qty,
+      original_text: m.parsed.item,
+      product_official_name: m.match.product_name,
+      quantity: m.parsed.qty,
       unit: m.parsed.unit,
       product_id: m.match.product_id,
-      product_name: m.match.product_name,
-      confidence: m.match.confidence,
+      match_confidence: m.match.confidence,
       match_status: m.match.match_status,
-      method: m.match.method,
+      match_method: m.match.method,
     })),
   };
 }

@@ -775,16 +775,23 @@ export function MessageTable({
                           )}
                           {inlineAiResult && (
                             <div className="space-y-2">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <CheckCircle className="h-4 w-4 text-green-600" />
-                                <span className="text-sm font-medium">재파싱 결과</span>
+                                <span className="text-sm font-medium">AI 테스트 결과</span>
                                 {inlineAiResult.ai_provider != null && (
                                   <Badge variant="secondary" className="text-xs">
                                     {String(inlineAiResult.ai_provider)}/{String(inlineAiResult.ai_model)}
                                   </Badge>
                                 )}
-                                {inlineAiResult.latency_ms != null && (
-                                  <span className="text-xs text-muted-foreground">{String(inlineAiResult.latency_ms)}ms</span>
+                                {inlineAiResult.method === "regex" && (
+                                  <Badge variant="outline" className="text-xs">정규식 (AI 미사용)</Badge>
+                                )}
+                                {inlineAiResult.match_summary != null && (
+                                  <div className="flex gap-1 ml-auto">
+                                    <Badge variant="default">{(inlineAiResult.match_summary as Record<string, number>).matched ?? 0} 매칭</Badge>
+                                    <Badge variant="secondary">{(inlineAiResult.match_summary as Record<string, number>).review ?? 0} 검토</Badge>
+                                    <Badge variant="outline">{(inlineAiResult.match_summary as Record<string, number>).unmatched ?? 0} 미매칭</Badge>
+                                  </div>
                                 )}
                               </div>
                               {Array.isArray(inlineAiResult.items) && inlineAiResult.items.length > 0 && (
@@ -795,25 +802,37 @@ export function MessageTable({
                                         <th className="text-left p-2 font-medium">원문</th>
                                         <th className="text-left p-2 font-medium">매칭 제품</th>
                                         <th className="text-center p-2 font-medium">수량</th>
+                                        <th className="text-center p-2 font-medium">단위</th>
                                         <th className="text-center p-2 font-medium">신뢰도</th>
                                       </tr>
                                     </thead>
                                     <tbody>
                                       {(inlineAiResult.items as Array<Record<string, unknown>>).map((item, i) => (
                                         <tr key={i} className="border-b last:border-0">
-                                          <td className="p-2 text-xs font-mono">{String(item.original_text ?? item.product_name ?? "")}</td>
+                                          <td className="p-2 text-xs font-mono">{String(item.original_text ?? "")}</td>
                                           <td className="p-2">{item.product_official_name ? String(item.product_official_name) : <span className="text-muted-foreground italic">미매칭</span>}</td>
-                                          <td className="p-2 text-center font-mono">{String(item.quantity ?? "")}{item.unit ? ` ${item.unit}` : ""}</td>
+                                          <td className="p-2 text-center font-mono">{String(item.quantity ?? "")}</td>
+                                          <td className="p-2 text-center text-xs">{String(item.unit ?? "")}</td>
                                           <td className="p-2 text-center">
-                                            <Badge variant={item.match_status === "matched" ? "default" : item.match_status === "review" ? "secondary" : "outline"}>
-                                              {item.match_status === "matched" ? "매칭" : item.match_status === "review" ? "검토" : "미매칭"}
-                                            </Badge>
+                                            {item.match_confidence != null ? (
+                                              <Badge variant={Number(item.match_confidence) >= 0.8 ? "default" : Number(item.match_confidence) >= 0.5 ? "secondary" : "outline"}>
+                                                {Math.round(Number(item.match_confidence) * 100)}%
+                                              </Badge>
+                                            ) : <span className="text-muted-foreground">-</span>}
                                           </td>
                                         </tr>
                                       ))}
                                     </tbody>
                                   </table>
                                 </div>
+                              )}
+                              {inlineAiResult.latency_ms != null && (
+                                <p className="text-xs text-muted-foreground">
+                                  파싱: {String(inlineAiResult.method)} | {String(inlineAiResult.latency_ms)}ms
+                                  {inlineAiResult.token_usage != null && (
+                                    <> | 토큰: {String((inlineAiResult.token_usage as Record<string, number>).input_tokens)}→{String((inlineAiResult.token_usage as Record<string, number>).output_tokens)}</>
+                                  )}
+                                </p>
                               )}
                             </div>
                           )}
@@ -922,16 +941,23 @@ export function MessageTable({
                   )}
                   {inlineAiResult && (
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <CheckCircle className="h-4 w-4 text-green-600" />
-                        <span className="text-sm font-medium">재파싱 결과</span>
+                        <span className="text-sm font-medium">AI 테스트 결과</span>
                         {inlineAiResult.ai_provider != null && (
                           <Badge variant="secondary" className="text-xs">
                             {String(inlineAiResult.ai_provider)}/{String(inlineAiResult.ai_model)}
                           </Badge>
                         )}
-                        {inlineAiResult.latency_ms != null && (
-                          <span className="text-xs text-muted-foreground">{String(inlineAiResult.latency_ms)}ms</span>
+                        {inlineAiResult.method === "regex" && (
+                          <Badge variant="outline" className="text-xs">정규식 (AI 미사용)</Badge>
+                        )}
+                        {inlineAiResult.match_summary != null && (
+                          <div className="flex gap-1 ml-auto">
+                            <Badge variant="default">{(inlineAiResult.match_summary as Record<string, number>).matched ?? 0} 매칭</Badge>
+                            <Badge variant="secondary">{(inlineAiResult.match_summary as Record<string, number>).review ?? 0} 검토</Badge>
+                            <Badge variant="outline">{(inlineAiResult.match_summary as Record<string, number>).unmatched ?? 0} 미매칭</Badge>
+                          </div>
                         )}
                       </div>
                       {Array.isArray(inlineAiResult.items) && inlineAiResult.items.length > 0 && (
@@ -942,25 +968,37 @@ export function MessageTable({
                                 <th className="text-left p-2 font-medium">원문</th>
                                 <th className="text-left p-2 font-medium">매칭 제품</th>
                                 <th className="text-center p-2 font-medium">수량</th>
+                                <th className="text-center p-2 font-medium">단위</th>
                                 <th className="text-center p-2 font-medium">신뢰도</th>
                               </tr>
                             </thead>
                             <tbody>
                               {(inlineAiResult.items as Array<Record<string, unknown>>).map((item, i) => (
                                 <tr key={i} className="border-b last:border-0">
-                                  <td className="p-2 text-xs font-mono">{String(item.original_text ?? item.product_name ?? "")}</td>
+                                  <td className="p-2 text-xs font-mono">{String(item.original_text ?? "")}</td>
                                   <td className="p-2">{item.product_official_name ? String(item.product_official_name) : <span className="text-muted-foreground italic">미매칭</span>}</td>
-                                  <td className="p-2 text-center font-mono">{String(item.quantity ?? "")}{item.unit ? ` ${item.unit}` : ""}</td>
+                                  <td className="p-2 text-center font-mono">{String(item.quantity ?? "")}</td>
+                                  <td className="p-2 text-center text-xs">{String(item.unit ?? "")}</td>
                                   <td className="p-2 text-center">
-                                    <Badge variant={item.match_status === "matched" ? "default" : item.match_status === "review" ? "secondary" : "outline"}>
-                                      {item.match_status === "matched" ? "매칭" : item.match_status === "review" ? "검토" : "미매칭"}
-                                    </Badge>
+                                    {item.match_confidence != null ? (
+                                      <Badge variant={Number(item.match_confidence) >= 0.8 ? "default" : Number(item.match_confidence) >= 0.5 ? "secondary" : "outline"}>
+                                        {Math.round(Number(item.match_confidence) * 100)}%
+                                      </Badge>
+                                    ) : <span className="text-muted-foreground">-</span>}
                                   </td>
                                 </tr>
                               ))}
                             </tbody>
                           </table>
                         </div>
+                      )}
+                      {inlineAiResult.latency_ms != null && (
+                        <p className="text-xs text-muted-foreground">
+                          파싱: {String(inlineAiResult.method)} | {String(inlineAiResult.latency_ms)}ms
+                          {inlineAiResult.token_usage != null && (
+                            <> | 토큰: {String((inlineAiResult.token_usage as Record<string, number>).input_tokens)}→{String((inlineAiResult.token_usage as Record<string, number>).output_tokens)}</>
+                          )}
+                        </p>
                       )}
                     </div>
                   )}
@@ -1227,28 +1265,32 @@ export function MessageTable({
                           <thead>
                             <tr className="border-b bg-muted/50">
                               <th className="text-left p-2 font-medium">원문</th>
-                              <th className="text-left p-2 font-medium">매칭 품목</th>
+                              <th className="text-left p-2 font-medium">매칭 제품</th>
                               <th className="text-center p-2 font-medium">수량</th>
+                              <th className="text-center p-2 font-medium">단위</th>
                               <th className="text-center p-2 font-medium">신뢰도</th>
-                              <th className="text-center p-2 font-medium">상태</th>
+                              <th className="text-center p-2 font-medium">매칭방법</th>
                             </tr>
                           </thead>
                           <tbody>
                             {(aiResult.items as Array<Record<string, unknown>>).map((item, i) => (
                               <tr key={i} className="border-b last:border-0">
-                                <td className="p-2 text-xs text-muted-foreground max-w-[150px] truncate">
-                                  {String(item.original_text ?? item.product_name ?? "")}
+                                <td className="p-2 text-xs font-mono max-w-[150px] truncate">
+                                  {String(item.original_text ?? "")}
                                 </td>
                                 <td className="p-2">
                                   {item.product_official_name ? String(item.product_official_name) : (
                                     <span className="text-muted-foreground italic">미매칭</span>
                                   )}
                                 </td>
-                                <td className="p-2 text-center">
-                                  {String(item.quantity ?? "")}{item.unit ? ` ${item.unit}` : ""}
+                                <td className="p-2 text-center font-mono">
+                                  {String(item.quantity ?? "")}
+                                </td>
+                                <td className="p-2 text-center text-xs">
+                                  {String(item.unit ?? "")}
                                 </td>
                                 <td className="p-2 text-center">
-                                  {item.match_confidence != null && (
+                                  {item.match_confidence != null ? (
                                     <Badge
                                       variant={
                                         Number(item.match_confidence) >= 0.8 ? "default" :
@@ -1257,18 +1299,10 @@ export function MessageTable({
                                     >
                                       {Math.round(Number(item.match_confidence) * 100)}%
                                     </Badge>
-                                  )}
+                                  ) : <span className="text-muted-foreground">-</span>}
                                 </td>
                                 <td className="p-2 text-center">
-                                  <Badge
-                                    variant={
-                                      item.match_status === "matched" ? "default" :
-                                      item.match_status === "review" ? "secondary" : "outline"
-                                    }
-                                  >
-                                    {item.match_status === "matched" ? "매칭" :
-                                     item.match_status === "review" ? "검토" : "미매칭"}
-                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">{String(item.match_method ?? "")}</span>
                                 </td>
                               </tr>
                             ))}

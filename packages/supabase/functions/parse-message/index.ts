@@ -229,22 +229,7 @@ Deno.serve(async (req) => {
     const settings = await getAISettings(supabase);
 
     // ------------------------------------------------------------------
-    // 3. If AI disabled → mark as pending_manual
-    // ------------------------------------------------------------------
-    if (!settings.ai_enabled) {
-      await supabase
-        .from("raw_messages")
-        .update({ parse_status: "pending", parse_method: "ai_disabled" })
-        .eq("id", messageId);
-
-      return new Response(
-        JSON.stringify({ message_id: messageId, status: "pending_manual" }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      );
-    }
-
-    // ------------------------------------------------------------------
-    // 4. Get hospital info + aliases
+    // 3. Get hospital info + aliases
     // ------------------------------------------------------------------
     let hospitalName: string | null = null;
     let aliases: { alias: string; product_name: string }[] = [];

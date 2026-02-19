@@ -13,15 +13,18 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Pencil, Trash2, LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
-import { createSupplier, updateSupplier, deleteSupplier } from "@/lib/actions";
+import { createSupplier, updateSupplier, deleteSupplier, deleteSuppliers } from "@/lib/actions";
 import { toast } from "sonner";
 import { useResizableColumns } from "@/hooks/use-resizable-columns";
 import { ResizableTh } from "@/components/resizable-th";
+import { BulkActionBar } from "@/components/bulk-action-bar";
+import { useRowSelection } from "@/hooks/use-row-selection";
 import type { Supplier } from "@/lib/types";
 
 const SUPPLIER_COL_DEFAULTS: Record<string, number> = {
-  id: 50, name: 150, short_name: 100, contact_info: 160, notes: 150, is_active: 70, actions: 90,
+  checkbox: 40, id: 50, name: 150, short_name: 100, contact_info: 160, notes: 150, is_active: 70, actions: 90,
 };
 
 type SortKey = "id" | "name" | "short_name" | "notes" | "is_active";
@@ -69,6 +72,14 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
+  const allIds = useMemo(() => suppliers.map((s) => s.id), [suppliers]);
+  const rowSelection = useRowSelection(allIds);
+
+  function switchView(v: "list" | "grid") {
+    setView(v);
+    rowSelection.clear();
+  }
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -110,10 +121,10 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
     <>
       <div className="flex justify-between items-center">
         <div className="flex gap-1">
-          <Button variant={view === "list" ? "default" : "outline"} size="icon" className="h-8 w-8" onClick={() => setView("list")}>
+          <Button variant={view === "list" ? "default" : "outline"} size="icon" className="h-8 w-8" onClick={() => switchView("list")}>
             <LayoutList className="h-4 w-4" />
           </Button>
-          <Button variant={view === "grid" ? "default" : "outline"} size="icon" className="h-8 w-8" onClick={() => setView("grid")}>
+          <Button variant={view === "grid" ? "default" : "outline"} size="icon" className="h-8 w-8" onClick={() => switchView("grid")}>
             <LayoutGrid className="h-4 w-4" />
           </Button>
         </div>
@@ -129,6 +140,12 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
           <Table className="table-fixed">
             <thead className="[&_tr]:border-b">
               <TableRow>
+                <ResizableTh width={widths.checkbox} colKey="checkbox" onResizeStart={onMouseDown}>
+                  <Checkbox
+                    checked={rowSelection.allSelected ? true : rowSelection.someSelected ? "indeterminate" : false}
+                    onCheckedChange={() => rowSelection.toggleAll()}
+                  />
+                </ResizableTh>
                 <ResizableTh width={widths.id} colKey="id" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("id")}>
                   <span className="inline-flex items-center">ID<SortIcon active={sortKey === "id"} dir={sortDir} /></span>
                 </ResizableTh>
@@ -151,6 +168,12 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
             <TableBody>
               {sorted.map((s) => (
                 <TableRow key={s.id}>
+                  <TableCell className="px-2">
+                    <Checkbox
+                      checked={rowSelection.selected.has(s.id)}
+                      onCheckedChange={() => rowSelection.toggle(s.id)}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-xs overflow-hidden text-ellipsis">{s.id}</TableCell>
                   <TableCell className="font-medium overflow-hidden text-ellipsis">{s.name}</TableCell>
                   <TableCell className="text-muted-foreground text-sm overflow-hidden text-ellipsis">{s.short_name || "-"}</TableCell>
@@ -217,6 +240,13 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
           ))}
         </div>
       )}
+
+      <BulkActionBar
+        count={rowSelection.count}
+        onClear={rowSelection.clear}
+        onDelete={() => deleteSuppliers(Array.from(rowSelection.selected))}
+        label="공급사"
+      />
 
       {/* Create Dialog */}
       <SupplierFormDialog

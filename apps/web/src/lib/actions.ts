@@ -44,6 +44,15 @@ export async function deleteProduct(id: number) {
   return { success: true };
 }
 
+export async function deleteProducts(ids: number[]) {
+  if (ids.length === 0) return { success: true };
+  const supabase = await createClient();
+  const { error } = await supabase.from("products").delete().in("id", ids);
+  if (error) throw error;
+  revalidatePath("/products");
+  return { success: true };
+}
+
 // --- Hospitals ---
 
 export async function createHospital(data: {
@@ -75,6 +84,15 @@ export async function updateHospital(id: number, data: Record<string, unknown>) 
 export async function deleteHospital(id: number) {
   const supabase = await createClient();
   const { error } = await supabase.from("hospitals").delete().eq("id", id);
+  if (error) throw error;
+  revalidatePath("/hospitals");
+  return { success: true };
+}
+
+export async function deleteHospitals(ids: number[]) {
+  if (ids.length === 0) return { success: true };
+  const supabase = await createClient();
+  const { error } = await supabase.from("hospitals").delete().in("id", ids);
   if (error) throw error;
   revalidatePath("/hospitals");
   return { success: true };
@@ -197,6 +215,17 @@ export async function deleteMessage(id: number) {
   return { success: true };
 }
 
+export async function deleteMessages(ids: number[]) {
+  if (ids.length === 0) return { success: true };
+  const supabase = await createClient();
+  const { error } = await supabase.from("raw_messages").delete().in("id", ids);
+  if (error) throw error;
+  revalidatePath("/calendar");
+  revalidatePath("/messages");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
 // --- Suppliers ---
 
 export async function createSupplier(data: {
@@ -222,6 +251,15 @@ export async function updateSupplier(id: number, data: Record<string, unknown>) 
 export async function deleteSupplier(id: number) {
   const supabase = await createClient();
   const { error } = await supabase.from("suppliers").delete().eq("id", id);
+  if (error) throw error;
+  revalidatePath("/suppliers");
+  return { success: true };
+}
+
+export async function deleteSuppliers(ids: number[]) {
+  if (ids.length === 0) return { success: true };
+  const supabase = await createClient();
+  const { error } = await supabase.from("suppliers").delete().in("id", ids);
   if (error) throw error;
   revalidatePath("/suppliers");
   return { success: true };

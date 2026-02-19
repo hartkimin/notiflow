@@ -33,9 +33,12 @@ import {
   Trash2, Plus, Pencil, Smartphone, Bot, Loader2, CheckCircle, AlertTriangle,
   Inbox, Cpu, PackageSearch, ClipboardList, ChevronRight, XCircle, Circle,
 } from "lucide-react";
-import { createMessage, updateMessage, deleteMessage } from "@/lib/actions";
+import { Checkbox } from "@/components/ui/checkbox";
+import { createMessage, updateMessage, deleteMessage, deleteMessages } from "@/lib/actions";
 import { createClient } from "@/lib/supabase/client";
 import { ManualParseForm } from "@/components/manual-parse-form";
+import { BulkActionBar } from "@/components/bulk-action-bar";
+import { useRowSelection } from "@/hooks/use-row-selection";
 import type { RawMessage, Hospital, Product } from "@/lib/types";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -417,6 +420,14 @@ export function MessageTable({
   const [sortKey, setSortKey] = useState<SortKey>("received_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selected, setSelected] = useState<RawMessage | null>(null);
+
+  const allIds = useMemo(() => messages.map((m) => m.id), [messages]);
+  const rowSelection = useRowSelection(allIds);
+
+  function switchView(v: "list" | "grid") {
+    setView(v);
+    rowSelection.clear();
+  }
   const [showManualParse, setShowManualParse] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -544,10 +555,10 @@ export function MessageTable({
     <>
       <div className="flex justify-between items-center">
         <div className="flex gap-1">
-          <Button variant={view === "list" ? "default" : "outline"} size="icon" className="h-8 w-8" onClick={() => setView("list")}>
+          <Button variant={view === "list" ? "default" : "outline"} size="icon" className="h-8 w-8" onClick={() => switchView("list")}>
             <LayoutList className="h-4 w-4" />
           </Button>
-          <Button variant={view === "grid" ? "default" : "outline"} size="icon" className="h-8 w-8" onClick={() => setView("grid")}>
+          <Button variant={view === "grid" ? "default" : "outline"} size="icon" className="h-8 w-8" onClick={() => switchView("grid")}>
             <LayoutGrid className="h-4 w-4" />
           </Button>
         </div>
@@ -560,6 +571,12 @@ export function MessageTable({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[40px] px-2" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={rowSelection.allSelected ? true : rowSelection.someSelected ? "indeterminate" : false}
+                    onCheckedChange={() => rowSelection.toggleAll()}
+                  />
+                </TableHead>
                 <TableHead className="w-[50px] cursor-pointer select-none" onClick={() => toggleSort("id")}>
                   <span className="inline-flex items-center">ID<SortIcon active={sortKey === "id"} dir={sortDir} /></span>
                 </TableHead>
@@ -592,6 +609,12 @@ export function MessageTable({
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => { const newId = expandedId === msg.id ? null : msg.id; setExpandedId(newId); if (newId !== expandedId) { setInlineAiResult(null); setInlineAiError(null); } }}
                   >
+                    <TableCell className="px-2" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={rowSelection.selected.has(msg.id)}
+                        onCheckedChange={() => rowSelection.toggle(msg.id)}
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-xs">
                       <span className="inline-flex items-center gap-1">
                         <ChevronRight className={`h-3 w-3 transition-transform ${expandedId === msg.id ? "rotate-90" : ""}`} />
@@ -630,7 +653,7 @@ export function MessageTable({
                   </TableRow>
                   {expandedId === msg.id && (
                     <TableRow className="bg-muted/20 hover:bg-muted/20">
-                      <TableCell colSpan={9} className="p-4">
+                      <TableCell colSpan={10} className="p-4">
                         <div className="space-y-3">
                           <ParseStepper msg={msg} />
                           <ParseResultTable msg={msg} />
@@ -855,6 +878,13 @@ export function MessageTable({
           ))}
         </div>
       )}
+
+      <BulkActionBar
+        count={rowSelection.count}
+        onClear={rowSelection.clear}
+        onDelete={() => deleteMessages(Array.from(rowSelection.selected))}
+        label="메시지"
+      />
 
       {/* Message detail / edit sheet */}
       <Sheet open={selected !== null} onOpenChange={(open: boolean) => { if (!open) { setSelected(null); setIsEditing(false); } }}>

@@ -4,14 +4,14 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,110 +19,176 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import com.hart.notimgmt.R
-import com.hart.notimgmt.ui.theme.*
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 @Composable
 fun SplashScreen(onFinished: () -> Unit) {
     val alpha = remember { Animatable(0f) }
-    val scale = remember { Animatable(0.8f) }
-    val glassColors = TwsTheme.glassColors
+    val scale = remember { Animatable(0.9f) }
+    
+    // 오로라 애니메이션 값
+    val auroraPhase1 = remember { Animatable(0f) }
+    val auroraPhase2 = remember { Animatable(PI.toFloat()) }
+    val auroraPhase3 = remember { Animatable(PI.toFloat() / 2f) }
 
     LaunchedEffect(Unit) {
-        // 동시에 페이드인 + 스케일업 애니메이션
+        // 페이드인 + 스케일업
         launch {
             alpha.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(800, easing = FastOutSlowInEasing)
+                animationSpec = tween(1000, easing = FastOutSlowInEasing)
             )
         }
         launch {
             scale.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(800, easing = FastOutSlowInEasing)
+                animationSpec = tween(1000, easing = FastOutSlowInEasing)
             )
         }
-        delay(1500)
+        
+        // 배경 오로라 무한 애니메이션
+        launch {
+            while (true) {
+                auroraPhase1.animateTo(
+                    targetValue = auroraPhase1.value + (PI.toFloat() * 2f),
+                    animationSpec = tween(15000, easing = androidx.compose.animation.core.LinearEasing)
+                )
+            }
+        }
+        launch {
+            while (true) {
+                auroraPhase2.animateTo(
+                    targetValue = auroraPhase2.value + (PI.toFloat() * 2f),
+                    animationSpec = tween(20000, easing = androidx.compose.animation.core.LinearEasing)
+                )
+            }
+        }
+        launch {
+            while (true) {
+                auroraPhase3.animateTo(
+                    targetValue = auroraPhase3.value + (PI.toFloat() * 2f),
+                    animationSpec = tween(18000, easing = androidx.compose.animation.core.LinearEasing)
+                )
+            }
+        }
+        
+        delay(2000)
         onFinished()
     }
 
     Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0D1117)) // 깊은 다크 배경
     ) {
-        // NotiFlow 배경
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(R.drawable.notiflow_splash_bg)
-                .crossfade(true)
-                .build(),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
-
-        // 그라데이션 오버레이 (가독성 향상)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.15f),
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.2f)
-                        )
+        // 동적 오로라 그라데이션 배경 (세련된 블러 효과)
+        Box(modifier = Modifier.fillMaxSize()) {
+            // 오브젝트 1: Soft Blue
+            Box(
+                modifier = Modifier
+                    .offset(
+                        x = (cos(auroraPhase1.value) * 100).dp,
+                        y = (sin(auroraPhase1.value) * 150 - 100).dp
                     )
-                )
-        )
+                    .size(400.dp)
+                    .align(Alignment.TopStart)
+                    .alpha(0.6f)
+                    .blur(100.dp)
+                    .background(Color(0xFF3B82F6).copy(alpha = 0.4f), CircleShape)
+            )
+            
+            // 오브젝트 2: Vibrant Purple/Pink
+            Box(
+                modifier = Modifier
+                    .offset(
+                        x = (sin(auroraPhase2.value) * 120).dp,
+                        y = (cos(auroraPhase2.value) * 120 + 50).dp
+                    )
+                    .size(350.dp)
+                    .align(Alignment.CenterEnd)
+                    .alpha(0.5f)
+                    .blur(120.dp)
+                    .background(Color(0xFF8B5CF6).copy(alpha = 0.5f), CircleShape)
+            )
+            
+            // 오브젝트 3: Teal/Mint
+            Box(
+                modifier = Modifier
+                    .offset(
+                        x = (cos(auroraPhase3.value) * 150).dp,
+                        y = (sin(auroraPhase3.value) * 80 + 100).dp
+                    )
+                    .size(450.dp)
+                    .align(Alignment.BottomStart)
+                    .alpha(0.4f)
+                    .blur(130.dp)
+                    .background(Color(0xFF10B981).copy(alpha = 0.3f), CircleShape)
+            )
+            
+            // 전역 노이즈 텍스처 오버레이 (옵션, 고급스러운 매트 느낌)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.1f))
+            )
+        }
 
-        // 콘텐츠
+        // 중앙 콘텐츠
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
+                .align(Alignment.Center)
                 .alpha(alpha.value)
                 .scale(scale.value)
         ) {
-            // 글래스 아이콘 컨테이너
-            Surface(
+            // 모던 글래스모피즘 아이콘 로고
+            Box(
                 modifier = Modifier
-                    .size(120.dp)
-                    .shadow(
-                        elevation = 24.dp,
-                        shape = RoundedCornerShape(32.dp),
-                        ambientColor = TwsSkyBlueDark.copy(alpha = 0.5f),
-                        spotColor = TwsSkyBlueDark.copy(alpha = 0.5f)
-                    ),
-                shape = RoundedCornerShape(32.dp),
-                color = TwsGlassWhite,
-                border = androidx.compose.foundation.BorderStroke(
-                    1.5.dp,
-                    TwsGlassBorderLight
-                )
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Notifications,
-                        contentDescription = null,
-                        modifier = Modifier.size(56.dp),
-                        tint = TwsSkyBlue
+                    .size(110.dp)
+                    .clip(RoundedCornerShape(32.dp))
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.2f),
+                                Color.White.copy(alpha = 0.05f)
+                            ),
+                            start = Offset(0f, 0f),
+                            end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
+                        )
                     )
-                }
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.5f),
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.1f)
+                            )
+                        ),
+                        shape = RoundedCornerShape(32.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                // 내부 아이콘 그라데이션 적용
+                Icon(
+                    imageVector = Icons.Rounded.BlurOn,
+                    contentDescription = null,
+                    modifier = Modifier.size(56.dp),
+                    tint = Color.White
+                )
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -130,64 +196,69 @@ fun SplashScreen(onFinished: () -> Unit) {
             // 앱 이름
             Text(
                 text = "NotiFlow",
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.Bold,
-                color = TwsWhite
+                style = MaterialTheme.typography.displayMedium.copy(
+                    letterSpacing = (-1).sp
+                ),
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // 서브타이틀
-            Text(
-                text = "알림의 흐름을 관리하세요",
-                style = MaterialTheme.typography.bodyLarge,
-                color = TwsWhite.copy(alpha = 0.9f)
-            )
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            // TWS 스타일 로딩 인디케이터
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // 세련된 서브타이틀 캡슐
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(100.dp))
+                    .background(Color.White.copy(alpha = 0.1f))
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
             ) {
-                repeat(3) { index ->
-                    val dotAlpha = remember { Animatable(0.3f) }
-                    LaunchedEffect(Unit) {
-                        delay(index * 150L)
-                        while (true) {
-                            dotAlpha.animateTo(1f, tween(400))
-                            dotAlpha.animateTo(0.3f, tween(400))
-                        }
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .alpha(dotAlpha.value)
-                            .background(TwsWhite, CircleShape)
-                    )
-                }
+                Text(
+                    text = "Sync Your Digital Life",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        letterSpacing = 1.5.sp
+                    ),
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White.copy(alpha = 0.8f)
+                )
             }
         }
 
-        // 하단 브랜딩
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
+        // 하단 미니멀 로딩 인디케이터
+        Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 32.dp)
+                .padding(bottom = 48.dp)
                 .alpha(alpha.value)
         ) {
-            Text(
-                text = "NotiFlow",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = TwsWhite
-            )
-            Text(
-                text = "Manage Your Notification Flow",
-                style = MaterialTheme.typography.labelSmall,
-                color = TwsWhite.copy(alpha = 0.7f)
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                repeat(3) { index ->
+                    val dotScale = remember { Animatable(0.5f) }
+                    val dotOpacity = remember { Animatable(0.2f) }
+                    
+                    LaunchedEffect(Unit) {
+                        delay(index * 200L)
+                        while (true) {
+                            launch { dotScale.animateTo(1f, tween(600, easing = FastOutSlowInEasing)) }
+                            launch { dotOpacity.animateTo(1f, tween(600, easing = FastOutSlowInEasing)) }
+                            delay(600)
+                            launch { dotScale.animateTo(0.5f, tween(600, easing = FastOutSlowInEasing)) }
+                            launch { dotOpacity.animateTo(0.2f, tween(600, easing = FastOutSlowInEasing)) }
+                            delay(600)
+                        }
+                    }
+                    
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .scale(dotScale.value)
+                            .alpha(dotOpacity.value)
+                            .background(Color.White, CircleShape)
+                    )
+                }
+            }
         }
     }
 }

@@ -16,7 +16,7 @@ import com.hart.notimgmt.data.db.entity.*
         PlanEntity::class,
         DayCategoryEntity::class
     ],
-    version = 22,
+    version = 23,
     exportSchema = true
 )
 @TypeConverters(Converters::class)

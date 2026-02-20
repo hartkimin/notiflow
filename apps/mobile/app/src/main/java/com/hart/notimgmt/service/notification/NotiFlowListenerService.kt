@@ -99,6 +99,7 @@ class NotiFlowListenerService : NotificationListenerService() {
             if (sender.isBlank() && content.isBlank()) return
 
             val senderIconBase64 = extractLargeIcon(sbn)
+            val attachedImageBase64 = extractAttachedImage(sbn)
             val contentIntent = sbn.notification?.contentIntent
 
             // 필터 매칭 전에 발신자 단위 캐시 저장
@@ -108,7 +109,7 @@ class NotiFlowListenerService : NotificationListenerService() {
             scope.launch {
                 try {
                     val appName = resolveAppName(packageName)
-                    processMessage(packageName, appName, sender, content, senderIconBase64, contentIntent)
+                    processMessage(packageName, appName, sender, content, senderIconBase64, attachedImageBase64, contentIntent)
                 } catch (e: Exception) {
                     Log.e("NotiFlowListener", "Failed to process message from $packageName", e)
                 }
@@ -161,12 +162,60 @@ class NotiFlowListenerService : NotificationListenerService() {
         }
     }
 
+    private fun extractAttachedImage(sbn: StatusBarNotification): String? {
+        return try {
+            val extras = sbn.notification?.extras ?: return null
+            var picture: Bitmap? = null
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val icon = extras.getParcelable<android.graphics.drawable.Icon>(android.app.Notification.EXTRA_PICTURE_ICON)
+                if (icon != null) {
+                    val drawable = icon.loadDrawable(applicationContext)
+                    if (drawable != null) {
+                        picture = Bitmap.createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight, Bitmap.Config.ARGB_8888)
+                        val canvas = android.graphics.Canvas(picture)
+                        drawable.setBounds(0, 0, canvas.width, canvas.height)
+                        drawable.draw(canvas)
+                    }
+                }
+            }
+            
+            if (picture == null) {
+                @Suppress("DEPRECATION")
+                picture = extras.getParcelable<Bitmap>(android.app.Notification.EXTRA_PICTURE)
+            }
+
+            if (picture == null) return null
+
+            // Resize if too large
+            val maxSize = 800
+            val width = picture.width
+            val height = picture.height
+            val bitmap = if (width > maxSize || height > maxSize) {
+                val ratio = Math.min(maxSize.toFloat() / width, maxSize.toFloat() / height)
+                Bitmap.createScaledBitmap(picture, (width * ratio).toInt(), (height * ratio).toInt(), true)
+            } else {
+                picture
+            }
+
+            val stream = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
+            if (bitmap != picture) bitmap.recycle() // Recycle scaled bitmap
+            
+            Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
+        } catch (e: Exception) {
+            Log.e("NotiFlowListener", "Failed to extract attached image", e)
+            null
+        }
+    }
+
     private suspend fun processMessage(
         packageName: String,
         appName: String,
         sender: String,
         content: String,
         senderIconBase64: String? = null,
+        attachedImageBase64: String? = null,
         contentIntent: PendingIntent? = null
     ) {
         // Stage 1: App filter check
@@ -198,7 +247,8 @@ class NotiFlowListenerService : NotificationListenerService() {
             sender = sender,
             content = content,
             statusId = firstStatus?.id,
-            senderIcon = senderIconBase64
+            senderIcon = senderIconBase64,
+            attachedImage = attachedImageBase64
         )
         val insertedId = messageRepository.insert(message)
         DeepLinkCache.store(message.id, packageName, sender, contentIntent)

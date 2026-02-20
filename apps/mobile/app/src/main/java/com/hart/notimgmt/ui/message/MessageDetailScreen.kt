@@ -68,6 +68,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -489,6 +490,27 @@ fun MessageDetailScreen(
                                         contentDescription = "본문 수정",
                                         modifier = Modifier.size(18.dp),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            
+                            // 첨부 이미지
+                            if (message.attachedImage != null) {
+                                val attachedBitmap = remember(message.attachedImage) {
+                                    try {
+                                        val bytes = android.util.Base64.decode(message.attachedImage, android.util.Base64.NO_WRAP)
+                                        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                                    } catch (e: Exception) { null }
+                                }
+                                if (attachedBitmap != null) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Image(
+                                        bitmap = attachedBitmap,
+                                        contentDescription = "첨부 이미지",
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp)),
+                                        contentScale = ContentScale.FillWidth
                                     )
                                 }
                             }

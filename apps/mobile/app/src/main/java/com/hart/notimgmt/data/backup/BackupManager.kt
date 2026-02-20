@@ -21,7 +21,7 @@ class BackupManager @Inject constructor(
 ) {
     companion object {
         private const val BACKUP_FORMAT_VERSION = 7
-        private const val DB_VERSION = 21
+        private const val DB_VERSION = 22
     }
 
     suspend fun exportToJson(): String {
@@ -122,6 +122,7 @@ class BackupManager @Inject constructor(
                     put("isPinned", m.isPinned)
                     put("snoozeAt", m.snoozeAt ?: JSONObject.NULL)
                     put("originalContent", m.originalContent ?: JSONObject.NULL)
+                    put("attachedImage", m.attachedImage ?: JSONObject.NULL)
                 })
             }
         })
@@ -317,7 +318,8 @@ class BackupManager @Inject constructor(
                         statusHistory = if (m.has("statusHistory") && !m.isNull("statusHistory")) m.getString("statusHistory") else null,
                         isPinned = m.optBoolean("isPinned", false),
                         snoozeAt = if (m.has("snoozeAt") && !m.isNull("snoozeAt")) m.getLong("snoozeAt") else null,
-                        originalContent = if (m.has("originalContent") && !m.isNull("originalContent")) m.getString("originalContent") else null
+                        originalContent = if (m.has("originalContent") && !m.isNull("originalContent")) m.getString("originalContent") else null,
+                        attachedImage = if (m.has("attachedImage") && !m.isNull("attachedImage")) m.getString("attachedImage") else null
                     )
                 )
             }

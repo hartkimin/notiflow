@@ -43,22 +43,22 @@ val TwsSuccessLight = Color(0xFFE8F8F0)
 val TwsWarning = Color(0xFFF39C12)
 val TwsWarningLight = Color(0xFFFEF5E7)
 
-// Gradient Colors (for backgrounds)
-val TwsGradientStart = Color(0xFF5DADE2)
-val TwsGradientMiddle = Color(0xFF48D1CC)
-val TwsGradientEnd = Color(0xFF7EC8E3)
+// Gradient Colors (for backgrounds - Gemini 3.1 Pro Style Aurora)
+val TwsGradientStart = Color(0xFF7BA4F6)   // Soft Aurora Blue
+val TwsGradientMiddle = Color(0xFFC3A6EC)  // Soft Aurora Purple
+val TwsGradientEnd = Color(0xFF85E3DC)     // Soft Aurora Mint
 
 // Glass Effect Colors
-val TwsGlassWhite = Color(0xB3FFFFFF) // 70%
-val TwsGlassWhiteLight = Color(0x80FFFFFF) // 50%
-val TwsGlassDark = Color(0x991E375A) // 60%
-val TwsGlassDarkLight = Color(0x661E375A) // 40%
-val TwsGlassBorderLight = Color(0x33FFFFFF) // 20% white
-val TwsGlassBorderDark = Color(0x337EC8E3) // 20% blue
+val TwsGlassWhite = Color(0xCCFFFFFF) // 80%
+val TwsGlassWhiteLight = Color(0x99FFFFFF) // 60%
+val TwsGlassDark = Color(0xB31E2A40) // 70% deep aurora dark
+val TwsGlassDarkLight = Color(0x80253450) // 50%
+val TwsGlassBorderLight = Color(0x66FFFFFF) // 40% white for stronger glow
+val TwsGlassBorderDark = Color(0x4D7BA4F6) // 30% blue glow
 
 // Shadow Colors
-val TwsShadowLight = Color(0x265DADE2) // 15% sky blue
-val TwsShadowDark = Color(0x400D1B2A) // 25% dark
+val TwsShadowLight = Color(0x337BA4F6) // 20% aurora blue
+val TwsShadowDark = Color(0x4D000000) // 30% dark
 
 // Tag/Category Colors (vibrant)
 val TwsRed = Color(0xFFE74C3C)

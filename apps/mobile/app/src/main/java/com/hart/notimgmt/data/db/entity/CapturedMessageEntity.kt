@@ -50,5 +50,6 @@ data class CapturedMessageEntity(
     val isPinned: Boolean = false,
     val snoozeAt: Long? = null,
     val originalContent: String? = null,
-    val needsSync: Boolean = false
+    val needsSync: Boolean = false,
+    val attachedImage: String? = null
 )

@@ -213,10 +213,16 @@ private fun DashboardSearchBar(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(40.dp),
-        shape = RoundedCornerShape(12.dp),
-        color = glassColors.surfaceLight,
-        border = BorderStroke(0.5.dp, glassColors.border.copy(alpha = 0.3f))
+            .height(44.dp)
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(16.dp),
+                ambientColor = glassColors.shadow,
+                spotColor = glassColors.shadow
+            ),
+        shape = RoundedCornerShape(16.dp),
+        color = glassColors.surfaceLight.copy(alpha = 0.5f),
+        border = BorderStroke(1.dp, glassColors.border.copy(alpha = 0.6f))
     ) {
         Row(
             modifier = Modifier
@@ -288,10 +294,17 @@ private fun InlineStatsRow(
     val glassColors = TwsTheme.glassColors
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = glassColors.surface.copy(alpha = 0.6f),
-        border = BorderStroke(0.5.dp, glassColors.border.copy(alpha = 0.3f))
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 12.dp,
+                shape = RoundedCornerShape(16.dp),
+                ambientColor = glassColors.shadow,
+                spotColor = glassColors.shadow
+            ),
+        shape = RoundedCornerShape(16.dp),
+        color = glassColors.surface.copy(alpha = 0.7f),
+        border = BorderStroke(1.dp, glassColors.border.copy(alpha = 0.5f))
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -502,28 +515,31 @@ fun PendingMessageCard(
 
     val backgroundColor by animateColorAsState(
         when (urgencyLevel) {
-            UrgencyLevel.URGENT -> MaterialTheme.colorScheme.error.copy(alpha = 0.08f)
-            UrgencyLevel.WARNING -> Color(0xFFF59E0B).copy(alpha = 0.08f)
-            UrgencyLevel.NORMAL -> glassColors.surface
+            UrgencyLevel.URGENT -> MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+            UrgencyLevel.WARNING -> Color(0xFFF59E0B).copy(alpha = 0.12f)
+            UrgencyLevel.NORMAL -> glassColors.surface.copy(alpha = 0.8f)
         },
         label = "bgColor"
     )
 
-    val borderColor = when (urgencyLevel) {
-        UrgencyLevel.URGENT -> MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-        UrgencyLevel.WARNING -> Color(0xFFF59E0B).copy(alpha = 0.5f)
-        UrgencyLevel.NORMAL -> glassColors.border
-    }
+    val borderColor by animateColorAsState(
+        when (urgencyLevel) {
+            UrgencyLevel.URGENT -> MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+            UrgencyLevel.WARNING -> Color(0xFFF59E0B).copy(alpha = 0.6f)
+            UrgencyLevel.NORMAL -> glassColors.border.copy(alpha = 0.8f)
+        },
+        label = "borderColor"
+    )
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(end = 4.dp, top = 4.dp, bottom = 4.dp)
             .shadow(
-                elevation = 4.dp,
+                elevation = if (urgencyLevel != UrgencyLevel.NORMAL) 8.dp else 4.dp,
                 shape = RoundedCornerShape(16.dp),
-                ambientColor = glassColors.shadow,
-                spotColor = glassColors.shadow
+                ambientColor = if (urgencyLevel != UrgencyLevel.NORMAL) borderColor else glassColors.shadow,
+                spotColor = if (urgencyLevel != UrgencyLevel.NORMAL) borderColor else glassColors.shadow
             )
             .combinedClickable(
                 onClick = onClick,
@@ -531,7 +547,7 @@ fun PendingMessageCard(
             ),
         shape = RoundedCornerShape(16.dp),
         color = backgroundColor,
-        border = BorderStroke(1.dp, borderColor)
+        border = BorderStroke(1.5.dp, borderColor)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             // 1행: 프로필 사진 + 발신자 + 카테고리 태그
@@ -768,14 +784,14 @@ fun CategorySummarySection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .shadow(
-                        elevation = 8.dp,
-                        shape = RoundedCornerShape(16.dp),
+                        elevation = 12.dp,
+                        shape = RoundedCornerShape(20.dp),
                         ambientColor = glassColors.shadow,
                         spotColor = glassColors.shadow
                     ),
-                shape = RoundedCornerShape(16.dp),
-                color = glassColors.surface,
-                border = BorderStroke(1.dp, glassColors.border)
+                shape = RoundedCornerShape(20.dp),
+                color = glassColors.surface.copy(alpha = 0.8f),
+                border = BorderStroke(1.5.dp, glassColors.border.copy(alpha = 0.6f))
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     summaries.forEachIndexed { index, summary ->
@@ -963,15 +979,15 @@ fun CompletedMessageCard(
             .fillMaxWidth()
             .padding(end = 4.dp, top = 4.dp, bottom = 4.dp)
             .shadow(
-                elevation = 4.dp,
+                elevation = 6.dp,
                 shape = RoundedCornerShape(16.dp),
                 ambientColor = glassColors.shadow,
                 spotColor = glassColors.shadow
             )
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        color = glassColors.surfaceLight,
-        border = BorderStroke(1.dp, glassColors.border)
+        color = glassColors.surfaceLight.copy(alpha = 0.7f),
+        border = BorderStroke(1.5.dp, glassColors.border.copy(alpha = 0.6f))
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             // 1행: 프로필 사진 + 발신자 + 카테고리 태그

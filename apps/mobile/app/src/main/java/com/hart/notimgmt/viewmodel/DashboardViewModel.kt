@@ -34,6 +34,16 @@ data class CategorySummary(
     val urgentCount: Int
 )
 
+data class ChatRoomItem(
+    val source: String,
+    val appName: String,
+    val sender: String,
+    val lastMessage: String,
+    val lastReceivedAt: Long,
+    val unreadCount: Int,
+    val senderIcon: String?
+)
+
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -59,6 +69,34 @@ class DashboardViewModel @Inject constructor(
             !hidden.contains(catId)
         }
     }
+
+    // Chat Rooms Flow
+    val chatRooms: StateFlow<List<ChatRoomItem>> = combine(
+        messageRepository.getAllActiveFlow(),
+        statusSteps
+    ) { messages, steps ->
+        val firstStepId = steps.firstOrNull()?.id
+        
+        val grouped = messages.groupBy { Pair(it.source, it.sender) }
+        grouped.map { (key, roomMessages) ->
+            val (source, sender) = key
+            val lastMsg = roomMessages.first()
+            val unreadCount = if (firstStepId != null) {
+                roomMessages.count { it.statusId == firstStepId }
+            } else 0
+
+            ChatRoomItem(
+                source = source,
+                appName = lastMsg.appName,
+                sender = sender,
+                lastMessage = lastMsg.content,
+                lastReceivedAt = lastMsg.receivedAt,
+                unreadCount = unreadCount,
+                senderIcon = lastMsg.senderIcon
+            )
+        }.sortedByDescending { it.lastReceivedAt }
+    }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // 통계
     private val todayStart: Long

@@ -92,8 +92,8 @@ class NotiFlowListenerService : NotificationListenerService() {
             if (packageName == "android" || packageName == applicationContext.packageName) return
 
             val extras = sbn.notification?.extras ?: return
-            val sender = extras.getCharSequence("android.title")?.toString() ?: return
-            val content = extras.getCharSequence("android.text")?.toString() ?: return
+            val sender = extras.getCharSequence("android.title")?.toString() ?: ""
+            val content = extras.getCharSequence("android.text")?.toString() ?: ""
 
             // 빈 컨텐츠 무시
             if (sender.isBlank() && content.isBlank()) return
@@ -146,14 +146,26 @@ class NotiFlowListenerService : NotificationListenerService() {
             }
             if (largeIcon == null) return null
 
-            val size = 128
-            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            // 고해상도 대응을 위해 프로필 아이콘 사이즈를 800px로 상향
+            val size = 800
+            
+            // 소스 드로어블의 크기에 맞춰 비트맵 생성 (너무 작은 경우 800px로 확대)
+            val width = if (largeIcon.intrinsicWidth > 0) largeIcon.intrinsicWidth else size
+            val height = if (largeIcon.intrinsicHeight > 0) largeIcon.intrinsicHeight else size
+            
+            // 비율 유지를 위해 큰 쪽을 800으로 맞춤
+            val scale = size.toFloat() / maxOf(width, height)
+            val finalWidth = (width * scale).toInt()
+            val finalHeight = (height * scale).toInt()
+
+            val bitmap = Bitmap.createBitmap(finalWidth, finalHeight, Bitmap.Config.ARGB_8888)
             val canvas = android.graphics.Canvas(bitmap)
-            largeIcon.setBounds(0, 0, size, size)
+            largeIcon.setBounds(0, 0, finalWidth, finalHeight)
             largeIcon.draw(canvas)
 
             val stream = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.PNG, 80, stream)
+            // 프로필은 선명도가 중요하므로 무손실 PNG 품질 100 사용
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
             bitmap.recycle()
             Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
         } catch (e: Exception) {
@@ -187,20 +199,12 @@ class NotiFlowListenerService : NotificationListenerService() {
 
             if (picture == null) return null
 
-            // Resize if too large
-            val maxSize = 800
-            val width = picture.width
-            val height = picture.height
-            val bitmap = if (width > maxSize || height > maxSize) {
-                val ratio = Math.min(maxSize.toFloat() / width, maxSize.toFloat() / height)
-                Bitmap.createScaledBitmap(picture, (width * ratio).toInt(), (height * ratio).toInt(), true)
-            } else {
-                picture
-            }
-
+            // 원본 화질을 최대한 유지하도록 리사이징 로직 제거
+            // 스마트폰 화면에서 보는 이미지는 압축 손실을 줄이는 것이 중요함
             val stream = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
-            if (bitmap != picture) bitmap.recycle() // Recycle scaled bitmap
+            // 고화질 유지를 위해 압축률 최소화 (품질 100, 무손실 PNG 사용)
+            picture.compress(Bitmap.CompressFormat.PNG, 100, stream)
+            // 비트맵 해제 생략 (원본이 알림에서 가져온 것이므로 시스템이 관리)
             
             Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
         } catch (e: Exception) {
@@ -218,6 +222,14 @@ class NotiFlowListenerService : NotificationListenerService() {
         attachedImageBase64: String? = null,
         contentIntent: PendingIntent? = null
     ) {
+        // Stage 0: Duplicate check (1분 이내 동일 패키지/발신자/내용 중복 방지)
+        val oneMinuteAgo = System.currentTimeMillis() - 60_000
+        val duplicate = messageRepository.findDuplicate(packageName, sender, content, oneMinuteAgo)
+        if (duplicate != null) {
+            Log.d("NotiFlowListener", "Ignoring duplicate message from $packageName ($sender)")
+            return
+        }
+
         // Stage 1: App filter check
         if (!isAppAllowed(packageName)) return
 

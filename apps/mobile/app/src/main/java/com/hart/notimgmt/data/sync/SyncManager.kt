@@ -217,6 +217,7 @@ class SyncManager @Inject constructor(
                 addLog("업로드 시작...")
                 syncPush()
                 syncPendingMessages()
+                syncPendingDeletions()
                 registerDeviceSilently()
                 _syncStatus.value = SyncStatus.IDLE
                 _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.IDLE)
@@ -300,6 +301,7 @@ class SyncManager @Inject constructor(
             syncPull()
             syncPush()
             syncPendingMessages()
+            syncPendingDeletions()
             registerDeviceSilently()
 
             _syncStatus.value = SyncStatus.IDLE
@@ -430,6 +432,10 @@ class SyncManager @Inject constructor(
         var messagePullCount = 0
         remoteMessages.forEach { dto ->
             val local = capturedMessageDao.getById(dto.id)
+            
+            // 영구 삭제 대기 중인 메시지는 건너뜀
+            if (local?.pendingPermanentDelete == true) return@forEach
+            
             if (local == null || dto.updated_at > local.updatedAt) {
                 val entity = dto.toEntity().copy(
                     categoryId = if (dto.category_id in validCategoryIds) dto.category_id else null,
@@ -865,6 +871,46 @@ class SyncManager @Inject constructor(
         }
     }
 
+    /**
+     * 원격 서버에서 메시지 영구 삭제 요청.
+     * @return 성공 여부 (온라인 상태에서 성공적으로 처리됨)
+     */
+    suspend fun deleteMessagesRemotely(ids: List<String>): Boolean {
+        if (!awaitUserLoggedIn()) {
+            Log.w(TAG, "Remote message deletion deferred (not logged in)")
+            return false
+        }
+        return try {
+            supabaseDataSource.deleteMessages(ids)
+            Log.d(TAG, "Messages deleted remotely: $ids")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to delete messages remotely: ${e.message}", e)
+            addLog("❌ 원격 메시지 삭제 실패: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * 영구 삭제 대기 중인 메시지들을 서버에서 삭제하고 로컬에서도 제거
+     */
+    suspend fun syncPendingDeletions() {
+        if (!awaitUserLoggedIn()) return
+        val pending = capturedMessageDao.getPendingPermanentDeletions()
+        if (pending.isEmpty()) return
+        
+        addLog("영구 삭제 메시지 ${pending.size}개 동기화 중...")
+        val ids = pending.map { it.id }
+        try {
+            supabaseDataSource.deleteMessages(ids)
+            capturedMessageDao.permanentDeleteByIds(ids)
+            addLog("✓ 영구 삭제 메시지 ${ids.size}개 처리 완료")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to sync pending deletions: ${e.message}", e)
+            addLog("⚠️ 영구 삭제 동기화 실패 (다음 동기화 시 재시도)")
+        }
+    }
+
     suspend fun syncCategory(category: CategoryEntity) {
         if (!isUserLoggedIn()) return
         try {
@@ -1049,7 +1095,7 @@ class SyncManager @Inject constructor(
                     val oldRecord = action.oldRecord
                     val id = oldRecord["id"]?.toString()?.removeSurrounding("\"")
                     if (id != null) {
-                        capturedMessageDao.softDelete(id)
+                        capturedMessageDao.deleteById(id)
                         Log.d(TAG, "Message deleted from realtime: $id")
                     }
                 }

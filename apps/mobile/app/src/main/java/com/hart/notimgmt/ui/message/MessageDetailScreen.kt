@@ -2,6 +2,7 @@ package com.hart.notimgmt.ui.message
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -37,6 +38,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Sms
+import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import com.hart.notimgmt.ui.navigation.LocalSnackbarHostState
@@ -76,6 +78,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hart.notimgmt.service.notification.DeepLinkCache
 import com.hart.notimgmt.viewmodel.MessageViewModel
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,6 +104,9 @@ fun MessageDetailScreen(
     var isEditingContent by remember { mutableStateOf(false) }
     var editingContentText by remember { mutableStateOf("") }
     var showOriginalDialog by remember { mutableStateOf(false) }
+    
+    // 확대할 이미지를 관리하는 상태 (Bitmap 직접 관리)
+    var fullscreenImageBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     if (showDeleteDialog) {
         val messageToDelete = currentMessage
@@ -160,10 +167,6 @@ fun MessageDetailScreen(
                     if (currentMessage != null && currentMessage?.source != "SMS") {
                         IconButton(onClick = {
                             val msg = currentMessage!!
-                            // 3단계 딥링크 폴백 체인:
-                            // 1) messageId 캐시 → 정확한 알림의 PendingIntent
-                            // 2) source|sender 캐시 → 같은 발신자의 최신 PendingIntent
-                            // 3) getLaunchIntentForPackage → 앱 메인 화면
                             val deepLink = DeepLinkCache.get(messageId)
                                 ?: DeepLinkCache.getBySender(msg.source, msg.sender)
                             if (deepLink != null) {
@@ -295,22 +298,23 @@ fun MessageDetailScreen(
                             val appIconBitmap = remember(message.source) {
                                 try {
                                     val drawable = context.packageManager.getApplicationIcon(message.source)
-                                    val size = 64
+                                    val size = 128 // 고화질 대응
                                     val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
                                     val canvas = android.graphics.Canvas(bmp)
                                     drawable.setBounds(0, 0, size, size)
                                     drawable.draw(canvas)
-                                    bmp.asImageBitmap()
+                                    bmp
                                 } catch (e: Exception) { null }
                             }
 
                             if (appIconBitmap != null) {
                                 Image(
-                                    bitmap = appIconBitmap,
+                                    bitmap = appIconBitmap.asImageBitmap(),
                                     contentDescription = message.appName,
                                     modifier = Modifier
                                         .size(36.dp)
                                         .clip(CircleShape)
+                                        .clickable { fullscreenImageBitmap = appIconBitmap }
                                 )
                             } else {
                                 Box(
@@ -341,24 +345,24 @@ fun MessageDetailScreen(
 
                         // Sender row (프로필 사진 + 발신자)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            // 발신자 프로필 사진 (알림 large icon = 메신저 프로필)
+                            // 발신자 프로필 사진
                             val senderBitmap = remember(message.senderIcon) {
                                 message.senderIcon?.let {
                                     try {
                                         val bytes = android.util.Base64.decode(it, android.util.Base64.NO_WRAP)
                                         android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                                            ?.asImageBitmap()
                                     } catch (e: Exception) { null }
                                 }
                             }
 
                             if (senderBitmap != null) {
                                 Image(
-                                    bitmap = senderBitmap,
+                                    bitmap = senderBitmap.asImageBitmap(),
                                     contentDescription = "프로필",
                                     modifier = Modifier
                                         .size(40.dp)
                                         .clip(CircleShape)
+                                        .clickable { fullscreenImageBitmap = senderBitmap }
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                             }
@@ -372,7 +376,7 @@ fun MessageDetailScreen(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // Category tag (clickable to change)
+                        // Category tag
                         if (category != null) {
                             val catColor = Color(category.color)
                             Text(
@@ -499,19 +503,36 @@ fun MessageDetailScreen(
                                 val attachedBitmap = remember(message.attachedImage) {
                                     try {
                                         val bytes = android.util.Base64.decode(message.attachedImage, android.util.Base64.NO_WRAP)
-                                        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                                        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                                     } catch (e: Exception) { null }
                                 }
                                 if (attachedBitmap != null) {
                                     Spacer(modifier = Modifier.height(12.dp))
-                                    Image(
-                                        bitmap = attachedBitmap,
-                                        contentDescription = "첨부 이미지",
+                                    Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp)),
-                                        contentScale = ContentScale.FillWidth
-                                    )
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable { fullscreenImageBitmap = attachedBitmap }
+                                    ) {
+                                        Image(
+                                            bitmap = attachedBitmap.asImageBitmap(),
+                                            contentDescription = "첨부 이미지",
+                                            modifier = Modifier.fillMaxWidth(),
+                                            contentScale = ContentScale.FillWidth
+                                        )
+                                        // 확대 힌트 아이콘
+                                        Icon(
+                                            imageVector = Icons.Default.ZoomIn,
+                                            contentDescription = null,
+                                            tint = Color.White.copy(alpha = 0.7f),
+                                            modifier = Modifier
+                                                .align(Alignment.BottomEnd)
+                                                .padding(8.dp)
+                                                .size(24.dp)
+                                                .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                                                .padding(4.dp)
+                                        )
+                                    }
                                 }
                             }
 
@@ -661,18 +682,19 @@ fun MessageDetailScreen(
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
                     )
                 } else {
+                    val stepsForHistory = allStatusSteps
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp)
                     ) {
                         statusHistoryItems.forEachIndexed { index, item ->
-                            val toStep = allStatusSteps.find { it.id == item.toStatusId }
+                            val toStep = stepsForHistory.find { it.id == item.toStatusId }
                             val toColor = if (toStep != null) Color(toStep.color) else MaterialTheme.colorScheme.primary
                             StatusChangeTimelineItem(
                                 item = item,
                                 dotColor = toColor,
-                                allStatusSteps = allStatusSteps,
+                                allStatusSteps = stepsForHistory,
                                 isLast = index == statusHistoryItems.lastIndex
                             )
                         }
@@ -768,6 +790,49 @@ fun MessageDetailScreen(
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
+            }
+
+            // 이미지 전체화면 다이얼로그
+            if (fullscreenImageBitmap != null) {
+                Dialog(
+                    onDismissRequest = { fullscreenImageBitmap = null },
+                    properties = DialogProperties(
+                        usePlatformDefaultWidth = false,
+                        dismissOnBackPress = true,
+                        dismissOnClickOutside = true
+                    )
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.95f))
+                            .clickable { fullscreenImageBitmap = null },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            bitmap = fullscreenImageBitmap!!.asImageBitmap(),
+                            contentDescription = "전체화면 이미지",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(8.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                        
+                        IconButton(
+                            onClick = { fullscreenImageBitmap = null },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(16.dp)
+                                .background(Color.Black.copy(alpha = 0.3f), CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "닫기",
+                                tint = Color.White
+                            )
+                        }
+                    }
+                }
             }
         }
     }

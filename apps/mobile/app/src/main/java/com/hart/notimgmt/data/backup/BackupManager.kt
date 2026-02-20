@@ -102,6 +102,9 @@ class BackupManager @Inject constructor(
         val allMessages = db.capturedMessageDao().getAllOnce()
         root.put("messages", JSONArray().apply {
             allMessages.forEach { m ->
+                // 영구 삭제 대기 중인 메시지는 백업에서 제외
+                if (m.pendingPermanentDelete) return@forEach
+
                 put(JSONObject().apply {
                     put("id", m.id)
                     put("categoryId", m.categoryId ?: JSONObject.NULL)

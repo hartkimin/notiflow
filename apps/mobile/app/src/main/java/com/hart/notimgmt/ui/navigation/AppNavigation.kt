@@ -131,11 +131,12 @@ fun MainScreen(onLogout: () -> Unit = {}) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val isDetailScreen = currentDestination?.route?.startsWith("message_detail") == true
+    val isAppChatScreen = currentDestination?.route?.startsWith("app_chat") == true
     val isTrashScreen = currentDestination?.route == Routes.TRASH
     val isAiChat = currentDestination?.route == Screen.AiChat.route
     val density = LocalDensity.current
     val imeVisible = WindowInsets.ime.getBottom(density) > 0
-    val hideBottomBar = isDetailScreen || isTrashScreen || (isAiChat && imeVisible)
+    val hideBottomBar = isDetailScreen || isTrashScreen || isAppChatScreen || (isAiChat && imeVisible)
 
     CompositionLocalProvider(LocalSnackbarHostState provides snackbarHostState) {
         Scaffold(
@@ -242,17 +243,28 @@ private fun MainNavHost(navController: NavHostController, modifier: Modifier = M
             exitTransition = { fadeOut(tween(200)) }
         ) {
             DashboardScreen(
+                onNavigateToChat = { source, sender ->
+                    navController.navigate("app_chat/${android.net.Uri.encode(source)}/${android.net.Uri.encode(sender)}")
+                }
+            )
+        }
+        composable(
+            route = "app_chat/{source}/{sender}",
+            arguments = listOf(
+                navArgument("source") { type = NavType.StringType },
+                navArgument("sender") { type = NavType.StringType }
+            ),
+            enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
+            exitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
+        ) { backStackEntry ->
+            val source = backStackEntry.arguments?.getString("source") ?: ""
+            val sender = backStackEntry.arguments?.getString("sender") ?: ""
+            com.hart.notimgmt.ui.chat.AppChatScreen(
+                source = source,
+                sender = sender,
+                onBack = { navController.popBackStack() },
                 onMessageClick = { messageId ->
                     navController.navigate(Routes.messageDetail(messageId))
-                },
-                onNavigateToMessages = { statusFilter, completedToday ->
-                    navController.navigate(Screen.Messages.createRoute(statusFilter, completedToday)) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
-                        }
-                        launchSingleTop = true
-                        restoreState = false // 필터 적용 위해 상태 복원 안 함
-                    }
                 }
             )
         }

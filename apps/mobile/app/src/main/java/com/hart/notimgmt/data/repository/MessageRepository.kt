@@ -17,6 +17,11 @@ class MessageRepository @Inject constructor(
 ) {
     fun getAll(): Flow<List<CapturedMessageEntity>> = messageDao.getAll()
 
+    fun getAllActiveFlow(): Flow<List<CapturedMessageEntity>> = messageDao.getAllActiveFlow()
+
+    fun getMessagesBySenderFlow(source: String, sender: String): Flow<List<CapturedMessageEntity>> =
+        messageDao.getMessagesBySenderFlow(source, sender)
+
     suspend fun getAllOnce(): List<CapturedMessageEntity> = messageDao.getAllOnce()
 
     fun getByCategoryId(categoryId: String): Flow<List<CapturedMessageEntity>> =
@@ -171,14 +176,31 @@ class MessageRepository @Inject constructor(
         }
     }
 
+    /**
+     * 영구 삭제.
+     * 로컬에서는 pendingPermanentDelete 플래그를 설정하여 UI에서 즉시 숨기고,
+     * 서버와의 동기화가 성공하면 로컬 DB에서도 최종 제거한다.
+     */
     suspend fun permanentDeleteByIds(ids: List<String>) {
-        messageDao.permanentDeleteByIds(ids)
+        // 1. UI에서 즉시 숨기기 위해 플래그 설정
+        messageDao.markPendingPermanentDelete(ids)
+        
+        // 2. 서버에서 삭제 시도 및 최종 로컬 삭제 처리
+        syncManager.syncPendingDeletions()
     }
 
     suspend fun emptyTrash() {
         val deleted = messageDao.getDeletedOnce()
         if (deleted.isNotEmpty()) {
-            messageDao.permanentDeleteByIds(deleted.map { it.id })
+            val ids = deleted.map { it.id }
+            // 1. 플래그 설정
+            messageDao.markPendingPermanentDelete(ids)
+            // 2. 동기화 실행
+            syncManager.syncPendingDeletions()
         }
+    }
+
+    suspend fun findDuplicate(source: String, sender: String, content: String, timeThreshold: Long): CapturedMessageEntity? {
+        return messageDao.findDuplicate(source, sender, content, timeThreshold)
     }
 }

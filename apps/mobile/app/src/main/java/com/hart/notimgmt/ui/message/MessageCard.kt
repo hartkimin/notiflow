@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -129,22 +130,22 @@ fun MessageCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                // App icon (실제 앱 아이콘 표시)
+                // App icon (실제 앱 아이콘 표시 - 선명도를 위해 128px로 생성)
                 val appIconBitmap = remember(message.source) {
                     try {
                         val drawable = context.packageManager.getApplicationIcon(message.source)
-                        val size = 84
+                        val size = 128 
                         val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
                         val canvas = android.graphics.Canvas(bmp)
                         drawable.setBounds(0, 0, size, size)
                         drawable.draw(canvas)
-                        bmp.asImageBitmap()
+                        bmp
                     } catch (e: Exception) { null }
                 }
 
                 if (appIconBitmap != null) {
                     Image(
-                        bitmap = appIconBitmap,
+                        bitmap = appIconBitmap.asImageBitmap(),
                         contentDescription = message.appName,
                         modifier = Modifier
                             .size(42.dp)
@@ -189,14 +190,13 @@ fun MessageCard(
                                 try {
                                     val bytes = android.util.Base64.decode(it, android.util.Base64.NO_WRAP)
                                     android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                                        ?.asImageBitmap()
                                 } catch (e: Exception) { null }
                             }
                         }
 
                         if (senderBitmap != null) {
                             Image(
-                                bitmap = senderBitmap,
+                                bitmap = senderBitmap.asImageBitmap(),
                                 contentDescription = "프로필",
                                 modifier = Modifier
                                     .size(20.dp)
@@ -279,6 +279,28 @@ fun MessageCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
             )
+            
+            // 이미지 썸네일 (메시지 카드 하단에 표시)
+            if (message.attachedImage != null) {
+                val attachedBitmap = remember(message.attachedImage) {
+                    try {
+                        val bytes = android.util.Base64.decode(message.attachedImage, android.util.Base64.NO_WRAP)
+                        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    } catch (e: Exception) { null }
+                }
+                if (attachedBitmap != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Image(
+                        bitmap = attachedBitmap.asImageBitmap(),
+                        contentDescription = "첨부 이미지 썸네일",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
 
             // 스누즈 표시
             if (message.snoozeAt != null && message.snoozeAt > System.currentTimeMillis()) {

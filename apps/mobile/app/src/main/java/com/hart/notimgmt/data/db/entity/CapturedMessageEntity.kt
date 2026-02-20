@@ -51,5 +51,7 @@ data class CapturedMessageEntity(
     val snoozeAt: Long? = null,
     val originalContent: String? = null,
     val needsSync: Boolean = false,
-    val attachedImage: String? = null
+    val attachedImage: String? = null,
+    val pendingPermanentDelete: Boolean = false,
+    val roomName: String? = null
 )

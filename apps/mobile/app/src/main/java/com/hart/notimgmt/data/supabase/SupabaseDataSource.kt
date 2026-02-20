@@ -74,6 +74,25 @@ class SupabaseDataSource @Inject constructor(
         }
     }
 
+    suspend fun deleteMessages(ids: List<String>) {
+        try {
+            Log.d(TAG, "Deleting messages from Supabase: $ids")
+            postgrest.from(MESSAGES_TABLE).delete {
+                filter {
+                    isIn("id", ids)
+                    eq("user_id", userId)
+                }
+            }
+            Log.d(TAG, "Messages deleted from Supabase: ${ids.size} items")
+        } catch (e: PostgrestRestException) {
+            Log.e(TAG, "Postgrest error deleting messages: ${e.error}, message: ${e.message}", e)
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to delete messages: ${e.message}", e)
+            throw e
+        }
+    }
+
     // ========== Categories ==========
 
     suspend fun upsertCategory(category: CategoryEntity) {

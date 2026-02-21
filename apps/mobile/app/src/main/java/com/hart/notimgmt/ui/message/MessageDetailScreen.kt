@@ -80,6 +80,21 @@ import com.hart.notimgmt.service.notification.DeepLinkCache
 import com.hart.notimgmt.viewmodel.MessageViewModel
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import com.hart.notimgmt.viewmodel.AiAnalysisState
+import com.hart.notimgmt.viewmodel.PromptPreset
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,6 +111,9 @@ fun MessageDetailScreen(
 
     val messageFlow = remember(messageId) { viewModel.getMessageByIdFlow(messageId) }
     val currentMessage by messageFlow.collectAsState(initial = null)
+
+    val aiAnalysisState by viewModel.aiAnalysisState.collectAsState()
+    val aiStreamingText by viewModel.aiStreamingText.collectAsState()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showCategoryDialog by remember { mutableStateOf(false) }
@@ -588,6 +606,27 @@ fun MessageDetailScreen(
                     }
                 }
 
+                // AI Analysis section
+                Spacer(modifier = Modifier.height(8.dp))
+                AiAnalysisSection(
+                    messageContent = message.content,
+                    messageId = message.id,
+                    analysisState = aiAnalysisState,
+                    streamingText = aiStreamingText,
+                    presets = remember { viewModel.getPresets() },
+                    selectedPresetId = remember { viewModel.getSelectedPresetId() },
+                    isModelDownloaded = viewModel.isModelDownloaded,
+                    onAnalyze = { viewModel.analyzeWithAi(message.content) },
+                    onSaveAsComment = { viewModel.saveAnalysisAsComment(message.id) },
+                    onClear = { viewModel.clearAnalysis() },
+                    onSelectPreset = { viewModel.selectAnalysisPreset(it) },
+                    onNavigateToAiChat = {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("AI 탭에서 모델을 먼저 다운로드하세요")
+                        }
+                    }
+                )
+
                 // Status section
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -1047,6 +1086,251 @@ private fun StatusChip(name: String, color: Color) {
             style = MaterialTheme.typography.labelSmall,
             color = color
         )
+    }
+}
+
+@Composable
+private fun AiAnalysisSection(
+    messageContent: String,
+    messageId: String,
+    analysisState: AiAnalysisState,
+    streamingText: String,
+    presets: List<PromptPreset>,
+    selectedPresetId: String,
+    isModelDownloaded: Boolean,
+    onAnalyze: () -> Unit,
+    onSaveAsComment: () -> Unit,
+    onClear: () -> Unit,
+    onSelectPreset: (String) -> Unit,
+    onNavigateToAiChat: () -> Unit
+) {
+    val clipboardManager = LocalClipboardManager.current
+    var presetExpanded by remember { mutableStateOf(false) }
+    var selectedName by remember(selectedPresetId, presets) {
+        mutableStateOf(presets.firstOrNull { it.id == selectedPresetId }?.name ?: "프리셋 선택")
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "AI 분석",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            // Preset selector + Analyze button
+            if (analysisState is AiAnalysisState.Idle || analysisState is AiAnalysisState.ModelNotReady || analysisState is AiAnalysisState.Error) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Preset dropdown
+                    Box(modifier = Modifier.weight(1f)) {
+                        FilterChip(
+                            selected = selectedPresetId.isNotBlank(),
+                            onClick = { presetExpanded = true },
+                            label = { Text(selectedName, maxLines = 1) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
+                            )
+                        )
+                        DropdownMenu(
+                            expanded = presetExpanded,
+                            onDismissRequest = { presetExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("선택 안함 (자유 분석)") },
+                                onClick = {
+                                    if (selectedPresetId.isNotBlank()) {
+                                        onSelectPreset(selectedPresetId)
+                                    }
+                                    selectedName = "프리셋 선택"
+                                    presetExpanded = false
+                                }
+                            )
+                            presets.forEach { preset ->
+                                DropdownMenuItem(
+                                    text = { Text(preset.name) },
+                                    onClick = {
+                                        onSelectPreset(preset.id)
+                                        selectedName = preset.name
+                                        presetExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Analyze button
+                    FilledTonalButton(
+                        onClick = onAnalyze,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("분석")
+                    }
+                }
+            }
+
+            // Model not ready message
+            if (analysisState is AiAnalysisState.ModelNotReady) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "AI 모델이 다운로드되지 않았습니다",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        TextButton(onClick = onNavigateToAiChat) {
+                            Text("AI 탭에서 다운로드하기")
+                        }
+                    }
+                }
+            }
+
+            // Error message
+            if (analysisState is AiAnalysisState.Error) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                ) {
+                    Text(
+                        text = (analysisState as AiAnalysisState.Error).message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            }
+
+            // Analyzing - streaming text
+            if (analysisState is AiAnalysisState.Analyzing) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "분석 중...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (streamingText.isNotEmpty()) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest
+                    ) {
+                        Text(
+                            text = streamingText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+            }
+
+            // Completed - result with action buttons
+            if (analysisState is AiAnalysisState.Completed) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest
+                ) {
+                    Text(
+                        text = (analysisState as AiAnalysisState.Completed).result,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Save as comment
+                    FilledTonalButton(
+                        onClick = onSaveAsComment,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Save,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("댓글로 저장")
+                    }
+
+                    // Copy to clipboard
+                    IconButton(onClick = {
+                        val text = (analysisState as AiAnalysisState.Completed).result
+                        clipboardManager.setText(AnnotatedString(text))
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "복사",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    // Clear
+                    IconButton(onClick = onClear) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "지우기",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

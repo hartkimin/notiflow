@@ -218,15 +218,23 @@ interface CapturedMessageDao {
     suspend fun markPendingPermanentDelete(ids: List<String>, updatedAt: Long = System.currentTimeMillis())
 
     @Query("""
-        SELECT * FROM captured_messages 
-        WHERE source = :source 
-        AND sender = :sender 
-        AND content = :content 
-        AND receivedAt >= :timeThreshold 
-        AND isDeleted = 0 
+        SELECT * FROM captured_messages
+        WHERE source = :source
+        AND sender = :sender
+        AND content = :content
+        AND receivedAt >= :timeThreshold
+        AND isDeleted = 0
         LIMIT 1
     """)
     suspend fun findDuplicate(source: String, sender: String, content: String, timeThreshold: Long): CapturedMessageEntity?
+
+    @Query("""
+        SELECT * FROM captured_messages
+        WHERE isDeleted = 0 AND pendingPermanentDelete = 0
+        AND (content LIKE '%' || :query || '%' OR sender LIKE '%' || :query || '%')
+        ORDER BY receivedAt DESC
+    """)
+    fun searchMessages(query: String): Flow<List<CapturedMessageEntity>>
 }
 
 data class StatusCount(val statusId: String?, val count: Int)

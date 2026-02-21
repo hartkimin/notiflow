@@ -19,11 +19,11 @@ class AppChatViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val sourceEncoded: String = checkNotNull(savedStateHandle["source"])
-    private val senderEncoded: String = checkNotNull(savedStateHandle["sender"])
+    private val roomIdEncoded: String = checkNotNull(savedStateHandle["sender"]) // the nav arg is "sender" but represents roomId
 
     val source: String = Uri.decode(sourceEncoded)
-    val sender: String = Uri.decode(senderEncoded)
+    val roomId: String = Uri.decode(roomIdEncoded)
 
-    val messages: StateFlow<List<CapturedMessageEntity>> = messageRepository.getMessagesBySenderFlow(source, sender)
+    val messages: StateFlow<List<CapturedMessageEntity>> = messageRepository.getMessagesByRoomFlow(source, roomId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 }

@@ -262,4 +262,20 @@ export interface CapturedMessage {
   category_id: string | null;
   status_id: string | null;
   is_archived: boolean;
+  source: string;
+  room_name: string | null;
+  sender_icon: string | null;
+  attached_image: string | null;
+}
+
+export interface ChatRoom {
+  source: string;
+  app_name: string;
+  room_id: string;
+  display_title: string;
+  last_message: string;
+  last_received_at: number;  // epoch ms
+  unread_count: number;
+  sender_icon: string | null;
+  match_count: number;
 }

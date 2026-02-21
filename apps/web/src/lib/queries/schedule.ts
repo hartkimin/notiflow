@@ -44,7 +44,7 @@ export async function getWeekMessages(weekStartMs: number): Promise<CapturedMess
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("captured_messages")
-    .select("id, app_name, sender, content, received_at, category_id, status_id, is_archived")
+    .select("id, source, app_name, sender, content, received_at, category_id, status_id, is_archived, room_name, sender_icon, attached_image")
     .eq("is_deleted", false)
     .gte("received_at", weekStartMs)
     .lt("received_at", weekEndMs)

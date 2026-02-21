@@ -1,13 +1,14 @@
 package com.hart.notimgmt.ui.splash
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ChatBubble
+import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.Icon
@@ -18,17 +19,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hart.notimgmt.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -37,24 +38,20 @@ fun SplashScreen(onFinished: () -> Unit) {
     val alpha = remember { Animatable(0f) }
     val scale = remember { Animatable(0.8f) }
     
-    // 미니어처 요소 애니메이션
+    // 미니어처 둥둥 떠다니는 애니메이션
     val floatAnim = rememberInfiniteTransition(label = "float")
     val offsetY by floatAnim.animateFloat(
-        initialValue = -10f,
-        targetValue = 10f,
+        initialValue = -15f,
+        targetValue = 15f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = EaseInOutSine),
+            animation = tween(2500, easing = EaseInOutSine),
             repeatMode = RepeatMode.Reverse
         ), label = "offsetY"
     )
 
     LaunchedEffect(Unit) {
-        launch {
-            alpha.animateTo(1f, tween(1000, easing = FastOutSlowInEasing))
-        }
-        launch {
-            scale.animateTo(1f, tween(1000, easing = FastOutSlowInEasing))
-        }
+        launch { alpha.animateTo(1f, tween(1200, easing = FastOutSlowInEasing)) }
+        launch { scale.animateTo(1f, tween(1200, easing = FastOutSlowInEasing)) }
         delay(2500)
         onFinished()
     }
@@ -62,32 +59,49 @@ fun SplashScreen(onFinished: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
+            // 스튜디오 환경의 부드러운 스포트라이트 조명
             .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(Color(0xFFF0F4F8), Color(0xFFD9E2EC)) // 깔끔한 스튜디오 그레이/블루
+                Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFFE2E8F0), // 밝은 조명 중심
+                        Color(0xFF94A3B8), // 중간 회색
+                        Color(0xFF475569)  // 어두운 배경 가장자리
+                    ),
+                    center = Offset(500f, 800f),
+                    radius = 1800f
                 )
             ),
         contentAlignment = Alignment.Center
     ) {
-        // 틸트시프트 효과 (상단/하단 블러로 미니어처 느낌 강조)
+        // --- 틸트-시프트 (미니어처 렌즈 효과) 필터 ---
+        // 상단 아웃포커싱
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(150.dp)
+                .fillMaxHeight(0.3f)
                 .align(Alignment.TopCenter)
-                .blur(20.dp)
-                .background(Color.White.copy(alpha = 0.3f))
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.White.copy(alpha = 0.4f), Color.Transparent)
+                    )
+                )
+                .blur(25.dp)
         )
+        // 하단 아웃포커싱
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(150.dp)
+                .fillMaxHeight(0.3f)
                 .align(Alignment.BottomCenter)
-                .blur(20.dp)
-                .background(Color.White.copy(alpha = 0.3f))
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.2f))
+                    )
+                )
+                .blur(25.dp)
         )
 
-        // 메인 미니어처 스테이지
+        // 메인 3D 오브젝트 컨테이너
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
@@ -95,124 +109,108 @@ fun SplashScreen(onFinished: () -> Unit) {
                 .scale(scale.value)
                 .offset(y = offsetY.dp)
         ) {
-            // 3D 느낌의 아이콘 흐름 시각화
             Box(
-                modifier = Modifier
-                    .size(240.dp),
+                modifier = Modifier.size(280.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // 그림자 (바닥면)
-                Box(
-                    modifier = Modifier
-                        .size(160.dp, 40.dp)
-                        .offset(y = 100.dp)
-                        .blur(15.dp)
-                        .background(Color.Black.copy(alpha = 0.1f), CircleShape)
-                )
+                // 부드러운 스튜디오 그림자
+                Canvas(modifier = Modifier.size(200.dp, 60.dp).offset(y = 120.dp).blur(15.dp)) {
+                    drawOval(color = Color.Black.copy(alpha = 0.35f))
+                }
 
-                // 중심 플랫폼 (Nanobanana 스타일의 둥근 입체감)
+                // 3D 렌더링된 물리적 재질 느낌의 플랫폼 (Nanobanana 스타일 클레이모피즘)
                 Box(
                     modifier = Modifier
-                        .size(140.dp)
+                        .size(150.dp)
                         .graphicsLayer {
-                            rotationX = 45f
+                            rotationX = 55f
                             rotationZ = -45f
+                            cameraDistance = 8 * density
                         }
                         .shadow(
-                            elevation = 20.dp,
-                            shape = RoundedCornerShape(40.dp),
-                            clip = false,
-                            ambientColor = Color(0xFF334E68),
-                            spotColor = Color(0xFF334E68)
+                            elevation = 30.dp,
+                            shape = RoundedCornerShape(45.dp),
+                            ambientColor = Color(0xFF0F172A),
+                            spotColor = Color(0xFF0F172A)
                         )
+                        // 재질: 부드러운 무광 플라스틱 / 세라믹
                         .background(
                             brush = Brush.linearGradient(
-                                colors = listOf(Color(0xFF627D98), Color(0xFF334E68))
+                                colors = listOf(Color(0xFF38BDF8), Color(0xFF1D4ED8)),
+                                start = Offset(0f, 0f),
+                                end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
                             ),
-                            shape = RoundedCornerShape(40.dp)
+                            shape = RoundedCornerShape(45.dp)
                         )
-                        .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(40.dp)),
+                        // 하이라이트 (모서리 반사광)
+                        .border(
+                            width = 2.dp,
+                            brush = Brush.linearGradient(
+                                colors = listOf(Color.White.copy(alpha = 0.8f), Color.Transparent, Color.White.copy(alpha = 0.2f))
+                            ),
+                            shape = RoundedCornerShape(45.dp)
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Notifications,
                         contentDescription = null,
                         modifier = Modifier
-                            .size(70.dp)
-                            .rotate(45f),
+                            .size(75.dp)
+                            .rotate(45f)
+                            .graphicsLayer { rotationX = -10f }, // 아이콘도 살짝 입체감
                         tint = Color.White
                     )
                 }
 
-                // 주변을 떠다니는 미니어처 알림 버블들 (Veo 3.0 스타일)
-                NotificationBubble(
-                    icon = Icons.Rounded.ChatBubble,
-                    color = Color(0xFFFF6B6B),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .offset(x = (-20).dp, y = 20.dp),
+                // 미니어처 캡슐 알림들 (광택 있는 유리/플라스틱 구슬 느낌)
+                MiniatureFloatingBubble(
+                    icon = Icons.Rounded.Email,
+                    color = Color(0xFFF43F5E),
+                    modifier = Modifier.align(Alignment.TopEnd).offset(x = (-20).dp, y = 30.dp),
                     delay = 0
                 )
-                NotificationBubble(
+                MiniatureFloatingBubble(
                     icon = Icons.Rounded.Schedule,
-                    color = Color(0xFF48BB78),
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .offset(x = 20.dp, y = (-20).dp),
-                    delay = 500
+                    color = Color(0xFF10B981),
+                    modifier = Modifier.align(Alignment.BottomStart).offset(x = 30.dp, y = (-30).dp),
+                    delay = 600
                 )
-                NotificationBubble(
+                MiniatureFloatingBubble(
                     icon = Icons.Rounded.Notifications,
-                    color = Color(0xFF4299E1),
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .offset(x = 40.dp, y = 40.dp),
-                    delay = 1000
+                    color = Color(0xFFF59E0B),
+                    modifier = Modifier.align(Alignment.TopStart).offset(x = 40.dp, y = 60.dp),
+                    delay = 1200
                 )
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(48.dp))
 
-            // 타이포그래피
+            // 타이포그래피 (현대적이고 묵직한 룩)
             Text(
                 text = "NotiFlow",
-                style = MaterialTheme.typography.displaySmall.copy(
-                    letterSpacing = (-0.5).sp,
-                    fontWeight = FontWeight.Black
+                style = MaterialTheme.typography.displayMedium.copy(
+                    letterSpacing = (-1).sp,
+                    fontWeight = FontWeight.ExtraBold
                 ),
-                color = Color(0xFF102A43)
+                color = Color(0xFF0F172A)
             )
             
             Text(
-                text = "MINIATURE FLOW ENGINE",
-                style = MaterialTheme.typography.labelMedium.copy(
-                    letterSpacing = 4.sp,
+                text = "PHOTOREALISTIC FLOW ENGINE",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    letterSpacing = 5.sp,
                     fontWeight = FontWeight.Bold
                 ),
-                color = Color(0xFF627D98).copy(alpha = 0.8f),
+                color = Color(0xFF475569),
                 modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-
-        // 하단 브랜딩
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 48.dp)
-                .alpha(alpha.value)
-        ) {
-            Text(
-                text = "VEO 3.0 DESIGN SYSTEM",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFF9FB3C8),
-                fontWeight = FontWeight.Medium
             )
         }
     }
 }
 
 @Composable
-fun NotificationBubble(
+fun MiniatureFloatingBubble(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     color: Color,
     modifier: Modifier = Modifier,
@@ -221,9 +219,9 @@ fun NotificationBubble(
     val infiniteTransition = rememberInfiniteTransition(label = "bubble")
     val bounce by infiniteTransition.animateFloat(
         initialValue = 0f,
-        targetValue = 15f,
+        targetValue = 20f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1500, delayMillis = delay, easing = EaseInOutQuad),
+            animation = tween(2000, delayMillis = delay, easing = EaseInOutSine),
             repeatMode = RepeatMode.Reverse
         ), label = "bounce"
     )
@@ -231,21 +229,41 @@ fun NotificationBubble(
     Box(
         modifier = modifier
             .offset(y = bounce.dp)
-            .size(50.dp)
+            .size(56.dp)
+            .graphicsLayer {
+                cameraDistance = 8 * density
+            }
             .shadow(
-                elevation = 12.dp,
-                shape = RoundedCornerShape(16.dp),
-                ambientColor = color.copy(alpha = 0.4f),
-                spotColor = color.copy(alpha = 0.4f)
+                elevation = 16.dp,
+                shape = CircleShape,
+                ambientColor = color.copy(alpha = 0.5f),
+                spotColor = color.copy(alpha = 0.7f)
             )
-            .background(color, RoundedCornerShape(16.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(16.dp)),
+            // 매끄러운 3D 구슬 느낌의 방사형 그라데이션
+            .background(
+                brush = Brush.radialGradient(
+                    colors = listOf(color.copy(alpha = 0.8f), color),
+                    center = Offset(20f, 20f),
+                    radius = 80f
+                ),
+                shape = CircleShape
+            )
+            // 하이라이트 (스포트라이트 반사)
+            .border(
+                width = 1.5.dp,
+                brush = Brush.linearGradient(
+                    colors = listOf(Color.White.copy(alpha = 0.9f), Color.Transparent),
+                    start = Offset(0f, 0f),
+                    end = Offset(100f, 100f)
+                ),
+                shape = CircleShape
+            ),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(24.dp),
+            modifier = Modifier.size(26.dp),
             tint = Color.White
         )
     }

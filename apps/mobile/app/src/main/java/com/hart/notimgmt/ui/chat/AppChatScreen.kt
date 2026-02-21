@@ -12,7 +12,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -37,6 +42,12 @@ fun AppChatScreen(
     val appName = messages.firstOrNull()?.appName ?: decodedSender
     val title = if (decodedSender.isNotEmpty() && decodedSender != appName) "$decodedSender ($appName)" else appName
 
+    val groupedMessages = remember(messages) {
+        messages.groupBy { 
+            SimpleDateFormat("yyyy년 M월 d일 E요일", Locale.getDefault()).format(Date(it.receivedAt))
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -56,10 +67,47 @@ fun AppChatScreen(
             contentPadding = PaddingValues(16.dp),
             reverseLayout = true
         ) {
-            items(messages) { msg ->
-                ChatBubble(message = msg, onClick = { onMessageClick(msg.id) })
-                Spacer(modifier = Modifier.height(16.dp))
+            groupedMessages.forEach { (dateStr, msgs) ->
+                itemsIndexed(
+                    items = msgs,
+                    key = { _, msg -> msg.id }
+                ) { index, msg ->
+                    val isFirstInGroup = index == msgs.lastIndex
+                    val isLastInGroup = index == 0
+                    ChatBubble(
+                        message = msg,
+                        isFirst = isFirstInGroup,
+                        isLast = isLastInGroup,
+                        onClick = { onMessageClick(msg.id) }
+                    )
+                }
+                item {
+                    DateHeader(dateStr)
+                }
             }
+        }
+    }
+}
+
+@Composable
+fun DateHeader(dateStr: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+            shadowElevation = 1.dp
+        ) {
+            Text(
+                text = dateStr,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+            )
         }
     }
 }
@@ -67,44 +115,106 @@ fun AppChatScreen(
 @Composable
 fun ChatBubble(
     message: CapturedMessageEntity,
+    isFirst: Boolean,
+    isLast: Boolean,
     onClick: () -> Unit
 ) {
+    // Determine the corner radii to group consecutive bubbles from the same sender
+    val topStartRadius = if (isFirst) 20.dp else 4.dp
+    val bottomStartRadius = if (isLast) 20.dp else 4.dp
+
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .padding(vertical = if (isLast) 8.dp else 2.dp),
         horizontalArrangement = Arrangement.Start
     ) {
-        Column {
+        // Timeline graphic column
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .width(40.dp)
+                .fillMaxHeight()
+        ) {
+            // Top segment of timeline line
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .weight(0.2f)
+                    .background(if (isFirst) Color.Transparent else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            )
+            
+            // Timeline Dot
+            if (isFirst) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(50))
+                )
+            } else {
+                Box(modifier = Modifier.size(10.dp)) // Spacer for alignment
+            }
+
+            // Bottom segment of timeline line
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .weight(0.8f)
+                    .background(if (isLast) Color.Transparent else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            )
+        }
+
+        // Message Content column
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 40.dp) // Leave space on the right side
+        ) {
+            // Subtext/Sender name if applicable, shown only on the first message of a block
+            if (isFirst && message.roomName != null && message.sender != message.roomName) {
+                Text(
+                    text = message.sender,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 4.dp, start = 4.dp)
+                )
+            }
+
+            // The main bubble
             Surface(
                 shape = RoundedCornerShape(
-                    topStart = 16.dp,
-                    topEnd = 16.dp,
-                    bottomEnd = 16.dp,
-                    bottomStart = 4.dp
+                    topStart = topStartRadius,
+                    topEnd = 20.dp,
+                    bottomEnd = 20.dp,
+                    bottomStart = bottomStartRadius
                 ),
                 color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier
-                    .widthIn(max = 280.dp)
-                    .clickable(onClick = onClick)
+                modifier = Modifier.clickable(onClick = onClick)
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = message.content,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = message.content,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                )
             }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = formatTime(message.receivedAt),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier.padding(start = 4.dp)
-            )
+            
+            // Timestamp, shown only on the last message of a block
+            if (isLast) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = formatChatDetailTime(message.receivedAt),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(start = 4.dp)
+                )
+            }
         }
     }
 }
 
-private fun formatTime(timestamp: Long): String {
-    return SimpleDateFormat("MM.dd HH:mm", Locale.getDefault()).format(Date(timestamp))
+private fun formatChatDetailTime(timestamp: Long): String {
+    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
 }

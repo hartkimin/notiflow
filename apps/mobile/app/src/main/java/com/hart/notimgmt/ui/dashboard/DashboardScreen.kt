@@ -1,27 +1,41 @@
 package com.hart.notimgmt.ui.dashboard
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hart.notimgmt.ui.components.NotiFlowScreenWrapper
+import com.hart.notimgmt.viewmodel.AppInfo
 import com.hart.notimgmt.viewmodel.ChatRoomItem
 import com.hart.notimgmt.viewmodel.DashboardViewModel
 import java.text.SimpleDateFormat
@@ -34,42 +48,178 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val chatRooms by viewModel.chatRooms.collectAsState()
+    val availableApps by viewModel.availableApps.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val selectedApp by viewModel.selectedApp.collectAsState()
+
+    var isSearchVisible by rememberSaveable { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
+
+    // expandedHeight: statusBar + title(56dp) + chips(~44dp)
+    val expandedHeight = when {
+        availableApps.isNotEmpty() -> 140.dp
+        else -> 80.dp
+    }
 
     NotiFlowScreenWrapper(
         title = "NotiFlow",
-        expandedHeight = 80.dp,
-        expandedContent = {
-            // Optional: Add simple search or other header contents if needed
-        }
-    ) {
-        if (chatRooms.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "메시지가 없습니다.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+        expandedHeight = expandedHeight,
+        actions = {
+            IconButton(onClick = {
+                isSearchVisible = !isSearchVisible
+                if (!isSearchVisible) {
+                    viewModel.updateSearchQuery("")
+                }
+            }) {
+                Icon(
+                    imageVector = if (isSearchVisible) Icons.Default.Close else Icons.Default.Search,
+                    contentDescription = if (isSearchVisible) "검색 닫기" else "검색",
+                    tint = MaterialTheme.colorScheme.onBackground
                 )
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 80.dp) // padding for bottom nav
+        },
+        expandedContent = {
+            // 앱 필터 칩 (헤더 확장 영역 — 스크롤 시 접힘)
+            if (availableApps.isNotEmpty()) {
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item {
+                        FilterChip(
+                            selected = selectedApp == null,
+                            onClick = { viewModel.selectApp(null) },
+                            label = { Text("전체") }
+                        )
+                    }
+                    items(
+                        items = availableApps,
+                        key = { it.packageName }
+                    ) { app ->
+                        AppFilterChip(
+                            app = app,
+                            selected = selectedApp == app.packageName,
+                            onClick = { viewModel.selectApp(app.packageName) }
+                        )
+                    }
+                }
+            }
+        }
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // 검색바 (콘텐츠 영역 상단에 배치 — 겹침 없음)
+            AnimatedVisibility(
+                visible = isSearchVisible,
+                enter = expandVertically(),
+                exit = shrinkVertically()
             ) {
-                items(
-                    items = chatRooms,
-                    key = { "${it.source}_${it.sender}" }
-                ) { room ->
-                    ChatRoomListItem(
-                        item = room,
-                        onClick = { onNavigateToChat(room.source, room.sender) }
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = viewModel::updateSearchQuery,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .focusRequester(focusRequester),
+                    placeholder = { Text("대화방 또는 메시지 검색") },
+                    leadingIcon = {
+                        Icon(Icons.Default.Search, contentDescription = "Search")
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear search")
+                            }
+                        }
+                    },
+                    shape = RoundedCornerShape(percent = 50),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                     )
+                )
+            }
+
+            // 검색바 표시 시 자동 포커스
+            LaunchedEffect(isSearchVisible) {
+                if (isSearchVisible) {
+                    focusRequester.requestFocus()
+                }
+            }
+
+            // 채팅룸 목록
+            if (chatRooms.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (searchQuery.isNotBlank()) {
+                            "'${searchQuery}'에 대한 검색 결과가 없습니다."
+                        } else {
+                            "메시지가 없습니다."
+                        },
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(bottom = 80.dp)
+                ) {
+                    items(
+                        items = chatRooms,
+                        key = { "${it.source}_${it.roomId}" }
+                    ) { room ->
+                        ChatRoomListItem(
+                            item = room,
+                            onClick = { onNavigateToChat(room.source, room.roomId) }
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun AppFilterChip(
+    app: AppInfo,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val iconBitmap = remember(app.icon) {
+        try {
+            app.icon?.let {
+                val bytes = android.util.Base64.decode(it, android.util.Base64.NO_WRAP)
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+            }
+        } catch (e: Exception) { null }
+    }
+
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(app.appName) },
+        leadingIcon = if (iconBitmap != null) {
+            {
+                Image(
+                    bitmap = iconBitmap,
+                    contentDescription = app.appName,
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clip(CircleShape)
+                )
+            }
+        } else null
+    )
 }
 
 @Composable
@@ -85,17 +235,19 @@ fun ChatRoomListItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         // App or Sender Icon
-        val iconBitmap = try {
-            item.senderIcon?.let {
-                val bytes = android.util.Base64.decode(it, android.util.Base64.NO_WRAP)
-                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-            }
-        } catch (e: Exception) { null }
+        val iconBitmap = remember(item.senderIcon) {
+            try {
+                item.senderIcon?.let {
+                    val bytes = android.util.Base64.decode(it, android.util.Base64.NO_WRAP)
+                    android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                }
+            } catch (e: Exception) { null }
+        }
 
         if (iconBitmap != null) {
             Image(
                 bitmap = iconBitmap,
-                contentDescription = item.sender,
+                contentDescription = item.displayTitle,
                 modifier = Modifier
                     .size(50.dp)
                     .clip(CircleShape)
@@ -110,7 +262,7 @@ fun ChatRoomListItem(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = item.sender.take(1).uppercase(),
+                    text = item.displayTitle.take(1).uppercase(),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
@@ -126,7 +278,7 @@ fun ChatRoomListItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = item.sender.ifEmpty { item.appName },
+                    text = item.displayTitle.ifEmpty { item.appName },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -158,6 +310,16 @@ fun ChatRoomListItem(
                     modifier = Modifier.weight(1f)
                 )
 
+                if (item.matchCount > 0) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "${item.matchCount}건 일치",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
                 if (item.unreadCount > 0) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Box(
@@ -186,12 +348,13 @@ private fun formatChatTime(timestamp: Long): String {
     val today = java.util.Calendar.getInstance()
     val msgDate = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
 
-    return if (today.get(java.util.Calendar.YEAR) == msgDate.get(java.util.Calendar.YEAR) &&
-        today.get(java.util.Calendar.DAY_OF_YEAR) == msgDate.get(java.util.Calendar.DAY_OF_YEAR)) {
-        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
-    } else if (today.get(java.util.Calendar.YEAR) == msgDate.get(java.util.Calendar.YEAR)) {
-        SimpleDateFormat("MM/dd", Locale.getDefault()).format(Date(timestamp))
-    } else {
-        SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(timestamp))
+    val isToday = today.get(java.util.Calendar.YEAR) == msgDate.get(java.util.Calendar.YEAR) &&
+        today.get(java.util.Calendar.DAY_OF_YEAR) == msgDate.get(java.util.Calendar.DAY_OF_YEAR)
+    val isSameYear = today.get(java.util.Calendar.YEAR) == msgDate.get(java.util.Calendar.YEAR)
+
+    return when {
+        isToday -> SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
+        isSameYear -> SimpleDateFormat("M/d HH:mm", Locale.getDefault()).format(Date(timestamp))
+        else -> SimpleDateFormat("yy/M/d HH:mm", Locale.getDefault()).format(Date(timestamp))
     }
 }

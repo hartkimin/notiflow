@@ -22,6 +22,9 @@ class MessageRepository @Inject constructor(
     fun getMessagesBySenderFlow(source: String, sender: String): Flow<List<CapturedMessageEntity>> =
         messageDao.getMessagesBySenderFlow(source, sender)
 
+    fun getMessagesByRoomFlow(source: String, roomId: String): Flow<List<CapturedMessageEntity>> =
+        messageDao.getMessagesByRoomFlow(source, roomId)
+
     suspend fun getAllOnce(): List<CapturedMessageEntity> = messageDao.getAllOnce()
 
     fun getByCategoryId(categoryId: String): Flow<List<CapturedMessageEntity>> =
@@ -199,6 +202,9 @@ class MessageRepository @Inject constructor(
             syncManager.syncPendingDeletions()
         }
     }
+
+    fun searchMessages(query: String): Flow<List<CapturedMessageEntity>> =
+        messageDao.searchMessages(query)
 
     suspend fun findDuplicate(source: String, sender: String, content: String, timeThreshold: Long): CapturedMessageEntity? {
         return messageDao.findDuplicate(source, sender, content, timeThreshold)

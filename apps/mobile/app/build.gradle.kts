@@ -1,11 +1,9 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.google.services)
+    alias(libs.plugins.kotlin.compose)
 }
 
 ksp {
@@ -20,8 +18,8 @@ android {
         applicationId = "com.hart.notiflow"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "3.4.1"
+        versionCode = 6
+        versionName = "3.5.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -47,17 +45,16 @@ android {
         compose = true
         buildConfig = true
     }
-    testOptions {
+testOptions {
         unitTests.isReturnDefaultValues = true
     }
 }
 
 dependencies {
     // Supabase
-    implementation(platform("io.github.jan-tennert.supabase:bom:3.1.1"))
-    implementation("io.github.jan-tennert.supabase:postgrest-kt")
-    implementation("io.github.jan-tennert.supabase:auth-kt")
-    implementation("io.github.jan-tennert.supabase:realtime-kt")
+    implementation("io.github.jan-tennert.supabase:postgrest-kt:3.1.1")
+    implementation("io.github.jan-tennert.supabase:auth-kt:3.1.1")
+    implementation("io.github.jan-tennert.supabase:realtime-kt:3.1.1")
 
     // Ktor client for Supabase (OkHttp supports WebSocket for Realtime)
     implementation("io.ktor:ktor-client-okhttp:3.0.3")
@@ -103,7 +100,7 @@ dependencies {
     // Eva Icons (iOS style)
     implementation(libs.compose.icons.eva.icons)
 
-    // MediaPipe LLM Inference + Vision (on-device AI with image input)
+    // MediaPipe LLM Inference + Vision (image input)
     implementation(libs.mediapipe.tasks.genai)
     implementation(libs.mediapipe.tasks.vision)
 
@@ -126,3 +123,5 @@ dependencies {
     // EncryptedSharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 }
+
+apply(plugin = "com.google.gms.google-services")

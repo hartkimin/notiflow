@@ -94,6 +94,7 @@ class NotiFlowListenerService : NotificationListenerService() {
             val extras = sbn.notification?.extras ?: return
             val sender = extras.getCharSequence("android.title")?.toString() ?: ""
             val content = extras.getCharSequence("android.text")?.toString() ?: ""
+            val roomName = extras.getCharSequence("android.subText")?.toString()
 
             // 빈 컨텐츠 무시
             if (sender.isBlank() && content.isBlank()) return
@@ -109,7 +110,7 @@ class NotiFlowListenerService : NotificationListenerService() {
             scope.launch {
                 try {
                     val appName = resolveAppName(packageName)
-                    processMessage(packageName, appName, sender, content, senderIconBase64, attachedImageBase64, contentIntent)
+                    processMessage(packageName, appName, sender, content, roomName, senderIconBase64, attachedImageBase64, contentIntent)
                 } catch (e: Exception) {
                     Log.e("NotiFlowListener", "Failed to process message from $packageName", e)
                 }
@@ -218,6 +219,7 @@ class NotiFlowListenerService : NotificationListenerService() {
         appName: String,
         sender: String,
         content: String,
+        roomName: String? = null,
         senderIconBase64: String? = null,
         attachedImageBase64: String? = null,
         contentIntent: PendingIntent? = null
@@ -260,7 +262,8 @@ class NotiFlowListenerService : NotificationListenerService() {
             content = content,
             statusId = firstStatus?.id,
             senderIcon = senderIconBase64,
-            attachedImage = attachedImageBase64
+            attachedImage = attachedImageBase64,
+            roomName = roomName
         )
         val insertedId = messageRepository.insert(message)
         DeepLinkCache.store(message.id, packageName, sender, contentIntent)

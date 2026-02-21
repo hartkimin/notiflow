@@ -671,7 +671,7 @@ fun GeneralScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "버전 3.4.1",
+                        text = "버전 3.5.0",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -705,6 +705,25 @@ fun GeneralScreen(
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    ReleaseNoteItem(
+                        version = "3.5.0",
+                        date = "2026.02.21",
+                        notes = listOf(
+                            "대시보드 검색 고도화 — 메시지 내용 전문 검색 지원",
+                            "앱별 필터 버튼 개선 — 아이콘 포함 필터 칩 UI",
+                            "검색 토글 — 검색 아이콘 클릭으로 검색바 표시/숨김",
+                            "날짜 표시 개선 — 대화방 목록에 날짜+시간 표시",
+                            "검색 결과 매칭 건수 배지 표시",
+                            "Supabase 동기화 확장 — room_name, attached_image 필드 추가",
+                            "웹 대시보드 알림 페이지 연동",
+                            "DB v24 마이그레이션"
+                        )
+                    )
+
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    )
+
                     ReleaseNoteItem(
                         version = "3.4.1",
                         date = "2026.02.16",

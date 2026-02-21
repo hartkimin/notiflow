@@ -15,7 +15,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -37,14 +39,22 @@ data class CategorySummary(
 data class ChatRoomItem(
     val source: String,
     val appName: String,
-    val sender: String,
+    val roomId: String,       // The internal ID used to fetch messages (roomName or sender)
+    val displayTitle: String, // The name shown to user
     val lastMessage: String,
     val lastReceivedAt: Long,
     val unreadCount: Int,
-    val senderIcon: String?
+    val senderIcon: String?,
+    val matchCount: Int = 0   // 검색 시 매칭된 메시지 수
 )
 
-@OptIn(ExperimentalCoroutinesApi::class)
+data class AppInfo(
+    val packageName: String,
+    val appName: String,
+    val icon: String?
+)
+
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
@@ -70,16 +80,16 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    // Chat Rooms Flow
-    val chatRooms: StateFlow<List<ChatRoomItem>> = combine(
+    // Chat Rooms Flow (All)
+    private val allChatRooms: StateFlow<List<ChatRoomItem>> = combine(
         messageRepository.getAllActiveFlow(),
         statusSteps
     ) { messages, steps ->
         val firstStepId = steps.firstOrNull()?.id
         
-        val grouped = messages.groupBy { Pair(it.source, it.sender) }
+        val grouped = messages.groupBy { Pair(it.source, it.roomName ?: it.sender) }
         grouped.map { (key, roomMessages) ->
-            val (source, sender) = key
+            val (source, roomId) = key
             val lastMsg = roomMessages.first()
             val unreadCount = if (firstStepId != null) {
                 roomMessages.count { it.statusId == firstStepId }
@@ -88,13 +98,98 @@ class DashboardViewModel @Inject constructor(
             ChatRoomItem(
                 source = source,
                 appName = lastMsg.appName,
-                sender = sender,
+                roomId = roomId,
+                displayTitle = roomId,
                 lastMessage = lastMsg.content,
                 lastReceivedAt = lastMsg.receivedAt,
                 unreadCount = unreadCount,
                 senderIcon = lastMsg.senderIcon
             )
         }.sortedByDescending { it.lastReceivedAt }
+    }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _selectedApp = MutableStateFlow<String?>(null)
+    val selectedApp: StateFlow<String?> = _selectedApp
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery
+
+    fun selectApp(packageName: String?) {
+        _selectedApp.value = packageName
+    }
+
+    fun updateSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
+    val availableApps: StateFlow<List<AppInfo>> = allChatRooms.map { rooms ->
+        rooms.map { AppInfo(it.source, it.appName, it.senderIcon) }.distinctBy { it.packageName }
+    }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // 검색어 디바운스 (입력 중 과도한 DB 쿼리 방지)
+    private val debouncedQuery = _searchQuery.debounce(300L)
+
+    // 디바운스된 검색어로 메시지 전문 검색
+    private val searchResults = debouncedQuery.flatMapLatest { query ->
+        if (query.isBlank()) flowOf(emptyList())
+        else messageRepository.searchMessages(query)
+    }
+
+    val chatRooms: StateFlow<List<ChatRoomItem>> = combine(
+        allChatRooms,
+        selectedApp,
+        debouncedQuery,
+        searchResults
+    ) { rooms, app, query, matchedMessages ->
+        var filteredResults = rooms
+
+        if (app != null) {
+            filteredResults = filteredResults.filter { it.source == app }
+        }
+
+        if (query.isBlank()) return@combine filteredResults
+
+        // 1) 룸 이름/앱 이름 매칭
+        val nameMatchedRooms = filteredResults.filter { room ->
+            room.displayTitle.contains(query, ignoreCase = true) ||
+            room.appName.contains(query, ignoreCase = true)
+        }.associateBy { Pair(it.source, it.roomId) }
+
+        // 2) 메시지 내용 전문 검색 결과를 룸 키별로 그룹화
+        val messagesByRoom = matchedMessages.groupBy { msg ->
+            Pair(msg.source, msg.roomName ?: msg.sender)
+        }
+
+        // 3) 두 결과를 합산
+        val resultMap = mutableMapOf<Pair<String, String>, ChatRoomItem>()
+
+        // 이름 매칭된 룸 추가
+        for ((key, room) in nameMatchedRooms) {
+            val msgs = messagesByRoom[key]
+            resultMap[key] = if (msgs != null) {
+                room.copy(
+                    lastMessage = msgs.first().content,
+                    matchCount = msgs.size
+                )
+            } else {
+                room
+            }
+        }
+
+        // 메시지 매칭된 룸 추가 (이름 매칭에 없던 것)
+        for ((key, msgs) in messagesByRoom) {
+            if (resultMap.containsKey(key)) continue
+            val room = filteredResults.find { it.source == key.first && it.roomId == key.second }
+                ?: continue
+            resultMap[key] = room.copy(
+                lastMessage = msgs.first().content,
+                matchCount = msgs.size
+            )
+        }
+
+        resultMap.values.sortedByDescending { it.lastReceivedAt }
     }
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 

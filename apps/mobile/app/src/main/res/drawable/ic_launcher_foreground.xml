@@ -1,80 +1,78 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- NotiFlow Icon: Bell + Flow Waves + N Badge -->
-    <group
-        android:translateX="27"
-        android:translateY="24">
+    <!-- Shadow for the main box -->
+    <path
+        android:pathData="M 33 41 C 33 34.373 38.373 29 45 29 L 63 29 C 69.627 29 75 34.373 75 41 L 75 59 C 75 65.627 69.627 71 63 71 L 45 71 C 38.373 71 33 65.627 33 59 Z"
+        android:fillColor="#4D0F172A" />
 
-        <!-- Bell shadow -->
-        <path
-            android:fillColor="#1E375A"
-            android:fillAlpha="0.2"
-            android:pathData="M27,5 C27,3.3 25.7,2 24,2 L30,2 C28.3,2 27,3.3 27,5 L27,8 C34.7,8 41,14.3 41,22 L41,32 L45,38 L45,40 L9,40 L9,38 L13,32 L13,22 C13,14.3 19.3,8 27,8 L27,5 Z" />
+    <!-- Main realistic 3D-like Box (Claymorphism effect) -->
+    <path
+        android:pathData="M 31 38 C 31 31.373 36.373 26 43 26 L 65 26 C 71.627 26 77 31.373 77 38 L 77 60 C 77 66.627 71.627 72 65 72 L 43 72 C 36.373 72 31 66.627 31 60 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="31"
+                android:startY="26"
+                android:endX="77"
+                android:endY="72">
+                <item android:offset="0" android:color="#38BDF8" />
+                <item android:offset="1" android:color="#1D4ED8" />
+            </gradient>
+        </aapt:attr>
+    </path>
 
-        <!-- Bell body -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M27,3 C27,1.3 25.7,0 24,0 L30,0 C28.3,0 27,1.3 27,3 L27,6 C34.7,6 41,12.3 41,20 L41,30 L45,36 L45,38 L9,38 L9,36 L13,30 L13,20 C13,12.3 19.3,6 27,6 L27,3 Z" />
+    <!-- Glossy reflection (Top highlight) -->
+    <path
+        android:pathData="M 33 38 C 33 32.477 37.477 28 43 28 L 65 28 C 70.523 28 75 32.477 75 38 L 75 45 C 60 40 45 42 33 45 Z"
+        android:fillColor="#33FFFFFF" />
 
-        <!-- Bell clapper -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M22,40 Q27,47 32,40 Z" />
+    <!-- Notification Icon (Bell) inside the box -->
+    <path
+        android:pathData="M54,63 c2.21,0 4,-1.79 4,-4 h-8 c0,2.21 1.79,4 4,4z m8,-12 V40 c0,-6.07 -4.11,-11.13 -9.84,-12.38 v-1.42 c0,-1.43 -1.41,-2.55 -2.97,-2.03 -0.92,0.3 -1.61,1.15 -1.69,2.15 v1.3 C37.89,28.87 34,33.93 34,40 v11 l-3.3,3.3 c-0.65,0.65 -0.19,1.76 0.73,1.76 h25.14 c0.92,0 1.38,-1.11 0.73,-1.76 L54,63z"
+        android:fillColor="#FFFFFF" />
 
-        <!-- Inner highlight (glass effect) -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:fillAlpha="0.5"
-            android:pathData="M27,6 C19.3,6 13,12.3 13,20 L13,22 C13,14.3 19.3,8 27,8 C34.7,8 41,14.3 41,22 L41,20 C41,12.3 34.7,6 27,6 Z" />
+    <!-- Top-Right Red Bubble -->
+    <path
+        android:pathData="M 69 22 C 69 17.582 72.582 14 77 14 C 81.418 14 85 17.582 85 22 C 85 26.418 81.418 30 77 30 C 72.582 30 69 26.418 69 22 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="74"
+                android:centerY="19"
+                android:gradientRadius="10">
+                <item android:offset="0" android:color="#FF8A9B" />
+                <item android:offset="1" android:color="#F43F5E" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Red bubble specular -->
+    <path
+        android:pathData="M 72 17 C 72 15.343 73.343 14 75 14 C 76.657 14 78 15.343 78 17 C 78 18.657 76.657 20 75 20 C 73.343 20 72 18.657 72 17 Z"
+        android:fillColor="#66FFFFFF" />
 
-        <!-- Flow Wave 1 (strongest) -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:fillAlpha="0.8"
-            android:pathData="M10,46 Q18,42 27,46 Q36,50 44,46"
-            android:strokeWidth="2"
-            android:strokeColor="#FFFFFF"
-            android:strokeAlpha="0.8" />
+    <!-- Bottom-Left Green Bubble -->
+    <path
+        android:pathData="M 23 72 C 23 67.582 26.582 64 31 64 C 35.418 64 39 67.582 39 72 C 39 76.418 35.418 80 31 80 C 26.582 80 23 76.418 23 72 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="28"
+                android:centerY="69"
+                android:gradientRadius="10">
+                <item android:offset="0" android:color="#6EE7B7" />
+                <item android:offset="1" android:color="#10B981" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Green bubble specular -->
+    <path
+        android:pathData="M 26 67 C 26 65.343 27.343 64 29 64 C 30.657 64 32 65.343 32 67 C 32 68.657 30.657 70 29 70 C 27.343 70 26 68.657 26 67 Z"
+        android:fillColor="#66FFFFFF" />
 
-        <!-- Flow Wave 2 (medium) -->
-        <path
-            android:fillColor="#00000000"
-            android:strokeWidth="1.5"
-            android:strokeColor="#FFFFFF"
-            android:strokeAlpha="0.5"
-            android:pathData="M10,50 Q18,46 27,50 Q36,54 44,50" />
-
-        <!-- Flow Wave 3 (softest) -->
-        <path
-            android:fillColor="#00000000"
-            android:strokeWidth="1"
-            android:strokeColor="#FFFFFF"
-            android:strokeAlpha="0.3"
-            android:pathData="M10,54 Q18,50 27,54 Q36,58 44,54" />
-
-        <!-- N Badge circle (mint, top-right) -->
-        <path
-            android:fillColor="#48D1CC"
-            android:pathData="M38,4 a8,8 0 1,1 16,0 a8,8 0 1,1 -16,0" />
-
-        <!-- N letter in badge -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M43,0 L43,8 L45,8 L45,2.5 L49,8 L51,8 L51,0 L49,0 L49,5.5 L45,0 Z" />
-
-        <!-- Small decorative bubbles -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:fillAlpha="0.6"
-            android:pathData="M6,14 a3,3 0 1,1 6,0 a3,3 0 1,1 -6,0" />
-        <path
-            android:fillColor="#FFFFFF"
-            android:fillAlpha="0.4"
-            android:pathData="M46,26 a2,2 0 1,1 4,0 a2,2 0 1,1 -4,0" />
-    </group>
 </vector>

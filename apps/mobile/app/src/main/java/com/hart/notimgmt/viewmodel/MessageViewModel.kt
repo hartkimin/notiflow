@@ -364,8 +364,14 @@ class MessageViewModel @Inject constructor(
         val prefix = if (preset != null) "[AI] ${preset.name}" else "[AI]"
         val commentContent = "$prefix: ${state.result}"
 
-        addComment(messageId, commentContent)
-        clearAnalysis()
+        viewModelScope.launch {
+            val message = messageRepository.getById(messageId) ?: return@launch
+            val comments = parseComments(message.comment).toMutableList()
+            comments.add(com.hart.notimgmt.data.model.CommentItem(content = commentContent))
+            messageRepository.updateComment(messageId, serializeComments(comments))
+            _aiAnalysisState.value = AiAnalysisState.Idle
+            _aiStreamingText.value = ""
+        }
     }
 
     fun clearAnalysis() {

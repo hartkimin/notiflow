@@ -1228,13 +1228,14 @@ private fun AiAnalysisSection(
             }
 
             // Error message
-            if (analysisState is AiAnalysisState.Error) {
+            val errorState = analysisState as? AiAnalysisState.Error
+            if (errorState != null) {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
                 ) {
                     Text(
-                        text = (analysisState as AiAnalysisState.Error).message,
+                        text = errorState.message,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onErrorContainer,
                         modifier = Modifier.padding(12.dp)
@@ -1274,13 +1275,14 @@ private fun AiAnalysisSection(
             }
 
             // Completed - result with action buttons
-            if (analysisState is AiAnalysisState.Completed) {
+            val completedState = analysisState as? AiAnalysisState.Completed
+            if (completedState != null) {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHighest
                 ) {
                     Text(
-                        text = (analysisState as AiAnalysisState.Completed).result,
+                        text = completedState.result,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(12.dp)
                     )
@@ -1310,8 +1312,7 @@ private fun AiAnalysisSection(
 
                     // Copy to clipboard
                     IconButton(onClick = {
-                        val text = (analysisState as AiAnalysisState.Completed).result
-                        clipboardManager.setText(AnnotatedString(text))
+                        clipboardManager.setText(AnnotatedString(completedState.result))
                     }) {
                         Icon(
                             imageVector = Icons.Default.ContentCopy,

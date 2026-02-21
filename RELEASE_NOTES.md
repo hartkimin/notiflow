@@ -1,5 +1,25 @@
 # NotiFlow Release Notes
 
+## v0.3.0 — 2026-02-22
+
+알림 상세 화면 인라인 AI 분석 기능 추가.
+
+### Mobile App (`apps/mobile`)
+
+- **인라인 AI 분석**: 메시지 상세 화면에서 온디바이스 Gemma 3N으로 메시지 직접 분석.
+  프리셋(요약/분석/번역/자유입력) 선택 후 "AI 분석" 버튼으로 스트리밍 결과 표시.
+  결과를 `[AI]` 접두사 댓글로 저장 가능.
+  - `MessageViewModel`에 `AiAnalysisState` sealed class, `analyzeWithAi()`,
+    `saveAnalysisAsComment()`, `clearAnalysis()` 추가
+  - `MessageDetailScreen`에 `AiAnalysisSection`, `StreamingTextDisplay` 컴포저블 추가
+- **500자 출력 제한**: 프롬프트 지침 + 스트리밍 UI 중단 + 최종 트리밍 3중 방어
+- **댓글 저장 크래시 수정**: `saveAnalysisAsComment`의 동기적 상태 전환이 Compose
+  리컴포지션 중 `ClassCastException` 유발 → 비동기 코루틴 + 안전 캐스트로 수정
+- **AI 스트리밍 ANR 수정**: 토큰별 StateFlow 업데이트가 `verticalScroll` Column
+  전체 리컴포지션 유발 → 30자 스로틀 + 격리 컴포저블로 리컴포지션 범위 제한
+
+---
+
 ## v0.2.0 — 2026-02-19
 
 주문서 양식 변경, 파싱 로직 통합, AI 제품 검색 기능 추가.

@@ -1,6 +1,6 @@
 # NotiFlow
 
-> **Manage Your Notification Flow** &nbsp;|&nbsp; v3.5.0
+> **Manage Your Notification Flow** &nbsp;|&nbsp; v3.6.0
 
 Android notification & SMS capture/management app with on-device AI. Automatically collects notifications from selected apps, categorizes them with smart filter rules, and lets you chat with an on-device AI assistant.
 
@@ -21,6 +21,13 @@ Android notification & SMS capture/management app with on-device AI. Automatical
 - **Multimodal Input** - Image (gallery/camera) and voice (SpeechRecognizer) input support
 - **Model Management** - Download/delete models via WorkManager with foreground service notification
 - **Streaming Response** - Real-time token-by-token response display
+
+### AI Analysis in Detail Screen
+- **Inline Analysis** - Analyze any notification message with on-device Gemma 3N directly in the detail screen
+- **Preset Prompts** - Quick-select analysis presets (summary, analysis, translation, custom input)
+- **Streaming Display** - Throttled streaming output with isolated recomposition for smooth performance
+- **Save as Comment** - Save analysis results as `[AI]`-prefixed comments on the message
+- **500-char Limit** - Triple-layer output limiting (prompt instruction + streaming cutoff + final trim)
 
 ### Weekly Schedule Planner
 - **Day-Based Planning** - Per-day category selection, plan add/complete/delete, order number management
@@ -158,6 +165,7 @@ app/src/main/java/com/hart/notimgmt/
 
 | Version | Highlights |
 |---------|-----------|
+| v3.6.0 | 알림 상세 인라인 AI 분석, 프리셋 프롬프트, 500자 출력 제한, 스트리밍 성능 최적화 |
 | v3.5.0 | AI 채팅 (Gemma 3N 멀티모달), 알림 딥링크, 필터 앱 지정, 스케쥴 일괄 채우기 |
 | v3.4.0 | 요일별 카테고리 선택, 스케쥴 탭, 앱 필터 접기/펼치기, 스와이프 성능 개선 |
 | v3.3.0 | 주간 계획 보드, 메시지 편집, 달력 주 선택기, 앱 선택 개선 |

@@ -16,12 +16,25 @@ import com.hart.notimgmt.data.repository.CategoryRepository
 import com.hart.notimgmt.data.repository.MessageRepository
 import com.hart.notimgmt.data.repository.StatusStepRepository
 import com.hart.notimgmt.service.snooze.SnoozeManager
+import android.graphics.Bitmap
+import com.hart.notimgmt.ai.AiMessageClassifier
+import com.hart.notimgmt.ai.AiModelManager
+import com.hart.notimgmt.ai.GemmaModelSize
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import javax.inject.Inject
+
+sealed class AiAnalysisState {
+    data object Idle : AiAnalysisState()
+    data object ModelNotReady : AiAnalysisState()
+    data object Analyzing : AiAnalysisState()
+    data class Completed(val result: String) : AiAnalysisState()
+    data class Error(val message: String) : AiAnalysisState()
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -30,7 +43,9 @@ class MessageViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val statusStepRepository: StatusStepRepository,
     private val appPreferences: AppPreferences,
-    private val snoozeManager: SnoozeManager
+    private val snoozeManager: SnoozeManager,
+    private val classifier: AiMessageClassifier,
+    private val modelManager: AiModelManager
 ) : ViewModel() {
 
     val categories = categoryRepository.getAll()
@@ -47,6 +62,21 @@ class MessageViewModel @Inject constructor(
 
     // 숨김 카테고리
     val hiddenCategoryIds: StateFlow<Set<String>> = appPreferences.hiddenCategoryIdsFlow
+
+    // AI Analysis
+    private val _aiAnalysisState = MutableStateFlow<AiAnalysisState>(AiAnalysisState.Idle)
+    val aiAnalysisState: StateFlow<AiAnalysisState> = _aiAnalysisState
+
+    private val _aiStreamingText = MutableStateFlow("")
+    val aiStreamingText: StateFlow<String> = _aiStreamingText
+
+    private var aiAnalysisJob: Job? = null
+
+    val isModelDownloaded: Boolean
+        get() = modelManager.isModelDownloaded(appPreferences.aiModelSize)
+
+    val currentModelSize: GemmaModelSize
+        get() = appPreferences.aiModelSize
 
     // 카테고리 필터 (null = 전체, Set = 선택된 카테고리들)
     private val _selectedCategoryIds = MutableStateFlow<Set<String>?>(null)
@@ -285,6 +315,111 @@ class MessageViewModel @Inject constructor(
             val message = messageRepository.getById(messageId) ?: return@launch
             val comments = parseComments(message.comment).filter { it.id != commentId }
             messageRepository.updateComment(messageId, serializeComments(comments))
+        }
+    }
+
+    // ===== AI Analysis =====
+
+    fun analyzeWithAi(content: String, attachedImage: Bitmap? = null) {
+        if (_aiAnalysisState.value is AiAnalysisState.Analyzing) return
+
+        if (!isModelDownloaded) {
+            _aiAnalysisState.value = AiAnalysisState.ModelNotReady
+            return
+        }
+
+        _aiAnalysisState.value = AiAnalysisState.Analyzing
+        _aiStreamingText.value = ""
+
+        val selectedPreset = getSelectedPreset()
+        val prompt = buildAnalysisPrompt(content, selectedPreset?.content)
+
+        aiAnalysisJob = viewModelScope.launch {
+            try {
+                val result = classifier.generate(
+                    modelSize = appPreferences.aiModelSize,
+                    prompt = prompt,
+                    image = attachedImage,
+                    onPartialResult = { chunk ->
+                        _aiStreamingText.update { it + chunk }
+                    }
+                )
+                val finalResult = result?.trim() ?: "분석 결과를 생성하지 못했습니다."
+                _aiAnalysisState.value = AiAnalysisState.Completed(finalResult)
+            } catch (e: Exception) {
+                _aiAnalysisState.value = AiAnalysisState.Error(
+                    e.message ?: "알 수 없는 오류가 발생했습니다."
+                )
+            } finally {
+                _aiStreamingText.value = ""
+            }
+        }
+    }
+
+    fun saveAnalysisAsComment(messageId: String) {
+        val state = _aiAnalysisState.value
+        if (state !is AiAnalysisState.Completed) return
+
+        val preset = getSelectedPreset()
+        val prefix = if (preset != null) "[AI] ${preset.name}" else "[AI]"
+        val commentContent = "$prefix: ${state.result}"
+
+        addComment(messageId, commentContent)
+        clearAnalysis()
+    }
+
+    fun clearAnalysis() {
+        aiAnalysisJob?.cancel()
+        aiAnalysisJob = null
+        _aiAnalysisState.value = AiAnalysisState.Idle
+        _aiStreamingText.value = ""
+    }
+
+    fun getPresets(): List<PromptPreset> {
+        return parseAnalysisPresets(appPreferences.aiPromptPresets)
+    }
+
+    fun getSelectedPresetId(): String {
+        return appPreferences.aiSelectedPresetId
+    }
+
+    fun selectAnalysisPreset(id: String) {
+        val newId = if (appPreferences.aiSelectedPresetId == id) "" else id
+        appPreferences.aiSelectedPresetId = newId
+    }
+
+    private fun getSelectedPreset(): PromptPreset? {
+        val selectedId = appPreferences.aiSelectedPresetId
+        if (selectedId.isBlank()) return null
+        return getPresets().firstOrNull { it.id == selectedId }
+    }
+
+    private fun buildAnalysisPrompt(content: String, presetInstruction: String?): String {
+        val sb = StringBuilder()
+        sb.append("<start_of_turn>user\n")
+        if (!presetInstruction.isNullOrBlank()) {
+            sb.append("[지침] $presetInstruction\n\n")
+        }
+        sb.append("다음 알림 메시지를 분석해줘:\n\n")
+        sb.append(content)
+        sb.append("\n<end_of_turn>\n")
+        sb.append("<start_of_turn>model\n")
+        return sb.toString()
+    }
+
+    private fun parseAnalysisPresets(json: String): List<PromptPreset> {
+        return try {
+            val arr = org.json.JSONArray(json)
+            (0 until arr.length()).map { i ->
+                val obj = arr.getJSONObject(i)
+                PromptPreset(
+                    id = obj.getString("id"),
+                    name = obj.getString("name"),
+                    content = obj.getString("content")
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
         }
     }
 

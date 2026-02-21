@@ -38,4 +38,7 @@ interface DayCategoryDao {
 
     @Query("DELETE FROM day_categories WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM day_categories")
+    suspend fun deleteAll()
 }

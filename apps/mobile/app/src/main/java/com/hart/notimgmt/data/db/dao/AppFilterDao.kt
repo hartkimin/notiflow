@@ -44,4 +44,7 @@ interface AppFilterDao {
         softDeleteAll()
         upsertAll(filters)
     }
+
+    @Query("DELETE FROM app_filters")
+    suspend fun deleteAll()
 }

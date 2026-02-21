@@ -3,9 +3,12 @@ package com.hart.notimgmt.ui.dashboard
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -15,12 +18,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -29,7 +34,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -38,6 +46,8 @@ import com.hart.notimgmt.ui.components.NotiFlowScreenWrapper
 import com.hart.notimgmt.viewmodel.AppInfo
 import com.hart.notimgmt.viewmodel.ChatRoomItem
 import com.hart.notimgmt.viewmodel.DashboardViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -53,12 +63,36 @@ fun DashboardScreen(
     val selectedApp by viewModel.selectedApp.collectAsState()
 
     var isSearchVisible by rememberSaveable { mutableStateOf(false) }
+    var roomToDelete by remember { mutableStateOf<ChatRoomItem?>(null) }
     val focusRequester = remember { FocusRequester() }
 
-    // expandedHeight: statusBar + title(56dp) + chips(~44dp)
+    // expandedHeight: statusBar + title(56dp) + icon chips(~68dp)
     val expandedHeight = when {
-        availableApps.isNotEmpty() -> 140.dp
+        availableApps.isNotEmpty() -> 160.dp
         else -> 80.dp
+    }
+
+    // 대화방 삭제 확인 다이얼로그
+    roomToDelete?.let { room ->
+        AlertDialog(
+            onDismissRequest = { roomToDelete = null },
+            title = { Text("대화방 삭제") },
+            text = { Text("\"${room.displayTitle.ifEmpty { room.appName }}\" 대화방의 모든 메시지를 삭제하시겠습니까?\n삭제된 메시지는 휴지통에서 복원할 수 있습니다.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteRoom(room.source, room.roomId)
+                        roomToDelete = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) { Text("삭제") }
+            },
+            dismissButton = {
+                TextButton(onClick = { roomToDelete = null }) { Text("취소") }
+            }
+        )
     }
 
     NotiFlowScreenWrapper(
@@ -88,10 +122,20 @@ fun DashboardScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     item {
-                        FilterChip(
+                        AppIconChip(
+                            icon = {
+                                Icon(
+                                    Icons.Outlined.Apps,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = if (selectedApp == null)
+                                        MaterialTheme.colorScheme.onPrimary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            label = "전체",
                             selected = selectedApp == null,
-                            onClick = { viewModel.selectApp(null) },
-                            label = { Text("전체") }
+                            onClick = { viewModel.selectApp(null) }
                         )
                     }
                     items(
@@ -180,7 +224,8 @@ fun DashboardScreen(
                     ) { room ->
                         ChatRoomListItem(
                             item = room,
-                            onClick = { onNavigateToChat(room.source, room.roomId) }
+                            onClick = { onNavigateToChat(room.source, room.roomId) },
+                            onLongClick = { roomToDelete = room }
                         )
                     }
                 }
@@ -195,42 +240,106 @@ private fun AppFilterChip(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-    val iconBitmap = remember(app.icon) {
-        try {
-            app.icon?.let {
-                val bytes = android.util.Base64.decode(it, android.util.Base64.NO_WRAP)
-                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-            }
-        } catch (e: Exception) { null }
+    val context = LocalContext.current
+    val iconBitmap by produceState<ImageBitmap?>(initialValue = null, key1 = app.packageName) {
+        value = withContext(Dispatchers.IO) {
+            try {
+                val drawable = context.packageManager.getApplicationIcon(app.packageName)
+                val size = 64
+                val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+                val canvas = android.graphics.Canvas(bmp)
+                drawable.setBounds(0, 0, size, size)
+                drawable.draw(canvas)
+                bmp.asImageBitmap()
+            } catch (_: Exception) { null }
+        }
     }
 
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        label = { Text(app.appName) },
-        leadingIcon = if (iconBitmap != null) {
-            {
+    AppIconChip(
+        icon = {
+            if (iconBitmap != null) {
                 Image(
-                    bitmap = iconBitmap,
+                    bitmap = iconBitmap!!,
                     contentDescription = app.appName,
-                    modifier = Modifier
-                        .size(18.dp)
-                        .clip(CircleShape)
+                    modifier = Modifier.size(28.dp).clip(CircleShape)
+                )
+            } else {
+                Text(
+                    text = app.appName.take(1).uppercase(),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (selected)
+                        MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        } else null
+        },
+        label = app.appName,
+        selected = selected,
+        onClick = onClick
     )
 }
 
+/** Icon-centric chip: circular icon + small label underneath. */
+@Composable
+private fun AppIconChip(
+    icon: @Composable () -> Unit,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val bgColor = if (selected) MaterialTheme.colorScheme.primary
+                  else MaterialTheme.colorScheme.surfaceVariant
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary
+                      else Color.Transparent
+    val labelColor = if (selected) MaterialTheme.colorScheme.primary
+                     else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(52.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .border(
+                    width = if (selected) 2.dp else 1.dp,
+                    color = borderColor,
+                    shape = CircleShape
+                )
+                .background(bgColor, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            icon()
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = labelColor,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChatRoomListItem(
     item: ChatRoomItem,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

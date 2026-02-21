@@ -37,10 +37,13 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -49,6 +52,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +67,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -79,9 +84,12 @@ import com.hart.notimgmt.ui.onboarding.checkBatteryOptimization
 import com.hart.notimgmt.ui.onboarding.checkNotificationListener
 import com.hart.notimgmt.ui.onboarding.checkPostNotifPermission
 import com.hart.notimgmt.ui.onboarding.checkSmsPermission
+import com.hart.notimgmt.data.backup.DataSummary
 import com.hart.notimgmt.data.sync.SyncStatus
 import com.hart.notimgmt.data.sync.TableSyncInfo
 import com.hart.notimgmt.data.sync.TableSyncStatus
+import com.hart.notimgmt.data.sync.DownloadOptions
+import com.hart.notimgmt.data.sync.UploadOptions
 import com.hart.notimgmt.ui.filter.SegmentedSelector
 import com.hart.notimgmt.ui.navigation.LocalSnackbarHostState
 import com.hart.notimgmt.viewmodel.AppFilterViewModel
@@ -106,6 +114,11 @@ fun GeneralScreen(
     val coroutineScope = rememberCoroutineScope()
     var showSyncDetails by remember { mutableStateOf(false) }
     var showSyncLogs by remember { mutableStateOf(false) }
+    var showUploadDialog by remember { mutableStateOf(false) }
+    var uploadDataSummary by remember { mutableStateOf<DataSummary?>(null) }
+    var showDownloadDialog by remember { mutableStateOf(false) }
+    var downloadDataSummary by remember { mutableStateOf<DataSummary?>(null) }
+    var isLoadingRemoteSummary by remember { mutableStateOf(false) }
 
     // Permission states
     val context = LocalContext.current
@@ -265,6 +278,276 @@ fun GeneralScreen(
 
         // ========== 그룹: 데이터 ==========
         SectionGroupHeader("데이터")
+
+        // 업로드 선택 다이얼로그
+        if (showUploadDialog && uploadDataSummary != null) {
+            val summary = uploadDataSummary!!
+            var uploadCategories by remember { mutableStateOf(summary.categoryCount + summary.filterRuleCount > 0) }
+            var uploadStatusSteps by remember { mutableStateOf(summary.statusStepCount > 0) }
+            var uploadMessages by remember { mutableStateOf(summary.messageCount > 0) }
+            var uploadAppFilters by remember { mutableStateOf(summary.appFilterCount > 0) }
+            var uploadPlans by remember { mutableStateOf(summary.planCount > 0) }
+            var uploadDayCategories by remember { mutableStateOf(summary.dayCategoryCount > 0) }
+
+            val hasAnySelected = uploadCategories || uploadStatusSteps || uploadMessages ||
+                    uploadAppFilters || uploadPlans || uploadDayCategories
+
+            AlertDialog(
+                onDismissRequest = {
+                    showUploadDialog = false
+                    uploadDataSummary = null
+                },
+                title = { Text("클라우드 업로드") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "서버에 업로드할 항목을 선택하세요.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = "업로드할 항목",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                val categoriesTotal = summary.categoryCount + summary.filterRuleCount
+                                val categoriesCountText = if (summary.filterRuleCount > 0) {
+                                    "${summary.categoryCount}+${summary.filterRuleCount}개"
+                                } else {
+                                    "${summary.categoryCount}개"
+                                }
+
+                                UploadCheckboxRow(
+                                    label = "카테고리 & 필터 규칙",
+                                    count = categoriesCountText,
+                                    checked = uploadCategories,
+                                    enabled = categoriesTotal > 0,
+                                    onCheckedChange = { uploadCategories = it }
+                                )
+                                UploadCheckboxRow(
+                                    label = "상태 단계",
+                                    count = "${summary.statusStepCount}개",
+                                    checked = uploadStatusSteps,
+                                    enabled = summary.statusStepCount > 0,
+                                    onCheckedChange = { uploadStatusSteps = it }
+                                )
+                                UploadCheckboxRow(
+                                    label = "메시지",
+                                    count = "${summary.messageCount}개",
+                                    checked = uploadMessages,
+                                    enabled = summary.messageCount > 0,
+                                    onCheckedChange = { uploadMessages = it }
+                                )
+                                UploadCheckboxRow(
+                                    label = "앱 필터",
+                                    count = "${summary.appFilterCount}개",
+                                    checked = uploadAppFilters,
+                                    enabled = summary.appFilterCount > 0,
+                                    onCheckedChange = { uploadAppFilters = it }
+                                )
+                                UploadCheckboxRow(
+                                    label = "스케줄",
+                                    count = "${summary.planCount}개",
+                                    checked = uploadPlans,
+                                    enabled = summary.planCount > 0,
+                                    onCheckedChange = { uploadPlans = it }
+                                )
+                                UploadCheckboxRow(
+                                    label = "요일 카테고리",
+                                    count = "${summary.dayCategoryCount}개",
+                                    checked = uploadDayCategories,
+                                    enabled = summary.dayCategoryCount > 0,
+                                    onCheckedChange = { uploadDayCategories = it }
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = hasAnySelected,
+                        onClick = {
+                            val options = UploadOptions(
+                                categories = uploadCategories,
+                                statusSteps = uploadStatusSteps,
+                                messages = uploadMessages,
+                                appFilters = uploadAppFilters,
+                                plans = uploadPlans,
+                                dayCategories = uploadDayCategories
+                            )
+                            showUploadDialog = false
+                            uploadDataSummary = null
+                            showSyncDetails = true
+                            showSyncLogs = true
+                            settingsViewModel.triggerUploadSync(options)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("업로드를 시작합니다")
+                            }
+                        }
+                    ) {
+                        Text("업로드", color = if (hasAnySelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showUploadDialog = false
+                            uploadDataSummary = null
+                        }
+                    ) {
+                        Text("취소")
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(12.dp)
+            )
+        }
+
+        // 다운로드 선택 다이얼로그
+        if (showDownloadDialog && downloadDataSummary != null) {
+            val summary = downloadDataSummary!!
+            var downloadCategories by remember { mutableStateOf(summary.categoryCount + summary.filterRuleCount > 0) }
+            var downloadStatusSteps by remember { mutableStateOf(summary.statusStepCount > 0) }
+            var downloadMessages by remember { mutableStateOf(summary.messageCount > 0) }
+            var downloadAppFilters by remember { mutableStateOf(summary.appFilterCount > 0) }
+            var downloadPlans by remember { mutableStateOf(summary.planCount > 0) }
+            var downloadDayCategories by remember { mutableStateOf(summary.dayCategoryCount > 0) }
+
+            val hasAnySelected = downloadCategories || downloadStatusSteps || downloadMessages ||
+                    downloadAppFilters || downloadPlans || downloadDayCategories
+
+            AlertDialog(
+                onDismissRequest = {
+                    showDownloadDialog = false
+                    downloadDataSummary = null
+                },
+                title = { Text("클라우드 복원") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "서버에서 복원할 항목을 선택하세요.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = "서버 데이터",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                val categoriesTotal = summary.categoryCount + summary.filterRuleCount
+                                val categoriesCountText = if (summary.filterRuleCount > 0) {
+                                    "${summary.categoryCount}+${summary.filterRuleCount}개"
+                                } else {
+                                    "${summary.categoryCount}개"
+                                }
+
+                                UploadCheckboxRow(
+                                    label = "카테고리 & 필터 규칙",
+                                    count = categoriesCountText,
+                                    checked = downloadCategories,
+                                    enabled = categoriesTotal > 0,
+                                    onCheckedChange = { downloadCategories = it }
+                                )
+                                UploadCheckboxRow(
+                                    label = "상태 단계",
+                                    count = "${summary.statusStepCount}개",
+                                    checked = downloadStatusSteps,
+                                    enabled = summary.statusStepCount > 0,
+                                    onCheckedChange = { downloadStatusSteps = it }
+                                )
+                                UploadCheckboxRow(
+                                    label = "메시지",
+                                    count = "${summary.messageCount}개",
+                                    checked = downloadMessages,
+                                    enabled = summary.messageCount > 0,
+                                    onCheckedChange = { downloadMessages = it }
+                                )
+                                UploadCheckboxRow(
+                                    label = "앱 필터",
+                                    count = "${summary.appFilterCount}개",
+                                    checked = downloadAppFilters,
+                                    enabled = summary.appFilterCount > 0,
+                                    onCheckedChange = { downloadAppFilters = it }
+                                )
+                                UploadCheckboxRow(
+                                    label = "스케줄",
+                                    count = "${summary.planCount}개",
+                                    checked = downloadPlans,
+                                    enabled = summary.planCount > 0,
+                                    onCheckedChange = { downloadPlans = it }
+                                )
+                                UploadCheckboxRow(
+                                    label = "요일 카테고리",
+                                    count = "${summary.dayCategoryCount}개",
+                                    checked = downloadDayCategories,
+                                    enabled = summary.dayCategoryCount > 0,
+                                    onCheckedChange = { downloadDayCategories = it }
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = hasAnySelected,
+                        onClick = {
+                            val options = DownloadOptions(
+                                categories = downloadCategories,
+                                statusSteps = downloadStatusSteps,
+                                messages = downloadMessages,
+                                appFilters = downloadAppFilters,
+                                plans = downloadPlans,
+                                dayCategories = downloadDayCategories
+                            )
+                            showDownloadDialog = false
+                            downloadDataSummary = null
+                            showSyncDetails = true
+                            showSyncLogs = true
+                            settingsViewModel.triggerDownloadSync(options)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("복원을 시작합니다")
+                            }
+                        }
+                    ) {
+                        Text("복원", color = if (hasAnySelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showDownloadDialog = false
+                            downloadDataSummary = null
+                        }
+                    ) {
+                        Text("취소")
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(12.dp)
+            )
+        }
 
         // 클라우드 동기화 섹션
         SettingsSection(title = "클라우드 동기화") {
@@ -494,11 +777,11 @@ fun GeneralScreen(
             ) {
                 OutlinedButton(
                     onClick = {
-                        showSyncDetails = true
-                        showSyncLogs = true
-                        settingsViewModel.triggerUploadSync()
                         coroutineScope.launch {
-                            snackbarHostState.showSnackbar("업로드를 시작합니다")
+                            uploadDataSummary = withContext(Dispatchers.IO) {
+                                viewModel.backupManager.getDataSummary()
+                            }
+                            showUploadDialog = true
                         }
                     },
                     enabled = isLoggedIn && syncStatus != SyncStatus.SYNCING,
@@ -515,21 +798,35 @@ fun GeneralScreen(
 
                 OutlinedButton(
                     onClick = {
-                        showSyncDetails = true
-                        showSyncLogs = true
-                        settingsViewModel.triggerDownloadSync()
                         coroutineScope.launch {
-                            snackbarHostState.showSnackbar("복원을 시작합니다")
+                            isLoadingRemoteSummary = true
+                            try {
+                                downloadDataSummary = withContext(Dispatchers.IO) {
+                                    settingsViewModel.getRemoteDataSummary()
+                                }
+                                showDownloadDialog = true
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar("서버 데이터 조회 실패: ${e.message}")
+                            } finally {
+                                isLoadingRemoteSummary = false
+                            }
                         }
                     },
-                    enabled = isLoggedIn && syncStatus != SyncStatus.SYNCING,
+                    enabled = isLoggedIn && syncStatus != SyncStatus.SYNCING && !isLoadingRemoteSummary,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.CloudDownload,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    if (isLoadingRemoteSummary) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.CloudDownload,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("복원")
                 }
@@ -988,7 +1285,7 @@ fun GeneralScreen(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
             modifier = Modifier.fillMaxWidth(),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            textAlign = TextAlign.Center
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -1133,6 +1430,42 @@ private fun TableSyncStatusRow(tableInfo: TableSyncInfo) {
                 TableSyncStatus.COMPLETED -> MaterialTheme.colorScheme.primary
                 else -> MaterialTheme.colorScheme.onSurfaceVariant
             }
+        )
+    }
+}
+
+@Composable
+private fun UploadCheckboxRow(
+    label: String,
+    count: String,
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(36.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(
+            checked = checked && enabled,
+            onCheckedChange = { if (enabled) onCheckedChange(it) },
+            enabled = enabled,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = count,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+            textAlign = TextAlign.End
         )
     }
 }

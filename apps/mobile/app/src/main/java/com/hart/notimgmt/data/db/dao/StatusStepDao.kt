@@ -47,4 +47,7 @@ interface StatusStepDao {
 
     @Query("DELETE FROM status_steps WHERE isDeleted = 1 AND updatedAt < :beforeTimestamp")
     suspend fun cleanupDeleted(beforeTimestamp: Long)
+
+    @Query("DELETE FROM status_steps")
+    suspend fun deleteAll()
 }

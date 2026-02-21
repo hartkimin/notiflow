@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +45,8 @@ import androidx.compose.ui.unit.dp
 import com.hart.notimgmt.data.backup.BackupManager
 import com.hart.notimgmt.data.backup.BackupSummary
 import com.hart.notimgmt.data.backup.DataSummary
+import com.hart.notimgmt.data.backup.ExportOptions
+import com.hart.notimgmt.data.backup.RestoreOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -61,6 +64,10 @@ fun BackupRestoreSection(
     var isLoading by remember { mutableStateOf(false) }
     var dataSummary by remember { mutableStateOf<DataSummary?>(null) }
 
+    // Export dialog state
+    var showExportDialog by remember { mutableStateOf(false) }
+    var pendingExportOptions by remember { mutableStateOf<ExportOptions?>(null) }
+
     // Restore dialog state
     var showRestoreDialog by remember { mutableStateOf(false) }
     var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
@@ -75,10 +82,12 @@ fun BackupRestoreSection(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
         uri ?: return@rememberLauncherForActivityResult
+        val options = pendingExportOptions ?: ExportOptions()
+        pendingExportOptions = null
         coroutineScope.launch {
             isLoading = true
             try {
-                val json = withContext(Dispatchers.IO) { backupManager.exportToJson() }
+                val json = withContext(Dispatchers.IO) { backupManager.exportToJson(options) }
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
                 }
@@ -113,11 +122,150 @@ fun BackupRestoreSection(
         }
     }
 
-    // Restore confirmation dialog with backup preview
+    // Export selection dialog
+    if (showExportDialog && dataSummary != null) {
+        val summary = dataSummary!!
+        var exportCategories by remember { mutableStateOf(summary.categoryCount + summary.filterRuleCount > 0) }
+        var exportStatusSteps by remember { mutableStateOf(summary.statusStepCount > 0) }
+        var exportMessages by remember { mutableStateOf(summary.messageCount > 0) }
+        var exportAppFilters by remember { mutableStateOf(summary.appFilterCount > 0) }
+        var exportPlans by remember { mutableStateOf(summary.planCount > 0) }
+        var exportDayCategories by remember { mutableStateOf(summary.dayCategoryCount > 0) }
+
+        val hasAnySelected = exportCategories || exportStatusSteps || exportMessages ||
+                exportAppFilters || exportPlans || exportDayCategories
+
+        AlertDialog(
+            onDismissRequest = { showExportDialog = false },
+            title = { Text("데이터 내보내기") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "내보낼 항목을 선택하세요.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "내보낼 항목",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            val categoriesTotal = summary.categoryCount + summary.filterRuleCount
+                            val categoriesCountText = if (summary.filterRuleCount > 0) {
+                                "${summary.categoryCount}+${summary.filterRuleCount}개"
+                            } else {
+                                "${summary.categoryCount}개"
+                            }
+
+                            RestoreCheckboxRow(
+                                label = "카테고리 & 필터 규칙",
+                                count = categoriesCountText,
+                                checked = exportCategories,
+                                enabled = categoriesTotal > 0,
+                                onCheckedChange = { exportCategories = it }
+                            )
+                            RestoreCheckboxRow(
+                                label = "상태 단계",
+                                count = "${summary.statusStepCount}개",
+                                checked = exportStatusSteps,
+                                enabled = summary.statusStepCount > 0,
+                                onCheckedChange = { exportStatusSteps = it }
+                            )
+                            RestoreCheckboxRow(
+                                label = "메시지",
+                                count = "${summary.messageCount}개",
+                                checked = exportMessages,
+                                enabled = summary.messageCount > 0,
+                                onCheckedChange = { exportMessages = it }
+                            )
+                            RestoreCheckboxRow(
+                                label = "앱 필터",
+                                count = "${summary.appFilterCount}개",
+                                checked = exportAppFilters,
+                                enabled = summary.appFilterCount > 0,
+                                onCheckedChange = { exportAppFilters = it }
+                            )
+                            RestoreCheckboxRow(
+                                label = "스케줄",
+                                count = "${summary.planCount}개",
+                                checked = exportPlans,
+                                enabled = summary.planCount > 0,
+                                onCheckedChange = { exportPlans = it }
+                            )
+                            RestoreCheckboxRow(
+                                label = "요일 카테고리",
+                                count = "${summary.dayCategoryCount}개",
+                                checked = exportDayCategories,
+                                enabled = summary.dayCategoryCount > 0,
+                                onCheckedChange = { exportDayCategories = it }
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = hasAnySelected,
+                    onClick = {
+                        pendingExportOptions = ExportOptions(
+                            categories = exportCategories,
+                            statusSteps = exportStatusSteps,
+                            messages = exportMessages,
+                            appFilters = exportAppFilters,
+                            plans = exportPlans,
+                            dayCategories = exportDayCategories
+                        )
+                        showExportDialog = false
+                        val timestamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale.getDefault())
+                            .format(Date())
+                        exportLauncher.launch("notiflow_backup_${timestamp}.json")
+                    }
+                ) {
+                    Text("내보내기", color = if (hasAnySelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExportDialog = false }) {
+                    Text("취소")
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(12.dp)
+        )
+    }
+
+    // Restore confirmation dialog with backup preview + selective restore
     if (showRestoreDialog && pendingRestoreUri != null && pendingBackupSummary != null) {
         val summary = pendingBackupSummary!!
         val dateFormat = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.getDefault())
         val exportDate = if (summary.exportedAt > 0) dateFormat.format(Date(summary.exportedAt)) else "알 수 없음"
+
+        // Checkbox states for selective restore
+        var restoreCategories by remember { mutableStateOf(summary.categoryCount + summary.filterRuleCount > 0) }
+        var restoreStatusSteps by remember { mutableStateOf(summary.statusStepCount > 0) }
+        var restoreMessages by remember { mutableStateOf(summary.messageCount > 0) }
+        var restoreAppFilters by remember { mutableStateOf(summary.appFilterCount > 0) }
+        var restorePlans by remember { mutableStateOf(summary.planCount > 0) }
+        var restoreDayCategories by remember { mutableStateOf(summary.dayCategoryCount > 0) }
+
+        // 카테고리 미선택 시 요일 카테고리 자동 해제
+        LaunchedEffect(restoreCategories) {
+            if (!restoreCategories) restoreDayCategories = false
+        }
+
+        val hasAnySelected = restoreCategories || restoreStatusSteps || restoreMessages ||
+                restoreAppFilters || restorePlans || restoreDayCategories
 
         AlertDialog(
             onDismissRequest = {
@@ -129,7 +277,7 @@ fun BackupRestoreSection(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "기존 데이터를 삭제하고 아래 백업으로 복원합니다.",
+                        text = "아래 백업에서 선택한 항목을 복원합니다.",
                         style = MaterialTheme.typography.bodyMedium
                     )
 
@@ -151,30 +299,90 @@ fun BackupRestoreSection(
                             Spacer(modifier = Modifier.height(6.dp))
                             SummaryRow("백업 일시", exportDate)
                             SummaryRow("포맷 버전", "v${summary.formatVersion}")
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 6.dp),
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                        }
+                    }
+
+                    // Restore item selection
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "복원할 항목",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
                             )
-                            SummaryRow("카테고리", "${summary.categoryCount}개")
-                            SummaryRow("상태 단계", "${summary.statusStepCount}개")
-                            SummaryRow("필터 규칙", "${summary.filterRuleCount}개")
-                            SummaryRow("메시지", "${summary.messageCount}개")
-                            SummaryRow("앱 필터", "${summary.appFilterCount}개")
-                            SummaryRow("스케줄", "${summary.planCount}개")
-                            SummaryRow("요일 카테고리", "${summary.dayCategoryCount}개")
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 6.dp),
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            val categoriesTotal = summary.categoryCount + summary.filterRuleCount
+                            val categoriesCountText = if (summary.filterRuleCount > 0) {
+                                "${summary.categoryCount}+${summary.filterRuleCount}개"
+                            } else {
+                                "${summary.categoryCount}개"
+                            }
+
+                            RestoreCheckboxRow(
+                                label = "카테고리 & 필터 규칙",
+                                count = categoriesCountText,
+                                checked = restoreCategories,
+                                enabled = categoriesTotal > 0,
+                                onCheckedChange = { restoreCategories = it }
                             )
-                            SummaryRow("총 데이터", "${summary.totalCount}개", bold = true)
+                            RestoreCheckboxRow(
+                                label = "상태 단계",
+                                count = "${summary.statusStepCount}개",
+                                checked = restoreStatusSteps,
+                                enabled = summary.statusStepCount > 0,
+                                onCheckedChange = { restoreStatusSteps = it }
+                            )
+                            RestoreCheckboxRow(
+                                label = "메시지",
+                                count = "${summary.messageCount}개",
+                                checked = restoreMessages,
+                                enabled = summary.messageCount > 0,
+                                onCheckedChange = { restoreMessages = it }
+                            )
+                            RestoreCheckboxRow(
+                                label = "앱 필터",
+                                count = "${summary.appFilterCount}개",
+                                checked = restoreAppFilters,
+                                enabled = summary.appFilterCount > 0,
+                                onCheckedChange = { restoreAppFilters = it }
+                            )
+                            RestoreCheckboxRow(
+                                label = "스케줄",
+                                count = "${summary.planCount}개",
+                                checked = restorePlans,
+                                enabled = summary.planCount > 0,
+                                onCheckedChange = { restorePlans = it }
+                            )
+                            RestoreCheckboxRow(
+                                label = "요일 카테고리",
+                                count = "${summary.dayCategoryCount}개",
+                                checked = restoreDayCategories,
+                                enabled = summary.dayCategoryCount > 0 && restoreCategories,
+                                onCheckedChange = { restoreDayCategories = it }
+                            )
                         }
                     }
                 }
             },
             confirmButton = {
                 TextButton(
+                    enabled = hasAnySelected,
                     onClick = {
                         val uri = pendingRestoreUri!!
+                        val options = RestoreOptions(
+                            categories = restoreCategories,
+                            statusSteps = restoreStatusSteps,
+                            messages = restoreMessages,
+                            appFilters = restoreAppFilters,
+                            plans = restorePlans,
+                            dayCategories = restoreDayCategories
+                        )
                         showRestoreDialog = false
                         pendingRestoreUri = null
                         pendingBackupSummary = null
@@ -186,13 +394,21 @@ fun BackupRestoreSection(
                                         ?.bufferedReader()?.readText() ?: ""
                                 }
                                 withContext(Dispatchers.IO) {
-                                    backupManager.importFromJson(json, overwrite = true)
+                                    backupManager.importFromJson(json, overwrite = true, options = options)
                                 }
                                 // Refresh summary after restore
                                 dataSummary = withContext(Dispatchers.IO) {
                                     backupManager.getDataSummary()
                                 }
-                                onMessage("복원이 완료되었습니다 (${summary.totalCount}건)")
+                                // 선택된 항목 수 계산
+                                var restoredCount = 0
+                                if (options.categories) restoredCount += summary.categoryCount + summary.filterRuleCount
+                                if (options.statusSteps) restoredCount += summary.statusStepCount
+                                if (options.messages) restoredCount += summary.messageCount
+                                if (options.appFilters) restoredCount += summary.appFilterCount
+                                if (options.plans) restoredCount += summary.planCount
+                                if (options.dayCategories) restoredCount += summary.dayCategoryCount
+                                onMessage("복원이 완료되었습니다 (${restoredCount}건)")
                             } catch (e: Exception) {
                                 onMessage("복원 실패: ${e.message}")
                             } finally {
@@ -201,7 +417,7 @@ fun BackupRestoreSection(
                         }
                     }
                 ) {
-                    Text("덮어쓰기", color = MaterialTheme.colorScheme.error)
+                    Text("덮어쓰기", color = if (hasAnySelected) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f))
                 }
             },
             dismissButton = {
@@ -300,9 +516,10 @@ fun BackupRestoreSection(
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Button(
                         onClick = {
-                            val timestamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale.getDefault())
-                                .format(Date())
-                            exportLauncher.launch("notiflow_backup_${timestamp}.json")
+                            coroutineScope.launch {
+                                dataSummary = withContext(Dispatchers.IO) { backupManager.getDataSummary() }
+                                showExportDialog = true
+                            }
                         },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
@@ -337,6 +554,42 @@ private fun DataChip(label: String, count: Int) {
             text = label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun RestoreCheckboxRow(
+    label: String,
+    count: String,
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(36.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(
+            checked = checked && enabled,
+            onCheckedChange = { if (enabled) onCheckedChange(it) },
+            enabled = enabled,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = count,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+            textAlign = TextAlign.End
         )
     }
 }

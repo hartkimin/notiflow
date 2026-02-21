@@ -46,4 +46,7 @@ interface FilterRuleDao {
 
     @Query("DELETE FROM filter_rules WHERE isDeleted = 1 AND updatedAt < :beforeTimestamp")
     suspend fun cleanupDeleted(beforeTimestamp: Long)
+
+    @Query("DELETE FROM filter_rules")
+    suspend fun deleteAll()
 }

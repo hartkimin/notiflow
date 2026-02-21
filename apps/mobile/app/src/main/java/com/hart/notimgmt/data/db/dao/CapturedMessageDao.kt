@@ -18,6 +18,12 @@ interface CapturedMessageDao {
     @Query("SELECT * FROM captured_messages WHERE source = :source AND (roomName = :roomId OR (roomName IS NULL AND sender = :roomId)) AND isDeleted = 0 AND pendingPermanentDelete = 0 ORDER BY receivedAt DESC")
     fun getMessagesByRoomFlow(source: String, roomId: String): Flow<List<CapturedMessageEntity>>
 
+    @Query("SELECT * FROM captured_messages WHERE source = :source AND (roomName = :roomId OR (roomName IS NULL AND sender = :roomId)) AND isDeleted = 0 AND pendingPermanentDelete = 0 ORDER BY receivedAt ASC")
+    fun getMessagesByRoomAscFlow(source: String, roomId: String): Flow<List<CapturedMessageEntity>>
+
+    @Query("SELECT id FROM captured_messages WHERE source = :source AND (roomName = :roomId OR (roomName IS NULL AND sender = :roomId)) AND isDeleted = 0 AND pendingPermanentDelete = 0")
+    suspend fun getRoomMessageIds(source: String, roomId: String): List<String>
+
     @Query("SELECT * FROM captured_messages ORDER BY receivedAt DESC")
     suspend fun getAllOnce(): List<CapturedMessageEntity>
 
@@ -235,6 +241,9 @@ interface CapturedMessageDao {
         ORDER BY receivedAt DESC
     """)
     fun searchMessages(query: String): Flow<List<CapturedMessageEntity>>
+
+    @Query("DELETE FROM captured_messages")
+    suspend fun deleteAll()
 }
 
 data class StatusCount(val statusId: String?, val count: Int)

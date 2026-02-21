@@ -25,6 +25,12 @@ class MessageRepository @Inject constructor(
     fun getMessagesByRoomFlow(source: String, roomId: String): Flow<List<CapturedMessageEntity>> =
         messageDao.getMessagesByRoomFlow(source, roomId)
 
+    fun getMessagesByRoomAscFlow(source: String, roomId: String): Flow<List<CapturedMessageEntity>> =
+        messageDao.getMessagesByRoomAscFlow(source, roomId)
+
+    suspend fun getRoomMessageIds(source: String, roomId: String): List<String> =
+        messageDao.getRoomMessageIds(source, roomId)
+
     suspend fun getAllOnce(): List<CapturedMessageEntity> = messageDao.getAllOnce()
 
     fun getByCategoryId(categoryId: String): Flow<List<CapturedMessageEntity>> =

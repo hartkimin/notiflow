@@ -7,6 +7,9 @@ import com.hart.notimgmt.data.preferences.AppPreferences
 import com.hart.notimgmt.data.sync.SyncManager
 import com.hart.notimgmt.data.sync.SyncState
 import com.hart.notimgmt.data.sync.SyncStatus
+import com.hart.notimgmt.data.backup.DataSummary
+import com.hart.notimgmt.data.sync.DownloadOptions
+import com.hart.notimgmt.data.sync.UploadOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,12 +53,16 @@ class SettingsViewModel @Inject constructor(
         syncManager.forceSync()
     }
 
-    fun triggerUploadSync() {
-        syncManager.forceUpload()
+    fun triggerUploadSync(options: UploadOptions = UploadOptions()) {
+        syncManager.forceUpload(options)
     }
 
-    fun triggerDownloadSync() {
-        syncManager.forceDownload()
+    fun triggerDownloadSync(options: DownloadOptions = DownloadOptions()) {
+        syncManager.forceDownload(options)
+    }
+
+    suspend fun getRemoteDataSummary(): DataSummary {
+        return syncManager.getRemoteDataSummary()
     }
 
     fun logout(onLogoutComplete: () -> Unit) {

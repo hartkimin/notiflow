@@ -361,6 +361,16 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    // 대화방 삭제 (모든 메시지 소프트 삭제)
+    fun deleteRoom(source: String, roomId: String) {
+        viewModelScope.launch {
+            val ids = messageRepository.getRoomMessageIds(source, roomId)
+            if (ids.isNotEmpty()) {
+                messageRepository.softDeleteByIds(ids)
+            }
+        }
+    }
+
     // 메시지를 다음 상태로 이동
     fun moveToNextStatus(messageId: String) {
         viewModelScope.launch {

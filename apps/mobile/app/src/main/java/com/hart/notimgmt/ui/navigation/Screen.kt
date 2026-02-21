@@ -10,7 +10,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
     data object Dashboard : Screen("dashboard", "대화방", Icons.Default.Home)
-    data object Messages : Screen("messages?statusFilter={statusFilter}&completedToday={completedToday}", "메시지", Icons.AutoMirrored.Filled.Message) {
+    data object Messages : Screen("messages?statusFilter={statusFilter}&completedToday={completedToday}", "타임라인", Icons.AutoMirrored.Filled.Message) {
         const val BASE_ROUTE = "messages"
         fun createRoute(statusFilter: String? = null, completedToday: Boolean = false): String {
             val params = mutableListOf<String>()

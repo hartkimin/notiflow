@@ -41,4 +41,7 @@ interface PlanDao {
 
     @Query("DELETE FROM plans WHERE isDeleted = 1 AND updatedAt < :beforeTimestamp")
     suspend fun cleanupDeleted(beforeTimestamp: Long)
+
+    @Query("DELETE FROM plans")
+    suspend fun deleteAll()
 }

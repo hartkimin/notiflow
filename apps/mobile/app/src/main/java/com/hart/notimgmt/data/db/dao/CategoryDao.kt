@@ -44,4 +44,7 @@ interface CategoryDao {
 
     @Query("DELETE FROM categories WHERE isDeleted = 1 AND updatedAt < :beforeTimestamp")
     suspend fun cleanupDeleted(beforeTimestamp: Long)
+
+    @Query("DELETE FROM categories")
+    suspend fun deleteAll()
 }

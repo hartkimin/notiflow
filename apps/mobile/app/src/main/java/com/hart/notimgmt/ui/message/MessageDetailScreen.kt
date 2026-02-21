@@ -95,6 +95,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import com.hart.notimgmt.viewmodel.AiAnalysisState
 import com.hart.notimgmt.viewmodel.PromptPreset
+import kotlinx.coroutines.flow.StateFlow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -113,7 +114,6 @@ fun MessageDetailScreen(
     val currentMessage by messageFlow.collectAsState(initial = null)
 
     val aiAnalysisState by viewModel.aiAnalysisState.collectAsState()
-    val aiStreamingText by viewModel.aiStreamingText.collectAsState()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showCategoryDialog by remember { mutableStateOf(false) }
@@ -612,7 +612,7 @@ fun MessageDetailScreen(
                     messageContent = message.content,
                     messageId = message.id,
                     analysisState = aiAnalysisState,
-                    streamingText = aiStreamingText,
+                    streamingTextFlow = viewModel.aiStreamingText,
                     presets = remember { viewModel.getPresets() },
                     selectedPresetId = remember { viewModel.getSelectedPresetId() },
                     isModelDownloaded = viewModel.isModelDownloaded,
@@ -1094,7 +1094,7 @@ private fun AiAnalysisSection(
     messageContent: String,
     messageId: String,
     analysisState: AiAnalysisState,
-    streamingText: String,
+    streamingTextFlow: StateFlow<String>,
     presets: List<PromptPreset>,
     selectedPresetId: String,
     isModelDownloaded: Boolean,
@@ -1260,18 +1260,7 @@ private fun AiAnalysisSection(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                if (streamingText.isNotEmpty()) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHighest
-                    ) {
-                        Text(
-                            text = streamingText,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(12.dp)
-                        )
-                    }
-                }
+                StreamingTextDisplay(streamingTextFlow = streamingTextFlow)
             }
 
             // Completed - result with action buttons
@@ -1331,6 +1320,23 @@ private fun AiAnalysisSection(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun StreamingTextDisplay(streamingTextFlow: StateFlow<String>) {
+    val streamingText by streamingTextFlow.collectAsState()
+    if (streamingText.isNotEmpty()) {
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHighest
+        ) {
+            Text(
+                text = streamingText,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(12.dp)
+            )
         }
     }
 }

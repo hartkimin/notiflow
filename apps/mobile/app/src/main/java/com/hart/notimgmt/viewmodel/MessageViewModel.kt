@@ -66,6 +66,7 @@ class MessageViewModel @Inject constructor(
     // AI Analysis
     private companion object {
         const val MAX_ANALYSIS_LENGTH = 500
+        const val STREAMING_UPDATE_INTERVAL = 30 // 30자마다 UI 갱신
     }
 
     private val _aiAnalysisState = MutableStateFlow<AiAnalysisState>(AiAnalysisState.Idle)
@@ -341,14 +342,19 @@ class MessageViewModel @Inject constructor(
         aiAnalysisJob = viewModelScope.launch {
             try {
                 val accumulated = StringBuilder()
+                var lastUpdateLength = 0
                 val result = classifier.generate(
                     modelSize = appPreferences.aiModelSize,
                     prompt = prompt,
                     image = attachedImage,
                     onPartialResult = { chunk ->
                         accumulated.append(chunk)
-                        if (accumulated.length <= MAX_ANALYSIS_LENGTH) {
-                            _aiStreamingText.update { it + chunk }
+                        val currentLen = accumulated.length
+                        if (currentLen <= MAX_ANALYSIS_LENGTH &&
+                            currentLen - lastUpdateLength >= STREAMING_UPDATE_INTERVAL
+                        ) {
+                            lastUpdateLength = currentLen
+                            _aiStreamingText.value = accumulated.toString()
                         }
                     }
                 )

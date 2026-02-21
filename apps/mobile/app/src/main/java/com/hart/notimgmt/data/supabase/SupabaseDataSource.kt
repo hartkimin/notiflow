@@ -342,6 +342,20 @@ class SupabaseDataSource @Inject constructor(
             throw e
         }
     }
+
+    suspend fun clearSyncRequest(deviceId: String) {
+        try {
+            postgrest.from(MOBILE_DEVICES_TABLE).update({
+                set("sync_requested_at", null as String?)
+            }) {
+                filter { eq("id", deviceId) }
+            }
+            Log.d(TAG, "Cleared sync_requested_at for device: $deviceId")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear sync_requested_at: ${e.message}", e)
+            throw e
+        }
+    }
 }
 
 // ========== DTOs for Supabase ==========

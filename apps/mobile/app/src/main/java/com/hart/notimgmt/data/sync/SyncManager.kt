@@ -251,7 +251,6 @@ class SyncManager @Inject constructor(
                 syncPush()
                 syncPendingMessages()
                 syncPendingDeletions()
-                registerDeviceSilently()
                 markSyncSuccess()
                 addLog("✅ 업로드 완료!")
             } catch (e: Exception) {
@@ -282,7 +281,6 @@ class SyncManager @Inject constructor(
             try {
                 addLog("복원 시작...")
                 syncPull()
-                registerDeviceSilently()
                 markSyncSuccess()
                 addLog("✅ 복원 완료!")
             } catch (e: Exception) {
@@ -1359,6 +1357,9 @@ class SyncManager @Inject constructor(
         try {
             when (action) {
                 is PostgresAction.Update -> {
+                    // 동기화 중이면 무시 (무한 루프 방지)
+                    if (_syncStatus.value == SyncStatus.SYNCING) return
+
                     val dto = json.decodeFromJsonElement<MobileDeviceDto>(action.record)
                     if (dto.user_id != currentUserId) return
                     val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
@@ -1368,6 +1369,12 @@ class SyncManager @Inject constructor(
                     if (dto.sync_requested_at != null) {
                         Log.d(TAG, "Remote sync request received from web dashboard (Realtime)")
                         addLog("🔄 웹 대시보드에서 동기화 요청 수신")
+                        // sync_requested_at을 클리어하여 재트리거 방지
+                        try {
+                            supabaseDataSource.clearSyncRequest(myDeviceId)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to clear sync_requested_at", e)
+                        }
                         forceSync()
                     }
                 }

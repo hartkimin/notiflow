@@ -42,6 +42,10 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun clearSyncError() {
+        syncManager.clearErrorIfStale()
+    }
+
     fun triggerManualSync() {
         syncManager.forceSync()
     }

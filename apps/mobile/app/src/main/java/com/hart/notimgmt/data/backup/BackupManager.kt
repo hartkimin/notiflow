@@ -15,13 +15,73 @@ import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
+data class BackupSummary(
+    val formatVersion: Int,
+    val dbVersion: Int,
+    val exportedAt: Long,
+    val categoryCount: Int,
+    val statusStepCount: Int,
+    val filterRuleCount: Int,
+    val messageCount: Int,
+    val appFilterCount: Int,
+    val planCount: Int,
+    val dayCategoryCount: Int
+) {
+    val totalCount: Int
+        get() = categoryCount + statusStepCount + filterRuleCount +
+                messageCount + appFilterCount + planCount + dayCategoryCount
+}
+
+data class DataSummary(
+    val categoryCount: Int,
+    val statusStepCount: Int,
+    val filterRuleCount: Int,
+    val messageCount: Int,
+    val appFilterCount: Int,
+    val planCount: Int,
+    val dayCategoryCount: Int
+) {
+    val totalCount: Int
+        get() = categoryCount + statusStepCount + filterRuleCount +
+                messageCount + appFilterCount + planCount + dayCategoryCount
+}
+
 @Singleton
 class BackupManager @Inject constructor(
     private val db: AppDatabase
 ) {
     companion object {
-        private const val BACKUP_FORMAT_VERSION = 7
-        private const val DB_VERSION = 22
+        private const val BACKUP_FORMAT_VERSION = 8
+        private const val DB_VERSION = 25
+    }
+
+    suspend fun getDataSummary(): DataSummary {
+        val messages = db.capturedMessageDao().getAllOnce()
+        return DataSummary(
+            categoryCount = db.categoryDao().getAllOnce().count { !it.isDeleted },
+            statusStepCount = db.statusStepDao().getAllOnce().count { !it.isDeleted },
+            filterRuleCount = db.filterRuleDao().getAllOnce().count { !it.isDeleted },
+            messageCount = messages.count { !it.isDeleted && !it.pendingPermanentDelete },
+            appFilterCount = db.appFilterDao().getAllOnce().count { !it.isDeleted },
+            planCount = db.planDao().getAllOnce().count { !it.isDeleted },
+            dayCategoryCount = db.dayCategoryDao().getAllOnce().size
+        )
+    }
+
+    fun parseBackupSummary(json: String): BackupSummary {
+        val root = JSONObject(json)
+        return BackupSummary(
+            formatVersion = root.optInt("version", 0),
+            dbVersion = root.optInt("dbVersion", 0),
+            exportedAt = root.optLong("exportedAt", 0),
+            categoryCount = root.optJSONArray("categories")?.length() ?: 0,
+            statusStepCount = root.optJSONArray("statusSteps")?.length() ?: 0,
+            filterRuleCount = root.optJSONArray("filterRules")?.length() ?: 0,
+            messageCount = root.optJSONArray("messages")?.length() ?: 0,
+            appFilterCount = root.optJSONArray("appFilters")?.length() ?: 0,
+            planCount = root.optJSONArray("plans")?.length() ?: 0,
+            dayCategoryCount = root.optJSONArray("dayCategories")?.length() ?: 0
+        )
     }
 
     suspend fun exportToJson(): String {
@@ -126,6 +186,7 @@ class BackupManager @Inject constructor(
                     put("snoozeAt", m.snoozeAt ?: JSONObject.NULL)
                     put("originalContent", m.originalContent ?: JSONObject.NULL)
                     put("attachedImage", m.attachedImage ?: JSONObject.NULL)
+                    put("roomName", m.roomName ?: JSONObject.NULL)
                 })
             }
         })
@@ -322,7 +383,8 @@ class BackupManager @Inject constructor(
                         isPinned = m.optBoolean("isPinned", false),
                         snoozeAt = if (m.has("snoozeAt") && !m.isNull("snoozeAt")) m.getLong("snoozeAt") else null,
                         originalContent = if (m.has("originalContent") && !m.isNull("originalContent")) m.getString("originalContent") else null,
-                        attachedImage = if (m.has("attachedImage") && !m.isNull("attachedImage")) m.getString("attachedImage") else null
+                        attachedImage = if (m.has("attachedImage") && !m.isNull("attachedImage")) m.getString("attachedImage") else null,
+                        roomName = if (m.has("roomName") && !m.isNull("roomName")) m.getString("roomName") else null
                     )
                 )
             }

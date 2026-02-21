@@ -273,8 +273,72 @@ fun GeneralScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                when (syncStatus) {
-                    SyncStatus.IDLE -> {
+                when {
+                    !isLoggedIn -> {
+                        Icon(
+                            imageVector = Icons.Outlined.Cloud,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "로그인이 필요합니다",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    syncStatus == SyncStatus.SYNCING -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "동기화 중...",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                text = "데이터를 동기화하고 있습니다",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    syncStatus == SyncStatus.ERROR -> {
+                        Icon(
+                            imageVector = Icons.Outlined.CloudOff,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "동기화 오류",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Text(
+                                text = syncState.lastErrorMessage ?: "네트워크 연결을 확인해주세요",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        // 에러 해제 버튼
+                        OutlinedButton(
+                            onClick = { settingsViewModel.clearSyncError() },
+                            modifier = Modifier.padding(start = 8.dp),
+                            contentPadding = ButtonDefaults.ContentPadding
+                        ) {
+                            Text("해제", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    else -> {
+                        // IDLE
                         Icon(
                             imageVector = Icons.Outlined.CloudDone,
                             contentDescription = null,
@@ -297,67 +361,18 @@ fun GeneralScreen(
                             }
                         }
                     }
-                    SyncStatus.SYNCING -> {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "동기화 중...",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                text = "데이터를 동기화하고 있습니다",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    SyncStatus.ERROR -> {
-                        Icon(
-                            imageVector = Icons.Outlined.CloudOff,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "동기화 오류",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                            Text(
-                                text = "네트워크 연결을 확인해주세요",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
                 }
             }
 
-            if (!isLoggedIn) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Cloud,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "로그인이 필요합니다",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            // 마지막 동기화 시간
+            if (isLoggedIn && syncState.lastSyncAt > 0 && syncStatus != SyncStatus.SYNCING) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "마지막 동기화: ${formatSyncTime(syncState.lastSyncAt)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 36.dp)
+                )
             }
 
             // 테이블별 동기화 상태 (접을 수 있음)
@@ -472,12 +487,11 @@ fun GeneralScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 버튼들
+            // 업로드 / 복원 버튼
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // 업로드 버튼 (로컬 → 원격)
                 OutlinedButton(
                     onClick = {
                         showSyncDetails = true
@@ -499,7 +513,6 @@ fun GeneralScreen(
                     Text("업로드")
                 }
 
-                // 복원 버튼 (원격 → 로컬)
                 OutlinedButton(
                     onClick = {
                         showSyncDetails = true
@@ -520,34 +533,39 @@ fun GeneralScreen(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("복원")
                 }
+            }
 
-                // 로그아웃 버튼
-                if (isLoggedIn) {
-                    Button(
-                        onClick = { settingsViewModel.logout(onLogout) },
-                        enabled = !isLoggingOut,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer
-                        ),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        if (isLoggingOut) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.Logout,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("로그아웃")
+            // 로그아웃 버튼 (별도 행)
+            if (isLoggedIn) {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { settingsViewModel.logout(onLogout) },
+                    enabled = !isLoggingOut && syncStatus != SyncStatus.SYNCING,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                    )
+                ) {
+                    if (isLoggingOut) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.Logout,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                     }
+                    Text("로그아웃", style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
@@ -1201,5 +1219,25 @@ private fun PermissionStatusRow(
             style = MaterialTheme.typography.labelMedium,
             color = if (isGranted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
         )
+    }
+}
+
+private fun formatSyncTime(timestamp: Long): String {
+    if (timestamp <= 0) return "없음"
+    val now = System.currentTimeMillis()
+    val diff = now - timestamp
+    val minutes = diff / (1000 * 60)
+    val hours = minutes / 60
+    val days = hours / 24
+
+    return when {
+        minutes < 1 -> "방금 전"
+        minutes < 60 -> "${minutes}분 전"
+        hours < 24 -> "${hours}시간 전"
+        days < 7 -> "${days}일 전"
+        else -> {
+            val sdf = java.text.SimpleDateFormat("M/d HH:mm", java.util.Locale.getDefault())
+            sdf.format(java.util.Date(timestamp))
+        }
     }
 }

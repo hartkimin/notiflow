@@ -85,7 +85,9 @@ data class SyncState(
         TableSyncInfo("plans", "플랜"),
         TableSyncInfo("day_categories", "일별 카테고리")
     ),
-    val syncLogs: List<String> = emptyList()
+    val syncLogs: List<String> = emptyList(),
+    val lastSyncAt: Long = 0L,
+    val lastErrorMessage: String? = null
 )
 
 @Singleton
@@ -115,7 +117,7 @@ class SyncManager @Inject constructor(
     private val _syncStatus = MutableStateFlow(SyncStatus.IDLE)
     val syncStatus: StateFlow<SyncStatus> = _syncStatus.asStateFlow()
 
-    private val _syncState = MutableStateFlow(SyncState())
+    private val _syncState = MutableStateFlow(SyncState(lastSyncAt = appPreferences.lastSyncAt))
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
     private var isListening = false
@@ -146,7 +148,39 @@ class SyncManager @Inject constructor(
     }
 
     private fun resetTableStatuses() {
-        _syncState.value = SyncState()
+        _syncState.value = SyncState(lastSyncAt = appPreferences.lastSyncAt)
+    }
+
+    private fun markSyncSuccess() {
+        val now = System.currentTimeMillis()
+        appPreferences.lastSyncAt = now
+        _syncStatus.value = SyncStatus.IDLE
+        _syncState.value = _syncState.value.copy(
+            overallStatus = SyncStatus.IDLE,
+            lastSyncAt = now,
+            lastErrorMessage = null
+        )
+    }
+
+    private fun markSyncError(message: String?) {
+        _syncStatus.value = SyncStatus.ERROR
+        _syncState.value = _syncState.value.copy(
+            overallStatus = SyncStatus.ERROR,
+            lastErrorMessage = message
+        )
+    }
+
+    /**
+     * ERROR 상태를 IDLE로 리셋 (설정 화면 재진입 시 호출)
+     */
+    fun clearErrorIfStale() {
+        if (_syncStatus.value == SyncStatus.ERROR) {
+            _syncStatus.value = SyncStatus.IDLE
+            _syncState.value = _syncState.value.copy(
+                overallStatus = SyncStatus.IDLE,
+                lastErrorMessage = null
+            )
+        }
     }
 
     @Suppress("HardwareIds")
@@ -190,8 +224,7 @@ class SyncManager @Inject constructor(
             } catch (e: Exception) {
                 Log.e(TAG, "Force sync failed", e)
                 addLog("❌ 동기화 실패: ${e.message}")
-                _syncStatus.value = SyncStatus.ERROR
-                _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.ERROR)
+                markSyncError(e.message)
             }
         }
     }
@@ -219,14 +252,12 @@ class SyncManager @Inject constructor(
                 syncPendingMessages()
                 syncPendingDeletions()
                 registerDeviceSilently()
-                _syncStatus.value = SyncStatus.IDLE
-                _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.IDLE)
+                markSyncSuccess()
                 addLog("✅ 업로드 완료!")
             } catch (e: Exception) {
                 Log.e(TAG, "Upload sync failed", e)
                 addLog("❌ 업로드 실패: ${e.message}")
-                _syncStatus.value = SyncStatus.ERROR
-                _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.ERROR)
+                markSyncError(e.message)
             }
         }
     }
@@ -252,14 +283,12 @@ class SyncManager @Inject constructor(
                 addLog("복원 시작...")
                 syncPull()
                 registerDeviceSilently()
-                _syncStatus.value = SyncStatus.IDLE
-                _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.IDLE)
+                markSyncSuccess()
                 addLog("✅ 복원 완료!")
             } catch (e: Exception) {
                 Log.e(TAG, "Download sync failed", e)
                 addLog("❌ 복원 실패: ${e.message}")
-                _syncStatus.value = SyncStatus.ERROR
-                _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.ERROR)
+                markSyncError(e.message)
             }
         }
     }
@@ -304,14 +333,12 @@ class SyncManager @Inject constructor(
             syncPendingDeletions()
             registerDeviceSilently()
 
-            _syncStatus.value = SyncStatus.IDLE
-            _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.IDLE)
+            markSyncSuccess()
             addLog("✅ 동기화 완료!")
         } catch (e: Exception) {
             Log.e(TAG, "Initial sync failed: ${e.message}", e)
             addLog("❌ 동기화 실패: ${e.message}")
-            _syncStatus.value = SyncStatus.ERROR
-            _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.ERROR)
+            markSyncError(e.message)
         }
     }
 

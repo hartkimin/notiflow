@@ -179,6 +179,13 @@ class AppPreferences @Inject constructor(
             prefs.edit().putString("ai_model_size", value.name).apply()
         }
 
+    // Last cloud sync time (epoch millis)
+    var lastSyncAt: Long
+        get() = prefs.getLong("last_sync_at", 0L)
+        set(value) {
+            prefs.edit().putLong("last_sync_at", value).apply()
+        }
+
     // FCM token
     var fcmToken: String?
         get() = prefs.getString("fcm_token", null)

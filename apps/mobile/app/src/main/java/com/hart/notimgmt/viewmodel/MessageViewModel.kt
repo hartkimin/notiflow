@@ -64,6 +64,10 @@ class MessageViewModel @Inject constructor(
     val hiddenCategoryIds: StateFlow<Set<String>> = appPreferences.hiddenCategoryIdsFlow
 
     // AI Analysis
+    private companion object {
+        const val MAX_ANALYSIS_LENGTH = 500
+    }
+
     private val _aiAnalysisState = MutableStateFlow<AiAnalysisState>(AiAnalysisState.Idle)
     val aiAnalysisState: StateFlow<AiAnalysisState> = _aiAnalysisState
 
@@ -336,15 +340,22 @@ class MessageViewModel @Inject constructor(
 
         aiAnalysisJob = viewModelScope.launch {
             try {
+                val accumulated = StringBuilder()
                 val result = classifier.generate(
                     modelSize = appPreferences.aiModelSize,
                     prompt = prompt,
                     image = attachedImage,
                     onPartialResult = { chunk ->
-                        _aiStreamingText.update { it + chunk }
+                        accumulated.append(chunk)
+                        if (accumulated.length <= MAX_ANALYSIS_LENGTH) {
+                            _aiStreamingText.update { it + chunk }
+                        }
                     }
                 )
-                val finalResult = result?.trim() ?: "분석 결과를 생성하지 못했습니다."
+                val trimmed = result?.trim() ?: "분석 결과를 생성하지 못했습니다."
+                val finalResult = if (trimmed.length > MAX_ANALYSIS_LENGTH) {
+                    trimmed.take(MAX_ANALYSIS_LENGTH) + "…"
+                } else trimmed
                 _aiAnalysisState.value = AiAnalysisState.Completed(finalResult)
             } catch (e: Exception) {
                 _aiAnalysisState.value = AiAnalysisState.Error(
@@ -403,6 +414,7 @@ class MessageViewModel @Inject constructor(
     private fun buildAnalysisPrompt(content: String, presetInstruction: String?): String {
         val sb = StringBuilder()
         sb.append("<start_of_turn>user\n")
+        sb.append("[중요] 응답은 반드시 ${MAX_ANALYSIS_LENGTH}자 이내로 간결하게 작성해.\n\n")
         if (!presetInstruction.isNullOrBlank()) {
             sb.append("[지침] $presetInstruction\n\n")
         }

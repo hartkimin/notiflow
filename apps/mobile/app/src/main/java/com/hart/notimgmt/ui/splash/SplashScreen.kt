@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hart.notimgmt.ui.theme.NotiFlowWarning
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -101,9 +102,9 @@ fun SplashScreen(onFinished: () -> Unit) {
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF0F172A),
-                        Color(0xFF1E293B),
-                        Color(0xFF0F172A)
+                        Color(0xFF0F0D1A),
+                        Color(0xFF1C1A2E),
+                        Color(0xFF0F0D1A)
                     )
                 )
             ),
@@ -116,7 +117,7 @@ fun SplashScreen(onFinished: () -> Unit) {
                 .alpha(0.25f)
                 .background(
                     Brush.radialGradient(
-                        colors = listOf(Color(0xFF3B82F6), Color.Transparent)
+                        colors = listOf(Color(0xFF6366F1), Color.Transparent)
                     )
                 )
         )
@@ -144,7 +145,7 @@ fun SplashScreen(onFinished: () -> Unit) {
                             val arcSize = Size(size.width - strokeWidth, size.height - strokeWidth)
                             val arcOffset = Offset(arcPad, arcPad)
                             drawArc(
-                                color = Color(0xFF60A5FA).copy(alpha = 0.4f),
+                                color = Color(0xFF818CF8).copy(alpha = 0.4f),
                                 startAngle = 0f,
                                 sweepAngle = 90f,
                                 useCenter = false,
@@ -153,7 +154,7 @@ fun SplashScreen(onFinished: () -> Unit) {
                                 style = Stroke(strokeWidth, cap = StrokeCap.Round)
                             )
                             drawArc(
-                                color = Color(0xFF818CF8).copy(alpha = 0.35f),
+                                color = Color(0xFFA78BFA).copy(alpha = 0.35f),
                                 startAngle = 150f,
                                 sweepAngle = 70f,
                                 useCenter = false,
@@ -173,7 +174,7 @@ fun SplashScreen(onFinished: () -> Unit) {
                             val pad = sw / 2
                             val aSize = Size(size.width - sw, size.height - sw)
                             drawArc(
-                                color = Color(0xFF38BDF8).copy(alpha = 0.3f),
+                                color = Color(0xFFC4B5FD).copy(alpha = 0.3f),
                                 startAngle = 60f,
                                 sweepAngle = 80f,
                                 useCenter = false,
@@ -190,14 +191,14 @@ fun SplashScreen(onFinished: () -> Unit) {
                         .size(80.dp)
                         .scale(pulse1Scale)
                         .alpha(pulse1Alpha)
-                        .border(1.5.dp, Color(0xFF3B82F6), CircleShape)
+                        .border(1.5.dp, Color(0xFF6366F1), CircleShape)
                 )
                 Box(
                     modifier = Modifier
                         .size(80.dp)
                         .scale(pulse2Scale)
                         .alpha(pulse2Alpha)
-                        .border(1.5.dp, Color(0xFF3B82F6), CircleShape)
+                        .border(1.5.dp, Color(0xFF6366F1), CircleShape)
                 )
 
                 // ── Notification bubbles ──
@@ -209,7 +210,7 @@ fun SplashScreen(onFinished: () -> Unit) {
                 )
                 NotificationBubble(
                     icon = Icons.Rounded.Star,
-                    color = Color(0xFF3B82F6),
+                    color = Color(0xFF6366F1),
                     modifier = Modifier.align(Alignment.CenterStart).offset(x = 8.dp, y = (-15).dp),
                     delayMs = 400
                 )
@@ -221,7 +222,7 @@ fun SplashScreen(onFinished: () -> Unit) {
                 )
                 NotificationBubble(
                     icon = Icons.Rounded.Notifications,
-                    color = Color(0xFFF59E0B),
+                    color = NotiFlowWarning,
                     modifier = Modifier.align(Alignment.TopStart).offset(x = 30.dp, y = 50.dp),
                     delayMs = 200
                 )
@@ -241,12 +242,12 @@ fun SplashScreen(onFinished: () -> Unit) {
                             shadowElevation = 24.dp.toPx()
                             shape = CircleShape
                             clip = false
-                            ambientShadowColor = Color(0xFF3B82F6).copy(alpha = 0.4f)
-                            spotShadowColor = Color(0xFF3B82F6).copy(alpha = 0.6f)
+                            ambientShadowColor = Color(0xFF6366F1).copy(alpha = 0.4f)
+                            spotShadowColor = Color(0xFF6366F1).copy(alpha = 0.6f)
                         }
                         .background(
                             Brush.linearGradient(
-                                colors = listOf(Color(0xFF3B82F6), Color(0xFF6366F1)),
+                                colors = listOf(Color(0xFF6366F1), Color(0xFF8B5CF6)),
                                 start = Offset(0f, 0f),
                                 end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
                             ),
@@ -291,7 +292,7 @@ fun SplashScreen(onFinished: () -> Unit) {
                     letterSpacing = 2.sp,
                     fontWeight = FontWeight.Medium
                 ),
-                color = Color(0xFF94A3B8),
+                color = Color(0xFF9CA3AF),
                 modifier = Modifier.padding(top = 8.dp)
             )
         }

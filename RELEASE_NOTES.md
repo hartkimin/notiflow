@@ -1,5 +1,34 @@
 # NotiFlow Release Notes
 
+## v0.7.0 — 2026-02-22
+
+상용화 배포를 위한 NotiFlow 디자인 통일 및 브랜딩 리프레시.
+기능 변경 없이 디자인/스타일만 수정.
+
+### Mobile App (`apps/mobile`)
+
+- **NotiFlow Indigo 리브랜딩**: TWS Sky Blue(`#5DADE2`) → NotiFlow Indigo(`#6366F1`) 시그니처 컬러 전환.
+  Color.kt 전면 재정의 — 시그니처 5색, 라이트/다크 모드 각 8색, 시맨틱 6색,
+  카테고리 10색, 글래스모피즘 8색, 채팅 앱별 색상 토큰 100+개
+- **Pretendard Variable 폰트 적용**: 시스템 기본 → Pretendard Variable TTF.
+  12단계 타이포그래피 스케일 재정의 (Display/Headline/Title/Body/Label)
+- **Tws* → NotiFlow* 전체 리네이밍**: Color.kt, Theme.kt, GlassComponents.kt,
+  ColorPicker.kt, OnboardingScreen.kt 등 전체 코드베이스 55+ 참조 일괄 변환
+- **TwsTheme → NotiFlowDesign 리네이밍**: CompositionLocalProvider 기반 글래스 색상
+  접근자를 `NotiFlowDesign.glassColors`로 통일. 19개 UI 파일 일괄 수정
+- **AppChatStyle 색상 토큰화**: 앱별(카카오톡/텔레그램/SMS/WhatsApp/기본) 채팅 스타일의
+  20+ 하드코딩 색상을 Color.kt `NotiFlowChat*` 토큰으로 이동
+- **그림자 전면 제거**: 20+ `.shadow()` 호출 제거, 0.5dp 인디고 기반 테두리로 대체.
+  BottomNavigation만 예외 유지
+- **수동 폰트 스케일링 제거**: `labelSmall.fontSize * 0.8f/0.85f` 패턴 15곳 →
+  정의된 타이포그래피 스타일(labelSmall) 그대로 사용
+- **비표준 간격 정규화**: 6dp→8dp, 10dp→12dp, 14dp→16dp, 92dp→88dp (4dp 그리드 준수)
+- **SplashScreen 리디자인**: 슬레이트 블루 → 인디고/바이올렛 그래디언트, NotiFlowWarning 토큰 적용
+- **DESIGN.md 갱신**: NotiFlow Indigo Glassmorphism 기반으로 전면 재작성.
+  색상 팔레트, Pretendard 타이포그래피, 컴포넌트 가이드, 금지사항 명시
+
+---
+
 ## v0.3.0 — 2026-02-22
 
 알림 상세 화면 인라인 AI 분석 기능 추가.

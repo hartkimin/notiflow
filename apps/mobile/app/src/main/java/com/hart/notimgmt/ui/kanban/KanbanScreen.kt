@@ -50,7 +50,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -165,8 +164,7 @@ fun KanbanScreen(
                                 Text(
                                     text = "$filterCount",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.8f
+                                    color = MaterialTheme.colorScheme.onPrimary
                                 )
                             }
                         }
@@ -422,13 +420,7 @@ private fun KanbanColumn(
     Surface(
         modifier = Modifier
             .width(280.dp)
-            .fillMaxHeight()
-            .shadow(
-                elevation = 8.dp,
-                shape = RoundedCornerShape(16.dp),
-                ambientColor = glassColors.shadow,
-                spotColor = glassColors.shadow
-            ),
+            .fillMaxHeight(),
         color = glassColors.surface,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, glassColors.border)
@@ -438,7 +430,7 @@ private fun KanbanColumn(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(14.dp),
+                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
@@ -447,7 +439,7 @@ private fun KanbanColumn(
                         .clip(RoundedCornerShape(3.dp))
                         .background(color)
                 )
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
@@ -525,7 +517,7 @@ private fun CompactDateHeader(dateKey: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 4.dp, end = 4.dp, top = 10.dp, bottom = 4.dp),
+            .padding(start = 4.dp, end = 4.dp, top = 12.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -575,7 +567,7 @@ private fun KanbanTimelineItem(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.width(36.dp)
         ) {
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // 앱 아이콘
             val appIconBitmap = remember(message.source) {
@@ -620,7 +612,6 @@ private fun KanbanTimelineItem(
             Text(
                 text = formatTimeShort(message.receivedAt),
                 style = MaterialTheme.typography.labelSmall,
-                fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.8f,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
             )
@@ -674,12 +665,6 @@ private fun KanbanMessageCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(end = 4.dp, top = 3.dp, bottom = 3.dp)
-            .shadow(
-                elevation = 4.dp,
-                shape = RoundedCornerShape(12.dp),
-                ambientColor = glassColors.shadow,
-                spotColor = glassColors.shadow
-            )
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         color = glassColors.surfaceLight,
@@ -688,7 +673,7 @@ private fun KanbanMessageCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(10.dp)
+                .padding(12.dp)
         ) {
             // 1행: 프로필사진 + 발신자 + 카테고리태그
             Row(
@@ -736,11 +721,10 @@ private fun KanbanMessageCard(
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = catColor,
-                        fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.85f,
                         modifier = Modifier
                             .background(
                                 color = catColor.copy(alpha = 0.1f),
-                                shape = RoundedCornerShape(10.dp)
+                                shape = RoundedCornerShape(12.dp)
                             )
                             .padding(horizontal = 6.dp, vertical = 1.dp)
                     )
@@ -753,8 +737,7 @@ private fun KanbanMessageCard(
                     text = message.appName,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.85f
+                    maxLines = 1
                 )
             }
 
@@ -769,7 +752,7 @@ private fun KanbanMessageCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // 4행: 현재상태칩 + 이동버튼
             Row(
@@ -798,8 +781,7 @@ private fun KanbanMessageCard(
                                 text = currentStep.name,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = stepColor,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.85f
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }
@@ -825,8 +807,7 @@ private fun KanbanMessageCard(
                                 text = "이동",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = nextColor,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.85f
+                                fontWeight = FontWeight.SemiBold
                             )
                             Spacer(modifier = Modifier.width(2.dp))
                             Icon(

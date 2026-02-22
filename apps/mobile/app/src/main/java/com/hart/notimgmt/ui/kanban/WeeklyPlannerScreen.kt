@@ -399,7 +399,7 @@ private fun WeekIndicatorBar(
                             .clip(RoundedCornerShape(12.dp))
                             .clickable { onDayClick(i) }
                             .background(bgColor, RoundedCornerShape(12.dp))
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Text(
                             text = DAY_LABELS[i],
@@ -459,7 +459,7 @@ private fun DayPlannerContent(
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
@@ -523,7 +523,7 @@ private fun DayPlannerContent(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(14.dp),
+                                .padding(16.dp),
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -533,7 +533,7 @@ private fun DayPlannerContent(
                                 modifier = Modifier.size(18.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "카테고리 추가",
                                 style = MaterialTheme.typography.labelLarge,
@@ -613,7 +613,7 @@ private fun CategoryPlanSection(
                 if (messageCount > 0) {
                     Surface(
                         modifier = Modifier.clickable { showMessagePopup = true },
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(12.dp),
                         color = catColor.copy(alpha = 0.12f)
                     ) {
                         Row(
@@ -635,7 +635,7 @@ private fun CategoryPlanSection(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                 }
 
                 // Remove category from this day
@@ -655,7 +655,7 @@ private fun CategoryPlanSection(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
                 // Copy previous week's day plans for this category
                 Surface(
@@ -674,7 +674,7 @@ private fun CategoryPlanSection(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
                 // Add button
                 Surface(
@@ -767,7 +767,7 @@ private fun PlanItem(
                 uncheckedColor = MaterialTheme.colorScheme.outline
             )
         )
-        Spacer(modifier = Modifier.width(6.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
         // Title
         Text(
@@ -901,7 +901,7 @@ private fun PlanAddField(
                 .clip(CircleShape)
                 .background(catColor.copy(alpha = 0.4f))
         )
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Surface(
             modifier = Modifier
@@ -916,7 +916,7 @@ private fun PlanAddField(
                 onValueChange = { text = it },
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
                     color = MaterialTheme.colorScheme.onSurface
@@ -1482,7 +1482,7 @@ private fun CategoryPickerDialog(
                                     .clip(CircleShape)
                                     .background(Color(category.color))
                             )
-                            Spacer(modifier = Modifier.width(10.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = category.name,
                                 style = MaterialTheme.typography.bodyLarge,

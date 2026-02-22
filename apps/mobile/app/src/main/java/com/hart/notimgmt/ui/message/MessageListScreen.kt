@@ -93,6 +93,7 @@ import com.hart.notimgmt.data.db.entity.CapturedMessageEntity
 import com.hart.notimgmt.data.db.entity.StatusStepEntity
 import com.hart.notimgmt.ui.calendar.CalendarGrid
 import com.hart.notimgmt.ui.components.EmptyState
+import com.hart.notimgmt.ui.components.HighlightedText
 import com.hart.notimgmt.ui.components.PermissionBanner
 import com.hart.notimgmt.data.model.SortOrder
 import com.hart.notimgmt.ui.components.ConfirmDialog
@@ -740,7 +741,8 @@ fun MessageListScreen(
                             },
                             onStatusChange = { statusId ->
                                 viewModel.updateMessageStatus(message.id, statusId)
-                            }
+                            },
+                            searchQuery = searchQuery
                         )
                     }
                 }
@@ -917,7 +919,8 @@ private fun TimelineMessageItem(
     isSelected: Boolean,
     onMessageClick: () -> Unit,
     onLongClick: () -> Unit,
-    onStatusChange: (String) -> Unit
+    onStatusChange: (String) -> Unit,
+    searchQuery: String = ""
 ) {
     val context = LocalContext.current
     val catColor = Color(categoryColor)
@@ -1008,6 +1011,7 @@ private fun TimelineMessageItem(
             onStatusChange = onStatusChange,
             isSelectionMode = selectionMode,
             isSelected = isSelected,
+            searchQuery = searchQuery,
             modifier = Modifier.weight(1f)
         )
     }
@@ -1028,6 +1032,7 @@ private fun TimelineMessageCard(
     onStatusChange: (String) -> Unit,
     isSelectionMode: Boolean,
     isSelected: Boolean,
+    searchQuery: String = "",
     modifier: Modifier = Modifier
 ) {
     val catColor = Color(categoryColor)
@@ -1116,8 +1121,9 @@ private fun TimelineMessageCard(
                         Spacer(modifier = Modifier.width(6.dp))
                     }
 
-                    Text(
+                    HighlightedText(
                         text = message.sender.ifEmpty { message.appName },
+                        query = searchQuery,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -1150,8 +1156,9 @@ private fun TimelineMessageCard(
                 // 앱 이름 + 시간
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (message.appName.isNotEmpty() && message.appName != message.sender) {
-                        Text(
+                        HighlightedText(
                             text = message.appName,
+                            query = searchQuery,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1
@@ -1172,8 +1179,9 @@ private fun TimelineMessageCard(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // 메시지 내용
-                Text(
+                HighlightedText(
                     text = message.content,
+                    query = searchQuery,
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,

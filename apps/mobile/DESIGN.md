@@ -1,13 +1,13 @@
-# MedNoti Design System
+# NotiFlow Design System
 
-> TWS (투어스) iOS Glassmorphism 스타일 기반의 알림 관리 앱 디자인 시스템.
+> NotiFlow Indigo Glassmorphism 스타일 기반의 알림 관리 앱 디자인 시스템.
 > 이 문서는 모든 UI 변경 시 디자인 일관성을 유지하기 위한 단일 진실 공급원(Single Source of Truth)입니다.
 
 ---
 
 ## 1. 시각적 테마 및 분위기
 
-**핵심 아이덴티티**: iOS의 깔끔한 글래스모피즘(Glassmorphism)과 하늘색 중심의 차분한 톤.
+**핵심 아이덴티티**: iOS의 깔끔한 글래스모피즘(Glassmorphism)과 인디고 중심의 세련된 톤.
 스칸디나비안 미니멀리즘에서 영감을 받은 넓은 여백, 부드러운 모서리, 반투명 레이어가 특징.
 
 **분위기 키워드**: 신뢰감 있는, 세련된, 깔끔한, 차분한, 전문적이면서 친근한
@@ -15,7 +15,7 @@
 **디자인 원칙**:
 - 여백을 충분히 활용하여 시각적 호흡 공간 확보
 - 부드럽게 둥근 모서리(12~16dp)로 친근한 인상 유지
-- 반투명 표면과 미세한 테두리로 깊이감 표현
+- 반투명 표면과 미세한 테두리로 깊이감 표현 (그림자 사용 금지)
 - 색상 계층을 활용한 명확한 정보 위계
 
 ---
@@ -25,35 +25,35 @@
 ### 시그니처 색상
 | 역할 | 이름 | 헥스 코드 | 용도 |
 |------|------|-----------|------|
-| Primary | TWS Sky Blue | `#5DADE2` | CTA, 강조, 활성 상태 |
-| Primary Light | Sky Blue Light | `#7EC8E3` | 다크모드 Primary, 컨테이너 |
-| Primary Dark | Sky Blue Dark | `#3498DB` | 그래디언트 시작점 |
-| Secondary | TWS Mint | `#48D1CC` | 보조 강조, 그래디언트 |
-| Secondary Light | Mint Light | `#5FDDC5` | 보조 컨테이너 |
+| Primary | NotiFlow Indigo | `#6366F1` | CTA, 강조, 활성 상태 |
+| Primary Light | Indigo Light | `#818CF8` | 다크모드 Primary, 컨테이너 |
+| Primary Dark | Indigo Dark | `#4F46E5` | 그래디언트 시작점 |
+| Secondary | NotiFlow Violet | `#8B5CF6` | 보조 강조, 그래디언트 |
+| Secondary Light | Violet Light | `#A78BFA` | 보조 컨테이너 |
 
 ### 라이트 모드
 | 역할 | 헥스 코드 | 설명 |
 |------|-----------|------|
-| Background | `#F8FBFF` | 크림빛 하늘색 — 순백보다 따뜻한 배경 |
+| Background | `#FAFAFE` | 쿨 화이트 — 인디고와 조화 |
 | Surface | `#FFFFFF` | 카드/시트 표면 |
 | Surface Glass | `#FFFFFF` (70%) | 글래스 효과 표면 |
-| Surface Variant | `#EEF4F9` | 비활성 영역, 구분자 배경 |
-| Border | `#5DADE2` (30%) | 미세한 하늘빛 테두리 |
-| Text Primary | `#1B3A5F` | 남색 기반 본문 텍스트 |
-| Text Secondary | `#6B8CAE` | 보조 설명, 라벨 |
-| Text Tertiary | `#9BB3C9` | 플레이스홀더, 힌트 |
+| Surface Variant | `#F1F0FB` | 연한 인디고 틴트 |
+| Border | `#6366F1` (25%) | 인디고 기반 미세 테두리 |
+| Text Primary | `#1E1B4B` | 딥 인디고 네이비 |
+| Text Secondary | `#6B7280` | 뉴트럴 그레이 |
+| Text Tertiary | `#9CA3AF` | 플레이스홀더, 힌트 |
 
 ### 다크 모드
 | 역할 | 헥스 코드 | 설명 |
 |------|-----------|------|
-| Background | `#0D1B2A` | 깊은 네이비 배경 |
-| Surface | `#1B2D44` | 카드 표면 |
-| Surface Glass | `#1E375A` (60%) | 반투명 다크 글래스 |
-| Surface Variant | `#243B55` | 구분 영역 |
-| Border | `#7EC8E3` (20%) | 은은한 블루 테두리 |
+| Background | `#0F0D1A` | 딥 인디고 블랙 |
+| Surface | `#1C1A2E` | 다크 인디고 서피스 |
+| Surface Glass | `#1C1A2E` (60%) | 반투명 다크 글래스 |
+| Surface Variant | `#2D2B42` | 구분 영역 |
+| Border | `#818CF8` (20%) | 인디고 라이트 테두리 |
 | Text Primary | `#FFFFFF` | 밝은 본문 |
-| Text Secondary | `#A8C5DB` | 보조 텍스트 |
-| Text Tertiary | `#6B8CAE` | 비활성 텍스트 |
+| Text Secondary | `#A5B4FC` | 연한 인디고 |
+| Text Tertiary | `#6B7280` | 비활성 텍스트 |
 
 ### 시맨틱 색상
 | 역할 | 헥스 코드 | 용도 |
@@ -73,14 +73,14 @@
 
 - 카테고리 배경: 해당 색상의 10~15% 불투명도
 - 카테고리 텍스트: 해당 색상 원본
-- 기본 카테고리 색상: `#5DADE2` (TWS Sky Blue)
+- 기본 카테고리 색상: `#6366F1` (NotiFlow Indigo)
 
 ---
 
 ## 3. 타이포그래피
 
-**폰트**: System Default (iOS SF Pro 느낌 추구)
-**특징**: 약간 좁은 letter spacing으로 모던하고 깔끔한 인상
+**폰트**: Pretendard Variable
+**특징**: 한국어에 최적화된 가독성, 약간 좁은 letter spacing으로 모던하고 깔끔한 인상
 
 | 스타일 | 크기 | 두께 | 행간 | 자간 | 용도 |
 |--------|------|------|------|------|------|
@@ -99,6 +99,8 @@
 | Label Large | 16sp | SemiBold | 22sp | 0sp | 큰 버튼 텍스트 |
 | Label Medium | 13sp | Medium | 18sp | 0sp | 태그, 뱃지, 카테고리 라벨 |
 | Label Small | 11sp | Medium | 16sp | 0sp | 타임스탬프, 캡션 |
+
+**주의**: `labelSmall.fontSize * 0.8f` 같은 수동 폰트 스케일링 금지. 정의된 스타일을 그대로 사용.
 
 ---
 
@@ -119,25 +121,27 @@
 **카드 내부 패딩**: 20dp
 **카드 간 수직 간격**: 4~8dp
 
+**주의**: 6dp, 10dp, 14dp 같은 비표준 간격 사용 금지. 가장 가까운 4dp 배수로 조정.
+
 ---
 
 ## 5. 컴포넌트 스타일링
 
 ### Surface / Card
 - 모서리: 부드럽게 둥근 16dp (RoundedCornerShape)
-- 테두리: 0.5dp, outline 색상 30% 불투명도 — 미세하게 존재감을 주는 유리 테두리
-- 배경: `surface` 색상 (흰색 / 다크 네이비)
-- 그림자: 없음 (테두리로 깊이감 대체)
+- 테두리: 0.5dp, outline 색상 25% 불투명도 — 미세하게 존재감을 주는 유리 테두리
+- 배경: `surface` 색상 (흰색 / 다크 인디고)
+- 그림자: **없음** (테두리로 깊이감 대체)
 
 ### 버튼
-- **TextButton**: Primary 색상 텍스트, Bold 또는 SemiBold
+- **TextButton**: Primary 색상 텍스트, SemiBold
 - **OutlinedButton**: Primary 테두리, 내부 아이콘 + 텍스트
 - **Button (Filled)**: Error 계열은 errorContainer 배경 사용
 - **IconButton**: 32~48dp 터치 영역, 아이콘 16~24dp
 
 ### 입력 필드 (OutlinedTextField)
 - 모서리: 12dp
-- 포커스 테두리: Primary 색상
+- 포커스 테두리: Primary 색상 (Indigo)
 - 비포커스 테두리: outline 50% 불투명도
 - 플레이스홀더: onSurfaceVariant 색상, bodyMedium 스타일
 
@@ -146,6 +150,11 @@
 - 배경: 카테고리 색상 10% 불투명도
 - 텍스트: 카테고리 색상 원본, labelMedium, SemiBold
 - 내부 패딩: 수평 10dp, 수직 4dp
+
+### 채팅 버블 (AppChatStyle)
+- 앱별 고유 색상 유지 — `Color.kt`의 `NotiFlowChat*` 토큰으로 관리
+- 모서리: 최소 **8dp** (앱별 형태 유지)
+- 네이밍: `NotiFlowChat*` 접두사
 
 ### 상태 칩 (Status Step)
 - 모서리: 12dp
@@ -173,6 +182,12 @@
 ## 6. 아이콘 가이드
 
 **라이브러리**: Material Icons (Filled / Outlined)
+
+**사용 규칙**:
+- 네비게이션: **Filled** (Icons.Default)
+- 인라인 액션: **Outlined** (Icons.Outlined)
+
+**주요 아이콘**:
 - 네비게이션: `ArrowBack` (AutoMirrored)
 - 삭제: `Delete` (error tint), `Close` (subtle)
 - 전송: `Send` (AutoMirrored)
@@ -184,7 +199,7 @@
 
 **아이콘 크기 규칙**:
 - TopAppBar 액션: 24dp (기본)
-- 인라인 보조: 14~18dp
+- 인라인 보조: 18dp
 - 타임라인 삭제: 16dp
 - 상태 표시: 16~20dp
 
@@ -192,16 +207,18 @@
 
 ## 7. 글래스모피즘 효과
 
-MedNoti의 시각적 차별점. `TwsTheme.glassColors`로 접근.
+NotiFlow의 시각적 차별점. `NotiFlowDesign.glassColors`로 접근.
 
 | 토큰 | 라이트 | 다크 | 용도 |
 |------|--------|------|------|
-| Glass Surface | White 70% | Dark Blue 60% | 반투명 카드 |
-| Glass Surface Light | White 50% | Dark Blue 40% | 경량 오버레이 |
-| Glass Border | White 20% | Blue 20% | 글래스 테두리 |
-| Shadow | Sky Blue 15% | Dark 25% | 미세한 그림자 |
+| Glass Surface | White 70% | `#1C1A2E` 70% | 반투명 카드 |
+| Glass Surface Light | White 50% | `#2D2B42` 50% | 경량 오버레이 |
+| Glass Border | White 40% | `#818CF8` 30% | 글래스 테두리 |
+| Shadow | `#818CF8` 20% | Black 30% | 미세한 그림자 |
 
-**그래디언트**: Sky Blue → Mint → Sky Blue Light (배경 장식용)
+**그래디언트**:
+- 라이트: Indigo Light (`#818CF8`) → Violet Light (`#A78BFA`) → Soft Lavender (`#C4B5FD`)
+- 다크: Indigo Dark (`#4F46E5`) → Violet (`#8B5CF6`) → Indigo (`#6366F1`)
 
 ---
 
@@ -212,22 +229,18 @@ MedNoti의 시각적 차별점. `TwsTheme.glassColors`로 접근.
 ### DO (권장)
 - `MaterialTheme.colorScheme`에서 색상 가져오기
 - `MaterialTheme.typography`에서 텍스트 스타일 가져오기
-- `Surface` + `BorderStroke(0.5.dp, outline 30%)` 패턴으로 카드 구성
+- `NotiFlowDesign.glassColors`에서 글래스 색상 가져오기
+- `Surface` + `BorderStroke(0.5.dp, outline 25%)` 패턴으로 카드 구성
 - `RoundedCornerShape(12~16.dp)`로 모서리 처리
 - 충분한 여백 (카드 내부 20dp, 화면 가장자리 16dp)
 - `copy(alpha = ...)` 로 불투명도 조절
+- 4dp 배수 간격만 사용
 
 ### DON'T (금지)
 - 하드코딩된 색상값 직접 사용 (Color(0xFF...) 형태)
-- 날카로운 모서리 (4dp 이하)
-- 그림자 과다 사용 (테두리로 대체)
+- 날카로운 모서리 (8dp 미만)
+- 그림자 사용 (테두리로 대체)
+- 비표준 간격 (6dp, 10dp, 14dp 등)
+- 수동 폰트 스케일링 (`fontSize * 0.8f` 등)
 - 빽빽한 레이아웃 (최소 8dp 간격 유지)
 - 볼드 과다 사용 (제목/강조에만 한정)
-
-### 프롬프트 작성 팁 (Stitch Enhance 스킬 적용)
-UI를 설명할 때 구체적이고 시각적인 표현을 사용:
-- "부드럽게 둥근 카드" → `RoundedCornerShape(16.dp)`
-- "속삭이는 테두리" → `BorderStroke(0.5.dp, outline.copy(alpha = 0.3f))`
-- "하늘빛 강조" → `MaterialTheme.colorScheme.primary`
-- "넉넉한 숨 쉴 공간" → `padding(20.dp)`
-- "미세한 깊이감" → Surface + 얇은 border (그림자 대신)

@@ -1,6 +1,7 @@
 package com.hart.notimgmt.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -13,6 +14,7 @@ import com.hart.notimgmt.R
 // NotiFlow Typography — Pretendard
 // ============================================
 
+@OptIn(ExperimentalTextApi::class)
 val PretendardFontFamily = FontFamily(
     Font(
         R.font.pretendard_variable,

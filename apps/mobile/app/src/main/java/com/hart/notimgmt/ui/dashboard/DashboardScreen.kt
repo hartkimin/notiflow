@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.hart.notimgmt.ui.components.HighlightedText
 import com.hart.notimgmt.ui.components.NotiFlowScreenWrapper
 import com.hart.notimgmt.viewmodel.AppInfo
 import com.hart.notimgmt.viewmodel.ChatRoomItem
@@ -225,7 +226,8 @@ fun DashboardScreen(
                         ChatRoomListItem(
                             item = room,
                             onClick = { onNavigateToChat(room.source, room.roomId) },
-                            onLongClick = { roomToDelete = room }
+                            onLongClick = { roomToDelete = room },
+                            searchQuery = searchQuery
                         )
                     }
                 }
@@ -331,7 +333,8 @@ private fun AppIconChip(
 fun ChatRoomListItem(
     item: ChatRoomItem,
     onClick: () -> Unit,
-    onLongClick: () -> Unit = {}
+    onLongClick: () -> Unit = {},
+    searchQuery: String = ""
 ) {
     Row(
         modifier = Modifier
@@ -386,8 +389,9 @@ fun ChatRoomListItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
+                HighlightedText(
                     text = item.displayTitle.ifEmpty { item.appName },
+                    query = searchQuery,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -410,8 +414,9 @@ fun ChatRoomListItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
+                HighlightedText(
                     text = item.lastMessage,
+                    query = searchQuery,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

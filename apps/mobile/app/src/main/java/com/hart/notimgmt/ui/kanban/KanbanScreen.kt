@@ -66,6 +66,7 @@ import com.hart.notimgmt.data.db.entity.CapturedMessageEntity
 import com.hart.notimgmt.data.db.entity.CategoryEntity
 import com.hart.notimgmt.data.db.entity.StatusStepEntity
 import com.hart.notimgmt.data.preferences.AppPreferences.Companion.UNCATEGORIZED_ID
+import com.hart.notimgmt.ui.components.HighlightedText
 import com.hart.notimgmt.ui.components.NotiFlowScreenWrapper
 import com.hart.notimgmt.ui.theme.NotiFlowDesign
 import com.hart.notimgmt.viewmodel.KanbanViewModel
@@ -285,7 +286,8 @@ fun KanbanScreen(
                             onStatusChange = { messageId, statusId ->
                                 viewModel.updateMessageStatus(messageId, statusId)
                             },
-                            onMessageClick = onMessageClick
+                            onMessageClick = onMessageClick,
+                            searchQuery = searchQuery
                         )
                     }
                 }
@@ -413,7 +415,8 @@ private fun KanbanColumn(
     steps: List<StatusStepEntity>,
     currentStepId: String? = null,
     onStatusChange: (String, String) -> Unit,
-    onMessageClick: (String) -> Unit
+    onMessageClick: (String) -> Unit,
+    searchQuery: String = ""
 ) {
     val glassColors = NotiFlowDesign.glassColors
 
@@ -500,7 +503,8 @@ private fun KanbanColumn(
                                 steps = steps,
                                 currentStepId = currentStepId,
                                 onStatusChange = onStatusChange,
-                                onMessageClick = onMessageClick
+                                onMessageClick = onMessageClick,
+                                searchQuery = searchQuery
                             )
                         }
                     }
@@ -555,7 +559,8 @@ private fun KanbanTimelineItem(
     steps: List<StatusStepEntity>,
     currentStepId: String?,
     onStatusChange: (String, String) -> Unit,
-    onMessageClick: (String) -> Unit
+    onMessageClick: (String) -> Unit,
+    searchQuery: String = ""
 ) {
     val context = LocalContext.current
     val category = message.categoryId?.let { catId -> categories.find { it.id == catId } }
@@ -635,7 +640,8 @@ private fun KanbanTimelineItem(
                 steps = steps,
                 currentStepId = currentStepId,
                 onStatusChange = onStatusChange,
-                onClick = { onMessageClick(message.id) }
+                onClick = { onMessageClick(message.id) },
+                searchQuery = searchQuery
             )
         }
     }
@@ -648,7 +654,8 @@ private fun KanbanMessageCard(
     steps: List<StatusStepEntity>,
     currentStepId: String?,
     onStatusChange: (String, String) -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    searchQuery: String = ""
 ) {
     val glassColors = NotiFlowDesign.glassColors
     val currentIndex = steps.indexOfFirst { it.id == currentStepId }
@@ -702,8 +709,9 @@ private fun KanbanMessageCard(
                     Spacer(modifier = Modifier.width(4.dp))
                 }
 
-                Text(
+                HighlightedText(
                     text = message.sender.ifEmpty { message.appName },
+                    query = searchQuery,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -744,8 +752,9 @@ private fun KanbanMessageCard(
             Spacer(modifier = Modifier.height(4.dp))
 
             // 3행: 메시지 내용
-            Text(
+            HighlightedText(
                 text = message.content,
+                query = searchQuery,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,

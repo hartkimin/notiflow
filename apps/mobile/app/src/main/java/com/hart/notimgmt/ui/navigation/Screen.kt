@@ -28,6 +28,7 @@ object Routes {
     const val SPLASH = "splash"
     const val LOGIN = "login"
     const val ONBOARDING = "onboarding"
+    const val TUTORIAL = "tutorial"
     const val MAIN = "main"
     const val MESSAGE_DETAIL = "message_detail/{messageId}"
     const val TRASH = "trash"

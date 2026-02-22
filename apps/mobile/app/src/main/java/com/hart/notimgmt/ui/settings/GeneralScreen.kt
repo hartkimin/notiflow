@@ -100,7 +100,8 @@ import kotlinx.coroutines.launch
 fun GeneralScreen(
     viewModel: AppFilterViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
-    onLogout: () -> Unit = {}
+    onLogout: () -> Unit = {},
+    onNavigateToTutorial: () -> Unit = {}
 ) {
     val themeMode by viewModel.themeMode.collectAsState()
     val captureNotifEnabled by viewModel.captureNotificationEnabled.collectAsState()
@@ -961,6 +962,33 @@ fun GeneralScreen(
 
         // ========== 그룹: 정보 ==========
         SectionGroupHeader("정보")
+
+        // 사용 안내 다시 보기
+        SettingsSection(title = "사용 안내") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onNavigateToTutorial() }
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "사용 안내 다시 보기",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "앱의 주요 기능을 다시 확인합니다",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         // 앱 정보 섹션
         SettingsSection(title = "앱 정보") {

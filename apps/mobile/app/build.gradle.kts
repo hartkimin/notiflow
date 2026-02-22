@@ -124,6 +124,9 @@ dependencies {
 
     // EncryptedSharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // Lottie for animations
+    implementation("com.airbnb.android:lottie-compose:6.6.2")
 }
 
 apply(plugin = "com.google.gms.google-services")

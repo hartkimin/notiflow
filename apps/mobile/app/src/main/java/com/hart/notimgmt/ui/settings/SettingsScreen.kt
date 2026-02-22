@@ -23,7 +23,10 @@ import com.hart.notimgmt.ui.theme.NotiFlowDesign
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsScreen(onLogout: () -> Unit = {}) {
+fun SettingsScreen(
+    onLogout: () -> Unit = {},
+    onNavigateToTutorial: () -> Unit = {}
+) {
     val pagerState = rememberPagerState(pageCount = { 4 })
     val coroutineScope = rememberCoroutineScope()
     val glassColors = NotiFlowDesign.glassColors
@@ -79,7 +82,7 @@ fun SettingsScreen(onLogout: () -> Unit = {}) {
                     0 -> FilterScreen()
                     1 -> StatusScreen()
                     2 -> AppFilterScreen()
-                    3 -> GeneralScreen(onLogout = onLogout)
+                    3 -> GeneralScreen(onLogout = onLogout, onNavigateToTutorial = onNavigateToTutorial)
                 }
             }
         }

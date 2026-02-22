@@ -50,6 +50,7 @@ import com.hart.notimgmt.ui.chat.AiChatScreen
 import com.hart.notimgmt.ui.settings.SettingsScreen
 import com.hart.notimgmt.ui.splash.SplashScreen
 import com.hart.notimgmt.ui.trash.TrashScreen
+import com.hart.notimgmt.ui.tutorial.TutorialScreen
 import com.hart.notimgmt.ui.theme.NotiFlowDesign
 
 val LocalSnackbarHostState = compositionLocalOf<SnackbarHostState> {
@@ -71,11 +72,9 @@ fun AppNavigation(
             SplashScreen(
                 onFinished = {
                     val destination = when {
-                        // 온보딩 미완료 -> 온보딩 화면 (최초 설치 시)
                         !appPreferences.isOnboardingCompleted -> Routes.ONBOARDING
-                        // 로그인 안됨 -> 로그인 화면
+                        !appPreferences.isTutorialSeen -> Routes.TUTORIAL
                         !authManager.isLoggedIn -> Routes.LOGIN
-                        // 그 외 -> 메인 화면
                         else -> Routes.MAIN
                     }
                     navController.navigate(destination) {
@@ -89,9 +88,20 @@ fun AppNavigation(
             OnboardingScreen(
                 onComplete = {
                     appPreferences.isOnboardingCompleted = true
-                    // 온보딩 완료 후 로그인 화면으로
-                    navController.navigate(Routes.LOGIN) {
+                    navController.navigate(Routes.TUTORIAL) {
                         popUpTo(Routes.ONBOARDING) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(Routes.TUTORIAL) {
+            TutorialScreen(
+                fromSettings = false,
+                onComplete = {
+                    appPreferences.isTutorialSeen = true
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(Routes.TUTORIAL) { inclusive = true }
                     }
                 }
             )
@@ -136,7 +146,8 @@ fun MainScreen(onLogout: () -> Unit = {}) {
     val isAiChat = currentDestination?.route == Screen.AiChat.route
     val density = LocalDensity.current
     val imeVisible = WindowInsets.ime.getBottom(density) > 0
-    val hideBottomBar = isDetailScreen || isTrashScreen || isAppChatScreen || (isAiChat && imeVisible)
+    val isTutorialScreen = currentDestination?.route?.startsWith(Routes.TUTORIAL) == true
+    val hideBottomBar = isDetailScreen || isTrashScreen || isAppChatScreen || isTutorialScreen || (isAiChat && imeVisible)
 
     CompositionLocalProvider(LocalSnackbarHostState provides snackbarHostState) {
         Scaffold(
@@ -313,7 +324,14 @@ private fun MainNavHost(navController: NavHostController, modifier: Modifier = M
             Screen.Settings.route,
             enterTransition = { fadeIn(tween(200)) },
             exitTransition = { fadeOut(tween(200)) }
-        ) { SettingsScreen(onLogout = onLogout) }
+        ) {
+            SettingsScreen(
+                onLogout = onLogout,
+                onNavigateToTutorial = {
+                    navController.navigate("${Routes.TUTORIAL}?fromSettings=true")
+                }
+            )
+        }
         composable(
             Routes.TRASH,
             enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
@@ -336,6 +354,23 @@ private fun MainNavHost(navController: NavHostController, modifier: Modifier = M
             MessageDetailScreen(
                 messageId = messageId,
                 onBack = { navController.popBackStack() }
+            )
+        }
+        composable(
+            route = "${Routes.TUTORIAL}?fromSettings={fromSettings}",
+            arguments = listOf(
+                navArgument("fromSettings") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
+            ),
+            enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
+            exitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
+        ) { backStackEntry ->
+            val fromSettings = backStackEntry.arguments?.getBoolean("fromSettings") ?: false
+            TutorialScreen(
+                fromSettings = fromSettings,
+                onComplete = { navController.popBackStack() }
             )
         }
     }

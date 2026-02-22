@@ -118,6 +118,12 @@ class AppPreferences @Inject constructor(
             prefs.edit().putBoolean("onboarding_completed", value).apply()
         }
 
+    var isTutorialSeen: Boolean
+        get() = prefs.getBoolean("tutorial_seen", false)
+        set(value) {
+            prefs.edit().putBoolean("tutorial_seen", value).apply()
+        }
+
     var themeMode: ThemeMode
         get() {
             val value = prefs.getString("theme_mode", ThemeMode.SYSTEM.name)

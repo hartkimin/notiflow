@@ -81,33 +81,27 @@ class DashboardViewModel @Inject constructor(
     }
 
     // Chat Rooms Flow (All)
-    private val allChatRooms: StateFlow<List<ChatRoomItem>> = combine(
-        messageRepository.getAllActiveFlow(),
-        statusSteps
-    ) { messages, steps ->
-        val firstStepId = steps.firstOrNull()?.id
-        
-        val grouped = messages.groupBy { Pair(it.source, it.roomName ?: it.sender) }
-        grouped.map { (key, roomMessages) ->
-            val (source, roomId) = key
-            val lastMsg = roomMessages.first()
-            val unreadCount = if (firstStepId != null) {
-                roomMessages.count { it.statusId == firstStepId }
-            } else 0
+    private val allChatRooms: StateFlow<List<ChatRoomItem>> = messageRepository.getAllActiveFlow()
+        .map { messages ->
+            val grouped = messages.groupBy { Pair(it.source, it.roomName ?: it.sender) }
+            grouped.map { (key, roomMessages) ->
+                val (source, roomId) = key
+                val lastMsg = roomMessages.first()
+                val unreadCount = roomMessages.count { !it.isRead }
 
-            ChatRoomItem(
-                source = source,
-                appName = lastMsg.appName,
-                roomId = roomId,
-                displayTitle = roomId,
-                lastMessage = lastMsg.content,
-                lastReceivedAt = lastMsg.receivedAt,
-                unreadCount = unreadCount,
-                senderIcon = lastMsg.senderIcon
-            )
-        }.sortedByDescending { it.lastReceivedAt }
-    }
-    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+                ChatRoomItem(
+                    source = source,
+                    appName = lastMsg.appName,
+                    roomId = roomId,
+                    displayTitle = roomId,
+                    lastMessage = lastMsg.content,
+                    lastReceivedAt = lastMsg.receivedAt,
+                    unreadCount = unreadCount,
+                    senderIcon = lastMsg.senderIcon
+                )
+            }.sortedByDescending { it.lastReceivedAt }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _selectedApp = MutableStateFlow<String?>(null)
     val selectedApp: StateFlow<String?> = _selectedApp
@@ -165,12 +159,18 @@ class DashboardViewModel @Inject constructor(
         // 3) 두 결과를 합산
         val resultMap = mutableMapOf<Pair<String, String>, ChatRoomItem>()
 
+        // content에 검색어가 포함된 메시지를 우선 선택 (sender-only 매치보다 프리뷰 하이라이트에 유리)
+        fun List<CapturedMessageEntity>.bestPreview(): String {
+            val contentMatch = firstOrNull { it.content.contains(query, ignoreCase = true) }
+            return (contentMatch ?: first()).content
+        }
+
         // 이름 매칭된 룸 추가
         for ((key, room) in nameMatchedRooms) {
             val msgs = messagesByRoom[key]
             resultMap[key] = if (msgs != null) {
                 room.copy(
-                    lastMessage = msgs.first().content,
+                    lastMessage = msgs.bestPreview(),
                     matchCount = msgs.size
                 )
             } else {
@@ -184,7 +184,7 @@ class DashboardViewModel @Inject constructor(
             val room = filteredResults.find { it.source == key.first && it.roomId == key.second }
                 ?: continue
             resultMap[key] = room.copy(
-                lastMessage = msgs.first().content,
+                lastMessage = msgs.bestPreview(),
                 matchCount = msgs.size
             )
         }

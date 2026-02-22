@@ -9,13 +9,18 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,9 +31,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hart.notimgmt.data.db.entity.CapturedMessageEntity
+import com.hart.notimgmt.ui.components.HighlightedText
 import com.hart.notimgmt.viewmodel.AppChatViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -68,6 +75,10 @@ fun AppChatScreen(
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteAllDialog by remember { mutableStateOf(false) }
     var messageToDelete by remember { mutableStateOf<CapturedMessageEntity?>(null) }
+
+    // 검색 상태
+    var searchQuery by remember { mutableStateOf("") }
+    var isSearchVisible by remember { mutableStateOf(false) }
 
     // 전체 삭제 완료 시 화면 닫기
     LaunchedEffect(Unit) {
@@ -120,6 +131,22 @@ fun AppChatScreen(
         }
     }
 
+    val matchedItemIndices = remember(chatItems, searchQuery) {
+        if (searchQuery.isBlank()) emptyList()
+        else chatItems.mapIndexedNotNull { index, item ->
+            if (item is ChatItem.MessageItem &&
+                (item.message.content.contains(searchQuery, ignoreCase = true) ||
+                 item.message.sender.contains(searchQuery, ignoreCase = true))
+            ) index else null
+        }
+    }
+
+    var currentMatchPosition by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(searchQuery) {
+        currentMatchPosition = 0
+    }
+
     val listState = rememberLazyListState()
 
     // Auto-scroll: to unread divider if present, otherwise to bottom
@@ -128,6 +155,13 @@ fun AppChatScreen(
             val unreadDividerIndex = chatItems.indexOfFirst { it is ChatItem.UnreadDivider }
             val scrollTarget = if (unreadDividerIndex >= 0) unreadDividerIndex else chatItems.lastIndex
             listState.scrollToItem(scrollTarget)
+        }
+    }
+
+    // 검색 매치 이동
+    LaunchedEffect(currentMatchPosition, matchedItemIndices) {
+        if (matchedItemIndices.isNotEmpty() && currentMatchPosition in matchedItemIndices.indices) {
+            listState.animateScrollToItem(matchedItemIndices[currentMatchPosition])
         }
     }
 
@@ -183,39 +217,120 @@ fun AppChatScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(title, maxLines = 1) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "메뉴")
+            if (isSearchVisible) {
+                // 검색바
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 3.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(horizontal = 4.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = {
+                            searchQuery = ""
+                            isSearchVisible = false
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "닫기")
                         }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        "전체 삭제",
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                },
-                                onClick = {
-                                    showMenu = false
-                                    showDeleteAllDialog = true
-                                },
-                                enabled = messages.isNotEmpty()
+
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text("메시지 검색") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                            ),
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { searchQuery = "" }) {
+                                        Icon(Icons.Default.Close, contentDescription = "지우기",
+                                            modifier = Modifier.size(20.dp))
+                                    }
+                                }
+                            }
+                        )
+
+                        // 매치 카운터
+                        if (searchQuery.isNotBlank() && matchedItemIndices.isNotEmpty()) {
+                            Text(
+                                text = "${currentMatchPosition + 1}/${matchedItemIndices.size}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 8.dp)
                             )
+                        }
+
+                        // 이전/다음 버튼
+                        IconButton(
+                            onClick = {
+                                if (matchedItemIndices.isNotEmpty()) {
+                                    currentMatchPosition = (currentMatchPosition - 1 + matchedItemIndices.size) % matchedItemIndices.size
+                                }
+                            },
+                            enabled = matchedItemIndices.isNotEmpty()
+                        ) {
+                            Icon(Icons.Default.KeyboardArrowUp, contentDescription = "이전")
+                        }
+                        IconButton(
+                            onClick = {
+                                if (matchedItemIndices.isNotEmpty()) {
+                                    currentMatchPosition = (currentMatchPosition + 1) % matchedItemIndices.size
+                                }
+                            },
+                            enabled = matchedItemIndices.isNotEmpty()
+                        ) {
+                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "다음")
                         }
                     }
                 }
-            )
+            } else {
+                TopAppBar(
+                    title = { Text(title, maxLines = 1) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    actions = {
+                        // 검색 아이콘
+                        IconButton(onClick = { isSearchVisible = true }) {
+                            Icon(Icons.Default.Search, contentDescription = "검색")
+                        }
+                        Box {
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "메뉴")
+                            }
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            "전체 삭제",
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        showDeleteAllDialog = true
+                                    },
+                                    enabled = messages.isNotEmpty()
+                                )
+                            }
+                        }
+                    }
+                )
+            }
         }
     ) { innerPadding ->
         LazyColumn(
@@ -240,14 +355,22 @@ fun AppChatScreen(
                 val isLast = index == chatItems.lastIndex
 
                 when (item) {
-                    is ChatItem.MessageItem -> TimelineMessageRow(
-                        item = item,
-                        style = style,
-                        isFirst = isFirst,
-                        isLast = isLast,
-                        onClick = { onMessageClick(item.message.id) },
-                        onLongClick = { messageToDelete = item.message }
-                    )
+                    is ChatItem.MessageItem -> {
+                        val itemIndex = index
+                        val isActive = matchedItemIndices.isNotEmpty() &&
+                            currentMatchPosition in matchedItemIndices.indices &&
+                            matchedItemIndices[currentMatchPosition] == itemIndex
+                        TimelineMessageRow(
+                            item = item,
+                            style = style,
+                            isFirst = isFirst,
+                            isLast = isLast,
+                            onClick = { onMessageClick(item.message.id) },
+                            onLongClick = { messageToDelete = item.message },
+                            searchQuery = searchQuery,
+                            isActiveMatch = isActive
+                        )
+                    }
                     is ChatItem.DateItem -> TimelineDateHeader(
                         dateStr = item.dateStr,
                         style = style
@@ -269,7 +392,9 @@ private fun TimelineMessageRow(
     isFirst: Boolean,
     isLast: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit = {}
+    onLongClick: () -> Unit = {},
+    searchQuery: String = "",
+    isActiveMatch: Boolean = false
 ) {
     val message = item.message
     val context = LocalContext.current
@@ -400,8 +525,9 @@ private fun TimelineMessageRow(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                     }
-                    Text(
+                    HighlightedText(
                         text = message.sender,
+                        query = searchQuery,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = style.senderNameColor
@@ -423,10 +549,12 @@ private fun TimelineMessageRow(
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
                     // Message body (full text — detail screen, no maxLines)
-                    Text(
+                    HighlightedText(
                         text = message.content,
+                        query = searchQuery,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = style.bubbleOnBackground
+                        color = style.bubbleOnBackground,
+                        activeMatchIndex = if (isActiveMatch) 0 else -1
                     )
 
                     // Attached image

@@ -50,7 +50,7 @@ import com.hart.notimgmt.ui.chat.AiChatScreen
 import com.hart.notimgmt.ui.settings.SettingsScreen
 import com.hart.notimgmt.ui.splash.SplashScreen
 import com.hart.notimgmt.ui.trash.TrashScreen
-import com.hart.notimgmt.ui.theme.TwsTheme
+import com.hart.notimgmt.ui.theme.NotiFlowDesign
 
 val LocalSnackbarHostState = compositionLocalOf<SnackbarHostState> {
     error("No SnackbarHostState provided")
@@ -162,7 +162,7 @@ fun MainScreen(onLogout: () -> Unit = {}) {
 
 @Composable
 private fun BottomNavBar(navController: NavHostController, tabs: List<Screen>) {
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
 
     Surface(
         modifier = Modifier

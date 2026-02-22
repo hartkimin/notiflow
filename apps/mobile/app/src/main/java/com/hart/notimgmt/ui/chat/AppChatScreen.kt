@@ -34,7 +34,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Flat list item: either a message or a date separator. */
+/** Flat list item: either a message, a date separator, or an unread divider. */
 private sealed class ChatItem {
     data class MessageItem(
         val message: CapturedMessageEntity,
@@ -43,6 +43,7 @@ private sealed class ChatItem {
     ) : ChatItem()
 
     data class DateItem(val dateStr: String) : ChatItem()
+    data object UnreadDivider : ChatItem()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,10 +74,23 @@ fun AppChatScreen(
         viewModel.roomCleared.collect { onBack() }
     }
 
+    // 읽지 않은 메시지의 첫 번째 인덱스를 최초 로드 시 한 번만 캡처
+    var initialUnreadIndex by remember { mutableIntStateOf(-1) }
+    var unreadCaptured by remember { mutableStateOf(false) }
+
+    LaunchedEffect(messages) {
+        if (!unreadCaptured && messages.isNotEmpty()) {
+            initialUnreadIndex = messages.indexOfFirst { !it.isRead }
+            unreadCaptured = true
+            viewModel.markAllAsRead()
+        }
+    }
+
     // ASC: index 0 = oldest, last = newest
     // Date header goes BEFORE the first message of each date
-    val chatItems = remember(messages) {
+    val chatItems = remember(messages, initialUnreadIndex) {
         buildList {
+            var unreadDividerInserted = false
             messages.forEachIndexed { index, msg ->
                 val currentDate = formatDateKey(msg.receivedAt)
                 val prevMsg = messages.getOrNull(index - 1)
@@ -87,6 +101,12 @@ fun AppChatScreen(
                 // Insert date header when date changes from previous message (or first message)
                 if (prevDate == null || currentDate != prevDate) {
                     add(ChatItem.DateItem(currentDate))
+                }
+
+                // Insert unread divider before the first unread message
+                if (!unreadDividerInserted && index == initialUnreadIndex) {
+                    add(ChatItem.UnreadDivider)
+                    unreadDividerInserted = true
                 }
 
                 // Sender grouping: break at sender change OR date boundary
@@ -102,10 +122,12 @@ fun AppChatScreen(
 
     val listState = rememberLazyListState()
 
-    // Auto-scroll to newest message (bottom) on initial load
+    // Auto-scroll: to unread divider if present, otherwise to bottom
     LaunchedEffect(messages.size) {
         if (chatItems.isNotEmpty()) {
-            listState.scrollToItem(chatItems.lastIndex)
+            val unreadDividerIndex = chatItems.indexOfFirst { it is ChatItem.UnreadDivider }
+            val scrollTarget = if (unreadDividerIndex >= 0) unreadDividerIndex else chatItems.lastIndex
+            listState.scrollToItem(scrollTarget)
         }
     }
 
@@ -209,6 +231,7 @@ fun AppChatScreen(
                     when (val item = chatItems[index]) {
                         is ChatItem.MessageItem -> item.message.id
                         is ChatItem.DateItem -> "date_${item.dateStr}"
+                        is ChatItem.UnreadDivider -> "unread_divider"
                     }
                 }
             ) { index ->
@@ -229,6 +252,7 @@ fun AppChatScreen(
                         dateStr = item.dateStr,
                         style = style
                     )
+                    is ChatItem.UnreadDivider -> UnreadDividerRow()
                 }
             }
         }
@@ -472,6 +496,40 @@ private fun TimelineDateHeader(
                 .weight(1f)
                 .height(1.dp)
                 .background(style.timelineLineColor)
+        )
+    }
+}
+
+// ── Unread divider ──────────────────────────────────────────────────────────
+
+@Composable
+private fun UnreadDividerRow() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(1.dp)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+        )
+
+        Text(
+            text = "읽지 않은 알림",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 12.dp)
+        )
+
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(1.dp)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
         )
     }
 }

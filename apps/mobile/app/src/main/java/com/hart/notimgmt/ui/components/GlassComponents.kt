@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.hart.notimgmt.ui.theme.*
 
 // ============================================
-// TWS iOS Glassmorphism Components
+// NotiFlow iOS Glassmorphism Components
 // ============================================
 
 /**
@@ -37,7 +37,7 @@ fun GlassCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
 
     Surface(
         modifier = modifier
@@ -78,7 +78,7 @@ fun GlassSurface(
     onClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
 
     Surface(
         modifier = modifier
@@ -147,7 +147,7 @@ fun GlassOutlinedButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
 
     OutlinedButton(
         onClick = onClick,
@@ -178,7 +178,7 @@ fun GlassFab(
     modifier: Modifier = Modifier,
     contentDescription: String? = null
 ) {
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
 
     Box(
         modifier = modifier
@@ -259,7 +259,7 @@ fun GlassTextField(
     leadingIcon: @Composable (() -> Unit)? = null,
     trailingIcon: @Composable (() -> Unit)? = null
 ) {
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
 
     OutlinedTextField(
         value = value,
@@ -295,7 +295,7 @@ fun GlassChip(
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
     val backgroundColor = if (selected) MaterialTheme.colorScheme.primary else glassColors.surfaceLight
     val contentColor = if (selected) TwsWhite else MaterialTheme.colorScheme.onSurface
 
@@ -326,7 +326,7 @@ fun GlassChip(
 fun GlassDivider(
     modifier: Modifier = Modifier
 ) {
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
 
     Box(
         modifier = modifier

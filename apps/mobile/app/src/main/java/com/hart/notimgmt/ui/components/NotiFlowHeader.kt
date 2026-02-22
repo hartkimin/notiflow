@@ -34,7 +34,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.hart.notimgmt.ui.theme.TwsTheme
+import com.hart.notimgmt.ui.theme.NotiFlowDesign
 
 // ============================================
 // NotiFlow Collapsing Header System
@@ -142,7 +142,7 @@ fun NotiFlowHeader(
     actions: @Composable RowScope.() -> Unit = {},
     expandedContent: @Composable () -> Unit = {}
 ) {
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
     val density = LocalDensity.current
     val currentHeight = with(density) { state.currentHeightPx.toDp() }
 
@@ -199,7 +199,7 @@ fun NotiFlowHeader(
 }
 
 /**
- * NotiFlowScreenWrapper — TwsScreenWrapper 대체
+ * NotiFlowScreenWrapper — NotiFlowLegacyScreenWrapper 대체
  *
  * 그라데이션 헤더 + nestedScroll connection + 콘텐츠 슬롯
  */

@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
@@ -53,20 +53,18 @@ fun ColorPicker(
             val isSelected = argb == selectedColor
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(color.copy(alpha = 0.85f))
+                    .size(40.dp)
                     .then(
                         if (isSelected) {
-                            Modifier.border(
-                                2.dp,
-                                MaterialTheme.colorScheme.onSurface,
-                                RoundedCornerShape(8.dp)
-                            )
+                            Modifier
+                                .border(3.dp, Color.White, CircleShape)
+                                .border(2.dp, color, CircleShape)
                         } else {
                             Modifier
                         }
                     )
+                    .clip(CircleShape)
+                    .background(if (isSelected) color else color.copy(alpha = 0.85f))
                     .clickable { onColorSelected(argb) },
                 contentAlignment = Alignment.Center
             ) {

@@ -78,7 +78,7 @@ import kotlinx.coroutines.launch
 fun OnboardingScreen(onComplete: () -> Unit) {
     val pagerState = rememberPagerState(pageCount = { 3 })
     val coroutineScope = rememberCoroutineScope()
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
     val context = LocalContext.current
 
     // 권한 상태 체크

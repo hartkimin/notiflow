@@ -48,7 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hart.notimgmt.data.db.entity.CapturedMessageEntity
 import com.hart.notimgmt.data.db.entity.StatusStepEntity
-import com.hart.notimgmt.ui.theme.TwsTheme
+import com.hart.notimgmt.ui.theme.NotiFlowDesign
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -66,7 +66,7 @@ fun MessageCard(
     isSelected: Boolean = false
 ) {
     val catColor = Color(categoryColor)
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
     val borderColor = when {
         isSelected -> MaterialTheme.colorScheme.primary
         message.isPinned -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)

@@ -73,7 +73,7 @@ import com.hart.notimgmt.data.db.entity.CapturedMessageEntity
 import com.hart.notimgmt.data.db.entity.CategoryEntity
 import com.hart.notimgmt.data.db.entity.PlanEntity
 import com.hart.notimgmt.ui.components.NotiFlowScreenWrapper
-import com.hart.notimgmt.ui.theme.TwsTheme
+import com.hart.notimgmt.ui.theme.NotiFlowDesign
 import com.hart.notimgmt.viewmodel.WeeklyPlannerViewModel
 import com.hart.notimgmt.viewmodel.WeeklyPlannerViewModel.Companion.toEpochMillis
 import kotlinx.coroutines.launch
@@ -316,7 +316,7 @@ private fun WeekIndicatorBar(
     onPreviousWeek: () -> Unit = {},
     onNextWeek: () -> Unit = {}
 ) {
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -574,7 +574,7 @@ private fun CategoryPlanSection(
     onCopyPreviousDay: () -> Unit = {},
     onRemoveCategory: () -> Unit = {}
 ) {
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
     val catColor = Color(category.color)
     var isAdding by remember { mutableStateOf(false) }
     var showMessagePopup by remember { mutableStateOf(false) }

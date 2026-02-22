@@ -13,6 +13,8 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -36,6 +39,7 @@ import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SortByAlpha
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -80,7 +84,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.hart.notimgmt.data.db.entity.AppFilterEntity
 import com.hart.notimgmt.data.db.entity.CategoryEntity
 import com.hart.notimgmt.data.db.entity.FilterRuleEntity
-import com.hart.notimgmt.ui.theme.TwsTheme
+import com.hart.notimgmt.ui.theme.NotiFlowDesign
 import com.hart.notimgmt.viewmodel.FilterViewModel
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -619,7 +623,7 @@ private fun CategoryRulesDialog(
     onToggleRule: (FilterRuleEntity, Boolean) -> Unit
 ) {
     val catColor = Color(category.color)
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -644,8 +648,8 @@ private fun CategoryRulesDialog(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(24.dp)
-                            .clip(RoundedCornerShape(6.dp))
+                            .size(28.dp)
+                            .clip(CircleShape)
                             .background(catColor.copy(alpha = 0.8f))
                     )
                     Spacer(modifier = Modifier.width(12.dp))
@@ -655,22 +659,34 @@ private fun CategoryRulesDialog(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
-                        Text(
-                            text = "필터 규칙 ${rules.size}개",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = "${rules.size}개",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
                     }
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(32.dp)
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "닫기",
-                            modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "닫기",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
 
@@ -688,11 +704,21 @@ private fun CategoryRulesDialog(
                             .weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "필터 규칙이 없습니다.\n아래 버튼을 눌러 규칙을 추가하세요.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Outlined.FilterList,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "필터 규칙이 없습니다.\n아래 버튼을 눌러 규칙을 추가하세요.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
                     }
                 } else {
                     LazyColumn(
@@ -716,8 +742,11 @@ private fun CategoryRulesDialog(
                 // Add rule button
                 OutlinedButton(
                     onClick = onAddRule,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                 ) {
                     Icon(
                         Icons.Default.Add,
@@ -732,6 +761,7 @@ private fun CategoryRulesDialog(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DialogRuleItem(
     rule: FilterRuleEntity,
@@ -740,34 +770,50 @@ private fun DialogRuleItem(
     onDelete: () -> Unit,
     onToggleActive: (Boolean) -> Unit
 ) {
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
 
     Surface(
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(12.dp),
         color = if (rule.isActive) glassColors.surfaceLight
         else glassColors.surfaceLight.copy(alpha = 0.5f),
-        border = BorderStroke(1.dp, glassColors.border)
+        border = BorderStroke(1.dp, glassColors.border),
+        modifier = Modifier.shadow(
+            elevation = if (rule.isActive) 2.dp else 0.dp,
+            shape = RoundedCornerShape(12.dp),
+            ambientColor = glassColors.shadow,
+            spotColor = glassColors.shadow
+        )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp)
+                .padding(14.dp)
         ) {
-            // 대상 앱 표시
+            // 대상 앱 표시 (pill chips)
             if (rule.targetAppPackages.isNotEmpty()) {
                 val appNames = rule.targetAppPackages.map { pkg ->
                     if (pkg == "SMS") "SMS"
                     else allowedApps.find { it.packageName == pkg }?.appName ?: pkg
                 }
-                val appText = if (appNames.size <= 2) appNames.joinToString(", ")
-                else "${appNames.take(2).joinToString(", ")} 외 ${appNames.size - 2}개"
-                Text(
-                    text = "대상: $appText",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    appNames.forEach { name ->
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                        ) {
+                            Text(
+                                text = name,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
             }
 
             if (rule.senderKeywords.isNotEmpty()) {
@@ -811,7 +857,7 @@ private fun DialogRuleItem(
                         checkedTrackColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(12.dp))
                 IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
                     Icon(
                         Icons.Default.Edit,
@@ -849,7 +895,7 @@ private fun CategoryItem(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val catColor = Color(category.color)
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
     val isActive = category.isActive
 
     Surface(

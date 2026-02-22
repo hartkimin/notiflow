@@ -16,13 +16,13 @@ import com.hart.notimgmt.R
 import com.hart.notimgmt.ui.theme.*
 
 // ============================================
-// TWS Background Components
+// NotiFlow Background Components
 // ============================================
 
 /**
- * TWS 이미지 리소스 상수
+ * NotiFlow이미지 리소스 상수
  */
-object TwsImages {
+object NotiFlowImages {
     val SPLASH = R.drawable.notiflow_splash_bg          // 스플래시 배경 (NotiFlow 브랜드)
     val BACKGROUND = R.drawable.notiflow_onboarding_bg  // 온보딩 배경 (NotiFlow 브랜드)
     val HEADER = R.drawable.notiflow_onboarding_bg      // 헤더 배경 (NotiFlow 브랜드)
@@ -31,15 +31,15 @@ object TwsImages {
 }
 
 /**
- * TWS 그라데이션 배경 (이미지 없을 때 기본 배경)
+ * NotiFlow그라데이션 배경 (이미지 없을 때 기본 배경)
  */
 @Composable
-fun TwsGradientBackground(
+fun NotiFlowGradientBackground(
     modifier: Modifier = Modifier,
     style: GradientStyle = GradientStyle.DIAGONAL,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
 
     val gradientBrush = when (style) {
         GradientStyle.DIAGONAL -> Brush.linearGradient(
@@ -86,11 +86,11 @@ enum class GradientStyle {
 }
 
 /**
- * TWS 이미지 배경 (사용자가 이미지 추가 시 사용)
+ * NotiFlow이미지 배경 (사용자가 이미지 추가 시 사용)
  * 이미지 위에 블러 + 그라데이션 오버레이
  */
 @Composable
-fun TwsImageBackground(
+fun NotiFlowImageBackground(
     imageResId: Int? = null,
     imageUrl: String? = null,
     modifier: Modifier = Modifier,
@@ -98,7 +98,7 @@ fun TwsImageBackground(
     overlayAlpha: Float = 0.5f,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
 
     Box(modifier = modifier.fillMaxSize()) {
         // Background Image
@@ -137,15 +137,15 @@ fun TwsImageBackground(
 }
 
 /**
- * TWS 스플래시 배경
+ * NotiFlow스플래시 배경
  */
 @Composable
-fun TwsSplashBackground(
-    imageResId: Int? = TwsImages.SPLASH,
+fun NotiFlowSplashBackground(
+    imageResId: Int? = NotiFlowImages.SPLASH,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
 
     Box(modifier = modifier.fillMaxSize()) {
         if (imageResId != null) {
@@ -191,16 +191,16 @@ fun TwsSplashBackground(
 }
 
 /**
- * TWS 상단 헤더 배경 (페이드아웃)
+ * NotiFlow상단 헤더 배경 (페이드아웃)
  */
 @Deprecated("Use NotiFlowHeader instead — provides collapsing behavior and integrated gradient")
 @Composable
-fun TwsHeaderBackground(
-    imageResId: Int? = TwsImages.HEADER,
+fun NotiFlowHeaderBackground(
+    imageResId: Int? = NotiFlowImages.HEADER,
     height: Int = 200,
     modifier: Modifier = Modifier
 ) {
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
 
     Box(
         modifier = modifier
@@ -227,8 +227,8 @@ fun TwsHeaderBackground(
                     .background(
                         brush = Brush.verticalGradient(
                             colors = listOf(
-                                TwsSkyBlue.copy(alpha = 0.3f),
-                                TwsSkyBlue.copy(alpha = 0.1f),
+                                NotiFlowIndigo.copy(alpha = 0.3f),
+                                NotiFlowIndigo.copy(alpha = 0.1f),
                                 Color.Transparent
                             )
                         )
@@ -272,10 +272,10 @@ fun TwsHeaderBackground(
 @Deprecated("Use NotiFlowScreenWrapper instead — provides collapsing header and better space usage")
 @Suppress("DEPRECATION")
 @Composable
-fun TwsScreenWrapper(
+fun NotiFlowLegacyScreenWrapper(
     modifier: Modifier = Modifier,
     showHeader: Boolean = true,
-    headerImageResId: Int? = TwsImages.HEADER,
+    headerImageResId: Int? = NotiFlowImages.HEADER,
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(
@@ -285,7 +285,7 @@ fun TwsScreenWrapper(
     ) {
         // Optional header background
         if (showHeader) {
-            TwsHeaderBackground(
+            NotiFlowHeaderBackground(
                 imageResId = headerImageResId,
                 height = 180
             )

@@ -568,8 +568,15 @@ fun GeneralScreen(
                         Text(
                             text = "로그인이 필요합니다",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
                         )
+                        OutlinedButton(
+                            onClick = onLogout,
+                            contentPadding = ButtonDefaults.ContentPadding
+                        ) {
+                            Text("로그인", style = MaterialTheme.typography.labelMedium)
+                        }
                     }
                     syncStatus == SyncStatus.SYNCING -> {
                         CircularProgressIndicator(

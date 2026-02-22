@@ -1,8 +1,11 @@
 package com.hart.notimgmt.ui.filter
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,11 +15,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.Summarize
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,6 +51,7 @@ import com.hart.notimgmt.data.db.entity.AppFilterEntity
 import com.hart.notimgmt.data.db.entity.FilterRuleEntity
 import com.hart.notimgmt.data.model.ConditionType
 import com.hart.notimgmt.data.model.KeywordItem
+import com.hart.notimgmt.ui.components.GlassDivider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -149,6 +155,8 @@ fun FilterRuleEditDialog(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+            GlassDivider()
+            Spacer(modifier = Modifier.height(16.dp))
 
             // 스크롤 가능한 본문
             Column(modifier = Modifier.verticalScroll(scrollState)) {
@@ -175,89 +183,82 @@ fun FilterRuleEditDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // ━━ 1. 대상 앱 ━━
-                Text(
-                    "대상 앱",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "이 규칙이 적용될 앱",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                SectionContainer(
+                    title = "대상 앱",
+                    subtitle = "이 규칙이 적용될 앱"
                 ) {
-                    SegmentedSelector(
-                        options = listOf("전체 앱" to true, "특정 앱" to false),
-                        selected = isAllApps,
-                        onSelect = { isAllApps = it }
-                    )
-                    if (!isAllApps && selectedAppPackages.isNotEmpty()) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "선택됨: ${selectedAppPackages.size}개",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-
-                if (!isAllApps) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(8.dp)) {
-                            // SMS option
-                            if (smsCaptureEnabled) {
-                                AppCheckboxItem(
-                                    appName = "SMS",
-                                    packageName = "SMS",
-                                    isChecked = "SMS" in selectedAppPackages,
-                                    onCheckedChange = { checked ->
-                                        if (checked) selectedAppPackages.add("SMS")
-                                        else selectedAppPackages.remove("SMS")
+                        SegmentedSelector(
+                            options = listOf("전체 앱" to true, "특정 앱" to false),
+                            selected = isAllApps,
+                            onSelect = { isAllApps = it }
+                        )
+                        if (!isAllApps && selectedAppPackages.isNotEmpty()) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "선택됨: ${selectedAppPackages.size}개",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+
+                    if (!isAllApps) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                // SMS option
+                                if (smsCaptureEnabled) {
+                                    AppCheckboxItem(
+                                        appName = "SMS",
+                                        packageName = "SMS",
+                                        isChecked = "SMS" in selectedAppPackages,
+                                        onCheckedChange = { checked ->
+                                            if (checked) selectedAppPackages.add("SMS")
+                                            else selectedAppPackages.remove("SMS")
+                                        }
+                                    )
+                                    if (allowedApps.isNotEmpty()) {
+                                        HorizontalDivider(
+                                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                                            modifier = Modifier.padding(vertical = 2.dp)
+                                        )
                                     }
-                                )
-                                if (allowedApps.isNotEmpty()) {
-                                    HorizontalDivider(
-                                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                                        modifier = Modifier.padding(vertical = 2.dp)
+                                }
+                                // Allowed apps
+                                allowedApps.forEachIndexed { index, app ->
+                                    AppCheckboxItem(
+                                        appName = app.appName,
+                                        packageName = app.packageName,
+                                        isChecked = app.packageName in selectedAppPackages,
+                                        onCheckedChange = { checked ->
+                                            if (checked) selectedAppPackages.add(app.packageName)
+                                            else selectedAppPackages.remove(app.packageName)
+                                        }
+                                    )
+                                    if (index < allowedApps.lastIndex) {
+                                        HorizontalDivider(
+                                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                                            modifier = Modifier.padding(vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                                if (allowedApps.isEmpty() && !smsCaptureEnabled) {
+                                    Text(
+                                        "등록된 앱이 없습니다.\n앱 필터 설정에서 앱을 추가하세요.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(8.dp)
                                     )
                                 }
-                            }
-                            // Allowed apps
-                            allowedApps.forEachIndexed { index, app ->
-                                AppCheckboxItem(
-                                    appName = app.appName,
-                                    packageName = app.packageName,
-                                    isChecked = app.packageName in selectedAppPackages,
-                                    onCheckedChange = { checked ->
-                                        if (checked) selectedAppPackages.add(app.packageName)
-                                        else selectedAppPackages.remove(app.packageName)
-                                    }
-                                )
-                                if (index < allowedApps.lastIndex) {
-                                    HorizontalDivider(
-                                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                                        modifier = Modifier.padding(vertical = 2.dp)
-                                    )
-                                }
-                            }
-                            if (allowedApps.isEmpty() && !smsCaptureEnabled) {
-                                Text(
-                                    "등록된 앱이 없습니다.\n앱 필터 설정에서 앱을 추가하세요.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(8.dp)
-                                )
                             }
                         }
                     }
@@ -266,57 +267,58 @@ fun FilterRuleEditDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // ━━ 2. 발신자 키워드 ━━
-                Text(
-                    "발신자 키워드",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "발신자 이름에 포함된 키워드 (OR 조건)",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                SectionContainer(
+                    title = "발신자 키워드",
+                    subtitle = "발신자 이름에 포함된 키워드 (OR 조건)"
                 ) {
-                    OutlinedTextField(
-                        value = senderInput,
-                        onValueChange = { senderInput = it },
-                        label = { Text("발신자 입력") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = textFieldColors
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    IconButton(
-                        onClick = {
-                            if (senderInput.isNotBlank()) {
-                                senderKeywords.add(KeywordItem(senderInput.trim()))
-                                senderInput = ""
-                            }
-                        }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "추가")
-                    }
-                }
-
-                if (senderKeywords.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        senderKeywords.forEachIndexed { index, item ->
-                            KeywordChipWithToggle(
-                                keyword = item.keyword,
-                                isEnabled = item.isEnabled,
-                                onToggle = { enabled ->
-                                    senderKeywords[index] = item.copy(isEnabled = enabled)
-                                },
-                                onDelete = { senderKeywords.removeAt(index) }
+                        OutlinedTextField(
+                            value = senderInput,
+                            onValueChange = { senderInput = it },
+                            label = { Text("발신자 입력") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = textFieldColors
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            onClick = {
+                                if (senderInput.isNotBlank()) {
+                                    senderKeywords.add(KeywordItem(senderInput.trim()))
+                                    senderInput = ""
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primary
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "추가",
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.padding(12.dp).size(20.dp)
                             )
+                        }
+                    }
+
+                    if (senderKeywords.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            senderKeywords.forEachIndexed { index, item ->
+                                KeywordChipWithToggle(
+                                    keyword = item.keyword,
+                                    isEnabled = item.isEnabled,
+                                    onToggle = { enabled ->
+                                        senderKeywords[index] = item.copy(isEnabled = enabled)
+                                    },
+                                    onDelete = { senderKeywords.removeAt(index) }
+                                )
+                            }
                         }
                     }
                 }
@@ -352,57 +354,58 @@ fun FilterRuleEditDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // ━━ 4. 포함 키워드 ━━
-                Text(
-                    "포함 키워드",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "메시지 내용에 포함된 키워드 (OR 조건)",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                SectionContainer(
+                    title = "포함 키워드",
+                    subtitle = "메시지 내용에 포함된 키워드 (OR 조건)"
                 ) {
-                    OutlinedTextField(
-                        value = includeInput,
-                        onValueChange = { includeInput = it },
-                        label = { Text("키워드 입력") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = textFieldColors
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    IconButton(
-                        onClick = {
-                            if (includeInput.isNotBlank()) {
-                                includeWords.add(KeywordItem(includeInput.trim()))
-                                includeInput = ""
-                            }
-                        }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "추가")
-                    }
-                }
-
-                if (includeWords.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        includeWords.forEachIndexed { index, item ->
-                            KeywordChipWithToggle(
-                                keyword = item.keyword,
-                                isEnabled = item.isEnabled,
-                                onToggle = { enabled ->
-                                    includeWords[index] = item.copy(isEnabled = enabled)
-                                },
-                                onDelete = { includeWords.removeAt(index) }
+                        OutlinedTextField(
+                            value = includeInput,
+                            onValueChange = { includeInput = it },
+                            label = { Text("키워드 입력") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = textFieldColors
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            onClick = {
+                                if (includeInput.isNotBlank()) {
+                                    includeWords.add(KeywordItem(includeInput.trim()))
+                                    includeInput = ""
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primary
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "추가",
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.padding(12.dp).size(20.dp)
                             )
+                        }
+                    }
+
+                    if (includeWords.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            includeWords.forEachIndexed { index, item ->
+                                KeywordChipWithToggle(
+                                    keyword = item.keyword,
+                                    isEnabled = item.isEnabled,
+                                    onToggle = { enabled ->
+                                        includeWords[index] = item.copy(isEnabled = enabled)
+                                    },
+                                    onDelete = { includeWords.removeAt(index) }
+                                )
+                            }
                         }
                     }
                 }
@@ -412,16 +415,26 @@ fun FilterRuleEditDialog(
                 // ━━ 필터링 조건 요약 카드 ━━
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f),
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            "필터링 조건 요약",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Outlined.Summarize,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                "필터링 조건 요약",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         // 대상 앱 요약
                         val appSummary = if (isAllApps) {
@@ -435,35 +448,74 @@ fun FilterRuleEditDialog(
                             else if (names.size <= 2) names.joinToString(", ")
                             else "${names.take(2).joinToString(", ")} 외 ${names.size - 2}개"
                         }
-                        Text(
-                            "• 대상 앱: $appSummary",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        Text(
-                            "• 발신자 키워드 중 하나라도 포함 (OR)",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            "• 포함 키워드 중 하나라도 포함 (OR)",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
+                        SummaryBulletItem("대상 앱: $appSummary")
+                        SummaryBulletItem("발신자 키워드 중 하나라도 포함 (OR)")
+                        SummaryBulletItem("포함 키워드 중 하나라도 포함 (OR)")
+                        SummaryBulletItem(
                             if (conditionType == ConditionType.AND)
-                                "• 위 두 조건을 모두 만족 (AND)"
+                                "위 두 조건을 모두 만족 (AND)"
                             else
-                                "• 위 두 조건 중 하나만 만족 (OR)",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                "위 두 조건 중 하나만 만족 (OR)"
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
             }
+        }
+    }
+}
+
+@Composable
+private fun SummaryBulletItem(text: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 1.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .background(MaterialTheme.colorScheme.primary, CircleShape)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun SectionContainer(
+    title: String,
+    subtitle: String? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        subtitle?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f),
+            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                content = content
+            )
         }
     }
 }
@@ -515,56 +567,71 @@ private fun KeywordChipWithToggle(
     onToggle: (Boolean) -> Unit,
     onDelete: () -> Unit
 ) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = if (isEnabled)
-            MaterialTheme.colorScheme.surfaceVariant
-        else
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-        border = BorderStroke(
-            0.5.dp,
-            if (isEnabled)
-                MaterialTheme.colorScheme.outline
-            else
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        // Left accent bar
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(36.dp)
+                .background(
+                    if (isEnabled) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    RoundedCornerShape(1.5.dp)
+                )
         )
-    ) {
-        Row(
-            modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = keyword,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isEnabled)
-                    MaterialTheme.colorScheme.onSurface
+        Spacer(modifier = Modifier.width(8.dp))
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = if (isEnabled)
+                MaterialTheme.colorScheme.surfaceVariant
+            else
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+            border = BorderStroke(
+                0.5.dp,
+                if (isEnabled)
+                    MaterialTheme.colorScheme.outline
                 else
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                modifier = Modifier.weight(1f)
-            )
-
-            Switch(
-                checked = isEnabled,
-                onCheckedChange = onToggle,
-                modifier = Modifier.size(width = 40.dp, height = 24.dp),
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.surface,
-                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            )
-
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.size(32.dp)
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+            ),
+            modifier = Modifier.weight(1f)
+        ) {
+            Row(
+                modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Default.Close,
-                    contentDescription = "삭제",
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                Text(
+                    text = keyword,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (isEnabled)
+                        MaterialTheme.colorScheme.onSurface
+                    else
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    modifier = Modifier.weight(1f)
                 )
+
+                Switch(
+                    checked = isEnabled,
+                    onCheckedChange = onToggle,
+                    modifier = Modifier.size(width = 40.dp, height = 24.dp),
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.surface,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                )
+
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "삭제",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
@@ -581,9 +648,9 @@ fun <T> SegmentedSelector(
             val isSelected = selected == value
             Surface(
                 onClick = { onSelect(value) },
-                shape = RoundedCornerShape(6.dp),
+                shape = RoundedCornerShape(8.dp),
                 color = if (isSelected)
-                    MaterialTheme.colorScheme.onSurface
+                    MaterialTheme.colorScheme.primary
                 else
                     MaterialTheme.colorScheme.surface,
                 border = if (!isSelected)
@@ -596,10 +663,10 @@ fun <T> SegmentedSelector(
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
                     color = if (isSelected)
-                        MaterialTheme.colorScheme.surface
+                        MaterialTheme.colorScheme.onPrimary
                     else
                         MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                 )
             }
         }

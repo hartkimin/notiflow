@@ -19,14 +19,14 @@ import com.hart.notimgmt.ui.components.NotiFlowScreenWrapper
 import com.hart.notimgmt.ui.filter.AppFilterScreen
 import com.hart.notimgmt.ui.filter.FilterScreen
 import com.hart.notimgmt.ui.status.StatusScreen
-import com.hart.notimgmt.ui.theme.TwsTheme
+import com.hart.notimgmt.ui.theme.NotiFlowDesign
 import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(onLogout: () -> Unit = {}) {
     val pagerState = rememberPagerState(pageCount = { 4 })
     val coroutineScope = rememberCoroutineScope()
-    val glassColors = TwsTheme.glassColors
+    val glassColors = NotiFlowDesign.glassColors
 
     val tabTitles = listOf("키워드", "상태", "앱", "설정")
 

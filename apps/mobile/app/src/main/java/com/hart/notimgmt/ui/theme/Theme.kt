@@ -151,6 +151,3 @@ object NotiFlowDesign {
         @Composable
         get() = LocalGlassColors.current
 }
-
-// Backward compatibility alias (remove after Task 5)
-val TwsTheme = NotiFlowDesign

@@ -80,10 +80,16 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    // 그룹채팅(roomName != sender)만 roomName으로 분리, 나머지는 발신자 기준 그룹
+    private fun CapturedMessageEntity.roomKey(): Pair<String, String> {
+        val isGroupChat = roomName != null && roomName != sender
+        return Pair(source, if (isGroupChat) roomName!! else sender)
+    }
+
     // Chat Rooms Flow (All)
     private val allChatRooms: StateFlow<List<ChatRoomItem>> = messageRepository.getAllActiveFlow()
         .map { messages ->
-            val grouped = messages.groupBy { Pair(it.source, it.roomName ?: it.sender) }
+            val grouped = messages.groupBy { it.roomKey() }
             grouped.map { (key, roomMessages) ->
                 val (source, roomId) = key
                 val lastMsg = roomMessages.first()
@@ -152,9 +158,7 @@ class DashboardViewModel @Inject constructor(
         }.associateBy { Pair(it.source, it.roomId) }
 
         // 2) 메시지 내용 전문 검색 결과를 룸 키별로 그룹화
-        val messagesByRoom = matchedMessages.groupBy { msg ->
-            Pair(msg.source, msg.roomName ?: msg.sender)
-        }
+        val messagesByRoom = matchedMessages.groupBy { it.roomKey() }
 
         // 3) 두 결과를 합산
         val resultMap = mutableMapOf<Pair<String, String>, ChatRoomItem>()

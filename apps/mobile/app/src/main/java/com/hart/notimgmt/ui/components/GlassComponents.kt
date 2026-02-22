@@ -111,10 +111,10 @@ fun GlassButton(
         enabled = enabled,
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = TwsSkyBlue,
-            contentColor = TwsWhite,
-            disabledContainerColor = TwsSkyBlue.copy(alpha = 0.5f),
-            disabledContentColor = TwsWhite.copy(alpha = 0.7f)
+            containerColor = NotiFlowIndigo,
+            contentColor = NotiFlowWhite,
+            disabledContainerColor = NotiFlowIndigo.copy(alpha = 0.5f),
+            disabledContentColor = NotiFlowWhite.copy(alpha = 0.7f)
         ),
         elevation = ButtonDefaults.buttonElevation(
             defaultElevation = 4.dp,
@@ -186,7 +186,7 @@ fun GlassFab(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = TwsWhite,
+            tint = NotiFlowWhite,
             modifier = Modifier.size(24.dp)
         )
     }
@@ -278,7 +278,7 @@ fun GlassChip(
 ) {
     val glassColors = NotiFlowDesign.glassColors
     val backgroundColor = if (selected) MaterialTheme.colorScheme.primary else glassColors.surfaceLight
-    val contentColor = if (selected) TwsWhite else MaterialTheme.colorScheme.onSurface
+    val contentColor = if (selected) NotiFlowWhite else MaterialTheme.colorScheme.onSurface
 
     Surface(
         modifier = modifier

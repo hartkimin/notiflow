@@ -135,7 +135,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                     }) {
                         Text(
                             "건너뛰기",
-                            color = TwsWhite.copy(alpha = 0.8f)
+                            color = NotiFlowWhite.copy(alpha = 0.8f)
                         )
                     }
                 } else {
@@ -160,8 +160,8 @@ fun OnboardingScreen(onComplete: () -> Unit) {
             // 페이지 인디케이터 + 버튼 (글래스 바)
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = TwsGlassWhite,
-                border = BorderStroke(1.dp, TwsGlassBorderLight)
+                color = NotiFlowGlassWhite,
+                border = BorderStroke(1.dp, NotiFlowGlassBorderLight)
             ) {
                 Column(
                     modifier = Modifier
@@ -177,9 +177,9 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                         repeat(3) { index ->
                             val color by animateColorAsState(
                                 targetValue = if (index == pagerState.currentPage)
-                                    TwsSkyBlue
+                                    NotiFlowIndigo
                                 else
-                                    TwsSkyBlue.copy(alpha = 0.3f),
+                                    NotiFlowIndigo.copy(alpha = 0.3f),
                                 label = "dot"
                             )
                             Box(
@@ -217,8 +217,8 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                             .height(52.dp),
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = TwsSkyBlue,
-                            disabledContainerColor = TwsSkyBlue.copy(alpha = 0.4f)
+                            containerColor = NotiFlowIndigo,
+                            disabledContainerColor = NotiFlowIndigo.copy(alpha = 0.4f)
                         )
                     ) {
                         Text(
@@ -229,7 +229,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                             },
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = TwsWhite
+                            color = NotiFlowWhite
                         )
                     }
                 }
@@ -252,8 +252,8 @@ private fun IntroPage() {
             modifier = Modifier
                 .size(100.dp),
             shape = RoundedCornerShape(28.dp),
-            color = TwsGlassWhite,
-            border = BorderStroke(1.5.dp, TwsGlassBorderLight)
+            color = NotiFlowGlassWhite,
+            border = BorderStroke(1.5.dp, NotiFlowGlassBorderLight)
         ) {
             Box(
                 contentAlignment = Alignment.Center,
@@ -263,7 +263,7 @@ private fun IntroPage() {
                     imageVector = Icons.Default.NotificationsActive,
                     contentDescription = null,
                     modifier = Modifier.size(48.dp),
-                    tint = TwsSkyBlue
+                    tint = NotiFlowIndigo
                 )
             }
         }
@@ -275,7 +275,7 @@ private fun IntroPage() {
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
-            color = TwsWhite
+            color = NotiFlowWhite
         )
 
         Spacer(modifier = Modifier.height(40.dp))
@@ -285,8 +285,8 @@ private fun IntroPage() {
             modifier = Modifier
                 .fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
-            color = TwsGlassWhite,
-            border = BorderStroke(1.dp, TwsGlassBorderLight)
+            color = NotiFlowGlassWhite,
+            border = BorderStroke(1.dp, NotiFlowGlassBorderLight)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 FeatureItem(
@@ -321,14 +321,14 @@ private fun FeatureItem(icon: ImageVector, title: String, description: String) {
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .background(TwsSkyBlue.copy(alpha = 0.15f)),
+                .background(NotiFlowIndigo.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(22.dp),
-                tint = TwsSkyBlue
+                tint = NotiFlowIndigo
             )
         }
         Spacer(modifier = Modifier.width(14.dp))
@@ -337,12 +337,12 @@ private fun FeatureItem(icon: ImageVector, title: String, description: String) {
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = TwsSkyBlueDark
+                color = NotiFlowIndigoDark
             )
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodySmall,
-                color = TwsSkyBlueDark.copy(alpha = 0.7f)
+                color = NotiFlowIndigoDark.copy(alpha = 0.7f)
             )
         }
     }
@@ -400,7 +400,7 @@ private fun PermissionPage() {
             text = "권한 설정",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            color = TwsWhite
+            color = NotiFlowWhite
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -408,7 +408,7 @@ private fun PermissionPage() {
         Text(
             text = "앱이 정상 동작하려면 다음 권한이 필요합니다",
             style = MaterialTheme.typography.bodyMedium,
-            color = TwsWhite.copy(alpha = 0.8f),
+            color = NotiFlowWhite.copy(alpha = 0.8f),
             textAlign = TextAlign.Center
         )
 
@@ -419,7 +419,7 @@ private fun PermissionPage() {
             text = "필수 권한",
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
-            color = TwsWhite.copy(alpha = 0.9f),
+            color = NotiFlowWhite.copy(alpha = 0.9f),
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -459,7 +459,7 @@ private fun PermissionPage() {
             text = "선택 권한",
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
-            color = TwsWhite.copy(alpha = 0.9f),
+            color = NotiFlowWhite.copy(alpha = 0.9f),
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -510,13 +510,13 @@ private fun PermissionCard(
         modifier = Modifier
             .fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        color = if (isGranted) TwsMint.copy(alpha = 0.2f) else TwsGlassWhite,
+        color = if (isGranted) NotiFlowViolet.copy(alpha = 0.2f) else NotiFlowGlassWhite,
         border = BorderStroke(
             1.dp,
             when {
-                isGranted -> TwsMint.copy(alpha = 0.5f)
-                isRequired -> TwsCoral.copy(alpha = 0.5f)
-                else -> TwsGlassBorderLight
+                isGranted -> NotiFlowViolet.copy(alpha = 0.5f)
+                isRequired -> NotiFlowCoral.copy(alpha = 0.5f)
+                else -> NotiFlowGlassBorderLight
             }
         )
     ) {
@@ -532,9 +532,9 @@ private fun PermissionCard(
                     .clip(CircleShape)
                     .background(
                         when {
-                            isGranted -> TwsMint.copy(alpha = 0.2f)
-                            isRequired -> TwsCoral.copy(alpha = 0.15f)
-                            else -> TwsSkyBlue.copy(alpha = 0.15f)
+                            isGranted -> NotiFlowViolet.copy(alpha = 0.2f)
+                            isRequired -> NotiFlowCoral.copy(alpha = 0.15f)
+                            else -> NotiFlowIndigo.copy(alpha = 0.15f)
                         }
                     ),
                 contentAlignment = Alignment.Center
@@ -544,9 +544,9 @@ private fun PermissionCard(
                     contentDescription = null,
                     modifier = Modifier.size(20.dp),
                     tint = when {
-                        isGranted -> TwsMint
-                        isRequired -> TwsCoral
-                        else -> TwsSkyBlue
+                        isGranted -> NotiFlowViolet
+                        isRequired -> NotiFlowCoral
+                        else -> NotiFlowIndigo
                     }
                 )
             }
@@ -559,14 +559,14 @@ private fun PermissionCard(
                         text = title,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = TwsSkyBlueDark
+                        color = NotiFlowIndigoDark
                     )
                     if (isRequired && !isGranted) {
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "필수",
                             style = MaterialTheme.typography.labelSmall,
-                            color = TwsCoral,
+                            color = NotiFlowCoral,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -574,7 +574,7 @@ private fun PermissionCard(
                 Text(
                     text = if (isGranted) "설정 완료" else description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isGranted) TwsMint else TwsSkyBlueDark.copy(alpha = 0.7f)
+                    color = if (isGranted) NotiFlowViolet else NotiFlowIndigoDark.copy(alpha = 0.7f)
                 )
             }
 
@@ -583,10 +583,10 @@ private fun PermissionCard(
                     onClick = onRequest,
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isRequired) TwsCoral else TwsSkyBlue
+                        containerColor = if (isRequired) NotiFlowCoral else NotiFlowIndigo
                     )
                 ) {
-                    Text("설정", style = MaterialTheme.typography.labelMedium, color = TwsWhite)
+                    Text("설정", style = MaterialTheme.typography.labelMedium, color = NotiFlowWhite)
                 }
             }
         }
@@ -607,8 +607,8 @@ private fun ReadyPage() {
             modifier = Modifier
                 .size(100.dp),
             shape = RoundedCornerShape(28.dp),
-            color = TwsGlassWhite,
-            border = BorderStroke(1.5.dp, TwsMint.copy(alpha = 0.5f))
+            color = NotiFlowGlassWhite,
+            border = BorderStroke(1.5.dp, NotiFlowViolet.copy(alpha = 0.5f))
         ) {
             Box(
                 contentAlignment = Alignment.Center,
@@ -618,7 +618,7 @@ private fun ReadyPage() {
                     imageVector = Icons.Default.Rocket,
                     contentDescription = null,
                     modifier = Modifier.size(48.dp),
-                    tint = TwsMint
+                    tint = NotiFlowViolet
                 )
             }
         }
@@ -629,7 +629,7 @@ private fun ReadyPage() {
             text = "준비 완료!",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = TwsWhite
+            color = NotiFlowWhite
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -639,13 +639,13 @@ private fun ReadyPage() {
             modifier = Modifier
                 .fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
-            color = TwsGlassWhite,
-            border = BorderStroke(1.dp, TwsGlassBorderLight)
+            color = NotiFlowGlassWhite,
+            border = BorderStroke(1.dp, NotiFlowGlassBorderLight)
         ) {
             Text(
                 text = "이제 알림이 도착하면 NotiFlow가 자동으로 수집합니다.\n설정에서 카테고리와 필터를 추가하면\n메시지가 자동으로 분류됩니다.",
                 style = MaterialTheme.typography.bodyLarge,
-                color = TwsSkyBlueDark.copy(alpha = 0.9f),
+                color = NotiFlowIndigoDark.copy(alpha = 0.9f),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(24.dp)
             )
@@ -658,12 +658,12 @@ private fun ReadyPage() {
             text = "NotiFlow",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = TwsWhite
+            color = NotiFlowWhite
         )
         Text(
             text = "Manage Your Notification Flow",
             style = MaterialTheme.typography.labelSmall,
-            color = TwsWhite.copy(alpha = 0.7f)
+            color = NotiFlowWhite.copy(alpha = 0.7f)
         )
     }
 }

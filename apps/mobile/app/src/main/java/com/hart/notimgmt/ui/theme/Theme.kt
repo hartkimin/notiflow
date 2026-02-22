@@ -15,63 +15,63 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 // ============================================
-// TWS iOS Glassmorphism Theme
+// NotiFlow Indigo Glassmorphism Theme
 // ============================================
 
-private val TwsLightColorScheme = lightColorScheme(
-    primary = TwsSkyBlue,
-    onPrimary = TwsWhite,
-    primaryContainer = TwsSkyBlueLight,
-    onPrimaryContainer = TwsLightTextPrimary,
-    secondary = TwsMint,
-    onSecondary = TwsWhite,
-    secondaryContainer = TwsMintLight,
-    onSecondaryContainer = TwsLightTextPrimary,
-    tertiary = TwsMint,
-    onTertiary = TwsWhite,
-    background = TwsLightBackground,
-    onBackground = TwsLightTextPrimary,
-    surface = TwsLightSurface,
-    onSurface = TwsLightTextPrimary,
-    surfaceVariant = TwsLightSurfaceVariant,
-    onSurfaceVariant = TwsLightTextSecondary,
-    outline = TwsLightBorder,
-    outlineVariant = TwsLightBorder,
-    error = TwsError,
-    onError = TwsWhite,
-    errorContainer = TwsErrorLight,
-    onErrorContainer = TwsError,
-    inverseSurface = TwsDarkSurface,
-    inverseOnSurface = TwsDarkTextPrimary,
-    surfaceTint = TwsSkyBlue
+private val NotiFlowLightColorScheme = lightColorScheme(
+    primary = NotiFlowIndigo,
+    onPrimary = NotiFlowWhite,
+    primaryContainer = NotiFlowIndigoLight,
+    onPrimaryContainer = NotiFlowLightTextPrimary,
+    secondary = NotiFlowViolet,
+    onSecondary = NotiFlowWhite,
+    secondaryContainer = NotiFlowVioletLight,
+    onSecondaryContainer = NotiFlowLightTextPrimary,
+    tertiary = NotiFlowViolet,
+    onTertiary = NotiFlowWhite,
+    background = NotiFlowLightBackground,
+    onBackground = NotiFlowLightTextPrimary,
+    surface = NotiFlowLightSurface,
+    onSurface = NotiFlowLightTextPrimary,
+    surfaceVariant = NotiFlowLightSurfaceVariant,
+    onSurfaceVariant = NotiFlowLightTextSecondary,
+    outline = NotiFlowLightBorder,
+    outlineVariant = NotiFlowLightBorder,
+    error = NotiFlowError,
+    onError = NotiFlowWhite,
+    errorContainer = NotiFlowErrorLight,
+    onErrorContainer = NotiFlowError,
+    inverseSurface = NotiFlowDarkSurface,
+    inverseOnSurface = NotiFlowDarkTextPrimary,
+    surfaceTint = NotiFlowIndigo
 )
 
-private val TwsDarkColorScheme = darkColorScheme(
-    primary = TwsSkyBlueLight,
-    onPrimary = TwsDarkBackground,
-    primaryContainer = TwsSkyBlue,
-    onPrimaryContainer = TwsWhite,
-    secondary = TwsMintLight,
-    onSecondary = TwsDarkBackground,
-    secondaryContainer = TwsMint,
-    onSecondaryContainer = TwsWhite,
-    tertiary = TwsMintLight,
-    onTertiary = TwsDarkBackground,
-    background = TwsDarkBackground,
-    onBackground = TwsDarkTextPrimary,
-    surface = TwsDarkSurface,
-    onSurface = TwsDarkTextPrimary,
-    surfaceVariant = TwsDarkSurfaceVariant,
-    onSurfaceVariant = TwsDarkTextSecondary,
-    outline = TwsDarkBorder,
-    outlineVariant = TwsDarkBorder,
-    error = TwsError,
-    onError = TwsWhite,
-    errorContainer = TwsDarkSurfaceVariant,
-    onErrorContainer = TwsError,
-    inverseSurface = TwsLightSurface,
-    inverseOnSurface = TwsLightTextPrimary,
-    surfaceTint = TwsSkyBlueLight
+private val NotiFlowDarkColorScheme = darkColorScheme(
+    primary = NotiFlowIndigoLight,
+    onPrimary = NotiFlowDarkBackground,
+    primaryContainer = NotiFlowIndigo,
+    onPrimaryContainer = NotiFlowWhite,
+    secondary = NotiFlowVioletLight,
+    onSecondary = NotiFlowDarkBackground,
+    secondaryContainer = NotiFlowViolet,
+    onSecondaryContainer = NotiFlowWhite,
+    tertiary = NotiFlowVioletLight,
+    onTertiary = NotiFlowDarkBackground,
+    background = NotiFlowDarkBackground,
+    onBackground = NotiFlowDarkTextPrimary,
+    surface = NotiFlowDarkSurface,
+    onSurface = NotiFlowDarkTextPrimary,
+    surfaceVariant = NotiFlowDarkSurfaceVariant,
+    onSurfaceVariant = NotiFlowDarkTextSecondary,
+    outline = NotiFlowDarkBorder,
+    outlineVariant = NotiFlowDarkBorder,
+    error = NotiFlowError,
+    onError = NotiFlowWhite,
+    errorContainer = NotiFlowDarkSurfaceVariant,
+    onErrorContainer = NotiFlowError,
+    inverseSurface = NotiFlowLightSurface,
+    inverseOnSurface = NotiFlowLightTextPrimary,
+    surfaceTint = NotiFlowIndigoLight
 )
 
 // Glass Colors for Composables
@@ -87,13 +87,13 @@ data class GlassColors(
 
 val LocalGlassColors = staticCompositionLocalOf {
     GlassColors(
-        surface = TwsGlassWhite,
-        surfaceLight = TwsGlassWhiteLight,
-        border = TwsGlassBorderLight,
-        shadow = TwsShadowLight,
-        gradientStart = TwsGradientStart,
-        gradientMiddle = TwsGradientMiddle,
-        gradientEnd = TwsGradientEnd
+        surface = NotiFlowGlassWhite,
+        surfaceLight = NotiFlowGlassWhiteLight,
+        border = NotiFlowGlassBorderLight,
+        shadow = NotiFlowShadowLight,
+        gradientStart = NotiFlowGradientStart,
+        gradientMiddle = NotiFlowGradientMiddle,
+        gradientEnd = NotiFlowGradientEnd
     )
 }
 
@@ -102,27 +102,27 @@ fun NotiFlowTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) TwsDarkColorScheme else TwsLightColorScheme
+    val colorScheme = if (darkTheme) NotiFlowDarkColorScheme else NotiFlowLightColorScheme
 
     val glassColors = if (darkTheme) {
         GlassColors(
-            surface = TwsGlassDark,
-            surfaceLight = TwsGlassDarkLight,
-            border = TwsGlassBorderDark,
-            shadow = TwsShadowDark,
-            gradientStart = TwsSkyBlueDark,
-            gradientMiddle = TwsMint,
-            gradientEnd = TwsSkyBlue
+            surface = NotiFlowGlassDark,
+            surfaceLight = NotiFlowGlassDarkLight,
+            border = NotiFlowGlassBorderDark,
+            shadow = NotiFlowShadowDark,
+            gradientStart = NotiFlowIndigoDark,
+            gradientMiddle = NotiFlowViolet,
+            gradientEnd = NotiFlowIndigo
         )
     } else {
         GlassColors(
-            surface = TwsGlassWhite,
-            surfaceLight = TwsGlassWhiteLight,
-            border = TwsGlassBorderLight,
-            shadow = TwsShadowLight,
-            gradientStart = TwsGradientStart,
-            gradientMiddle = TwsGradientMiddle,
-            gradientEnd = TwsGradientEnd
+            surface = NotiFlowGlassWhite,
+            surfaceLight = NotiFlowGlassWhiteLight,
+            border = NotiFlowGlassBorderLight,
+            shadow = NotiFlowShadowLight,
+            gradientStart = NotiFlowGradientStart,
+            gradientMiddle = NotiFlowGradientMiddle,
+            gradientEnd = NotiFlowGradientEnd
         )
     }
 
@@ -130,7 +130,6 @@ fun NotiFlowTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Make status bar transparent for glassmorphism effect
             @Suppress("DEPRECATION")
             window.statusBarColor = Color.Transparent.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
@@ -140,15 +139,18 @@ fun NotiFlowTheme(
     CompositionLocalProvider(LocalGlassColors provides glassColors) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = Typography,
+            typography = NotiFlowTypography,
             content = content
         )
     }
 }
 
 // Extension to access glass colors
-object TwsTheme {
+object NotiFlowDesign {
     val glassColors: GlassColors
         @Composable
         get() = LocalGlassColors.current
 }
+
+// Backward compatibility alias (remove after Task 5)
+val TwsTheme = NotiFlowDesign

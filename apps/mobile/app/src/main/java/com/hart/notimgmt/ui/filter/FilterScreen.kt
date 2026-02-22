@@ -66,7 +66,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -633,12 +632,6 @@ private fun CategoryRulesDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 200.dp, max = 500.dp)
-                .shadow(
-                    elevation = 8.dp,
-                    shape = RoundedCornerShape(16.dp),
-                    ambientColor = glassColors.shadow,
-                    spotColor = glassColors.shadow
-                )
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 // Header
@@ -777,12 +770,7 @@ private fun DialogRuleItem(
         color = if (rule.isActive) glassColors.surfaceLight
         else glassColors.surfaceLight.copy(alpha = 0.5f),
         border = BorderStroke(1.dp, glassColors.border),
-        modifier = Modifier.shadow(
-            elevation = if (rule.isActive) 2.dp else 0.dp,
-            shape = RoundedCornerShape(12.dp),
-            ambientColor = glassColors.shadow,
-            spotColor = glassColors.shadow
-        )
+        modifier = Modifier
     ) {
         Column(
             modifier = Modifier
@@ -903,12 +891,6 @@ private fun CategoryItem(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .then(if (isDragging) Modifier.zIndex(1f) else Modifier)
-            .shadow(
-                elevation = if (isDragging) 12.dp else 4.dp,
-                shape = RoundedCornerShape(12.dp),
-                ambientColor = glassColors.shadow,
-                spotColor = glassColors.shadow
-            )
             .animateContentSize()
             .combinedClickable(
                 onClick = onClick,

@@ -26,7 +26,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -81,12 +80,6 @@ fun CategoryEditDialog(
             border = androidx.compose.foundation.BorderStroke(1.dp, glassColors.border),
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(
-                    elevation = 8.dp,
-                    shape = RoundedCornerShape(16.dp),
-                    ambientColor = glassColors.shadow,
-                    spotColor = glassColors.shadow
-                )
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
                 // Title row: Icon + title

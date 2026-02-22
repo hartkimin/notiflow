@@ -134,8 +134,7 @@ fun CalendarScreen(
                                 Text(
                                     text = "$filterCount",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.8f
+                                    color = MaterialTheme.colorScheme.onPrimary
                                 )
                             }
                         }
@@ -413,7 +412,6 @@ private fun CalendarTimelineItem(
             Text(
                 text = formatTimeShort(message.receivedAt),
                 style = MaterialTheme.typography.labelSmall,
-                fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.85f,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
             )

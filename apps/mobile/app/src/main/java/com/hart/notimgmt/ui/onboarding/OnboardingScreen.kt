@@ -56,7 +56,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -251,13 +250,7 @@ private fun IntroPage() {
         // 글래스 아이콘 컨테이너
         Surface(
             modifier = Modifier
-                .size(100.dp)
-                .shadow(
-                    elevation = 16.dp,
-                    shape = RoundedCornerShape(28.dp),
-                    ambientColor = TwsSkyBlueDark.copy(alpha = 0.4f),
-                    spotColor = TwsSkyBlueDark.copy(alpha = 0.4f)
-                ),
+                .size(100.dp),
             shape = RoundedCornerShape(28.dp),
             color = TwsGlassWhite,
             border = BorderStroke(1.5.dp, TwsGlassBorderLight)
@@ -290,13 +283,7 @@ private fun IntroPage() {
         // 글래스 카드로 기능 설명
         Surface(
             modifier = Modifier
-                .fillMaxWidth()
-                .shadow(
-                    elevation = 8.dp,
-                    shape = RoundedCornerShape(20.dp),
-                    ambientColor = TwsSkyBlueDark.copy(alpha = 0.3f),
-                    spotColor = TwsSkyBlueDark.copy(alpha = 0.3f)
-                ),
+                .fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
             color = TwsGlassWhite,
             border = BorderStroke(1.dp, TwsGlassBorderLight)
@@ -521,13 +508,7 @@ private fun PermissionCard(
 ) {
     Surface(
         modifier = Modifier
-            .fillMaxWidth()
-            .shadow(
-                elevation = 6.dp,
-                shape = RoundedCornerShape(14.dp),
-                ambientColor = TwsSkyBlueDark.copy(alpha = 0.2f),
-                spotColor = TwsSkyBlueDark.copy(alpha = 0.2f)
-            ),
+            .fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         color = if (isGranted) TwsMint.copy(alpha = 0.2f) else TwsGlassWhite,
         border = BorderStroke(
@@ -624,13 +605,7 @@ private fun ReadyPage() {
         // 글래스 아이콘 컨테이너
         Surface(
             modifier = Modifier
-                .size(100.dp)
-                .shadow(
-                    elevation = 16.dp,
-                    shape = RoundedCornerShape(28.dp),
-                    ambientColor = TwsMint.copy(alpha = 0.4f),
-                    spotColor = TwsMint.copy(alpha = 0.4f)
-                ),
+                .size(100.dp),
             shape = RoundedCornerShape(28.dp),
             color = TwsGlassWhite,
             border = BorderStroke(1.5.dp, TwsMint.copy(alpha = 0.5f))
@@ -662,13 +637,7 @@ private fun ReadyPage() {
         // 글래스 카드
         Surface(
             modifier = Modifier
-                .fillMaxWidth()
-                .shadow(
-                    elevation = 8.dp,
-                    shape = RoundedCornerShape(20.dp),
-                    ambientColor = TwsSkyBlueDark.copy(alpha = 0.3f),
-                    spotColor = TwsSkyBlueDark.copy(alpha = 0.3f)
-                ),
+                .fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
             color = TwsGlassWhite,
             border = BorderStroke(1.dp, TwsGlassBorderLight)

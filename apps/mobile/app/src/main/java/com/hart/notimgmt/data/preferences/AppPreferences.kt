@@ -2,6 +2,7 @@ package com.hart.notimgmt.data.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.hart.notimgmt.ai.GemmaModelSize
@@ -18,6 +19,8 @@ class AppPreferences @Inject constructor(
     @ApplicationContext context: Context
 ) {
     companion object {
+        private const val TAG = "AppPreferences"
+        private const val ENCRYPTED_PREFS_NAME = "mednoti_credentials"
         // 미분류 메시지를 숨김 처리할 때 사용하는 특별 ID
         const val UNCATEGORIZED_ID = "uncategorized"
     }
@@ -29,13 +32,30 @@ class AppPreferences @Inject constructor(
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
         .build()
 
-    private val encryptedPrefs: SharedPreferences = EncryptedSharedPreferences.create(
-        context,
-        "mednoti_credentials",
-        masterKey,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-    )
+    private val encryptedPrefs: SharedPreferences = createEncryptedPrefs(context)
+
+    private fun createEncryptedPrefs(context: Context): SharedPreferences {
+        return try {
+            EncryptedSharedPreferences.create(
+                context,
+                ENCRYPTED_PREFS_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: Exception) {
+            // AEADBadTagException: 앱 재설치 시 Keystore 키는 남아있지만 파일이 삭제되어 복호화 실패
+            Log.w(TAG, "EncryptedSharedPreferences corrupted, resetting", e)
+            context.deleteSharedPreferences(ENCRYPTED_PREFS_NAME)
+            EncryptedSharedPreferences.create(
+                context,
+                ENCRYPTED_PREFS_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        }
+    }
 
     // 로그인 정보 저장 여부
     var saveCredentials: Boolean

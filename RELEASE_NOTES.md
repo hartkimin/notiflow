@@ -1,5 +1,47 @@
 # NotiFlow Release Notes
 
+## v0.8.0 — 2026-02-22
+
+검색 하이라이트, 5페이지 튜토리얼, 대화방 읽음 표시, 모바일 UX 개선 및 안정성 수정.
+
+### Mobile App (`apps/mobile`)
+
+#### 검색 키워드 하이라이트
+- **HighlightedText 컴포저블**: `AnnotatedString` + `SpanStyle` 기반 검색 매치 노란색 배경 하이라이트.
+  라이트/다크 모드 자동 전환. `activeMatchIndex`로 현재 매치 강조 지원
+- **4개 화면 적용**: MessageListScreen (sender/content/appName), DashboardScreen (방 이름/마지막 메시지),
+  KanbanScreen (sender/content), AppChatScreen (sender/content)
+- **AppChatScreen 검색바**: TopAppBar에 검색 아이콘 추가 → 검색바 + 매치 카운터(N/M) +
+  이전/다음(▲/▼) 매치 이동. `animateScrollToItem`으로 매치 위치 자동 스크롤
+
+#### 5페이지 앱 튜토리얼
+- **TutorialScreen**: HorizontalPager + Lottie 애니메이션 5페이지 풀스크린 튜토리얼.
+  페이지: 알림 캡처, 대시보드, 타임라인/칸반, AI 분석, 설정
+- **AppPreferences**: `isTutorialSeen` 플래그 추가. 첫 실행 시 온보딩 → 튜토리얼 → 로그인 흐름
+- **설정에서 재열람**: 설정 > 일반 > "튜토리얼 다시 보기" 버튼으로 언제든 재진입 가능
+
+#### 대화방 읽음 표시
+- **Room DB v25→v26**: `roomName TEXT`, `isRead INTEGER NOT NULL DEFAULT 1` 컬럼 추가
+- **읽지 않은 메시지 표시**: 대시보드 채팅룸 목록에서 미읽 메시지 시각적 구분
+- **자동 읽음 처리**: 대화방 진입 시 `markRoomAsRead()` DAO 쿼리로 일괄 읽음 처리
+
+#### 대시보드 개선
+- **발신자 기반 그룹핑**: `roomName` 대신 `source + sender` 기반으로 대화방 그룹화하여
+  동일 발신자의 다른 룸 이름 메시지가 분산되지 않도록 수정
+- **검색 프리뷰 매칭**: 검색 시 마지막 메시지 대신 검색어가 실제 포함된 메시지를 프리뷰로 표시
+
+#### UX 개선
+- **선택 모드 바 최적화**: 전체선택/삭제 버튼을 텍스트 Button → 아이콘 Surface로 교체하여
+  모바일에서 잘리지 않도록 컴팩트화 (패딩 8dp→4dp, 아이콘 22dp)
+- **런처 아이콘**: XML 벡터 드로어블 → WebP 래스터 이미지로 전환 (모든 밀도 지원)
+
+#### 버그 수정
+- **앱 재설치 시 크래시 수정**: `EncryptedSharedPreferences.create()` 시
+  `AEADBadTagException` 발생 (Android Keystore 키 잔존 + SharedPreferences 파일 삭제 불일치).
+  try-catch + `deleteSharedPreferences()` 복구 패턴 적용
+
+---
+
 ## v0.7.0 — 2026-02-22
 
 상용화 배포를 위한 NotiFlow 디자인 통일 및 브랜딩 리프레시.

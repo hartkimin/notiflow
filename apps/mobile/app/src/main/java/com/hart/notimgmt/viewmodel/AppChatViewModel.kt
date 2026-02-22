@@ -30,6 +30,12 @@ class AppChatViewModel @Inject constructor(
     val messages: StateFlow<List<CapturedMessageEntity>> = messageRepository.getMessagesByRoomAscFlow(source, roomId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    fun markAllAsRead() {
+        viewModelScope.launch {
+            messageRepository.markRoomAsRead(source, roomId)
+        }
+    }
+
     // 전체 삭제 후 화면 닫기 이벤트
     private val _roomCleared = MutableSharedFlow<Unit>()
     val roomCleared = _roomCleared.asSharedFlow()

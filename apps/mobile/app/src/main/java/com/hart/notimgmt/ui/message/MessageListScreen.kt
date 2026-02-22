@@ -51,8 +51,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -1320,71 +1318,64 @@ private fun SelectionModeBar(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.primaryContainer)
-            .padding(horizontal = 8.dp, vertical = 8.dp),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onCancel) {
+            IconButton(onClick = onCancel, modifier = Modifier.size(40.dp)) {
                 Icon(
                     Icons.Default.Close,
                     contentDescription = "취소",
+                    modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
             Text(
-                text = "${selectedCount}개 선택됨",
-                style = MaterialTheme.typography.titleMedium,
+                text = "${selectedCount}개 선택",
+                style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
-        Row {
-            Button(
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(
                 onClick = onSelectAll,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isAllSelected)
-                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
-                    else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f)
-                )
+                shape = RoundedCornerShape(8.dp),
+                color = if (isAllSelected)
+                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
+                else Color.Transparent
             ) {
                 Icon(
                     Icons.Default.SelectAll,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
+                    contentDescription = if (isAllSelected) "선택 해제" else "전체 선택",
+                    modifier = Modifier.padding(8.dp).size(22.dp),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    if (isAllSelected) "선택됨" else "전체선택",
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
             }
-            Spacer(modifier = Modifier.width(8.dp))
             IconButton(
                 onClick = onMoveCategory,
-                enabled = selectedCount > 0
+                enabled = selectedCount > 0,
+                modifier = Modifier.size(40.dp)
             ) {
                 Icon(
                     Icons.Default.MoveUp,
                     contentDescription = "카테고리 이동",
+                    modifier = Modifier.size(22.dp),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
-            Spacer(modifier = Modifier.width(4.dp))
-            Button(
+            Surface(
                 onClick = onDelete,
-                enabled = selectedCount > 0,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                )
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(start = 4.dp)
             ) {
                 Icon(
                     Icons.Default.Delete,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    contentDescription = "삭제",
+                    modifier = Modifier.padding(8.dp).size(22.dp),
+                    tint = MaterialTheme.colorScheme.onError
                 )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("삭제")
             }
         }
     }

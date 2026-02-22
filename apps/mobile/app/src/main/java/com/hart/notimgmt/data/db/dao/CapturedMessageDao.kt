@@ -242,6 +242,9 @@ interface CapturedMessageDao {
     """)
     fun searchMessages(query: String): Flow<List<CapturedMessageEntity>>
 
+    @Query("UPDATE captured_messages SET isRead = 1, updatedAt = :updatedAt WHERE source = :source AND (roomName = :roomId OR (roomName IS NULL AND sender = :roomId)) AND isRead = 0 AND isDeleted = 0")
+    suspend fun markRoomAsRead(source: String, roomId: String, updatedAt: Long = System.currentTimeMillis())
+
     @Query("DELETE FROM captured_messages")
     suspend fun deleteAll()
 }

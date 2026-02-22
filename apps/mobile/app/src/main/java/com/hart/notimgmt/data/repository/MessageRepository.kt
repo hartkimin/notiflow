@@ -209,6 +209,10 @@ class MessageRepository @Inject constructor(
         }
     }
 
+    suspend fun markRoomAsRead(source: String, roomId: String) {
+        messageDao.markRoomAsRead(source, roomId)
+    }
+
     fun searchMessages(query: String): Flow<List<CapturedMessageEntity>> =
         messageDao.searchMessages(query)
 

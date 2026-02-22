@@ -77,6 +77,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hart.notimgmt.service.notification.DeepLinkCache
+import com.hart.notimgmt.ui.theme.NotiFlowWarning
 import com.hart.notimgmt.viewmodel.MessageViewModel
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -248,7 +249,7 @@ fun MessageDetailScreen(
                         Icon(
                             imageVector = if (hasActiveSnooze) Icons.Default.AlarmOff else Icons.Default.Alarm,
                             contentDescription = if (hasActiveSnooze) "스누즈 취소" else "스누즈",
-                            tint = if (hasActiveSnooze) Color(0xFFF59E0B)
+                            tint = if (hasActiveSnooze) NotiFlowWarning
                             else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -359,7 +360,7 @@ fun MessageDetailScreen(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
                         // Sender row (프로필 사진 + 발신자)
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -392,7 +393,7 @@ fun MessageDetailScreen(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         // Category tag
                         if (category != null) {

@@ -99,6 +99,7 @@ import com.hart.notimgmt.ui.components.ConfirmDialog
 import com.hart.notimgmt.ui.navigation.LocalSnackbarHostState
 import com.hart.notimgmt.ui.navigation.Routes
 import com.hart.notimgmt.ui.theme.DEFAULT_CATEGORY_COLOR
+import com.hart.notimgmt.ui.theme.NotiFlowWarning
 import com.hart.notimgmt.viewmodel.CalendarViewModel
 import com.hart.notimgmt.viewmodel.MessageViewModel
 import kotlinx.coroutines.launch
@@ -323,8 +324,7 @@ fun MessageListScreen(
                                         Text(
                                             text = "$filterCount",
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onPrimary,
-                                            fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.8f
+                                            color = MaterialTheme.colorScheme.onPrimary
                                         )
                                     }
                                 }
@@ -379,8 +379,7 @@ fun MessageListScreen(
                                         Text(
                                             text = if (deletedCount > 99) "99+" else "$deletedCount",
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onError,
-                                            fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.8f
+                                            color = MaterialTheme.colorScheme.onError
                                         )
                                     }
                                 }
@@ -425,7 +424,7 @@ fun MessageListScreen(
                         }
                     },
                     singleLine = true,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
                         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -691,7 +690,7 @@ fun MessageListScreen(
                     .fillMaxSize()
                     .weight(1f)
                     .nestedScroll(searchScrollConnection),
-                contentPadding = PaddingValues(top = 8.dp, bottom = 92.dp)
+                contentPadding = PaddingValues(top = 8.dp, bottom = 88.dp)
             ) {
                 val groupEntries = groupedMessages.entries.toList()
                 groupEntries.forEachIndexed { groupIndex, (dateKey, messagesForDate) ->
@@ -980,7 +979,6 @@ private fun TimelineMessageItem(
             Text(
                 text = formatTimeShort(message.receivedAt),
                 style = MaterialTheme.typography.labelSmall,
-                fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.85f,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
             )
@@ -1171,7 +1169,7 @@ private fun TimelineMessageCard(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // 메시지 내용
                 Text(
@@ -1190,13 +1188,13 @@ private fun TimelineMessageCard(
                             imageVector = Icons.Default.Alarm,
                             contentDescription = "스누즈",
                             modifier = Modifier.size(12.dp),
-                            tint = Color(0xFFF59E0B)
+                            tint = NotiFlowWarning
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = formatSnoozeTime(message.snoozeAt),
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFFF59E0B)
+                            color = NotiFlowWarning
                         )
                     }
                 }

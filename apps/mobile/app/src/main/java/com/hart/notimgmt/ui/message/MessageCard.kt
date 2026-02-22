@@ -38,7 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -49,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import com.hart.notimgmt.data.db.entity.CapturedMessageEntity
 import com.hart.notimgmt.data.db.entity.StatusStepEntity
 import com.hart.notimgmt.ui.theme.NotiFlowDesign
+import com.hart.notimgmt.ui.theme.NotiFlowWarning
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -81,12 +81,6 @@ fun MessageCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
-            .shadow(
-                elevation = 8.dp,
-                shape = RoundedCornerShape(16.dp),
-                ambientColor = glassColors.shadow,
-                spotColor = glassColors.shadow
-            )
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -304,26 +298,26 @@ fun MessageCard(
 
             // 스누즈 표시
             if (message.snoozeAt != null && message.snoozeAt > System.currentTimeMillis()) {
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.Alarm,
                         contentDescription = "스누즈",
                         modifier = Modifier.size(12.dp),
-                        tint = Color(0xFFF59E0B)
+                        tint = NotiFlowWarning
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = formatSnoozeTime(message.snoozeAt),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFFF59E0B)
+                        color = NotiFlowWarning
                     )
                 }
             }
 
             // Status badge with dropdown
             if (statusName != null || allStatusSteps.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 var showStatusMenu by remember { mutableStateOf(false) }
                 val chipColor = if (statusColor != null) Color(statusColor)

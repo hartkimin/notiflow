@@ -14,7 +14,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -41,12 +40,6 @@ fun GlassCard(
 
     Surface(
         modifier = modifier
-            .shadow(
-                elevation = 8.dp,
-                shape = shape,
-                ambientColor = glassColors.shadow,
-                spotColor = glassColors.shadow
-            )
             .then(
                 if (onClick != null) {
                     Modifier.clickable(
@@ -82,12 +75,6 @@ fun GlassSurface(
 
     Surface(
         modifier = modifier
-            .shadow(
-                elevation = 8.dp,
-                shape = shape,
-                ambientColor = glassColors.shadow,
-                spotColor = glassColors.shadow
-            )
             .then(
                 if (onClick != null) {
                     Modifier.clickable(
@@ -183,12 +170,6 @@ fun GlassFab(
     Box(
         modifier = modifier
             .size(56.dp)
-            .shadow(
-                elevation = 12.dp,
-                shape = CircleShape,
-                ambientColor = glassColors.shadow,
-                spotColor = glassColors.shadow
-            )
             .background(
                 brush = Brush.linearGradient(
                     colors = listOf(

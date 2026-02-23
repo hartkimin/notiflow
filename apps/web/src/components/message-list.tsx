@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -28,10 +29,12 @@ import {
   Trash2, Plus, Smartphone, Bot,
   Inbox, Cpu, PackageSearch, ClipboardList, ChevronRight, XCircle, Circle, X,
   CheckCircle,
+  Pin, PinOff, Clock, Copy, Pencil, MessageSquare,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { createMessage, deleteMessage, deleteMessages } from "@/lib/actions";
 import { useRowSelection } from "@/hooks/use-row-selection";
+import { useMessageLocalState } from "@/hooks/use-message-local-state";
 import type { RawMessage } from "@/lib/types";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -65,7 +68,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
     : <ArrowDown className="h-3 w-3 ml-1" />;
 }
 
-function formatDate(iso: string) {
+function formatDate(iso: string): string {
   if (!iso) return "-";
   const d = new Date(iso);
   return d.toLocaleString("ko-KR", {
@@ -73,7 +76,16 @@ function formatDate(iso: string) {
   });
 }
 
-function truncate(s: string, max = 60) {
+function formatDateTime(iso: string): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  return d.toLocaleString("ko-KR", {
+    month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+}
+
+function truncate(s: string, max = 60): string {
   return s.length > max ? s.slice(0, max) + "\u2026" : s;
 }
 
@@ -397,6 +409,23 @@ function ParseResultTable({ msg }: { msg: RawMessage }) {
   );
 }
 
+// --- Snooze helpers ---
+
+function computeSnoozeTime(option: string): string {
+  const now = new Date();
+  if (option === "1h") {
+    return new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+  }
+  if (option === "3h") {
+    return new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString();
+  }
+  // "tomorrow9am"
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(9, 0, 0, 0);
+  return tomorrow.toISOString();
+}
+
 // --- Message Table ---
 
 export function MessageTable({ messages }: { messages: RawMessage[] }) {
@@ -405,6 +434,11 @@ export function MessageTable({ messages }: { messages: RawMessage[] }) {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [isPending, startTransition] = useTransition();
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [editingMsgId, setEditingMsgId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [commentDraft, setCommentDraft] = useState("");
+
+  const localState = useMessageLocalState();
 
   const allIds = useMemo(() => messages.map((m) => m.id), [messages]);
   const rowSelection = useRowSelection(allIds);
@@ -431,8 +465,70 @@ export function MessageTable({ messages }: { messages: RawMessage[] }) {
     }
   }
 
+  function handleExpandToggle(msgId: number) {
+    const next = expandedId === msgId ? null : msgId;
+    setExpandedId(next);
+    // Reset drafts when collapsing
+    if (next === null) {
+      setCommentDraft("");
+      setEditingMsgId(null);
+      setEditDraft("");
+    }
+  }
+
+  function handleStartEdit(msgId: number, originalContent: string) {
+    const state = localState.getState(msgId);
+    setEditingMsgId(msgId);
+    setEditDraft(state.editedContent ?? originalContent);
+  }
+
+  function handleSaveEdit(msgId: number, originalContent: string) {
+    const trimmed = editDraft.trim();
+    // Store null if content matches original (revert edit)
+    const content = trimmed === originalContent.trim() ? null : trimmed;
+    localState.setEditedContent(msgId, content);
+    setEditingMsgId(null);
+    setEditDraft("");
+    toast.success("메모가 저장되었습니다.");
+  }
+
+  function handleCancelEdit() {
+    setEditingMsgId(null);
+    setEditDraft("");
+  }
+
+  function handleAddComment(msgId: number) {
+    const text = commentDraft.trim();
+    if (!text) return;
+    localState.addComment(msgId, text);
+    setCommentDraft("");
+  }
+
+  function handleCopyContent(msgId: number, originalContent: string) {
+    const state = localState.getState(msgId);
+    const content = state.editedContent ?? originalContent;
+    navigator.clipboard.writeText(content);
+    toast.success("클립보드에 복사되었습니다.");
+  }
+
+  function handleSnoozeChange(msgId: number, option: string) {
+    if (option === "clear") {
+      localState.setSnooze(msgId, null);
+      toast.success("스누즈가 해제되었습니다.");
+    } else {
+      const snoozeTime = computeSnoozeTime(option);
+      localState.setSnooze(msgId, snoozeTime);
+      toast.success("스누즈가 설정되었습니다.");
+    }
+  }
+
   const sorted = useMemo(() => {
     return [...messages].sort((a, b) => {
+      // Pinned messages always sort to top
+      const aPinned = localState.getState(a.id).isPinned ? 1 : 0;
+      const bPinned = localState.getState(b.id).isPinned ? 1 : 0;
+      if (aPinned !== bPinned) return bPinned - aPinned;
+
       const av = a[sortKey] ?? "";
       const bv = b[sortKey] ?? "";
       if (typeof av === "number" && typeof bv === "number") {
@@ -441,7 +537,7 @@ export function MessageTable({ messages }: { messages: RawMessage[] }) {
       const cmp = String(av).localeCompare(String(bv), "ko");
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [messages, sortKey, sortDir]);
+  }, [messages, sortKey, sortDir, localState]);
 
   return (
     <>
@@ -480,64 +576,335 @@ export function MessageTable({ messages }: { messages: RawMessage[] }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sorted.map((msg) => (
-                <React.Fragment key={msg.id}>
-                  <TableRow
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setExpandedId(expandedId === msg.id ? null : msg.id)}
-                  >
-                    <TableCell className="px-2" onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={rowSelection.selected.has(msg.id)}
-                        onCheckedChange={() => rowSelection.toggle(msg.id)}
-                      />
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      <span className="inline-flex items-center gap-1">
-                        <ChevronRight className={`h-3 w-3 transition-transform ${expandedId === msg.id ? "rotate-90" : ""}`} />
-                        {msg.id}
-                      </span>
-                    </TableCell>
-                    <TableCell className="font-medium">{msg.sender || "-"}</TableCell>
-                    <TableCell className="max-w-[250px] truncate text-sm text-muted-foreground">
-                      {truncate(msg.content)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{SOURCE_LABEL[msg.source_app] || msg.source_app}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      {msg.device_name ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                          <Smartphone className="h-3 w-3" />
-                          {msg.device_name}
-                        </span>
-                      ) : msg.device_id?.startsWith("cap:") ? (
-                        <span className="text-xs text-muted-foreground">모바일</span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_VARIANT[msg.parse_status] || "secondary"}>
-                        {STATUS_LABEL[msg.parse_status] || msg.parse_status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm whitespace-nowrap">{formatDate(msg.received_at)}</TableCell>
-                  </TableRow>
-                  {expandedId === msg.id && (
-                    <TableRow className="bg-muted/20 hover:bg-muted/20">
-                      <TableCell colSpan={8} className="p-4">
-                        <div className="space-y-3">
-                          {/* Accordion content will be filled in Tasks 4-8 */}
-                          <div className="rounded-md border bg-muted/30 p-3">
-                            <pre className="text-sm whitespace-pre-wrap font-sans">{msg.content}</pre>
-                          </div>
-                        </div>
+              {sorted.map((msg) => {
+                const msgLocal = localState.getState(msg.id);
+                const statusStep = localState.steps.find((s) => s.id === msgLocal.statusId);
+                const isSnoozed = msgLocal.snoozeAt !== null && new Date(msgLocal.snoozeAt) > new Date();
+                const displayContent = msgLocal.editedContent ?? msg.content;
+
+                return (
+                  <React.Fragment key={msg.id}>
+                    <TableRow
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleExpandToggle(msg.id)}
+                    >
+                      <TableCell className="px-2" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={rowSelection.selected.has(msg.id)}
+                          onCheckedChange={() => rowSelection.toggle(msg.id)}
+                        />
                       </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        <span className="inline-flex items-center gap-1">
+                          <ChevronRight className={`h-3 w-3 transition-transform ${expandedId === msg.id ? "rotate-90" : ""}`} />
+                          {msg.id}
+                          {msgLocal.isPinned && <Pin className="h-3 w-3 text-amber-500" />}
+                          {isSnoozed && <Clock className="h-3 w-3 text-blue-500" />}
+                        </span>
+                      </TableCell>
+                      <TableCell className="font-medium">{msg.sender || "-"}</TableCell>
+                      <TableCell className="max-w-[250px] truncate text-sm text-muted-foreground">
+                        <span className="inline-flex items-center gap-1">
+                          {msgLocal.editedContent !== null && <Pencil className="h-3 w-3 text-orange-400 shrink-0" />}
+                          {truncate(msg.content)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{SOURCE_LABEL[msg.source_app] || msg.source_app}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {msg.device_name ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            <Smartphone className="h-3 w-3" />
+                            {msg.device_name}
+                          </span>
+                        ) : msg.device_id?.startsWith("cap:") ? (
+                          <span className="text-xs text-muted-foreground">모바일</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {statusStep ? (
+                          <Badge
+                            variant="outline"
+                            style={{
+                              borderColor: statusStep.color,
+                              color: statusStep.color,
+                              backgroundColor: statusStep.color + "15",
+                            }}
+                          >
+                            {statusStep.name}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-muted-foreground">미지정</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">{formatDate(msg.received_at)}</TableCell>
                     </TableRow>
-                  )}
-                </React.Fragment>
-              ))}
+
+                    {expandedId === msg.id && (
+                      <TableRow className="bg-muted/20 hover:bg-muted/20">
+                        <TableCell colSpan={8} className="p-4">
+                          <div className="space-y-4" onClick={(e) => e.stopPropagation()}>
+
+                            {/* 1. Message content with edit */}
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-medium text-muted-foreground">메시지 내용</span>
+                                <div className="flex items-center gap-1">
+                                  {msgLocal.editedContent !== null && (
+                                    <span className="text-xs text-orange-500">(편집됨)</span>
+                                  )}
+                                  {editingMsgId !== msg.id && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 px-2"
+                                      onClick={() => handleStartEdit(msg.id, msg.content)}
+                                    >
+                                      <Pencil className="h-3 w-3 mr-1" />
+                                      편집
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                              {editingMsgId === msg.id ? (
+                                <div className="space-y-2">
+                                  <Textarea
+                                    value={editDraft}
+                                    onChange={(e) => setEditDraft(e.target.value)}
+                                    rows={5}
+                                    className="text-sm font-sans"
+                                  />
+                                  <div className="flex gap-2 justify-end">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={handleCancelEdit}
+                                    >
+                                      취소
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleSaveEdit(msg.id, msg.content)}
+                                    >
+                                      저장
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="rounded-md border bg-muted/30 p-3">
+                                  <pre className="text-sm whitespace-pre-wrap font-sans">{displayContent}</pre>
+                                </div>
+                              )}
+                            </div>
+
+                            <Separator />
+
+                            {/* 2. Status management */}
+                            <div className="space-y-2">
+                              <span className="text-xs font-medium text-muted-foreground">상태 관리</span>
+                              <div className="flex items-center gap-3">
+                                <Select
+                                  value={msgLocal.statusId ?? "none"}
+                                  onValueChange={(val: string) => {
+                                    if (val === "none") {
+                                      localState.clearStatus(msg.id);
+                                    } else {
+                                      localState.changeStatus(msg.id, val);
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="w-48">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">미지정</SelectItem>
+                                    {localState.steps.map((step) => (
+                                      <SelectItem key={step.id} value={step.id}>
+                                        <span className="inline-flex items-center gap-2">
+                                          <span
+                                            className="inline-block h-2.5 w-2.5 rounded-full"
+                                            style={{ backgroundColor: step.color }}
+                                          />
+                                          {step.name}
+                                        </span>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              {msgLocal.statusHistory.length > 0 && (
+                                <div className="space-y-1 mt-2">
+                                  <span className="text-xs text-muted-foreground">변경 이력</span>
+                                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                                    {msgLocal.statusHistory.slice(0, 5).map((change) => (
+                                      <div key={change.id} className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <span>{change.fromStatusName ?? "미지정"}</span>
+                                        <ChevronRight className="h-3 w-3" />
+                                        <span className="font-medium">{change.toStatusName}</span>
+                                        <span className="ml-auto">{formatDateTime(change.changedAt)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            <Separator />
+
+                            {/* 3. Comments */}
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  코멘트 ({msgLocal.comments.length})
+                                </span>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <Input
+                                  value={commentDraft}
+                                  onChange={(e) => setCommentDraft(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !e.shiftKey) {
+                                      e.preventDefault();
+                                      handleAddComment(msg.id);
+                                    }
+                                  }}
+                                  placeholder="코멘트를 입력하세요..."
+                                  className="text-sm"
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => handleAddComment(msg.id)}
+                                  disabled={!commentDraft.trim()}
+                                >
+                                  추가
+                                </Button>
+                              </div>
+
+                              {msgLocal.comments.length > 0 && (
+                                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                                  {msgLocal.comments.map((comment) => (
+                                    <div key={comment.id} className="flex items-start justify-between gap-2 rounded-md border bg-background p-2">
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-sm break-words">{comment.text}</p>
+                                        <span className="text-xs text-muted-foreground">{formatDateTime(comment.createdAt)}</span>
+                                      </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 shrink-0"
+                                        onClick={() => localState.deleteComment(msg.id, comment.id)}
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            <Separator />
+
+                            {/* 4. AI Parsing (disabled) */}
+                            <div className="space-y-2 opacity-60 pointer-events-none select-none">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-muted-foreground">AI 파싱</span>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">추후 지원 예정</Badge>
+                              </div>
+                              <ParseStepper msg={msg} />
+                              <ParseResultTable msg={msg} />
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="outline" disabled>
+                                  <Bot className="h-4 w-4 mr-1" />
+                                  AI 테스트
+                                </Button>
+                                <Button size="sm" variant="outline" disabled>
+                                  <Cpu className="h-4 w-4 mr-1" />
+                                  파싱 실행
+                                </Button>
+                              </div>
+                            </div>
+
+                            <Separator />
+
+                            {/* 5. Action buttons */}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => localState.togglePin(msg.id)}
+                              >
+                                {msgLocal.isPinned ? (
+                                  <><PinOff className="h-4 w-4 mr-1" />핀 해제</>
+                                ) : (
+                                  <><Pin className="h-4 w-4 mr-1" />핀 고정</>
+                                )}
+                              </Button>
+
+                              <Select
+                                value=""
+                                onValueChange={(val: string) => handleSnoozeChange(msg.id, val)}
+                              >
+                                <SelectTrigger className="w-36 h-8 text-sm">
+                                  <SelectValue placeholder={isSnoozed ? "스누즈 중" : "스누즈"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="1h">1시간 후</SelectItem>
+                                  <SelectItem value="3h">3시간 후</SelectItem>
+                                  <SelectItem value="tomorrow9am">내일 오전 9시</SelectItem>
+                                  {isSnoozed && (
+                                    <SelectItem value="clear">스누즈 해제</SelectItem>
+                                  )}
+                                </SelectContent>
+                              </Select>
+
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCopyContent(msg.id, msg.content)}
+                              >
+                                <Copy className="h-4 w-4 mr-1" />
+                                복사
+                              </Button>
+
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="destructive" size="sm" disabled={isPending}>
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    삭제
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>메시지를 삭제하시겠습니까?</AlertDialogTitle>
+                                    <AlertDialogDescription>이 작업은 되돌릴 수 없습니다.</AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>취소</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(msg.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      삭제
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

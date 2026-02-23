@@ -59,11 +59,7 @@ export default async function MessagesPage({ searchParams }: Props) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <MessageTable
-            messages={result.messages}
-            hospitals={hospitalsRes.hospitals}
-            products={productsRes.products}
-          />
+          <MessageTable messages={result.messages} />
         </CardContent>
         <CardFooter>
           <Pagination

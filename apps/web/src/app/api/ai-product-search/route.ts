@@ -89,7 +89,7 @@ function callAI(provider: string, apiKey: string, model: string, prompt: string)
 function getDefaultModel(provider: string): string {
   switch (provider) {
     case "google":
-      return "gemini-2.5-flash-preview-05-20";
+      return "gemini-2.5-flash";
     case "openai":
       return "gpt-4.1-mini";
     default:

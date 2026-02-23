@@ -19,7 +19,7 @@ import {
   Key, Eye, EyeOff,
 } from "lucide-react";
 import { updateSettingAction } from "@/app/(dashboard)/settings/actions";
-import { createClient } from "@/lib/supabase/client";
+import { testParseMessage } from "@/lib/actions";
 import type { AISettings, AIProvider } from "@/lib/queries/settings";
 
 // ---------------------------------------------------------------------------
@@ -39,9 +39,9 @@ const MODELS: Record<AIProvider, Array<{ value: string; label: string; descripti
     { value: "claude-opus-4-6-20260219", label: "Claude Opus 4.6", description: "최고 품질" },
   ],
   google: [
-    { value: "gemini-2.5-flash-preview-05-20", label: "Gemini 2.5 Flash", description: "빠르고 경제적 (최신)" },
-    { value: "gemini-2.5-pro-preview-05-06", label: "Gemini 2.5 Pro", description: "고품질 (최신)" },
-    { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash", description: "빠르고 경제적" },
+    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash", description: "빠르고 경제적 (추천)" },
+    { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite", description: "초저지연, 대량 처리" },
+    { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro", description: "고품질 추론" },
   ],
   openai: [
     { value: "gpt-4.1-mini", label: "GPT-4.1 Mini", description: "빠르고 경제적 (최신)" },
@@ -149,12 +149,8 @@ export function AISettingsForm({ settings }: { settings: AISettings }) {
     setTestError(null);
 
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase.functions.invoke("test-parse", {
-        body: { message: testMessage },
-      });
-      if (error) throw error;
-      setTestResult(data);
+      const data = await testParseMessage(testMessage);
+      setTestResult(data as unknown as Record<string, unknown>);
     } catch (err) {
       setTestError(err instanceof Error ? err.message : "테스트 실패");
     } finally {

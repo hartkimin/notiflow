@@ -7,6 +7,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.hart.notimgmt.ai.GemmaModelSize
 import com.hart.notimgmt.data.model.AppFilterMode
+import com.hart.notimgmt.data.model.AppMode
 import com.hart.notimgmt.data.model.ThemeMode
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -142,6 +143,30 @@ class AppPreferences @Inject constructor(
         get() = prefs.getBoolean("tutorial_seen", false)
         set(value) {
             prefs.edit().putBoolean("tutorial_seen", value).apply()
+        }
+
+    // App mode (OFFLINE or CLOUD) — defaults to OFFLINE for login-free first launch
+    var appMode: AppMode
+        get() {
+            val value = prefs.getString("app_mode", AppMode.OFFLINE.name)
+            return try {
+                AppMode.valueOf(value ?: AppMode.OFFLINE.name)
+            } catch (e: Exception) {
+                AppMode.OFFLINE
+            }
+        }
+        set(value) {
+            prefs.edit().putString("app_mode", value.name).apply()
+        }
+
+    val isCloudMode: Boolean
+        get() = appMode == AppMode.CLOUD
+
+    // Whether user has selected a mode (existing users default to true)
+    var isModeSelected: Boolean
+        get() = prefs.getBoolean("mode_selected", true)
+        set(value) {
+            prefs.edit().putBoolean("mode_selected", value).apply()
         }
 
     var themeMode: ThemeMode

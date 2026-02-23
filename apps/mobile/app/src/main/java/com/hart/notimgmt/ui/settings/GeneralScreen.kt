@@ -76,6 +76,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.hart.notimgmt.data.model.AppMode
 import com.hart.notimgmt.data.model.ThemeMode
 import com.hart.notimgmt.ui.components.ConfirmDialog
 import kotlinx.coroutines.Dispatchers
@@ -101,7 +102,8 @@ fun GeneralScreen(
     viewModel: AppFilterViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
     onLogout: () -> Unit = {},
-    onNavigateToTutorial: () -> Unit = {}
+    onNavigateToTutorial: () -> Unit = {},
+    onSwitchToCloud: () -> Unit = {}
 ) {
     val themeMode by viewModel.themeMode.collectAsState()
     val captureNotifEnabled by viewModel.captureNotificationEnabled.collectAsState()
@@ -111,6 +113,8 @@ fun GeneralScreen(
     val userEmail by settingsViewModel.userEmail.collectAsState()
     val isLoggedIn by settingsViewModel.isLoggedIn.collectAsState()
     val isLoggingOut by settingsViewModel.isLoggingOut.collectAsState()
+    val appMode by settingsViewModel.appMode.collectAsState()
+    val isCloudMode = appMode == AppMode.CLOUD
     val snackbarHostState = LocalSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     var showSyncDetails by remember { mutableStateOf(false) }
@@ -120,6 +124,7 @@ fun GeneralScreen(
     var showDownloadDialog by remember { mutableStateOf(false) }
     var downloadDataSummary by remember { mutableStateOf<DataSummary?>(null) }
     var isLoadingRemoteSummary by remember { mutableStateOf(false) }
+    var showSwitchToOfflineDialog by remember { mutableStateOf(false) }
 
     // Permission states
     val context = LocalContext.current
@@ -550,88 +555,365 @@ fun GeneralScreen(
             )
         }
 
-        // 클라우드 동기화 섹션
-        SettingsSection(title = "클라우드 동기화") {
-            // 동기화 상태
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                when {
-                    !isLoggedIn -> {
-                        Icon(
-                            imageVector = Icons.Outlined.Cloud,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
+        // 클라우드 동기화 섹션 (cloud mode only)
+        if (isCloudMode) {
+            SettingsSection(title = "클라우드 동기화") {
+                // 동기화 상태
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    when {
+                        !isLoggedIn -> {
+                            Icon(
+                                imageVector = Icons.Outlined.Cloud,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "로그인이 필요합니다",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedButton(
+                                onClick = onSwitchToCloud,
+                                contentPadding = ButtonDefaults.ContentPadding
+                            ) {
+                                Text("로그인", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                        syncStatus == SyncStatus.SYNCING -> {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "동기화 중...",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    text = "데이터를 동기화하고 있습니다",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        syncStatus == SyncStatus.ERROR -> {
+                            Icon(
+                                imageVector = Icons.Outlined.CloudOff,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "동기화 오류",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = syncState.lastErrorMessage ?: "네트워크 연결을 확인해주세요",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            // 에러 해제 버튼
+                            OutlinedButton(
+                                onClick = { settingsViewModel.clearSyncError() },
+                                modifier = Modifier.padding(start = 8.dp),
+                                contentPadding = ButtonDefaults.ContentPadding
+                            ) {
+                                Text("해제", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        else -> {
+                            // IDLE
+                            Icon(
+                                imageVector = Icons.Outlined.CloudDone,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "연결됨",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                userEmail?.let { email ->
+                                    Text(
+                                        text = email,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 마지막 동기화 시간
+                if (isLoggedIn && syncState.lastSyncAt > 0 && syncStatus != SyncStatus.SYNCING) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "마지막 동기화: ${formatSyncTime(syncState.lastSyncAt)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 36.dp)
+                    )
+                }
+
+                // 테이블별 동기화 상태 (접을 수 있음)
+                if (isLoggedIn && (syncStatus == SyncStatus.SYNCING || syncState.tables.any { it.status != TableSyncStatus.PENDING })) {
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // 테이블 상태 헤더
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showSyncDetails = !showSyncDetails }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
-                            text = "로그인이 필요합니다",
-                            style = MaterialTheme.typography.bodyMedium,
+                            text = "테이블별 동기화 상태",
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f)
                         )
-                        OutlinedButton(
-                            onClick = onLogout,
-                            contentPadding = ButtonDefaults.ContentPadding
-                        ) {
-                            Text("로그인", style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
-                    syncStatus == SyncStatus.SYNCING -> {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
+                        Icon(
+                            imageVector = if (showSyncDetails) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "동기화 중...",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                text = "데이터를 동기화하고 있습니다",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    }
+
+                    AnimatedVisibility(
+                        visible = showSyncDetails,
+                        enter = expandVertically(),
+                        exit = shrinkVertically()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            syncState.tables.forEach { tableInfo ->
+                                TableSyncStatusRow(tableInfo)
+                            }
                         }
                     }
-                    syncStatus == SyncStatus.ERROR -> {
+                }
+
+                // 동기화 로그 (접을 수 있음)
+                if (isLoggedIn && syncState.syncLogs.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // 로그 헤더
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showSyncLogs = !showSyncLogs }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "동기화 로그",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            imageVector = if (showSyncLogs) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    AnimatedVisibility(
+                        visible = showSyncLogs,
+                        enter = expandVertically(),
+                        exit = shrinkVertically()
+                    ) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 200.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            items(syncState.syncLogs) { log ->
+                                Text(
+                                    text = log,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = when {
+                                        log.contains("❌") -> MaterialTheme.colorScheme.error
+                                        log.contains("✅") || log.contains("✓") -> MaterialTheme.colorScheme.primary
+                                        log.contains("↑") -> MaterialTheme.colorScheme.tertiary
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 업로드 / 복원 버튼
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                uploadDataSummary = withContext(Dispatchers.IO) {
+                                    viewModel.backupManager.getDataSummary()
+                                }
+                                showUploadDialog = true
+                            }
+                        },
+                        enabled = isLoggedIn && syncStatus != SyncStatus.SYNCING,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.CloudUpload,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("업로드")
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                isLoadingRemoteSummary = true
+                                try {
+                                    downloadDataSummary = withContext(Dispatchers.IO) {
+                                        settingsViewModel.getRemoteDataSummary()
+                                    }
+                                    showDownloadDialog = true
+                                } catch (e: Exception) {
+                                    snackbarHostState.showSnackbar("서버 데이터 조회 실패: ${e.message}")
+                                } finally {
+                                    isLoadingRemoteSummary = false
+                                }
+                            }
+                        },
+                        enabled = isLoggedIn && syncStatus != SyncStatus.SYNCING && !isLoadingRemoteSummary,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        if (isLoadingRemoteSummary) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Outlined.CloudDownload,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("복원")
+                    }
+                }
+
+                // 로그아웃 버튼 (별도 행)
+                if (isLoggedIn) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { settingsViewModel.logout(onLogout) },
+                        enabled = !isLoggingOut && syncStatus != SyncStatus.SYNCING,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        if (isLoggingOut) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                        } else {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.Logout,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                        }
+                        Text("로그아웃", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+
+                // Switch to offline mode option
+                if (isLoggedIn) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    TextButton(
+                        onClick = { showSwitchToOfflineDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Icon(
                             imageVector = Icons.Outlined.CloudOff,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(16.dp)
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "동기화 오류",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                            Text(
-                                text = syncState.lastErrorMessage ?: "네트워크 연결을 확인해주세요",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        // 에러 해제 버튼
-                        OutlinedButton(
-                            onClick = { settingsViewModel.clearSyncError() },
-                            modifier = Modifier.padding(start = 8.dp),
-                            contentPadding = ButtonDefaults.ContentPadding
-                        ) {
-                            Text("해제", style = MaterialTheme.typography.labelSmall)
-                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("오프라인 모드로 전환", style = MaterialTheme.typography.labelMedium)
                     }
-                    else -> {
-                        // IDLE
+                }
+            }
+        }
+
+        // Offline mode: show "Switch to Cloud" card
+        if (!isCloudMode) {
+            SettingsSection(title = "데이터 모드") {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Icon(
-                            imageVector = Icons.Outlined.CloudDone,
+                            imageVector = Icons.Outlined.CloudOff,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp)
@@ -639,238 +921,31 @@ fun GeneralScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "연결됨",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary
+                                text = "현재: 오프라인 모드",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                             )
-                            userEmail?.let { email ->
-                                Text(
-                                    text = email,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 마지막 동기화 시간
-            if (isLoggedIn && syncState.lastSyncAt > 0 && syncStatus != SyncStatus.SYNCING) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "마지막 동기화: ${formatSyncTime(syncState.lastSyncAt)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 36.dp)
-                )
-            }
-
-            // 테이블별 동기화 상태 (접을 수 있음)
-            if (isLoggedIn && (syncStatus == SyncStatus.SYNCING || syncState.tables.any { it.status != TableSyncStatus.PENDING })) {
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // 테이블 상태 헤더
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { showSyncDetails = !showSyncDetails }
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "테이블별 동기화 상태",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Icon(
-                        imageVector = if (showSyncDetails) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                AnimatedVisibility(
-                    visible = showSyncDetails,
-                    enter = expandVertically(),
-                    exit = shrinkVertically()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                RoundedCornerShape(8.dp)
-                            )
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        syncState.tables.forEach { tableInfo ->
-                            TableSyncStatusRow(tableInfo)
-                        }
-                    }
-                }
-            }
-
-            // 동기화 로그 (접을 수 있음)
-            if (isLoggedIn && syncState.syncLogs.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // 로그 헤더
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { showSyncLogs = !showSyncLogs }
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "동기화 로그",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Icon(
-                        imageVector = if (showSyncLogs) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                AnimatedVisibility(
-                    visible = showSyncLogs,
-                    enter = expandVertically(),
-                    exit = shrinkVertically()
-                ) {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 200.dp)
-                            .background(
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                RoundedCornerShape(8.dp)
-                            )
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        items(syncState.syncLogs) { log ->
                             Text(
-                                text = log,
+                                text = "클라우드로 전환하면 데이터를 동기화할 수 있습니다",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = when {
-                                    log.contains("❌") -> MaterialTheme.colorScheme.error
-                                    log.contains("✅") || log.contains("✓") -> MaterialTheme.colorScheme.primary
-                                    log.contains("↑") -> MaterialTheme.colorScheme.tertiary
-                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 업로드 / 복원 버튼
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            uploadDataSummary = withContext(Dispatchers.IO) {
-                                viewModel.backupManager.getDataSummary()
-                            }
-                            showUploadDialog = true
-                        }
-                    },
-                    enabled = isLoggedIn && syncStatus != SyncStatus.SYNCING,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.CloudUpload,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("업로드")
-                }
-
-                OutlinedButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            isLoadingRemoteSummary = true
-                            try {
-                                downloadDataSummary = withContext(Dispatchers.IO) {
-                                    settingsViewModel.getRemoteDataSummary()
-                                }
-                                showDownloadDialog = true
-                            } catch (e: Exception) {
-                                snackbarHostState.showSnackbar("서버 데이터 조회 실패: ${e.message}")
-                            } finally {
-                                isLoadingRemoteSummary = false
-                            }
-                        }
-                    },
-                    enabled = isLoggedIn && syncStatus != SyncStatus.SYNCING && !isLoadingRemoteSummary,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    if (isLoadingRemoteSummary) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Outlined.CloudDownload,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("복원")
-                }
-            }
-
-            // 로그아웃 버튼 (별도 행)
-            if (isLoggedIn) {
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(
-                    onClick = { settingsViewModel.logout(onLogout) },
-                    enabled = !isLoggingOut && syncStatus != SyncStatus.SYNCING,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    ),
-                    border = BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-                    )
+                    onClick = {
+                        onSwitchToCloud()
+                    },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    if (isLoggingOut) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                    } else {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.Logout,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                    }
-                    Text("로그아웃", style = MaterialTheme.typography.labelMedium)
+                    Icon(
+                        imageVector = Icons.Outlined.Cloud,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("클라우드 모드로 전환", style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
@@ -934,6 +1009,19 @@ fun GeneralScreen(
             ) {
                 Text("모든 데이터 초기화")
             }
+        }
+
+        if (showSwitchToOfflineDialog) {
+            ConfirmDialog(
+                title = "오프라인 모드로 전환",
+                message = "클라우드 동기화가 중단되고 로그아웃됩니다.\n로컬 데이터는 유지됩니다.\n\n계속하시겠습니까?",
+                confirmText = "전환",
+                onConfirm = {
+                    showSwitchToOfflineDialog = false
+                    settingsViewModel.switchToOffline { /* UI recomposes automatically via appMode StateFlow */ }
+                },
+                onDismiss = { showSwitchToOfflineDialog = false }
+            )
         }
 
         if (showResetDialog) {
@@ -1021,7 +1109,7 @@ fun GeneralScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "버전 3.5.0",
+                        text = "버전 3.6.0",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -1055,6 +1143,22 @@ fun GeneralScreen(
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    ReleaseNoteItem(
+                        version = "3.6.0",
+                        date = "2026.02.23",
+                        notes = listOf(
+                            "오프라인 퍼스트 전환 — 로그인 없이 바로 앱 사용 가능",
+                            "온보딩 간소화 — 모드 선택 페이지 제거 (3페이지)",
+                            "클라우드 연동은 설정에서만 진행",
+                            "로그아웃 시 자동 오프라인 전환",
+                            "클라우드 동기화 로그인 버튼 동작 수정"
+                        )
+                    )
+
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    )
+
                     ReleaseNoteItem(
                         version = "3.5.0",
                         date = "2026.02.21",

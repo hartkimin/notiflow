@@ -39,6 +39,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.hart.notimgmt.data.auth.AuthManager
+import com.hart.notimgmt.data.model.AppMode
 import com.hart.notimgmt.data.preferences.AppPreferences
 import com.hart.notimgmt.ui.dashboard.DashboardScreen
 import com.hart.notimgmt.ui.kanban.WeeklyPlannerScreen
@@ -74,8 +75,7 @@ fun AppNavigation(
                     val destination = when {
                         !appPreferences.isOnboardingCompleted -> Routes.ONBOARDING
                         !appPreferences.isTutorialSeen -> Routes.TUTORIAL
-                        !authManager.isLoggedIn -> Routes.LOGIN
-                        else -> Routes.MAIN
+                        else -> Routes.MAIN  // Always go to main; login via Settings
                     }
                     navController.navigate(destination) {
                         popUpTo(Routes.SPLASH) { inclusive = true }
@@ -100,7 +100,7 @@ fun AppNavigation(
                 fromSettings = false,
                 onComplete = {
                     appPreferences.isTutorialSeen = true
-                    navController.navigate(Routes.LOGIN) {
+                    navController.navigate(Routes.MAIN) {
                         popUpTo(Routes.TUTORIAL) { inclusive = true }
                     }
                 }
@@ -112,10 +112,8 @@ fun AppNavigation(
                 authManager = authManager,
                 appPreferences = appPreferences,
                 onLoginSuccess = {
-                    // 로그인 성공 후 메인 화면으로
-                    navController.navigate(Routes.MAIN) {
-                        popUpTo(Routes.LOGIN) { inclusive = true }
-                    }
+                    appPreferences.appMode = AppMode.CLOUD
+                    navController.popBackStack()
                 }
             )
         }
@@ -123,9 +121,10 @@ fun AppNavigation(
         composable(Routes.MAIN) {
             MainScreen(
                 onLogout = {
-                    navController.navigate(Routes.LOGIN) {
-                        popUpTo(Routes.MAIN) { inclusive = true }
-                    }
+                    // Logout stays on main — mode switches to offline automatically
+                },
+                onSwitchToCloud = {
+                    navController.navigate(Routes.LOGIN)
                 }
             )
         }
@@ -133,7 +132,7 @@ fun AppNavigation(
 }
 
 @Composable
-fun MainScreen(onLogout: () -> Unit = {}) {
+fun MainScreen(onLogout: () -> Unit = {}, onSwitchToCloud: () -> Unit = {}) {
     val navController = rememberNavController()
     val tabs = listOf(Screen.Dashboard, Screen.Messages, Screen.AiChat, Screen.Kanban, Screen.Settings)
     val snackbarHostState = remember { SnackbarHostState() }
@@ -165,7 +164,8 @@ fun MainScreen(onLogout: () -> Unit = {}) {
                 modifier = Modifier.padding(
                     bottom = if (hideBottomBar) 0.dp else innerPadding.calculateBottomPadding()
                 ),
-                onLogout = onLogout
+                onLogout = onLogout,
+                onSwitchToCloud = onSwitchToCloud
             )
         }
     }
@@ -242,7 +242,7 @@ private fun BottomNavBar(navController: NavHostController, tabs: List<Screen>) {
 }
 
 @Composable
-private fun MainNavHost(navController: NavHostController, modifier: Modifier = Modifier, onLogout: () -> Unit = {}) {
+private fun MainNavHost(navController: NavHostController, modifier: Modifier = Modifier, onLogout: () -> Unit = {}, onSwitchToCloud: () -> Unit = {}) {
     NavHost(
         navController = navController,
         startDestination = Screen.Dashboard.route,
@@ -329,7 +329,8 @@ private fun MainNavHost(navController: NavHostController, modifier: Modifier = M
                 onLogout = onLogout,
                 onNavigateToTutorial = {
                     navController.navigate("${Routes.TUTORIAL}?fromSettings=true")
-                }
+                },
+                onSwitchToCloud = onSwitchToCloud
             )
         }
         composable(

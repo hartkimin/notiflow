@@ -3,6 +3,7 @@ package com.hart.notimgmt.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hart.notimgmt.data.auth.AuthManager
+import com.hart.notimgmt.data.model.AppMode
 import com.hart.notimgmt.data.preferences.AppPreferences
 import com.hart.notimgmt.data.sync.SyncManager
 import com.hart.notimgmt.data.sync.SyncState
@@ -36,6 +37,9 @@ class SettingsViewModel @Inject constructor(
     private val _isLoggingOut = MutableStateFlow(false)
     val isLoggingOut: StateFlow<Boolean> = _isLoggingOut.asStateFlow()
 
+    private val _appMode = MutableStateFlow(appPreferences.appMode)
+    val appMode: StateFlow<AppMode> = _appMode.asStateFlow()
+
     init {
         viewModelScope.launch {
             authManager.observeAuthState().collect { user ->
@@ -65,15 +69,32 @@ class SettingsViewModel @Inject constructor(
         return syncManager.getRemoteDataSummary()
     }
 
-    fun logout(onLogoutComplete: () -> Unit) {
+    fun logout(onLogoutComplete: () -> Unit = {}) {
         viewModelScope.launch {
             _isLoggingOut.value = true
             try {
                 authManager.signOut()
+                appPreferences.appMode = AppMode.OFFLINE
+                _appMode.value = AppMode.OFFLINE
                 onLogoutComplete()
             } finally {
                 _isLoggingOut.value = false
             }
         }
     }
+
+    fun switchToOffline(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            _isLoggingOut.value = true
+            try {
+                authManager.signOut()
+                appPreferences.appMode = AppMode.OFFLINE
+                _appMode.value = AppMode.OFFLINE
+                onComplete()
+            } finally {
+                _isLoggingOut.value = false
+            }
+        }
+    }
+
 }

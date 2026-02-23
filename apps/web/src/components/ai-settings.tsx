@@ -35,14 +35,17 @@ const PROVIDERS = [
 const MODELS: Record<AIProvider, Array<{ value: string; label: string; description: string }>> = {
   anthropic: [
     { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", description: "빠르고 경제적" },
-    { value: "claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5", description: "균형잡힌 성능" },
+    { value: "claude-sonnet-4-6-20260220", label: "Claude Sonnet 4.6", description: "균형잡힌 성능" },
+    { value: "claude-opus-4-6-20260219", label: "Claude Opus 4.6", description: "최고 품질" },
   ],
   google: [
+    { value: "gemini-2.5-flash-preview-05-20", label: "Gemini 2.5 Flash", description: "빠르고 경제적 (최신)" },
+    { value: "gemini-2.5-pro-preview-05-06", label: "Gemini 2.5 Pro", description: "고품질 (최신)" },
     { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash", description: "빠르고 경제적" },
-    { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash", description: "경제적" },
-    { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro", description: "고품질" },
   ],
   openai: [
+    { value: "gpt-4.1-mini", label: "GPT-4.1 Mini", description: "빠르고 경제적 (최신)" },
+    { value: "gpt-4.1", label: "GPT-4.1", description: "고품질 (최신)" },
     { value: "gpt-4o-mini", label: "GPT-4o Mini", description: "빠르고 경제적" },
     { value: "gpt-4o", label: "GPT-4o", description: "고품질" },
   ],

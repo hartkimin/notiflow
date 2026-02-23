@@ -33,3 +33,11 @@ export async function updateDeliveryDateAction(
 ) {
   await updateOrder(orderId, { delivery_date: date });
 }
+
+export async function updateOrderHospitalAction(
+  orderId: number,
+  hospitalId: number,
+) {
+  await updateOrder(orderId, { hospital_id: hospitalId });
+  revalidatePath("/orders");
+}

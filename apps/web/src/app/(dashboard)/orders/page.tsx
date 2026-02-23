@@ -3,6 +3,7 @@ import { PlusCircle, File } from "lucide-react";
 
 import { getOrderItems } from "@/lib/queries/orders";
 import { getProducts } from "@/lib/queries/products";
+import { getHospitals } from "@/lib/queries/hospitals";
 import { OrderTable } from "@/components/order-table";
 import type { ProductOption } from "@/components/order-table";
 import { OrderFilters } from "@/components/order-filters";
@@ -35,7 +36,7 @@ export default async function OrdersPage({ searchParams }: Props) {
   const limit = 20;
   const offset = (page - 1) * limit;
 
-  const [result, { products: allProducts }] = await Promise.all([
+  const [result, { products: allProducts }, { hospitals: allHospitals }] = await Promise.all([
     getOrderItems({
       status: status,
       from: params.from,
@@ -44,11 +45,17 @@ export default async function OrdersPage({ searchParams }: Props) {
       offset,
     }).catch(() => ({ items: [], total: 0 })),
     getProducts({ limit: 1000 }).catch(() => ({ products: [], total: 0 })),
+    getHospitals({ limit: 1000 }).catch(() => ({ hospitals: [], total: 0 })),
   ]);
 
   const productOptions: ProductOption[] = allProducts.map((p) => ({
     id: p.id,
     name: p.official_name,
+  }));
+
+  const hospitalOptions = allHospitals.map((h) => ({
+    id: h.id,
+    name: h.name,
   }));
 
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
@@ -91,7 +98,7 @@ export default async function OrdersPage({ searchParams }: Props) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <OrderTable items={result.items} products={productOptions} />
+              <OrderTable items={result.items} products={productOptions} hospitals={hospitalOptions} />
             </CardContent>
             <CardFooter>
               <Pagination currentPage={page} totalPages={totalPages} totalCount={result.total} />

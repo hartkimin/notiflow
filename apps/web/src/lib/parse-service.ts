@@ -506,8 +506,8 @@ const SETTINGS_KEYS = [
 
 function getDefaultModel(provider: string): string {
   switch (provider) {
-    case "google": return "gemini-2.0-flash";
-    case "openai": return "gpt-4o-mini";
+    case "google": return "gemini-2.5-flash-preview-05-20";
+    case "openai": return "gpt-4.1-mini";
     default: return "claude-haiku-4-5-20251001";
   }
 }

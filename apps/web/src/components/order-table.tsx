@@ -22,7 +22,23 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+import {
+  Check,
   ChevronRight,
+  ChevronsUpDown,
   ExternalLink,
   Pencil,
   Save,
@@ -33,6 +49,7 @@ import {
   confirmOrderAction,
   deleteOrdersAction,
   updateDeliveryDateAction,
+  updateOrderHospitalAction,
   updateOrderItemAction,
   updateOrderStatusAction,
 } from "@/app/(dashboard)/orders/actions";
@@ -42,6 +59,11 @@ import { toast } from "sonner";
 import type { OrderItemFlat } from "@/lib/types";
 
 export interface ProductOption {
+  id: number;
+  name: string;
+}
+
+export interface HospitalOption {
   id: number;
   name: string;
 }
@@ -79,6 +101,7 @@ interface OrderGroup {
   order_number: string;
   order_date: string;
   delivery_date: string | null;
+  hospital_id: number | null;
   hospital_name: string;
   status: string;
   items: OrderItemFlat[];
@@ -94,9 +117,11 @@ function formatMMDD(dateStr: string | null): string {
 export function OrderTable({
   items,
   products = [],
+  hospitals = [],
 }: {
   items: OrderItemFlat[];
   products?: ProductOption[];
+  hospitals?: HospitalOption[];
 }) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
@@ -110,6 +135,7 @@ export function OrderTable({
           order_number: item.order_number,
           order_date: item.order_date,
           delivery_date: item.delivery_date,
+          hospital_id: item.hospital_id,
           hospital_name: item.hospital_name,
           status: item.status,
           items: [],
@@ -171,6 +197,7 @@ export function OrderTable({
                     key={group.order_id}
                     group={group}
                     products={products}
+                    hospitals={hospitals}
                     isExpanded={isExpanded}
                     isSelected={rowSelection.selected.has(group.order_id)}
                     onToggle={() => toggleExpand(group.order_id)}
@@ -197,6 +224,7 @@ export function OrderTable({
 function OrderGroupRow({
   group,
   products,
+  hospitals,
   isExpanded,
   isSelected,
   onToggle,
@@ -205,6 +233,7 @@ function OrderGroupRow({
 }: {
   group: OrderGroup;
   products: ProductOption[];
+  hospitals: HospitalOption[];
   isExpanded: boolean;
   isSelected: boolean;
   onToggle: () => void;
@@ -269,7 +298,7 @@ function OrderGroupRow({
       {isExpanded && (
         <TableRow className="bg-muted/30 hover:bg-muted/30">
           <TableCell colSpan={colCount} className="p-0">
-            <OrderAccordionContent group={group} products={products} />
+            <OrderAccordionContent group={group} products={products} hospitals={hospitals} />
           </TableCell>
         </TableRow>
       )}
@@ -285,15 +314,19 @@ interface ItemEdits {
 function OrderAccordionContent({
   group,
   products,
+  hospitals,
 }: {
   group: OrderGroup;
   products: ProductOption[];
+  hospitals: HospitalOption[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isEditing, setIsEditing] = useState(false);
   const [editItems, setEditItems] = useState<Record<number, ItemEdits>>({});
   const [deliveryDate, setDeliveryDate] = useState(group.delivery_date ?? "");
+  const [hospitalOpen, setHospitalOpen] = useState(false);
+  const [productOpenId, setProductOpenId] = useState<number | null>(null);
 
   async function handleConfirm() {
     try {
@@ -374,6 +407,19 @@ function OrderAccordionContent({
     });
   }
 
+  function handleHospitalChange(hospitalId: number) {
+    setHospitalOpen(false);
+    startTransition(async () => {
+      try {
+        await updateOrderHospitalAction(group.order_id, hospitalId);
+        toast.success("거래처가 변경되었습니다.");
+        router.refresh();
+      } catch {
+        toast.error("거래처 변경에 실패했습니다.");
+      }
+    });
+  }
+
   function updateItemField(itemId: number, field: keyof ItemEdits, value: number | null) {
     setEditItems((prev) => ({
       ...prev,
@@ -384,7 +430,7 @@ function OrderAccordionContent({
   return (
     <div className="px-4 py-3 space-y-3">
       {/* Order info summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-sm">
         <div>
           <span className="text-muted-foreground text-xs">주문번호</span>
           <p className="font-medium">{group.order_number}</p>
@@ -392,6 +438,47 @@ function OrderAccordionContent({
         <div>
           <span className="text-muted-foreground text-xs">주문일</span>
           <p>{group.order_date}</p>
+        </div>
+        <div>
+          <span className="text-muted-foreground text-xs">거래처</span>
+          <Popover open={hospitalOpen} onOpenChange={setHospitalOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                disabled={isPending}
+                className="h-7 w-full max-w-[180px] justify-between font-normal text-sm mt-0.5 px-2"
+              >
+                <span className="truncate">{group.hospital_name || "선택..."}</span>
+                <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[240px] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="거래처 검색..." />
+                <CommandList>
+                  <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
+                  <CommandGroup>
+                    {hospitals.map((h) => (
+                      <CommandItem
+                        key={h.id}
+                        value={h.name}
+                        onSelect={() => handleHospitalChange(h.id)}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            group.hospital_id === h.id ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        {h.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
         <div>
           <span className="text-muted-foreground text-xs">배송예정</span>
@@ -467,21 +554,53 @@ function OrderAccordionContent({
                 <TableRow key={item.id}>
                   <TableCell className="text-sm font-medium">
                     {isEditing ? (
-                      <select
-                        value={editItems[item.id]?.product_id ?? ""}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          updateItemField(item.id, "product_id", v ? Number(v) : null);
-                        }}
-                        className="h-7 w-full rounded-md border border-input bg-background px-2 text-sm"
+                      <Popover
+                        open={productOpenId === item.id}
+                        onOpenChange={(open: boolean) => setProductOpenId(open ? item.id : null)}
                       >
-                        <option value="">미매칭</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="h-7 w-full max-w-[220px] justify-between font-normal text-sm px-2"
+                          >
+                            <span className="truncate">
+                              {editItems[item.id]?.product_id
+                                ? products.find((p) => p.id === editItems[item.id]?.product_id)?.name ?? "미매칭"
+                                : "품목 검색..."}
+                            </span>
+                            <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[280px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="품목명 검색..." />
+                            <CommandList>
+                              <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
+                              <CommandGroup>
+                                {products.map((p) => (
+                                  <CommandItem
+                                    key={p.id}
+                                    value={p.name}
+                                    onSelect={() => {
+                                      updateItemField(item.id, "product_id", p.id);
+                                      setProductOpenId(null);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4 shrink-0",
+                                        editItems[item.id]?.product_id === p.id ? "opacity-100" : "opacity-0",
+                                      )}
+                                    />
+                                    <span className="truncate">{p.name}</span>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     ) : (
                       <>
                         {item.product_name}

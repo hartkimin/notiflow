@@ -33,7 +33,7 @@ import {
   Pin, PinOff, Clock, Copy, Pencil, MessageSquare,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { createMessage, deleteMessage, deleteMessages } from "@/lib/actions";
+import { createMessage, deleteMessage, deleteMessages, testParseMessage, reparseMessage, reparseMessages } from "@/lib/actions";
 import { ManualParseForm } from "@/components/manual-parse-form";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { useMessageLocalState } from "@/hooks/use-message-local-state";
@@ -852,20 +852,46 @@ export function MessageTable({ messages, hospitals, products }: {
 
                             <Separator />
 
-                            {/* 5. AI Parsing (disabled) */}
-                            <div className="space-y-2 opacity-60 pointer-events-none select-none">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-muted-foreground">AI 파싱</span>
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">추후 지원 예정</Badge>
-                              </div>
+                            {/* 5. AI Parsing */}
+                            <div className="space-y-2">
+                              <span className="text-xs font-medium text-muted-foreground">AI 파싱</span>
                               <ParseStepper msg={msg} />
                               <ParseResultTable msg={msg} />
                               <div className="flex gap-2">
-                                <Button size="sm" variant="outline" disabled>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={isPending}
+                                  onClick={() => {
+                                    startTransition(async () => {
+                                      try {
+                                        const result = await testParseMessage(msg.content, msg.hospital_id ?? undefined, msg.sender ?? undefined);
+                                        toast.success(`AI 테스트 완료 (${result.method}) — ${result.items.length}개 품목 감지`);
+                                      } catch {
+                                        toast.error("AI 테스트에 실패했습니다.");
+                                      }
+                                    });
+                                  }}
+                                >
                                   <Bot className="h-4 w-4 mr-1" />
                                   AI 테스트
                                 </Button>
-                                <Button size="sm" variant="outline" disabled>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={isPending}
+                                  onClick={() => {
+                                    startTransition(async () => {
+                                      try {
+                                        await reparseMessage(msg.id, msg.hospital_id ?? undefined);
+                                        toast.success("파싱이 완료되었습니다.");
+                                        router.refresh();
+                                      } catch {
+                                        toast.error("파싱 실행에 실패했습니다.");
+                                      }
+                                    });
+                                  }}
+                                >
                                   <Cpu className="h-4 w-4 mr-1" />
                                   파싱 실행
                                 </Button>
@@ -955,7 +981,24 @@ export function MessageTable({ messages, hospitals, products }: {
       {rowSelection.count > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg border bg-background/95 backdrop-blur px-4 py-2.5 shadow-lg">
           <span className="text-sm font-medium whitespace-nowrap">{rowSelection.count}개 선택됨</span>
-          <Button size="sm" disabled title="AI 파싱은 추후 지원 예정입니다">
+          <Button
+            size="sm"
+            disabled={isPending}
+            onClick={() => {
+              startTransition(async () => {
+                try {
+                  const result = await reparseMessages(Array.from(rowSelection.selected));
+                  const successCount = result.results.filter((r) => r.data && !r.error).length;
+                  const failCount = result.results.filter((r) => r.error).length;
+                  toast.success(`일괄 파싱 완료: ${successCount}개 성공${failCount > 0 ? `, ${failCount}개 실패` : ""}`);
+                  rowSelection.clear();
+                  router.refresh();
+                } catch {
+                  toast.error("일괄 파싱에 실패했습니다.");
+                }
+              });
+            }}
+          >
             <Bot className="h-4 w-4 mr-1" />
             일괄 파싱
           </Button>

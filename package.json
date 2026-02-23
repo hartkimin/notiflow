@@ -11,10 +11,13 @@
     "dev:web": "npm run dev --workspace=apps/web",
     "build:web": "npm run build --workspace=apps/web",
     "lint:web": "npm run lint --workspace=apps/web",
-    "supabase:start": "npx supabase start -w packages/supabase",
-    "supabase:stop": "npx supabase stop -w packages/supabase",
-    "supabase:status": "npx supabase status -w packages/supabase",
-    "supabase:reset": "npx supabase db reset -w packages/supabase",
-    "dev:local": "npm run supabase:start && npm run dev:web"
+    "supabase:start": "npx supabase start --workdir packages/supabase",
+    "supabase:stop": "npx supabase stop --workdir packages/supabase",
+    "supabase:status": "npx supabase status --workdir packages/supabase",
+    "supabase:reset": "npx supabase db reset --workdir packages/supabase",
+    "dev:local": "npm run supabase:start && npm run dev:web",
+    "docker:web": "docker compose up web --build -d",
+    "docker:web:stop": "docker compose down",
+    "docker:web:logs": "docker compose logs -f web"
   }
 }

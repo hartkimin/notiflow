@@ -10,6 +10,12 @@ import {
   TabletSmartphone,
   Pencil,
   Plus,
+  CheckSquare,
+  CalendarDays,
+  Package,
+  Layers,
+  Container,
+  ExternalLink,
 } from "lucide-react";
 import {
   Card,
@@ -19,8 +25,59 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { APP_VERSION } from "@/lib/version";
 
 const releases = [
+  {
+    version: APP_VERSION,
+    date: "2026-02-23",
+    title: "주문 관리 강화 & 버전 관리 도입",
+    highlights: [
+      {
+        icon: CheckSquare,
+        text: "주문 선택 & 일괄 삭제 — 체크박스 선택 후 확인 다이얼로그를 통한 일괄 삭제",
+      },
+      {
+        icon: Pencil,
+        text: "주문 품목 인라인 수정 — 수량 변경 및 품목(제품) 변경을 아코디언 내에서 직접 편집",
+      },
+      {
+        icon: CalendarDays,
+        text: "배송예정일 편집 — 아코디언 및 상세페이지에서 날짜 입력으로 즉시 변경",
+      },
+      {
+        icon: Package,
+        text: "주문 상세페이지 리팩토링 — 상태 진행(접수 확인/처리 시작/배송 완료), 삭제, 배송예정/실제배송일 분리",
+      },
+      {
+        icon: ExternalLink,
+        text: "상세 페이지 바로가기 — 주문 목록 행 끝에 아이콘 버튼으로 이동",
+      },
+      {
+        icon: Layers,
+        text: "앱 버전 표시 — 사이드바에 4자리 버전 번호 표시 (베타 0.0.0.x)",
+      },
+    ],
+  },
+  {
+    version: "0.0.0.0",
+    date: "2026-02-22",
+    title: "주문 그룹 아코디언 & Docker 배포",
+    highlights: [
+      {
+        icon: Layers,
+        text: "주문 목록을 주문번호 기준으로 그룹핑 — 아코디언 형태로 품목 상세 표시",
+      },
+      {
+        icon: Container,
+        text: "Docker Compose 설정 추가 — standalone 빌드 및 컨테이너 배포 지원",
+      },
+      {
+        icon: Shield,
+        text: "인증 storageKey 설정 및 서버사이드 SUPABASE_URL 폴백 수정",
+      },
+    ],
+  },
   {
     version: "0.4.0",
     date: "2026-02-16",

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useTransition } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -33,9 +34,10 @@ import {
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { createMessage, deleteMessage, deleteMessages } from "@/lib/actions";
+import { ManualParseForm } from "@/components/manual-parse-form";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { useMessageLocalState } from "@/hooks/use-message-local-state";
-import type { RawMessage } from "@/lib/types";
+import type { RawMessage, Hospital, Product } from "@/lib/types";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   parsed: "default",
@@ -428,7 +430,11 @@ function computeSnoozeTime(option: string): string {
 
 // --- Message Table ---
 
-export function MessageTable({ messages }: { messages: RawMessage[] }) {
+export function MessageTable({ messages, hospitals, products }: {
+  messages: RawMessage[];
+  hospitals?: Hospital[];
+  products?: Product[];
+}) {
   const router = useRouter();
   const [sortKey, setSortKey] = useState<SortKey>("received_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -755,7 +761,42 @@ export function MessageTable({ messages }: { messages: RawMessage[] }) {
 
                             <Separator />
 
-                            {/* 3. Comments */}
+                            {/* 3. Hospital & Order */}
+                            {hospitals && products && (
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <span className="text-xs font-medium text-muted-foreground">거래처 &amp; 발주</span>
+                                </div>
+                                {msg.order_id ? (
+                                  <div className="rounded-md border border-green-200 bg-green-50 p-3 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <CheckCircle className="h-4 w-4 text-green-600" />
+                                      <span className="text-sm text-green-800">
+                                        주문이 생성되었습니다 <span className="font-mono font-medium">#{msg.order_id}</span>
+                                      </span>
+                                    </div>
+                                    <Link
+                                      href={`/orders/${msg.order_id}`}
+                                      className="text-sm font-medium text-green-700 hover:text-green-900 underline underline-offset-2"
+                                    >
+                                      주문 상세 보기
+                                    </Link>
+                                  </div>
+                                ) : (
+                                  <ManualParseForm
+                                    messageId={msg.id}
+                                    hospitals={hospitals}
+                                    products={products}
+                                    onSuccess={() => router.refresh()}
+                                  />
+                                )}
+                              </div>
+                            )}
+
+                            <Separator />
+
+                            {/* 4. Comments */}
                             <div className="space-y-2">
                               <div className="flex items-center gap-2">
                                 <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
@@ -811,7 +852,7 @@ export function MessageTable({ messages }: { messages: RawMessage[] }) {
 
                             <Separator />
 
-                            {/* 4. AI Parsing (disabled) */}
+                            {/* 5. AI Parsing (disabled) */}
                             <div className="space-y-2 opacity-60 pointer-events-none select-none">
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-medium text-muted-foreground">AI 파싱</span>
@@ -833,7 +874,7 @@ export function MessageTable({ messages }: { messages: RawMessage[] }) {
 
                             <Separator />
 
-                            {/* 5. Action buttons */}
+                            {/* 6. Action buttons */}
                             <div className="flex flex-wrap items-center gap-2">
                               <Button
                                 variant="outline"

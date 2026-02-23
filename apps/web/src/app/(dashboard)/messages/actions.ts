@@ -73,6 +73,7 @@ export async function createManualOrder(
       parse_status: "parsed",
       parse_method: "manual",
       order_id: order.id,
+      hospital_id: hospitalId,
     })
     .eq("id", messageId);
 

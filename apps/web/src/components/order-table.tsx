@@ -41,6 +41,11 @@ import { useRowSelection } from "@/hooks/use-row-selection";
 import { toast } from "sonner";
 import type { OrderItemFlat } from "@/lib/types";
 
+export interface ProductOption {
+  id: number;
+  name: string;
+}
+
 const STATUS_LABEL: Record<string, string> = {
   draft: "임시",
   confirmed: "확인됨",
@@ -86,7 +91,13 @@ function formatMMDD(dateStr: string | null): string {
   return `${parts[1]}/${parts[2]}`;
 }
 
-export function OrderTable({ items }: { items: OrderItemFlat[] }) {
+export function OrderTable({
+  items,
+  products = [],
+}: {
+  items: OrderItemFlat[];
+  products?: ProductOption[];
+}) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const groups = useMemo(() => {
@@ -117,6 +128,8 @@ export function OrderTable({ items }: { items: OrderItemFlat[] }) {
     setExpandedId((prev) => (prev === orderId ? null : orderId));
   }
 
+  const colCount = 9;
+
   return (
     <>
       <div className="rounded-md border">
@@ -137,13 +150,14 @@ export function OrderTable({ items }: { items: OrderItemFlat[] }) {
               <TableHead>거래처</TableHead>
               <TableHead className="text-right w-[60px]">품목수</TableHead>
               <TableHead className="w-[80px]">상태</TableHead>
+              <TableHead className="w-[40px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {groups.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={colCount}
                   className="h-24 text-center text-muted-foreground"
                 >
                   주문이 없습니다.
@@ -156,10 +170,12 @@ export function OrderTable({ items }: { items: OrderItemFlat[] }) {
                   <OrderGroupRow
                     key={group.order_id}
                     group={group}
+                    products={products}
                     isExpanded={isExpanded}
                     isSelected={rowSelection.selected.has(group.order_id)}
                     onToggle={() => toggleExpand(group.order_id)}
                     onToggleSelect={() => rowSelection.toggle(group.order_id)}
+                    colCount={colCount}
                   />
                 );
               })
@@ -180,16 +196,20 @@ export function OrderTable({ items }: { items: OrderItemFlat[] }) {
 
 function OrderGroupRow({
   group,
+  products,
   isExpanded,
   isSelected,
   onToggle,
   onToggleSelect,
+  colCount,
 }: {
   group: OrderGroup;
+  products: ProductOption[];
   isExpanded: boolean;
   isSelected: boolean;
   onToggle: () => void;
   onToggleSelect: () => void;
+  colCount: number;
 }) {
   return (
     <>
@@ -236,13 +256,20 @@ function OrderGroupRow({
             {STATUS_LABEL[group.status] ?? group.status}
           </Badge>
         </TableCell>
+        <TableCell className="px-2" onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+            <Link href={`/orders/${group.order_id}`}>
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </TableCell>
       </TableRow>
 
       {/* Accordion detail */}
       {isExpanded && (
         <TableRow className="bg-muted/30 hover:bg-muted/30">
-          <TableCell colSpan={8} className="p-0">
-            <OrderAccordionContent group={group} />
+          <TableCell colSpan={colCount} className="p-0">
+            <OrderAccordionContent group={group} products={products} />
           </TableCell>
         </TableRow>
       )}
@@ -250,11 +277,22 @@ function OrderGroupRow({
   );
 }
 
-function OrderAccordionContent({ group }: { group: OrderGroup }) {
+interface ItemEdits {
+  quantity: number;
+  product_id: number | null;
+}
+
+function OrderAccordionContent({
+  group,
+  products,
+}: {
+  group: OrderGroup;
+  products: ProductOption[];
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isEditing, setIsEditing] = useState(false);
-  const [editQuantities, setEditQuantities] = useState<Record<number, number>>({});
+  const [editItems, setEditItems] = useState<Record<number, ItemEdits>>({});
   const [deliveryDate, setDeliveryDate] = useState(group.delivery_date ?? "");
 
   async function handleConfirm() {
@@ -276,17 +314,20 @@ function OrderAccordionContent({ group }: { group: OrderGroup }) {
   }
 
   function handleStartEdit() {
-    const initial: Record<number, number> = {};
+    const initial: Record<number, ItemEdits> = {};
     for (const item of group.items) {
-      initial[item.id] = item.quantity;
+      initial[item.id] = {
+        quantity: item.quantity,
+        product_id: item.product_id,
+      };
     }
-    setEditQuantities(initial);
+    setEditItems(initial);
     setIsEditing(true);
   }
 
   function handleCancelEdit() {
     setIsEditing(false);
-    setEditQuantities({});
+    setEditItems({});
   }
 
   function handleSaveItems() {
@@ -294,9 +335,15 @@ function OrderAccordionContent({ group }: { group: OrderGroup }) {
       try {
         const updates: Promise<unknown>[] = [];
         for (const item of group.items) {
-          const newQty = editQuantities[item.id];
-          if (newQty !== undefined && newQty !== item.quantity) {
-            updates.push(updateOrderItemAction(item.id, { quantity: newQty }));
+          const edits = editItems[item.id];
+          if (!edits) continue;
+          const changes: { quantity?: number; product_id?: number } = {};
+          if (edits.quantity !== item.quantity) changes.quantity = edits.quantity;
+          if (edits.product_id !== item.product_id && edits.product_id != null) {
+            changes.product_id = edits.product_id;
+          }
+          if (Object.keys(changes).length > 0) {
+            updates.push(updateOrderItemAction(item.id, changes));
           }
         }
         if (updates.length === 0) {
@@ -306,10 +353,10 @@ function OrderAccordionContent({ group }: { group: OrderGroup }) {
         await Promise.all(updates);
         toast.success(`${updates.length}개 품목이 수정되었습니다.`);
         setIsEditing(false);
-        setEditQuantities({});
+        setEditItems({});
         router.refresh();
       } catch {
-        toast.error("수량 수정에 실패했습니다.");
+        toast.error("품목 수정에 실패했습니다.");
       }
     });
   }
@@ -325,6 +372,13 @@ function OrderAccordionContent({ group }: { group: OrderGroup }) {
         toast.error("배송일 변경에 실패했습니다.");
       }
     });
+  }
+
+  function updateItemField(itemId: number, field: keyof ItemEdits, value: number | null) {
+    setEditItems((prev) => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], [field]: value },
+    }));
   }
 
   return (
@@ -412,11 +466,31 @@ function OrderAccordionContent({ group }: { group: OrderGroup }) {
               {group.items.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="text-sm font-medium">
-                    {item.product_name}
-                    {item.match_status !== "matched" && (
-                      <Badge variant="outline" className="text-xs ml-2">
-                        {item.match_status}
-                      </Badge>
+                    {isEditing ? (
+                      <select
+                        value={editItems[item.id]?.product_id ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          updateItemField(item.id, "product_id", v ? Number(v) : null);
+                        }}
+                        className="h-7 w-full rounded-md border border-input bg-background px-2 text-sm"
+                      >
+                        <option value="">미매칭</option>
+                        {products.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <>
+                        {item.product_name}
+                        {item.match_status !== "matched" && (
+                          <Badge variant="outline" className="text-xs ml-2">
+                            {item.match_status}
+                          </Badge>
+                        )}
+                      </>
                     )}
                   </TableCell>
                   <TableCell className="text-right text-sm tabular-nums">
@@ -424,12 +498,9 @@ function OrderAccordionContent({ group }: { group: OrderGroup }) {
                       <Input
                         type="number"
                         min={0}
-                        value={editQuantities[item.id] ?? item.quantity}
+                        value={editItems[item.id]?.quantity ?? item.quantity}
                         onChange={(e) =>
-                          setEditQuantities((prev) => ({
-                            ...prev,
-                            [item.id]: Number(e.target.value),
-                          }))
+                          updateItemField(item.id, "quantity", Number(e.target.value))
                         }
                         className="h-7 w-[70px] text-right text-sm ml-auto"
                       />
@@ -476,12 +547,6 @@ function OrderAccordionContent({ group }: { group: OrderGroup }) {
             취소
           </Button>
         )}
-        <Button size="sm" variant="outline" asChild>
-          <Link href={`/orders/${group.order_id}`}>
-            <ExternalLink className="h-3.5 w-3.5 mr-1" />
-            상세 페이지
-          </Link>
-        </Button>
         <div className="flex-1" />
         <AlertDialog>
           <AlertDialogTrigger asChild>

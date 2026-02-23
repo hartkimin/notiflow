@@ -22,7 +22,7 @@ export async function deleteOrdersAction(ids: number[]) {
 
 export async function updateOrderItemAction(
   itemId: number,
-  data: { quantity?: number; unit_price?: number },
+  data: { quantity?: number; unit_price?: number; product_id?: number },
 ) {
   await updateOrderItem(itemId, data);
 }

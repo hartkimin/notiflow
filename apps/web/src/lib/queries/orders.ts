@@ -49,6 +49,7 @@ export async function getOrderItems(params: {
   const selectStr = [
     "id",
     "order_id",
+    "product_id",
     "quantity",
     "unit_type",
     "match_status",
@@ -103,6 +104,7 @@ export async function getOrderItems(params: {
       order_date: order?.order_date ?? "",
       delivery_date: order?.delivery_date ?? null,
       hospital_name: order?.hospitals?.name ?? "",
+      product_id: row.product_id ?? null,
       product_name: product?.official_name ?? product?.short_name ?? "",
       quantity: row.unit_type === "box" && qtyPerBox
         ? row.quantity * qtyPerBox

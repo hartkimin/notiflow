@@ -58,6 +58,7 @@ export interface OrderItemFlat {
   order_date: string;
   delivery_date: string | null;
   hospital_name: string;
+  product_id: number | null;
   product_name: string;
   quantity: number;
   unit_type: string;

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { navGroups, Package2 } from "@/lib/nav-items";
+import { APP_VERSION } from "@/lib/version";
 import { NotificationToggle } from "./notification-toggle";
 import {
   Tooltip,
@@ -36,7 +37,14 @@ export function AppSidebar({ userName, collapsed = false, onToggle }: AppSidebar
               )}
             >
               <Package2 className="h-6 w-6 shrink-0 text-primary" />
-              {!collapsed && <span className="whitespace-nowrap">NotiFlow</span>}
+              {!collapsed && (
+                <span className="whitespace-nowrap">
+                  NotiFlow
+                  <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
+                    v{APP_VERSION}
+                  </span>
+                </span>
+              )}
             </Link>
             {!collapsed && (
               <div className="ml-auto">

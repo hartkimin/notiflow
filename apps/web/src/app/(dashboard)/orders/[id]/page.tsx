@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MessageSquare } from "lucide-react";
+import { ArrowLeft, MessageSquare, Calendar, Building2, Hash } from "lucide-react";
 
 import { getOrder } from "@/lib/queries/orders";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
 import { RealtimeListener } from "@/components/realtime-listener";
 import { OrderStatusActions } from "@/components/order-status-actions";
 import { PrintButton } from "@/components/print-button";
@@ -29,6 +30,14 @@ const STATUS_LABELS: Record<string, string> = {
   processing: "처리중",
   delivered: "배송완료",
   cancelled: "취소",
+};
+
+const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  draft: "secondary",
+  confirmed: "default",
+  processing: "default",
+  delivered: "outline",
+  cancelled: "destructive",
 };
 
 interface Props {
@@ -67,11 +76,8 @@ export default async function OrderDetailPage({ params }: Props) {
           </Button>
           <div className="min-w-0">
             <h1 className="text-lg font-semibold md:text-2xl truncate">
-              주문 상세 - {order.order_number}
+              {order.order_number}
             </h1>
-            <p className="text-sm text-muted-foreground truncate">
-              {order.order_date} | {order.hospital_name}
-            </p>
           </div>
         </div>
         <div className="flex items-center gap-2 sm:ml-auto shrink-0">
@@ -98,54 +104,116 @@ export default async function OrderDetailPage({ params }: Props) {
         </div>
       </div>
 
-      {/* Order info cards */}
-      <div className="grid gap-4 md:grid-cols-3 print:grid-cols-3 print:gap-2">
-        <Card className="print:border print:shadow-none">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              상태
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Badge variant={order.status === "draft" ? "secondary" : "default"}>
+      {/* Order info + items in single card */}
+      <Card className="print:border print:shadow-none">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="text-base">주문 정보</CardTitle>
+            <Badge
+              variant={STATUS_VARIANT[order.status] ?? "secondary"}
+              className="w-fit"
+            >
               {STATUS_LABELS[order.status] || order.status}
             </Badge>
-          </CardContent>
-        </Card>
-        <Card className="print:border print:shadow-none">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              배송예정일
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg font-semibold">
-              {order.delivery_date || "-"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="print:border print:shadow-none">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              합계
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg font-semibold">
-              {(supplyTotal + taxTotal).toLocaleString("ko-KR")}원
-            </p>
-            <p className="text-xs text-muted-foreground">
-              공급가 {supplyTotal.toLocaleString("ko-KR")}원 + 세액 {taxTotal.toLocaleString("ko-KR")}원
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Metadata row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2 text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Building2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{order.hospital_name}</span>
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Calendar className="h-3.5 w-3.5 shrink-0" />
+              <span>주문 {order.order_date}</span>
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Calendar className="h-3.5 w-3.5 shrink-0" />
+              <span>배송 {order.delivery_date || "-"}</span>
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Hash className="h-3.5 w-3.5 shrink-0" />
+              <span>{order.items.length}건</span>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Items table */}
+          <div className="overflow-x-auto -mx-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-6 w-[40px]">#</TableHead>
+                  <TableHead>품목</TableHead>
+                  <TableHead className="hidden sm:table-cell print:table-cell">원문</TableHead>
+                  <TableHead className="text-right w-[60px]">수량</TableHead>
+                  <TableHead className="text-right w-[90px]">단가</TableHead>
+                  <TableHead className="text-right pr-6 w-[90px]">금액</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {order.items.map((item, idx) => {
+                  const itemAny = item as unknown as Record<string, unknown>;
+                  const productName = itemAny.products
+                    ? (itemAny.products as { name: string }).name
+                    : `제품 #${item.product_id ?? "미매칭"}`;
+                  const lineTotal = item.line_total ?? item.quantity * (item.unit_price ?? 0);
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell className="pl-6 text-muted-foreground">{idx + 1}</TableCell>
+                      <TableCell>
+                        <span className="font-medium">{productName}</span>
+                        {item.match_status !== "matched" && (
+                          <Badge variant="outline" className="text-xs ml-2">
+                            {item.match_status}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell print:table-cell text-xs text-muted-foreground max-w-[200px] truncate">
+                        {item.original_text || "-"}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {(item.unit_price ?? 0).toLocaleString("ko-KR")}
+                      </TableCell>
+                      <TableCell className="text-right pr-6 tabular-nums font-medium">
+                        {lineTotal.toLocaleString("ko-KR")}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Totals */}
+          {supplyTotal > 0 && (
+            <>
+              <Separator />
+              <div className="flex justify-end">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                  <span className="text-muted-foreground text-right">공급가액</span>
+                  <span className="text-right tabular-nums">{supplyTotal.toLocaleString("ko-KR")}원</span>
+                  <span className="text-muted-foreground text-right">세액 (10%)</span>
+                  <span className="text-right tabular-nums">{taxTotal.toLocaleString("ko-KR")}원</span>
+                  <span className="font-semibold text-right">합계</span>
+                  <span className="font-semibold text-right tabular-nums">
+                    {(supplyTotal + taxTotal).toLocaleString("ko-KR")}원
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Original message */}
       {order.message_content && (
         <Card className="print:border print:shadow-none">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-base">
               <MessageSquare className="h-4 w-4" />
               원문 메시지
             </CardTitle>
@@ -174,89 +242,11 @@ export default async function OrderDetailPage({ params }: Props) {
         </Card>
       )}
 
-      {/* Order items table */}
-      <Card className="print:border print:shadow-none">
-        <CardHeader>
-          <CardTitle>주문 항목 ({order.items.length}건)</CardTitle>
-        </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[40px]">#</TableHead>
-                <TableHead>품목</TableHead>
-                <TableHead className="hidden sm:table-cell print:table-cell">원문</TableHead>
-                <TableHead className="text-right whitespace-nowrap">수량</TableHead>
-                <TableHead className="text-right whitespace-nowrap">단가</TableHead>
-                <TableHead className="text-right whitespace-nowrap">금액</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {order.items.map((item, idx) => {
-                const itemAny = item as unknown as Record<string, unknown>;
-                const productName = itemAny.products
-                  ? (itemAny.products as { name: string }).name
-                  : `제품 #${item.product_id ?? "미매칭"}`;
-                const lineTotal = item.line_total ?? item.quantity * (item.unit_price ?? 0);
-                return (
-                  <TableRow key={item.id}>
-                    <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                    <TableCell>
-                      <div className="font-medium">{productName}</div>
-                      {item.match_status !== "matched" && (
-                        <Badge variant="outline" className="text-xs mt-1">
-                          {item.match_status}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell print:table-cell text-xs text-muted-foreground max-w-[200px] truncate">
-                      {item.original_text || "-"}
-                    </TableCell>
-                    <TableCell className="text-right">{item.quantity}</TableCell>
-                    <TableCell className="text-right">
-                      {(item.unit_price ?? 0).toLocaleString("ko-KR")}원
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {lineTotal.toLocaleString("ko-KR")}원
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              {/* Totals */}
-              <TableRow className="font-semibold">
-                <TableCell colSpan={5} className="text-right">
-                  공급가액
-                </TableCell>
-                <TableCell className="text-right">
-                  {supplyTotal.toLocaleString("ko-KR")}원
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell colSpan={5} className="text-right text-muted-foreground">
-                  세액 (10%)
-                </TableCell>
-                <TableCell className="text-right text-muted-foreground">
-                  {taxTotal.toLocaleString("ko-KR")}원
-                </TableCell>
-              </TableRow>
-              <TableRow className="font-bold text-lg">
-                <TableCell colSpan={5} className="text-right">
-                  합계
-                </TableCell>
-                <TableCell className="text-right">
-                  {(supplyTotal + taxTotal).toLocaleString("ko-KR")}원
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
       {/* Notes */}
       {order.notes && (
         <Card className="print:border print:shadow-none">
-          <CardHeader>
-            <CardTitle>비고</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">비고</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm whitespace-pre-wrap">{order.notes}</p>

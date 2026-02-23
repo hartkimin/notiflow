@@ -1,0 +1,60 @@
+warning: in the working copy of 'apps/mobile/app/build.gradle.kts', LF will be replaced by CRLF the next time Git touches it
+diff --git a/apps/mobile/app/build.gradle.kts b/apps/mobile/app/build.gradle.kts
+index ee7c8ad..ff286da 100644
+--- a/apps/mobile/app/build.gradle.kts
++++ b/apps/mobile/app/build.gradle.kts
+@@ -1,11 +1,8 @@
+ plugins {
+     alias(libs.plugins.android.application)
+     alias(libs.plugins.kotlin.android)
+-    alias(libs.plugins.kotlin.compose)
+-    alias(libs.plugins.kotlin.serialization)
+     alias(libs.plugins.hilt.android)
+     alias(libs.plugins.ksp)
+-    alias(libs.plugins.google.services)
+ }
+ 
+ ksp {
+@@ -47,6 +44,9 @@ android {
+         compose = true
+         buildConfig = true
+     }
++    composeOptions {
++        kotlinCompilerExtensionVersion = "1.5.8" // compatible with 1.9.22
++    }
+     testOptions {
+         unitTests.isReturnDefaultValues = true
+     }
+@@ -54,10 +54,9 @@ android {
+ 
+ dependencies {
+     // Supabase
+-    implementation(platform("io.github.jan-tennert.supabase:bom:3.1.1"))
+-    implementation("io.github.jan-tennert.supabase:postgrest-kt")
+-    implementation("io.github.jan-tennert.supabase:auth-kt")
+-    implementation("io.github.jan-tennert.supabase:realtime-kt")
++    implementation("io.github.jan-tennert.supabase:postgrest-kt:3.1.1")
++    implementation("io.github.jan-tennert.supabase:auth-kt:3.1.1")
++    implementation("io.github.jan-tennert.supabase:realtime-kt:3.1.1")
+ 
+     // Ktor client for Supabase (OkHttp supports WebSocket for Realtime)
+     implementation("io.ktor:ktor-client-okhttp:3.0.3")
+@@ -103,7 +102,7 @@ dependencies {
+     // Eva Icons (iOS style)
+     implementation(libs.compose.icons.eva.icons)
+ 
+-    // MediaPipe LLM Inference + Vision (on-device AI with image input)
++    // MediaPipe LLM Inference + Vision (image input)
+     implementation(libs.mediapipe.tasks.genai)
+     implementation(libs.mediapipe.tasks.vision)
+ 
+@@ -125,4 +124,6 @@ dependencies {
+ 
+     // EncryptedSharedPreferences
+     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+-}
+\ No newline at end of file
++}
++
++apply(plugin = "com.google.gms.google-services")
+\ No newline at end of file

@@ -1,6 +1,4 @@
 import { getMessages } from "@/lib/queries/messages";
-import { getHospitals } from "@/lib/queries/hospitals";
-import { getProducts } from "@/lib/queries/products";
 import { MessageFilters, MessageTable, CreateMessageDialog } from "@/components/message-list";
 import { Pagination } from "@/components/pagination";
 import {
@@ -29,18 +27,14 @@ export default async function MessagesPage({ searchParams }: Props) {
   const limit = 50;
   const offset = (page - 1) * limit;
 
-  const [result, hospitalsRes, productsRes] = await Promise.all([
-    getMessages({
-      from: params.from,
-      to: params.to,
-      parse_status: params.parse_status,
-      source_app: params.source_app,
-      limit,
-      offset,
-    }).catch(() => ({ messages: [], total: 0 })),
-    getHospitals({ limit: 200 }).catch(() => ({ hospitals: [], total: 0 })),
-    getProducts({ limit: 500 }).catch(() => ({ products: [], total: 0 })),
-  ]);
+  const result = await getMessages({
+    from: params.from,
+    to: params.to,
+    parse_status: params.parse_status,
+    source_app: params.source_app,
+    limit,
+    offset,
+  }).catch(() => ({ messages: [], total: 0 }));
 
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
 

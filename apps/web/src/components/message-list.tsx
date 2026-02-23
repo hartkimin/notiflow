@@ -33,7 +33,7 @@ import {
   Pin, PinOff, Clock, Copy, Pencil, MessageSquare,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { createMessage, deleteMessage, deleteMessages, testParseMessage, reparseMessage, reparseMessages } from "@/lib/actions";
+import { createMessage, deleteMessage, deleteMessages, reparseMessage, reparseMessages } from "@/lib/actions";
 import { ManualParseForm } from "@/components/manual-parse-form";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { useMessageLocalState } from "@/hooks/use-message-local-state";
@@ -443,6 +443,26 @@ export function MessageTable({ messages, hospitals, products }: {
   const [editingMsgId, setEditingMsgId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [commentDraft, setCommentDraft] = useState("");
+  const [aiTestResult, setAiTestResult] = useState<Record<number, {
+    method: string;
+    ai_provider: string | null;
+    ai_model: string | null;
+    latency_ms: number;
+    token_usage: { input_tokens: number; output_tokens: number } | null;
+    warnings: string[];
+    match_summary: { matched: number; review: number; unmatched: number };
+    items: {
+      original_text: string;
+      product_official_name: string | null;
+      quantity: number;
+      unit: string;
+      product_id: number | null;
+      match_confidence: number;
+      match_status: string;
+      match_method: string;
+    }[];
+  } | null>>({});
+  const [aiTestLoading, setAiTestLoading] = useState<number | null>(null);
 
   const localState = useMessageLocalState();
 
@@ -861,20 +881,32 @@ export function MessageTable({ messages, hospitals, products }: {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  disabled={isPending}
-                                  onClick={() => {
-                                    startTransition(async () => {
-                                      try {
-                                        const result = await testParseMessage(msg.content, msg.hospital_id ?? undefined, msg.sender ?? undefined);
-                                        toast.success(`AI 테스트 완료 (${result.method}) — ${result.items.length}개 품목 감지`);
-                                      } catch {
-                                        toast.error("AI 테스트에 실패했습니다.");
-                                      }
-                                    });
+                                  disabled={aiTestLoading === msg.id || isPending}
+                                  onClick={async () => {
+                                    setAiTestLoading(msg.id);
+                                    try {
+                                      const res = await fetch("/api/test-parse", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                          content: msg.content,
+                                          hospitalId: msg.hospital_id ?? undefined,
+                                          sender: msg.sender ?? undefined,
+                                        }),
+                                      });
+                                      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                                      const result = await res.json();
+                                      setAiTestResult((prev) => ({ ...prev, [msg.id]: result }));
+                                      toast.success(`AI 테스트 완료 (${result.method}) — ${result.items.length}개 품목 감지`);
+                                    } catch {
+                                      toast.error("AI 테스트에 실패했습니다.");
+                                    } finally {
+                                      setAiTestLoading(null);
+                                    }
                                   }}
                                 >
                                   <Bot className="h-4 w-4 mr-1" />
-                                  AI 테스트
+                                  {aiTestLoading === msg.id ? "테스트 중..." : "AI 테스트"}
                                 </Button>
                                 <Button
                                   size="sm"
@@ -896,6 +928,62 @@ export function MessageTable({ messages, hospitals, products }: {
                                   파싱 실행
                                 </Button>
                               </div>
+
+                              {/* AI Test Result inline */}
+                              {aiTestResult[msg.id] != null && (
+                                <div className="mt-3 rounded-md border bg-muted/30 p-3 space-y-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <Badge variant="secondary" className="text-xs">
+                                      {aiTestResult[msg.id]!.ai_provider}/{aiTestResult[msg.id]!.ai_model}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      {aiTestResult[msg.id]!.method === "llm" ? "AI" : "정규식"} · {aiTestResult[msg.id]!.latency_ms}ms
+                                    </Badge>
+                                    {aiTestResult[msg.id]!.token_usage && (
+                                      <span className="text-[10px] text-muted-foreground">
+                                        토큰: {aiTestResult[msg.id]!.token_usage!.input_tokens}→{aiTestResult[msg.id]!.token_usage!.output_tokens}
+                                      </span>
+                                    )}
+                                    <Badge variant="default" className="text-xs ml-auto">{aiTestResult[msg.id]!.match_summary.matched} 매칭</Badge>
+                                    <Badge variant="secondary" className="text-xs">{aiTestResult[msg.id]!.match_summary.review} 검토</Badge>
+                                    <Badge variant="outline" className="text-xs">{aiTestResult[msg.id]!.match_summary.unmatched} 미매칭</Badge>
+                                  </div>
+                                  {aiTestResult[msg.id]!.items.length > 0 && (
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead className="text-xs">원문</TableHead>
+                                          <TableHead className="text-xs">매칭 품목</TableHead>
+                                          <TableHead className="text-xs text-center">수량</TableHead>
+                                          <TableHead className="text-xs text-center">신뢰도</TableHead>
+                                          <TableHead className="text-xs text-center">상태</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {aiTestResult[msg.id]!.items.map((item, i) => (
+                                          <TableRow key={i}>
+                                            <TableCell className="text-xs text-muted-foreground">{item.original_text}</TableCell>
+                                            <TableCell className="text-xs">
+                                              {item.product_official_name ?? <span className="italic text-muted-foreground">미매칭</span>}
+                                            </TableCell>
+                                            <TableCell className="text-xs text-center">{item.quantity} {item.unit}</TableCell>
+                                            <TableCell className="text-xs text-center">
+                                              <Badge variant={item.match_confidence >= 0.8 ? "default" : item.match_confidence >= 0.5 ? "secondary" : "outline"}>
+                                                {Math.round(item.match_confidence * 100)}%
+                                              </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-xs text-center">
+                                              <Badge variant={item.match_status === "matched" ? "default" : item.match_status === "review" ? "secondary" : "outline"}>
+                                                {item.match_status === "matched" ? "매칭" : item.match_status === "review" ? "검토" : "미매칭"}
+                                              </Badge>
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  )}
+                                </div>
+                              )}
                             </div>
 
                             <Separator />

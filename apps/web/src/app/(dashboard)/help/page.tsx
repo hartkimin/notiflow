@@ -16,6 +16,10 @@ import {
   Layers,
   Container,
   ExternalLink,
+  Bot,
+  Search,
+  Building2,
+  Cpu,
 } from "lucide-react";
 import {
   Card,
@@ -30,6 +34,29 @@ import { APP_VERSION } from "@/lib/version";
 const releases = [
   {
     version: APP_VERSION,
+    date: "2026-02-23",
+    title: "AI 파싱 활성화 & 검색 콤보박스 도입",
+    highlights: [
+      {
+        icon: Bot,
+        text: "AI 파싱 활성화 — 수신메시지에서 AI 테스트, 파싱 실행, 일괄 파싱 기능 사용 가능",
+      },
+      {
+        icon: Cpu,
+        text: "AI 모델 최신화 — Claude 4.6, Gemini 2.5, GPT-4.1 모델 추가 및 기본 모델 업데이트",
+      },
+      {
+        icon: Search,
+        text: "품목 검색 콤보박스 — 주문 수정 시 품목을 검색하여 선택 (기존 드롭다운 대체)",
+      },
+      {
+        icon: Building2,
+        text: "거래처 변경 기능 — 주문 아코디언에서 거래처를 검색하여 즉시 변경",
+      },
+    ],
+  },
+  {
+    version: "0.0.0.1",
     date: "2026-02-23",
     title: "주문 관리 강화 & 버전 관리 도입",
     highlights: [

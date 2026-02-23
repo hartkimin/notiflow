@@ -174,6 +174,28 @@ export async function updateOrder(id: number, data: Record<string, unknown>) {
   return { success: true };
 }
 
+export async function deleteOrders(ids: number[]) {
+  if (ids.length === 0) return { success: true };
+  const supabase = await createClient();
+  const { error } = await supabase.from("orders").delete().in("id", ids);
+  if (error) throw error;
+  revalidatePath("/calendar");
+  revalidatePath("/orders");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function updateOrderItem(
+  id: number,
+  data: { quantity?: number; unit_price?: number },
+) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("order_items").update(data).eq("id", id);
+  if (error) throw error;
+  revalidatePath("/orders");
+  return { success: true };
+}
+
 // --- Messages ---
 
 export async function createMessage(data: {

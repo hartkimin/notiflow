@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -10,15 +11,33 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
   ChevronRight,
-  MessageSquare,
   ExternalLink,
+  Pencil,
+  Save,
+  Trash2,
+  X,
 } from "lucide-react";
-import { confirmOrderAction, updateOrderStatusAction } from "@/app/(dashboard)/orders/actions";
+import {
+  confirmOrderAction,
+  deleteOrdersAction,
+  updateDeliveryDateAction,
+  updateOrderItemAction,
+  updateOrderStatusAction,
+} from "@/app/(dashboard)/orders/actions";
+import { BulkActionBar } from "@/components/bulk-action-bar";
+import { useRowSelection } from "@/hooks/use-row-selection";
 import { toast } from "sonner";
 import type { OrderItemFlat } from "@/lib/types";
 
@@ -91,70 +110,102 @@ export function OrderTable({ items }: { items: OrderItemFlat[] }) {
     return Array.from(map.values());
   }, [items]);
 
+  const allIds = useMemo(() => groups.map((g) => g.order_id), [groups]);
+  const rowSelection = useRowSelection(allIds);
+
   function toggleExpand(orderId: number) {
     setExpandedId((prev) => (prev === orderId ? null : orderId));
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[28px]" />
-            <TableHead className="w-[120px]">주문번호</TableHead>
-            <TableHead className="w-[70px]">발주일</TableHead>
-            <TableHead className="w-[70px]">배송일</TableHead>
-            <TableHead>거래처</TableHead>
-            <TableHead className="text-right w-[60px]">품목수</TableHead>
-            <TableHead className="w-[80px]">상태</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {groups.length === 0 ? (
+    <>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell
-                colSpan={7}
-                className="h-24 text-center text-muted-foreground"
-              >
-                주문이 없습니다.
-              </TableCell>
-            </TableRow>
-          ) : (
-            groups.map((group) => {
-              const isExpanded = expandedId === group.order_id;
-              return (
-                <OrderGroupRow
-                  key={group.order_id}
-                  group={group}
-                  isExpanded={isExpanded}
-                  onToggle={() => toggleExpand(group.order_id)}
+              <TableHead className="w-[36px] px-2">
+                <Checkbox
+                  checked={rowSelection.allSelected ? true : rowSelection.someSelected ? "indeterminate" : false}
+                  onCheckedChange={() => rowSelection.toggleAll()}
+                  aria-label="모두 선택"
                 />
-              );
-            })
-          )}
-        </TableBody>
-      </Table>
-    </div>
+              </TableHead>
+              <TableHead className="w-[28px]" />
+              <TableHead className="w-[120px]">주문번호</TableHead>
+              <TableHead className="w-[70px]">발주일</TableHead>
+              <TableHead className="w-[70px]">배송일</TableHead>
+              <TableHead>거래처</TableHead>
+              <TableHead className="text-right w-[60px]">품목수</TableHead>
+              <TableHead className="w-[80px]">상태</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {groups.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={8}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  주문이 없습니다.
+                </TableCell>
+              </TableRow>
+            ) : (
+              groups.map((group) => {
+                const isExpanded = expandedId === group.order_id;
+                return (
+                  <OrderGroupRow
+                    key={group.order_id}
+                    group={group}
+                    isExpanded={isExpanded}
+                    isSelected={rowSelection.selected.has(group.order_id)}
+                    onToggle={() => toggleExpand(group.order_id)}
+                    onToggleSelect={() => rowSelection.toggle(group.order_id)}
+                  />
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <BulkActionBar
+        count={rowSelection.count}
+        onClear={rowSelection.clear}
+        onDelete={() => deleteOrdersAction(Array.from(rowSelection.selected))}
+        label="주문"
+      />
+    </>
   );
 }
 
 function OrderGroupRow({
   group,
   isExpanded,
+  isSelected,
   onToggle,
+  onToggleSelect,
 }: {
   group: OrderGroup;
   isExpanded: boolean;
+  isSelected: boolean;
   onToggle: () => void;
+  onToggleSelect: () => void;
 }) {
   return (
     <>
       {/* Summary row */}
       <TableRow
         className="cursor-pointer hover:bg-muted/50"
-        data-state={isExpanded && "selected"}
+        data-state={isExpanded ? "selected" : isSelected ? "selected" : undefined}
         onClick={onToggle}
       >
+        <TableCell className="px-2" onClick={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={onToggleSelect}
+            aria-label={`주문 ${group.order_number} 선택`}
+          />
+        </TableCell>
         <TableCell className="px-2">
           <ChevronRight
             className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
@@ -190,7 +241,7 @@ function OrderGroupRow({
       {/* Accordion detail */}
       {isExpanded && (
         <TableRow className="bg-muted/30 hover:bg-muted/30">
-          <TableCell colSpan={7} className="p-0">
+          <TableCell colSpan={8} className="p-0">
             <OrderAccordionContent group={group} />
           </TableCell>
         </TableRow>
@@ -200,6 +251,12 @@ function OrderGroupRow({
 }
 
 function OrderAccordionContent({ group }: { group: OrderGroup }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editQuantities, setEditQuantities] = useState<Record<number, number>>({});
+  const [deliveryDate, setDeliveryDate] = useState(group.delivery_date ?? "");
+
   async function handleConfirm() {
     try {
       await confirmOrderAction(group.order_id);
@@ -218,6 +275,58 @@ function OrderAccordionContent({ group }: { group: OrderGroup }) {
     }
   }
 
+  function handleStartEdit() {
+    const initial: Record<number, number> = {};
+    for (const item of group.items) {
+      initial[item.id] = item.quantity;
+    }
+    setEditQuantities(initial);
+    setIsEditing(true);
+  }
+
+  function handleCancelEdit() {
+    setIsEditing(false);
+    setEditQuantities({});
+  }
+
+  function handleSaveItems() {
+    startTransition(async () => {
+      try {
+        const updates: Promise<unknown>[] = [];
+        for (const item of group.items) {
+          const newQty = editQuantities[item.id];
+          if (newQty !== undefined && newQty !== item.quantity) {
+            updates.push(updateOrderItemAction(item.id, { quantity: newQty }));
+          }
+        }
+        if (updates.length === 0) {
+          setIsEditing(false);
+          return;
+        }
+        await Promise.all(updates);
+        toast.success(`${updates.length}개 품목이 수정되었습니다.`);
+        setIsEditing(false);
+        setEditQuantities({});
+        router.refresh();
+      } catch {
+        toast.error("수량 수정에 실패했습니다.");
+      }
+    });
+  }
+
+  function handleDeliveryDateChange(value: string) {
+    setDeliveryDate(value);
+    startTransition(async () => {
+      try {
+        await updateDeliveryDateAction(group.order_id, value || null);
+        toast.success("배송일이 변경되었습니다.");
+        router.refresh();
+      } catch {
+        toast.error("배송일 변경에 실패했습니다.");
+      }
+    });
+  }
+
   return (
     <div className="px-4 py-3 space-y-3">
       {/* Order info summary */}
@@ -232,7 +341,13 @@ function OrderAccordionContent({ group }: { group: OrderGroup }) {
         </div>
         <div>
           <span className="text-muted-foreground text-xs">배송예정</span>
-          <p>{group.delivery_date || "-"}</p>
+          <Input
+            type="date"
+            value={deliveryDate}
+            onChange={(e) => handleDeliveryDateChange(e.target.value)}
+            disabled={isPending}
+            className="h-7 w-[140px] text-sm mt-0.5"
+          />
         </div>
         <div>
           <span className="text-muted-foreground text-xs">상태</span>
@@ -248,9 +363,40 @@ function OrderAccordionContent({ group }: { group: OrderGroup }) {
 
       {/* Items table */}
       <div>
-        <h4 className="mb-2 text-sm font-medium">
-          주문 품목 ({group.items.length}건)
-        </h4>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-sm font-medium">
+            주문 품목 ({group.items.length}건)
+          </h4>
+          {!isEditing ? (
+            <Button size="sm" variant="ghost" onClick={handleStartEdit} className="h-7 text-xs">
+              <Pencil className="h-3.5 w-3.5 mr-1" />
+              수정
+            </Button>
+          ) : (
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleSaveItems}
+                disabled={isPending}
+                className="h-7 text-xs"
+              >
+                <Save className="h-3.5 w-3.5 mr-1" />
+                {isPending ? "저장중..." : "저장"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleCancelEdit}
+                disabled={isPending}
+                className="h-7 text-xs"
+              >
+                <X className="h-3.5 w-3.5 mr-1" />
+                취소
+              </Button>
+            </div>
+          )}
+        </div>
         <div className="rounded-md border bg-background">
           <Table>
             <TableHeader>
@@ -274,7 +420,22 @@ function OrderAccordionContent({ group }: { group: OrderGroup }) {
                     )}
                   </TableCell>
                   <TableCell className="text-right text-sm tabular-nums">
-                    {item.quantity.toLocaleString()}
+                    {isEditing ? (
+                      <Input
+                        type="number"
+                        min={0}
+                        value={editQuantities[item.id] ?? item.quantity}
+                        onChange={(e) =>
+                          setEditQuantities((prev) => ({
+                            ...prev,
+                            [item.id]: Number(e.target.value),
+                          }))
+                        }
+                        className="h-7 w-[70px] text-right text-sm ml-auto"
+                      />
+                    ) : (
+                      item.quantity.toLocaleString()
+                    )}
                   </TableCell>
                   <TableCell className="text-right text-sm tabular-nums">
                     {item.box_quantity != null ? item.box_quantity.toLocaleString() : "-"}
@@ -321,6 +482,40 @@ function OrderAccordionContent({ group }: { group: OrderGroup }) {
             상세 페이지
           </Link>
         </Button>
+        <div className="flex-1" />
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              삭제
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>주문을 삭제하시겠습니까?</AlertDialogTitle>
+              <AlertDialogDescription>
+                주문번호 {group.order_number}이(가) 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>취소</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={async () => {
+                  try {
+                    await deleteOrdersAction([group.order_id]);
+                    toast.success("주문이 삭제되었습니다.");
+                    router.refresh();
+                  } catch {
+                    toast.error("주문 삭제에 실패했습니다.");
+                  }
+                }}
+              >
+                삭제
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

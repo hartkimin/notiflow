@@ -25,7 +25,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     onLogout: () -> Unit = {},
-    onNavigateToTutorial: () -> Unit = {}
+    onNavigateToTutorial: () -> Unit = {},
+    onSwitchToCloud: () -> Unit = {}
 ) {
     val pagerState = rememberPagerState(pageCount = { 4 })
     val coroutineScope = rememberCoroutineScope()
@@ -82,7 +83,7 @@ fun SettingsScreen(
                     0 -> FilterScreen()
                     1 -> StatusScreen()
                     2 -> AppFilterScreen()
-                    3 -> GeneralScreen(onLogout = onLogout, onNavigateToTutorial = onNavigateToTutorial)
+                    3 -> GeneralScreen(onLogout = onLogout, onNavigateToTutorial = onNavigateToTutorial, onSwitchToCloud = onSwitchToCloud)
                 }
             }
         }

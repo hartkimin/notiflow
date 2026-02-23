@@ -129,6 +129,9 @@ class SyncManager @Inject constructor(
         private const val MAX_LOGS = 50
     }
 
+    private val isCloudMode: Boolean
+        get() = appPreferences.isCloudMode
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -244,6 +247,7 @@ class SyncManager @Inject constructor(
      * 수동 동기화 (강제 - 양방향)
      */
     fun forceSync() {
+        if (!isCloudMode) { addLog("⚠️ 오프라인 모드"); return }
         val userId = auth.currentUserOrNull()?.id
         if (userId == null) {
             addLog("❌ 로그인이 필요합니다")
@@ -273,6 +277,7 @@ class SyncManager @Inject constructor(
      * 업로드 전용 (로컬 → 원격)
      */
     fun forceUpload(options: UploadOptions = UploadOptions()) {
+        if (!isCloudMode) { addLog("⚠️ 오프라인 모드"); return }
         val userId = auth.currentUserOrNull()?.id
         if (userId == null) {
             addLog("❌ 로그인이 필요합니다")
@@ -307,6 +312,7 @@ class SyncManager @Inject constructor(
      * 복원 전용 (원격 → 로컬)
      */
     fun forceDownload(options: DownloadOptions = DownloadOptions()) {
+        if (!isCloudMode) { addLog("⚠️ 오프라인 모드"); return }
         val userId = auth.currentUserOrNull()?.id
         if (userId == null) {
             addLog("❌ 로그인이 필요합니다")
@@ -337,6 +343,7 @@ class SyncManager @Inject constructor(
      * 동기화 리스너 시작 (로그인 후 호출)
      */
     fun startListening() {
+        if (!isCloudMode) return
         val userId = auth.currentUserOrNull()?.id
         if (isListening || userId == null) {
             Log.d(TAG, "Skipping startListening: isListening=$isListening, userId=$userId")
@@ -969,6 +976,7 @@ class SyncManager @Inject constructor(
     }
 
     suspend fun syncMessage(message: CapturedMessageEntity) {
+        if (!isCloudMode) return
         capturedMessageDao.markNeedsSync(message.id)
 
         if (!awaitUserLoggedIn()) {
@@ -993,6 +1001,7 @@ class SyncManager @Inject constructor(
      * @return 성공 여부 (온라인 상태에서 성공적으로 처리됨)
      */
     suspend fun deleteMessagesRemotely(ids: List<String>): Boolean {
+        if (!isCloudMode) return false
         if (!awaitUserLoggedIn()) {
             Log.w(TAG, "Remote message deletion deferred (not logged in)")
             return false
@@ -1029,6 +1038,7 @@ class SyncManager @Inject constructor(
     }
 
     suspend fun syncCategory(category: CategoryEntity) {
+        if (!isCloudMode) return
         if (!isUserLoggedIn()) return
         try {
             supabaseDataSource.upsertCategory(category)
@@ -1040,6 +1050,7 @@ class SyncManager @Inject constructor(
     }
 
     suspend fun syncFilterRule(rule: FilterRuleEntity) {
+        if (!isCloudMode) return
         if (!isUserLoggedIn()) return
         try {
             supabaseDataSource.upsertFilterRule(rule)
@@ -1051,6 +1062,7 @@ class SyncManager @Inject constructor(
     }
 
     suspend fun syncStatusStep(step: StatusStepEntity) {
+        if (!isCloudMode) return
         if (!isUserLoggedIn()) return
         try {
             supabaseDataSource.upsertStatusStep(step)
@@ -1062,6 +1074,7 @@ class SyncManager @Inject constructor(
     }
 
     suspend fun syncAppFilter(filter: AppFilterEntity) {
+        if (!isCloudMode) return
         if (!isUserLoggedIn()) return
         try {
             supabaseDataSource.upsertAppFilter(filter)
@@ -1073,6 +1086,7 @@ class SyncManager @Inject constructor(
     }
 
     suspend fun syncPlan(plan: PlanEntity) {
+        if (!isCloudMode) return
         if (!isUserLoggedIn()) return
         try {
             supabaseDataSource.upsertPlan(plan)
@@ -1084,6 +1098,7 @@ class SyncManager @Inject constructor(
     }
 
     suspend fun syncDayCategory(entity: DayCategoryEntity) {
+        if (!isCloudMode) return
         if (!isUserLoggedIn()) return
         try {
             supabaseDataSource.upsertDayCategory(entity)
@@ -1095,6 +1110,7 @@ class SyncManager @Inject constructor(
     }
 
     suspend fun deleteDayCategory(id: String) {
+        if (!isCloudMode) return
         if (!isUserLoggedIn()) return
         try {
             supabaseDataSource.deleteDayCategory(id)
@@ -1154,6 +1170,7 @@ class SyncManager @Inject constructor(
      * needsSync=true 메시지를 주기적으로 sweep하여 동기화 누락을 방지한다.
      */
     fun schedulePeriodicSync() {
+        if (!isCloudMode) return
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()

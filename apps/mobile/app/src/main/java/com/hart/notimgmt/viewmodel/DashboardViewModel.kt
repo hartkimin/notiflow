@@ -375,6 +375,18 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    // 여러 대화방 일괄 삭제
+    fun deleteRooms(rooms: List<Pair<String, String>>) {
+        viewModelScope.launch {
+            val allIds = rooms.flatMap { (source, roomId) ->
+                messageRepository.getRoomMessageIds(source, roomId)
+            }
+            if (allIds.isNotEmpty()) {
+                messageRepository.softDeleteByIds(allIds)
+            }
+        }
+    }
+
     // 메시지를 다음 상태로 이동
     fun moveToNextStatus(messageId: String) {
         viewModelScope.launch {

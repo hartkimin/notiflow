@@ -1,38 +1,35 @@
 package com.hart.notimgmt.ui.tutorial
 
-import androidx.annotation.RawRes
-import com.hart.notimgmt.R
-
 data class TutorialPage(
     val title: String,
     val description: String,
-    @RawRes val lottieRes: Int
+    val demoType: DemoType
 )
 
 val tutorialPages = listOf(
     TutorialPage(
-        title = "대화방 관리",
-        description = "앱별 메시지를 대화방 형태로 확인하고\n검색할 수 있어요",
-        lottieRes = R.raw.tutorial_chatroom
+        title = "Smart Timeline",
+        description = "View all your notifications organized chronologically with AI-powered insights.",
+        demoType = DemoType.TIMELINE
     ),
     TutorialPage(
-        title = "메시지 타임라인",
-        description = "모든 알림을 시간순으로 보고\n상태를 관리해요",
-        lottieRes = R.raw.tutorial_timeline
+        title = "Chatroom Management",
+        description = "Check and search app-specific messages neatly organized by conversational rooms.",
+        demoType = DemoType.CHATROOM
     ),
     TutorialPage(
-        title = "AI 분석",
-        description = "AI가 메시지를 자동 분석하고\n카테고리를 분류해요",
-        lottieRes = R.raw.tutorial_ai
+        title = "AI Analysis",
+        description = "Let AI automatically analyze messages and categorize their intent.",
+        demoType = DemoType.AI_INSIGHTS
     ),
     TutorialPage(
-        title = "스케줄 보드",
-        description = "칸반 보드로 메시지 처리 상태를\n관리해요",
-        lottieRes = R.raw.tutorial_kanban
+        title = "Schedule Board",
+        description = "Manage notification processing states via an intuitive Kanban board.",
+        demoType = DemoType.KANBAN
     ),
     TutorialPage(
-        title = "맞춤 설정",
-        description = "카테고리, 필터, 백업 등\n나만의 설정을 할 수 있어요",
-        lottieRes = R.raw.tutorial_settings
+        title = "Custom Settings",
+        description = "Personalize categories, configure filters, and enable cloud backups.",
+        demoType = DemoType.SETTINGS
     )
 )

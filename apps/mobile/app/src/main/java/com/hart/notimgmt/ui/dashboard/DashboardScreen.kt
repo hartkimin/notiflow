@@ -17,7 +17,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -64,8 +66,20 @@ fun DashboardScreen(
     val selectedApp by viewModel.selectedApp.collectAsState()
 
     var isSearchVisible by rememberSaveable { mutableStateOf(false) }
-    var roomToDelete by remember { mutableStateOf<ChatRoomItem?>(null) }
     val focusRequester = remember { FocusRequester() }
+
+    // 선택 모드 상태
+    var isSelectionMode by rememberSaveable { mutableStateOf(false) }
+    var selectedRoomKeys by remember { mutableStateOf(setOf<String>()) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    // 선택 모드 해제 시 선택 초기화
+    fun exitSelectionMode() {
+        isSelectionMode = false
+        selectedRoomKeys = emptySet()
+    }
+
+    fun roomKey(room: ChatRoomItem) = "${room.source}_${room.roomId}"
 
     // expandedHeight: statusBar + title(56dp) + icon chips(~68dp)
     val expandedHeight = when {
@@ -73,17 +87,21 @@ fun DashboardScreen(
         else -> 80.dp
     }
 
-    // 대화방 삭제 확인 다이얼로그
-    roomToDelete?.let { room ->
+    // 선택된 대화방 일괄 삭제 확인 다이얼로그
+    if (showDeleteDialog && selectedRoomKeys.isNotEmpty()) {
         AlertDialog(
-            onDismissRequest = { roomToDelete = null },
+            onDismissRequest = { showDeleteDialog = false },
             title = { Text("대화방 삭제") },
-            text = { Text("\"${room.displayTitle.ifEmpty { room.appName }}\" 대화방의 모든 메시지를 삭제하시겠습니까?\n삭제된 메시지는 휴지통에서 복원할 수 있습니다.") },
+            text = { Text("선택한 ${selectedRoomKeys.size}개 대화방의 모든 메시지를 삭제하시겠습니까?\n삭제된 메시지는 휴지통에서 복원할 수 있습니다.") },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.deleteRoom(room.source, room.roomId)
-                        roomToDelete = null
+                        val roomsToDelete = chatRooms
+                            .filter { selectedRoomKeys.contains(roomKey(it)) }
+                            .map { Pair(it.source, it.roomId) }
+                        viewModel.deleteRooms(roomsToDelete)
+                        showDeleteDialog = false
+                        exitSelectionMode()
                     },
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
@@ -91,7 +109,7 @@ fun DashboardScreen(
                 ) { Text("삭제") }
             },
             dismissButton = {
-                TextButton(onClick = { roomToDelete = null }) { Text("취소") }
+                TextButton(onClick = { showDeleteDialog = false }) { Text("취소") }
             }
         )
     }
@@ -154,9 +172,30 @@ fun DashboardScreen(
         }
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
+            // 선택 모드 바
+            AnimatedVisibility(
+                visible = isSelectionMode,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                RoomSelectionModeBar(
+                    selectedCount = selectedRoomKeys.size,
+                    totalCount = chatRooms.size,
+                    onSelectAll = {
+                        selectedRoomKeys = if (selectedRoomKeys.size == chatRooms.size) {
+                            emptySet()
+                        } else {
+                            chatRooms.map { roomKey(it) }.toSet()
+                        }
+                    },
+                    onDelete = { showDeleteDialog = true },
+                    onCancel = { exitSelectionMode() }
+                )
+            }
+
             // 검색바 (콘텐츠 영역 상단에 배치 — 겹침 없음)
             AnimatedVisibility(
-                visible = isSearchVisible,
+                visible = isSearchVisible && !isSelectionMode,
                 enter = expandVertically(),
                 exit = shrinkVertically()
             ) {
@@ -223,11 +262,33 @@ fun DashboardScreen(
                         items = chatRooms,
                         key = { "${it.source}_${it.roomId}" }
                     ) { room ->
+                        val key = roomKey(room)
                         ChatRoomListItem(
                             item = room,
-                            onClick = { onNavigateToChat(room.source, room.roomId) },
-                            onLongClick = { roomToDelete = room },
-                            searchQuery = searchQuery
+                            onClick = {
+                                if (isSelectionMode) {
+                                    selectedRoomKeys = if (selectedRoomKeys.contains(key)) {
+                                        val newSet = selectedRoomKeys - key
+                                        if (newSet.isEmpty()) {
+                                            isSelectionMode = false
+                                        }
+                                        newSet
+                                    } else {
+                                        selectedRoomKeys + key
+                                    }
+                                } else {
+                                    onNavigateToChat(room.source, room.roomId)
+                                }
+                            },
+                            onLongClick = {
+                                if (!isSelectionMode) {
+                                    isSelectionMode = true
+                                    selectedRoomKeys = setOf(key)
+                                }
+                            },
+                            searchQuery = searchQuery,
+                            isSelectionMode = isSelectionMode,
+                            isSelected = selectedRoomKeys.contains(key)
                         )
                     }
                 }
@@ -328,17 +389,89 @@ private fun AppIconChip(
     }
 }
 
+@Composable
+private fun RoomSelectionModeBar(
+    selectedCount: Int,
+    totalCount: Int,
+    onSelectAll: () -> Unit,
+    onDelete: () -> Unit,
+    onCancel: () -> Unit
+) {
+    val isAllSelected = selectedCount == totalCount && totalCount > 0
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onCancel, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "취소",
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            Text(
+                text = "${selectedCount}개 선택",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(
+                onClick = onSelectAll,
+                shape = RoundedCornerShape(8.dp),
+                color = if (isAllSelected)
+                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
+                else Color.Transparent
+            ) {
+                Icon(
+                    Icons.Default.SelectAll,
+                    contentDescription = if (isAllSelected) "선택 해제" else "전체 선택",
+                    modifier = Modifier.padding(8.dp).size(22.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            Surface(
+                onClick = onDelete,
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(start = 4.dp)
+            ) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "삭제",
+                    modifier = Modifier.padding(8.dp).size(22.dp),
+                    tint = MaterialTheme.colorScheme.onError
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChatRoomListItem(
     item: ChatRoomItem,
     onClick: () -> Unit,
     onLongClick: () -> Unit = {},
-    searchQuery: String = ""
+    searchQuery: String = "",
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false
 ) {
+    val bgColor = if (isSelected)
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+    else Color.Transparent
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(bgColor)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -346,6 +479,19 @@ fun ChatRoomListItem(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // 선택 모드 체크박스
+        if (isSelectionMode) {
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = null,
+                modifier = Modifier.padding(end = 8.dp),
+                colors = CheckboxDefaults.colors(
+                    checkedColor = MaterialTheme.colorScheme.primary,
+                    uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
+        }
+
         // App or Sender Icon
         val iconBitmap = remember(item.senderIcon) {
             try {

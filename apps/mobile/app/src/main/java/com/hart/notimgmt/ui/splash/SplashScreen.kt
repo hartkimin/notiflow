@@ -1,283 +1,180 @@
 package com.hart.notimgmt.ui.splash
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Email
-import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.Send
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hart.notimgmt.ui.theme.NotiFlowWarning
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
 fun SplashScreen(onFinished: () -> Unit) {
-    // ── Entrance animations ──
-    val alpha = remember { Animatable(0f) }
-    val scale = remember { Animatable(0.85f) }
-
-    // ── Infinite animations ──
-    val inf = rememberInfiniteTransition(label = "splash")
-
-    // Central icon gentle float
-    val floatY by inf.animateFloat(
-        initialValue = -10f, targetValue = 10f,
-        animationSpec = infiniteRepeatable(
-            tween(3000, easing = EaseInOutSine), RepeatMode.Reverse
-        ), label = "floatY"
-    )
-
-    // Pulse ring 1
-    val pulse1Scale by inf.animateFloat(
-        initialValue = 1f, targetValue = 2.5f,
-        animationSpec = infiniteRepeatable(
-            tween(2500, easing = LinearOutSlowInEasing), RepeatMode.Restart
-        ), label = "p1s"
-    )
-    val pulse1Alpha by inf.animateFloat(
-        initialValue = 0.5f, targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            tween(2500, easing = LinearOutSlowInEasing), RepeatMode.Restart
-        ), label = "p1a"
-    )
-
-    // Pulse ring 2 (staggered by half)
-    val pulse2Scale by inf.animateFloat(
-        initialValue = 1f, targetValue = 2.5f,
-        animationSpec = infiniteRepeatable(
-            tween(2500, delayMillis = 1250, easing = LinearOutSlowInEasing), RepeatMode.Restart
-        ), label = "p2s"
-    )
-    val pulse2Alpha by inf.animateFloat(
-        initialValue = 0.5f, targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            tween(2500, delayMillis = 1250, easing = LinearOutSlowInEasing), RepeatMode.Restart
-        ), label = "p2a"
-    )
-
-    // Orbital flow arcs — slow rotation
-    val orbitAngle by inf.animateFloat(
-        initialValue = 0f, targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            tween(10000, easing = LinearEasing), RepeatMode.Restart
-        ), label = "orbit"
-    )
+    val alphaAnim = remember { Animatable(0f) }
+    val scaleAnim = remember { Animatable(0.85f) }
+    val waveOffsetAnim = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
-        launch { alpha.animateTo(1f, tween(1000, easing = FastOutSlowInEasing)) }
-        launch { scale.animateTo(1f, tween(1200, easing = FastOutSlowInEasing)) }
-        delay(2500)
+        launch { alphaAnim.animateTo(1f, tween(1000, easing = EaseOutExpo)) }
+        launch { scaleAnim.animateTo(1f, tween(1200, easing = EaseOutBack)) }
+        launch {
+            waveOffsetAnim.animateTo(
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(4000, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                )
+            )
+        }
+        delay(3000)
         onFinished()
     }
 
-    // ── Background ──
+    val brandBlue = Color(0xFF4B4DFF)
+    val brandPurple = Color(0xFF934DFF)
+    val bgDark = Color(0xFF050505)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0F0D1A),
-                        Color(0xFF1C1A2E),
-                        Color(0xFF0F0D1A)
-                    )
-                )
-            ),
+            .background(bgDark),
         contentAlignment = Alignment.Center
     ) {
-        // Subtle radial glow behind everything
-        Box(
-            modifier = Modifier
-                .size(480.dp)
-                .alpha(0.25f)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(Color(0xFF6366F1), Color.Transparent)
-                    )
-                )
-        )
+        // Background abstract elements (Waves & Orbs)
+        Canvas(modifier = Modifier.fillMaxSize().alpha(alphaAnim.value)) {
+            val width = size.width
+            val height = size.height
 
-        // ── Main content ──
+            // Glow Orbs mapped to canvas
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(brandBlue.copy(alpha = 0.3f), Color.Transparent),
+                    center = Offset(width * 0.2f, height * 0.25f),
+                    radius = width * 0.5f
+                )
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(brandPurple.copy(alpha = 0.3f), Color.Transparent),
+                    center = Offset(width * 0.8f, height * 0.7f),
+                    radius = width * 0.6f
+                )
+            )
+            
+            // Scattered Dots
+            drawCircle(color = brandBlue.copy(alpha = 0.4f), radius = 8f, center = Offset(width * 0.15f, height * 0.1f))
+            drawCircle(color = brandPurple.copy(alpha = 0.5f), radius = 12f, center = Offset(width * 0.85f, height * 0.2f))
+            drawCircle(color = brandBlue.copy(alpha = 0.3f), radius = 10f, center = Offset(width * 0.2f, height * 0.85f))
+            drawCircle(color = brandPurple.copy(alpha = 0.4f), radius = 6f, center = Offset(width * 0.85f, height * 0.6f))
+            
+            // Vector Waves (Simplified path using Compose Path)
+            val scaleX = width / 400f
+            val scaleY = height / 800f
+            
+            val wave1 = androidx.core.graphics.PathParser.createPathFromPathData(
+                "M-50 150C50 100 150 250 200 400C250 550 350 700 450 650"
+            ).asComposePath()
+            
+            val wave2 = androidx.core.graphics.PathParser.createPathFromPathData(
+                "M450 150C350 100 250 250 200 400C150 550 50 700 -50 650"
+            ).asComposePath()
+            
+            val waveOffsetY = waveOffsetAnim.value * 60f
+            
+            withTransform({
+                scale(scaleX, scaleY, pivot = Offset.Zero)
+                translate(0f, waveOffsetY)
+            }) {
+                drawPath(
+                    path = wave1,
+                    brush = Brush.linearGradient(
+                        colors = listOf(brandBlue, brandPurple),
+                        start = Offset(0f, 0f),
+                        end = Offset(400f, 800f)
+                    ),
+                    style = Stroke(width = 2f),
+                    alpha = 0.5f
+                )
+                drawPath(
+                    path = wave2,
+                    brush = Brush.linearGradient(
+                        colors = listOf(brandPurple, brandBlue),
+                        start = Offset(400f, 0f),
+                        end = Offset(0f, 800f)
+                    ),
+                    style = Stroke(width = 2f),
+                    alpha = 0.5f
+                )
+            }
+        }
+
+        // Central N Logo and Branding
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .alpha(alpha.value)
-                .scale(scale.value)
+                .alpha(alphaAnim.value)
+                .scale(scaleAnim.value)
         ) {
-            // Icon + bubbles area
+            // Logo Container
             Box(
-                modifier = Modifier.size(280.dp),
+                modifier = Modifier.size(120.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // ── Orbital flow arcs ──
+                // Outer Glow
                 Box(
                     modifier = Modifier
-                        .size(220.dp)
-                        .graphicsLayer { rotationZ = orbitAngle }
-                        .drawBehind {
-                            val strokeWidth = 1.5.dp.toPx()
-                            val arcPad = strokeWidth / 2
-                            val arcSize = Size(size.width - strokeWidth, size.height - strokeWidth)
-                            val arcOffset = Offset(arcPad, arcPad)
-                            drawArc(
-                                color = Color(0xFF818CF8).copy(alpha = 0.4f),
-                                startAngle = 0f,
-                                sweepAngle = 90f,
-                                useCenter = false,
-                                topLeft = arcOffset,
-                                size = arcSize,
-                                style = Stroke(strokeWidth, cap = StrokeCap.Round)
-                            )
-                            drawArc(
-                                color = Color(0xFFA78BFA).copy(alpha = 0.35f),
-                                startAngle = 150f,
-                                sweepAngle = 70f,
-                                useCenter = false,
-                                topLeft = arcOffset,
-                                size = arcSize,
-                                style = Stroke(strokeWidth, cap = StrokeCap.Round)
-                            )
-                        }
-                )
-                // Second orbit ring (counter-rotate, smaller)
-                Box(
-                    modifier = Modifier
-                        .size(170.dp)
-                        .graphicsLayer { rotationZ = -orbitAngle * 0.7f }
-                        .drawBehind {
-                            val sw = 1.dp.toPx()
-                            val pad = sw / 2
-                            val aSize = Size(size.width - sw, size.height - sw)
-                            drawArc(
-                                color = Color(0xFFC4B5FD).copy(alpha = 0.3f),
-                                startAngle = 60f,
-                                sweepAngle = 80f,
-                                useCenter = false,
-                                topLeft = Offset(pad, pad),
-                                size = aSize,
-                                style = Stroke(sw, cap = StrokeCap.Round)
-                            )
-                        }
-                )
-
-                // ── Pulse rings ──
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .scale(pulse1Scale)
-                        .alpha(pulse1Alpha)
-                        .border(1.5.dp, Color(0xFF6366F1), CircleShape)
-                )
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .scale(pulse2Scale)
-                        .alpha(pulse2Alpha)
-                        .border(1.5.dp, Color(0xFF6366F1), CircleShape)
-                )
-
-                // ── Notification bubbles ──
-                NotificationBubble(
-                    icon = Icons.Rounded.Email,
-                    color = Color(0xFFF43F5E),
-                    modifier = Modifier.align(Alignment.TopEnd).offset(x = (-10).dp, y = 20.dp),
-                    delayMs = 0
-                )
-                NotificationBubble(
-                    icon = Icons.Rounded.Star,
-                    color = Color(0xFF6366F1),
-                    modifier = Modifier.align(Alignment.CenterStart).offset(x = 8.dp, y = (-15).dp),
-                    delayMs = 400
-                )
-                NotificationBubble(
-                    icon = Icons.Rounded.Schedule,
-                    color = Color(0xFF10B981),
-                    modifier = Modifier.align(Alignment.BottomStart).offset(x = 25.dp, y = (-25).dp),
-                    delayMs = 800
-                )
-                NotificationBubble(
-                    icon = Icons.Rounded.Notifications,
-                    color = NotiFlowWarning,
-                    modifier = Modifier.align(Alignment.TopStart).offset(x = 30.dp, y = 50.dp),
-                    delayMs = 200
-                )
-                NotificationBubble(
-                    icon = Icons.Rounded.Send,
-                    color = Color(0xFF8B5CF6),
-                    modifier = Modifier.align(Alignment.BottomEnd).offset(x = (-20).dp, y = (-40).dp),
-                    delayMs = 600
-                )
-
-                // ── Central icon ──
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .offset(y = floatY.dp)
-                        .graphicsLayer {
-                            shadowElevation = 24.dp.toPx()
-                            shape = CircleShape
-                            clip = false
-                            ambientShadowColor = Color(0xFF6366F1).copy(alpha = 0.4f)
-                            spotShadowColor = Color(0xFF6366F1).copy(alpha = 0.6f)
-                        }
+                        .matchParentSize()
+                        .blur(32.dp)
                         .background(
-                            Brush.linearGradient(
-                                colors = listOf(Color(0xFF6366F1), Color(0xFF8B5CF6)),
-                                start = Offset(0f, 0f),
-                                end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
-                            ),
-                            CircleShape
+                            brush = Brush.linearGradient(listOf(brandBlue.copy(alpha=0.6f), brandPurple.copy(alpha=0.6f))),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
                         )
-                        .border(
-                            width = 2.dp,
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = 0.5f),
-                                    Color.Transparent,
-                                    Color.White.copy(alpha = 0.15f)
-                                )
-                            ),
-                            shape = CircleShape
+                )
+                
+                // Actual Shape
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(
+                            brush = Brush.linearGradient(listOf(brandBlue, brandPurple)),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Notifications,
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp),
-                        tint = Color.White
-                    )
+                    Canvas(modifier = Modifier.size(60.dp)) {
+                        val nPath = androidx.core.graphics.PathParser.createPathFromPathData(
+                            "M25 20V80H38L62 38V80H75V20H62L38 62V20H25Z"
+                        ).asComposePath()
+                        withTransform({
+                            scale(size.width / 100f, size.height / 100f, pivot = Offset.Zero)
+                        }) {
+                            drawPath(
+                                path = nPath,
+                                color = Color.White
+                            )
+                        }
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            // ── Typography ──
             Text(
                 text = "NotiFlow",
                 style = MaterialTheme.typography.displayMedium.copy(
@@ -286,73 +183,17 @@ fun SplashScreen(onFinished: () -> Unit) {
                 ),
                 color = Color.White
             )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
             Text(
-                text = "모든 알림, 하나의 흐름으로",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    letterSpacing = 2.sp,
-                    fontWeight = FontWeight.Medium
+                text = "FOCUS RECLAIMED",
+                style = MaterialTheme.typography.labelMedium.copy(
+                    letterSpacing = 4.sp,
+                    fontWeight = FontWeight.Bold
                 ),
-                color = Color(0xFF9CA3AF),
-                modifier = Modifier.padding(top = 8.dp)
+                color = Color(0xFFA0A0A0)
             )
         }
-    }
-}
-
-// ── Floating notification bubble ────────────────────────────────────────────
-
-@Composable
-private fun NotificationBubble(
-    icon: ImageVector,
-    color: Color,
-    modifier: Modifier = Modifier,
-    delayMs: Int = 0
-) {
-    val inf = rememberInfiniteTransition(label = "bubble_$delayMs")
-    val bounce by inf.animateFloat(
-        initialValue = 0f,
-        targetValue = 14f,
-        animationSpec = infiniteRepeatable(
-            tween(2000, delayMillis = delayMs, easing = EaseInOutSine),
-            RepeatMode.Reverse
-        ), label = "bounce"
-    )
-
-    Box(
-        modifier = modifier
-            .offset(y = bounce.dp)
-            .size(48.dp)
-            .graphicsLayer {
-                shadowElevation = 12.dp.toPx()
-                shape = CircleShape
-                clip = false
-                ambientShadowColor = color.copy(alpha = 0.4f)
-                spotShadowColor = color.copy(alpha = 0.6f)
-            }
-            .background(
-                brush = Brush.radialGradient(
-                    colors = listOf(color.copy(alpha = 0.85f), color),
-                    center = Offset(18f, 18f),
-                    radius = 70f
-                ),
-                shape = CircleShape
-            )
-            .border(
-                width = 1.5.dp,
-                brush = Brush.linearGradient(
-                    colors = listOf(Color.White.copy(alpha = 0.7f), Color.Transparent),
-                    start = Offset(0f, 0f),
-                    end = Offset(80f, 80f)
-                ),
-                shape = CircleShape
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(22.dp),
-            tint = Color.White
-        )
     }
 }

@@ -1,6 +1,7 @@
 package com.hart.notimgmt.data.auth
 
 import android.util.Log
+import com.hart.notimgmt.data.preferences.AppPreferences
 import com.hart.notimgmt.data.sync.SyncManager
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.providers.builtin.Email
@@ -18,7 +19,8 @@ import javax.inject.Singleton
 @Singleton
 class AuthManager @Inject constructor(
     private val auth: Auth,
-    private val syncManager: SyncManager
+    private val syncManager: SyncManager,
+    private val appPreferences: AppPreferences
 ) {
     companion object {
         private const val TAG = "AuthManager"
@@ -44,8 +46,8 @@ class AuthManager @Inject constructor(
             auth.sessionStatus.collect { status ->
                 when (status) {
                     is SessionStatus.Authenticated -> {
-                        if (!syncStarted) {
-                            Log.d(TAG, "Session restored — starting sync")
+                        if (!syncStarted && appPreferences.isCloudMode) {
+                            Log.d(TAG, "Session restored — starting sync (cloud mode)")
                             syncStarted = true
                             syncManager.startListening()
                             syncManager.schedulePeriodicSync()

@@ -279,3 +279,38 @@ export interface ChatRoom {
   sender_icon: string | null;
   match_count: number;
 }
+
+// --- Inbox Local State (frontend-only, localStorage) ---
+
+export interface StatusStep {
+  id: string;
+  name: string;
+  color: string;
+  orderIndex: number;
+}
+
+export interface StatusChangeItem {
+  id: string;
+  fromStatusId: string | null;
+  fromStatusName: string | null;
+  toStatusId: string;
+  toStatusName: string;
+  changedAt: string;
+}
+
+export interface MessageComment {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface MessageLocalData {
+  statusId: string | null;
+  statusHistory: StatusChangeItem[];
+  isPinned: boolean;
+  snoozeAt: string | null;
+  comments: MessageComment[];
+  editedContent: string | null;
+}
+
+export type MessageLocalStateMap = Record<number, MessageLocalData>;

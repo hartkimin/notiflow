@@ -2,17 +2,24 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { createManualOrder } from "@/app/(dashboard)/messages/actions";
 import type { Hospital, Product } from "@/lib/types";
 
@@ -34,10 +41,14 @@ export function ManualParseForm({
   onSuccess?: (orderNumber: string) => void;
 }) {
   const [hospitalId, setHospitalId] = useState("");
+  const [hospitalOpen, setHospitalOpen] = useState(false);
   const [items, setItems] = useState<ParseItem[]>([
     { product_id: "", quantity: "1", unit_price: "" },
   ]);
+  const [productOpenIdx, setProductOpenIdx] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const selectedHospital = hospitals.find((h) => String(h.id) === hospitalId);
 
   function addItem() {
     setItems((prev) => [...prev, { product_id: "", quantity: "1", unit_price: "" }]);
@@ -94,22 +105,61 @@ export function ManualParseForm({
     });
   }
 
+  function getProductName(productId: string): string {
+    const p = products.find((p) => String(p.id) === productId);
+    return p?.name ?? "";
+  }
+
   return (
     <div className="space-y-4">
       <div>
         <Label>거래처</Label>
-        <Select value={hospitalId} onValueChange={setHospitalId}>
-          <SelectTrigger>
-            <SelectValue placeholder="거래처 선택" />
-          </SelectTrigger>
-          <SelectContent>
-            {hospitals.map((h) => (
-              <SelectItem key={h.id} value={String(h.id)}>
-                {h.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Popover open={hospitalOpen} onOpenChange={setHospitalOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={hospitalOpen}
+              className="w-full justify-between font-normal"
+            >
+              {selectedHospital ? selectedHospital.name : "거래처 검색..."}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="거래처명 검색..." />
+              <CommandList>
+                <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
+                <CommandGroup>
+                  {hospitals.map((h) => (
+                    <CommandItem
+                      key={h.id}
+                      value={`${h.name} ${h.short_name ?? ""} ${h.contact_person ?? ""}`}
+                      onSelect={() => {
+                        setHospitalId(String(h.id));
+                        setHospitalOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          hospitalId === String(h.id) ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      <div className="flex flex-col">
+                        <span>{h.name}</span>
+                        {h.contact_person && (
+                          <span className="text-xs text-muted-foreground">{h.contact_person}</span>
+                        )}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <div className="space-y-3">
@@ -118,21 +168,55 @@ export function ManualParseForm({
           <div key={idx} className="flex gap-2 items-end">
             <div className="flex-1">
               {idx === 0 && <span className="text-xs text-muted-foreground">품목</span>}
-              <Select
-                value={item.product_id}
-                onValueChange={(v: string) => updateItem(idx, "product_id", v)}
+              <Popover
+                open={productOpenIdx === idx}
+                onOpenChange={(open: boolean) => setProductOpenIdx(open ? idx : null)}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="품목 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map((p) => (
-                    <SelectItem key={p.id} value={String(p.id)}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={productOpenIdx === idx}
+                    className="w-full justify-between font-normal"
+                  >
+                    {item.product_id ? getProductName(item.product_id) : "품목 검색..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="품목명, 제조사 검색..." />
+                    <CommandList>
+                      <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
+                      <CommandGroup>
+                        {products.map((p) => (
+                          <CommandItem
+                            key={p.id}
+                            value={`${p.name} ${p.official_name} ${p.short_name ?? ""} ${p.manufacturer ?? ""} ${p.category}`}
+                            onSelect={() => {
+                              updateItem(idx, "product_id", String(p.id));
+                              setProductOpenIdx(null);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4 shrink-0",
+                                item.product_id === String(p.id) ? "opacity-100" : "opacity-0",
+                              )}
+                            />
+                            <div className="flex flex-col min-w-0">
+                              <span className="truncate">{p.name}</span>
+                              <span className="text-xs text-muted-foreground truncate">
+                                {[p.manufacturer, p.category].filter(Boolean).join(" · ")}
+                              </span>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="w-20">
               {idx === 0 && <span className="text-xs text-muted-foreground">수량</span>}

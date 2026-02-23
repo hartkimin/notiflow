@@ -46,6 +46,9 @@ export interface OrderItem {
 
 export interface OrderDetail extends Order {
   items: OrderItem[];
+  message_content: string | null;
+  message_sender: string | null;
+  message_received_at: string | null;
 }
 
 export interface OrderItemFlat {

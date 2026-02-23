@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, MessageSquare } from "lucide-react";
 
 import { getOrder } from "@/lib/queries/orders";
 import { Badge } from "@/components/ui/badge";
@@ -140,6 +140,39 @@ export default async function OrderDetailPage({ params }: Props) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Original message */}
+      {order.message_content && (
+        <Card className="print:border print:shadow-none">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              원문 메시지
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border bg-muted/30 p-3">
+              <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
+                {order.message_sender && (
+                  <span className="font-medium text-foreground">{order.message_sender}</span>
+                )}
+                {order.message_received_at && (
+                  <span>
+                    {new Date(order.message_received_at).toLocaleString("ko-KR", {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                )}
+              </div>
+              <pre className="text-sm whitespace-pre-wrap font-sans">{order.message_content}</pre>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Order items table */}
       <Card className="print:border print:shadow-none">

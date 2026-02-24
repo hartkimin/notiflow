@@ -56,16 +56,17 @@ src/components/data-calendar/
 ```typescript
 interface DataCalendarProps<T> {
   items: T[];
-  dateAccessor: (item: T) => number;  // epoch ms
-  idAccessor: (item: T) => string;
-  renderMonthCell: (items: T[], date: Date) => ReactNode;
+  dateAccessor: (item: T) => Date;
+  idAccessor: (item: T) => string | number;
+  renderMonthItem: (item: T) => ReactNode;
   renderWeekItem: (item: T) => ReactNode;
   renderDayItem: (item: T) => ReactNode;
-  renderDetail: (item: T, onClose: () => void) => ReactNode;
+  renderDetail: (item: T) => ReactNode;
+  detailTitle: (item: T) => string;
   view: "day" | "week" | "month";
   referenceDate: Date;
   basePath: string;
-  tabParam: string;  // "calendar"
+  tabParam?: string;  // default "calendar"
 }
 ```
 
@@ -106,16 +107,16 @@ interface DataCalendarProps<T> {
 
 ### Messages Calendar
 ```
-getMessages({ from, to }) → RawMessage[]
-- dateAccessor: new Date(m.received_at).getTime()
-- Reuse existing getMessages query with date range
+getMessagesForCalendar({ from, to }) → RawMessage[]
+- dateAccessor: (m) => new Date(m.received_at)
+- Dedicated calendar query (no pagination, limit 500)
 ```
 
 ### Orders Calendar
 ```
-getOrderItems({ from, to }) → OrderItemFlat[]
-- Group by order_id, then dateAccessor from order_date
-- Reuse existing getOrderItems query
+getOrdersForCalendar({ from, to }) → Order[]
+- dateAccessor: (o) => new Date(o.order_date)
+- Dedicated calendar query with hospital join (no pagination, limit 500)
 ```
 
 ## Deleted Code

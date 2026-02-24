@@ -34,6 +34,29 @@ import { APP_VERSION } from "@/lib/version";
 const releases = [
   {
     version: APP_VERSION,
+    date: "2026-02-24",
+    title: "캘린더 버그 수정 & 기기 컬럼 추가",
+    highlights: [
+      {
+        icon: CalendarDays,
+        text: "캘린더 카테고리 추가 오류 수정 — ARGB 색상값 정수 오버플로우 해결",
+      },
+      {
+        icon: CalendarDays,
+        text: "주간 뷰 '오늘' 네비게이션 수정 — 타임존(KST) 오프셋으로 인한 잘못된 주간 표시 해결",
+      },
+      {
+        icon: Smartphone,
+        text: "수신메시지 기기명 컬럼 추가 — 어느 모바일 기기에서 수집된 메시지인지 표시",
+      },
+      {
+        icon: Bot,
+        text: "Gemini API 429 자동 재시도 — 요청 한도 초과 시 retryDelay 파싱 후 자동 재시도",
+      },
+    ],
+  },
+  {
+    version: "0.0.0.2",
     date: "2026-02-23",
     title: "AI 파싱 활성화 & 검색 콤보박스 도입",
     highlights: [

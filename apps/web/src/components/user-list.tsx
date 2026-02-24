@@ -49,8 +49,8 @@ type SortDir = "asc" | "desc";
 
 // -- Helpers --
 
-function getInitials(name: string) {
-  return name.slice(0, 2).toUpperCase();
+function getInitials(name: string | null) {
+  return (name || "?").slice(0, 2).toUpperCase();
 }
 
 function getAvatarColor(role: string) {

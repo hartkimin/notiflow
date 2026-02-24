@@ -31,10 +31,11 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useResizableColumns } from "@/hooks/use-resizable-columns";
+import { ResizableTh } from "@/components/resizable-th";
 import {
   confirmOrderAction,
   deleteOrdersAction,
@@ -64,6 +65,10 @@ const STATUS_VARIANT: Record<
   cancelled: "destructive",
 };
 
+const DETAIL_COL_DEFAULTS: Record<string, number> = {
+  idx: 40, product: 200, original: 150, quantity: 80, unit_price: 90, total: 90,
+};
+
 interface OrderDetailClientProps {
   order: OrderDetail;
 }
@@ -71,6 +76,7 @@ interface OrderDetailClientProps {
 export function OrderDetailClient({ order }: OrderDetailClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const { widths, onMouseDown } = useResizableColumns("order-detail", DETAIL_COL_DEFAULTS);
   const [isEditing, setIsEditing] = useState(false);
   const [editQuantities, setEditQuantities] = useState<Record<number, number>>(
     {},
@@ -356,19 +362,15 @@ export function OrderDetailClient({ order }: OrderDetailClientProps) {
             ))}
         </div>
         <div className="overflow-x-auto -mx-6">
-          <Table>
+          <Table style={{ tableLayout: "fixed" }}>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-6 w-[40px]">#</TableHead>
-                <TableHead>품목</TableHead>
-                <TableHead className="hidden sm:table-cell print:table-cell">
-                  원문
-                </TableHead>
-                <TableHead className="text-right w-[80px]">수량</TableHead>
-                <TableHead className="text-right w-[90px]">단가</TableHead>
-                <TableHead className="text-right pr-6 w-[90px]">
-                  금액
-                </TableHead>
+                <ResizableTh width={widths.idx} colKey="idx" onResizeStart={onMouseDown} className="pl-6">#</ResizableTh>
+                <ResizableTh width={widths.product} colKey="product" onResizeStart={onMouseDown}>품목</ResizableTh>
+                <ResizableTh width={widths.original} colKey="original" onResizeStart={onMouseDown} className="hidden sm:table-cell print:table-cell">원문</ResizableTh>
+                <ResizableTh width={widths.quantity} colKey="quantity" onResizeStart={onMouseDown} className="text-right">수량</ResizableTh>
+                <ResizableTh width={widths.unit_price} colKey="unit_price" onResizeStart={onMouseDown} className="text-right">단가</ResizableTh>
+                <ResizableTh width={widths.total} colKey="total" onResizeStart={onMouseDown} className="text-right pr-6">금액</ResizableTh>
               </TableRow>
             </TableHeader>
             <TableBody>

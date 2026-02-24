@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+import { useResizableColumns } from "@/hooks/use-resizable-columns";
+import { ResizableTh } from "@/components/resizable-th";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,9 +12,14 @@ import { markReportedAction } from "@/app/(dashboard)/kpis/actions";
 import { toast } from "sonner";
 import type { KpisReport } from "@/lib/types";
 
+const KPIS_COL_DEFAULTS: Record<string, number> = {
+  id: 60, order_item_id: 100, status: 80, created_at: 100, reference_number: 120, actions: 80,
+};
+
 export function KpisTable({ reports, title }: { reports: KpisReport[]; title: string }) {
   const [dialogId, setDialogId] = useState<number | null>(null);
   const [refNum, setRefNum] = useState("");
+  const { widths, onMouseDown } = useResizableColumns("kpis", KPIS_COL_DEFAULTS);
 
   async function handleSubmit() {
     if (!dialogId) return;
@@ -29,15 +36,15 @@ export function KpisTable({ reports, title }: { reports: KpisReport[]; title: st
   return (
     <>
       <h3 className="text-base font-medium mb-2">{title} ({reports.length}건)</h3>
-      <Table>
+      <Table style={{ tableLayout: "fixed" }}>
         <TableHeader>
           <TableRow>
-            <TableHead>ID</TableHead>
-            <TableHead>주문품목 ID</TableHead>
-            <TableHead>상태</TableHead>
-            <TableHead>생성일</TableHead>
-            <TableHead>참조번호</TableHead>
-            <TableHead></TableHead>
+            <ResizableTh width={widths.id} colKey="id" onResizeStart={onMouseDown}>ID</ResizableTh>
+            <ResizableTh width={widths.order_item_id} colKey="order_item_id" onResizeStart={onMouseDown}>주문품목 ID</ResizableTh>
+            <ResizableTh width={widths.status} colKey="status" onResizeStart={onMouseDown}>상태</ResizableTh>
+            <ResizableTh width={widths.created_at} colKey="created_at" onResizeStart={onMouseDown}>생성일</ResizableTh>
+            <ResizableTh width={widths.reference_number} colKey="reference_number" onResizeStart={onMouseDown}>참조번호</ResizableTh>
+            <ResizableTh width={widths.actions} colKey="actions" onResizeStart={onMouseDown} />
           </TableRow>
         </TableHeader>
         <TableBody>

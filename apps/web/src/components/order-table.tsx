@@ -55,6 +55,8 @@ import {
 } from "@/app/(dashboard)/orders/actions";
 import { BulkActionBar } from "@/components/bulk-action-bar";
 import { useRowSelection } from "@/hooks/use-row-selection";
+import { useResizableColumns } from "@/hooks/use-resizable-columns";
+import { ResizableTh } from "@/components/resizable-th";
 import { toast } from "sonner";
 import type { OrderItemFlat } from "@/lib/types";
 
@@ -67,6 +69,11 @@ export interface HospitalOption {
   id: number;
   name: string;
 }
+
+const ORDER_COL_DEFAULTS: Record<string, number> = {
+  checkbox: 36, expand: 28, order_number: 120, order_date: 70, delivery_date: 70,
+  hospital: 150, item_count: 60, status: 80, actions: 40,
+};
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "임시",
@@ -147,6 +154,7 @@ export function OrderTable({
     return Array.from(map.values());
   }, [items]);
 
+  const { widths, onMouseDown } = useResizableColumns("orders", ORDER_COL_DEFAULTS);
   const allIds = useMemo(() => groups.map((g) => g.order_id), [groups]);
   const rowSelection = useRowSelection(allIds);
 
@@ -158,25 +166,25 @@ export function OrderTable({
 
   return (
     <>
-      <div className="rounded-md border">
-        <Table>
+      <div className="rounded-md border overflow-x-auto">
+        <Table style={{ tableLayout: "fixed" }}>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[36px] px-2">
+              <ResizableTh width={widths.checkbox} colKey="checkbox" onResizeStart={onMouseDown} className="px-2">
                 <Checkbox
                   checked={rowSelection.allSelected ? true : rowSelection.someSelected ? "indeterminate" : false}
                   onCheckedChange={() => rowSelection.toggleAll()}
                   aria-label="모두 선택"
                 />
-              </TableHead>
-              <TableHead className="w-[28px]" />
-              <TableHead className="w-[120px]">주문번호</TableHead>
-              <TableHead className="w-[70px]">발주일</TableHead>
-              <TableHead className="w-[70px]">배송일</TableHead>
-              <TableHead>거래처</TableHead>
-              <TableHead className="text-right w-[60px]">품목수</TableHead>
-              <TableHead className="w-[80px]">상태</TableHead>
-              <TableHead className="w-[40px]" />
+              </ResizableTh>
+              <ResizableTh width={widths.expand} colKey="expand" onResizeStart={onMouseDown} />
+              <ResizableTh width={widths.order_number} colKey="order_number" onResizeStart={onMouseDown}>주문번호</ResizableTh>
+              <ResizableTh width={widths.order_date} colKey="order_date" onResizeStart={onMouseDown}>발주일</ResizableTh>
+              <ResizableTh width={widths.delivery_date} colKey="delivery_date" onResizeStart={onMouseDown}>배송일</ResizableTh>
+              <ResizableTh width={widths.hospital} colKey="hospital" onResizeStart={onMouseDown}>거래처</ResizableTh>
+              <ResizableTh width={widths.item_count} colKey="item_count" onResizeStart={onMouseDown} className="text-right">품목수</ResizableTh>
+              <ResizableTh width={widths.status} colKey="status" onResizeStart={onMouseDown}>상태</ResizableTh>
+              <ResizableTh width={widths.actions} colKey="actions" onResizeStart={onMouseDown} />
             </TableRow>
           </TableHeader>
           <TableBody>

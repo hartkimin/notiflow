@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useTransition, useCallback } from "react";
+import React, { useState, useMemo, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table, TableBody, TableCell, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -34,8 +34,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { createMessage, deleteMessage, deleteMessages, reparseMessage, reparseMessages } from "@/lib/actions";
 import { ManualParseForm } from "@/components/manual-parse-form";
 import { useRowSelection } from "@/hooks/use-row-selection";
+import { useResizableColumns } from "@/hooks/use-resizable-columns";
+import { ResizableTh } from "@/components/resizable-th";
 import { useMessageLocalState } from "@/hooks/use-message-local-state";
 import type { RawMessage, Hospital, Product } from "@/lib/types";
+
+const MSG_COL_DEFAULTS: Record<string, number> = {
+  checkbox: 40, id: 50, sender: 120, source: 80, status: 80, order: 70, time: 140,
+};
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   parsed: "default",
@@ -344,28 +350,7 @@ export function MessageTable({ messages, hospitals, products }: {
 
   const localState = useMessageLocalState();
 
-  // Column resize
-  const [colWidths, setColWidths] = useState<Record<string, number | undefined>>({});
-
-  const onResizeStart = useCallback((key: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const th = (e.target as HTMLElement).closest("th");
-    if (!th) return;
-    const startX = e.clientX;
-    const startW = th.getBoundingClientRect().width;
-
-    const onMove = (ev: MouseEvent) => {
-      const diff = ev.clientX - startX;
-      setColWidths((prev) => ({ ...prev, [key]: Math.max(40, startW + diff) }));
-    };
-    const onUp = () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  }, []);
+  const { widths, onMouseDown } = useResizableColumns("messages", MSG_COL_DEFAULTS);
 
   const allIds = useMemo(() => messages.map((m) => m.id), [messages]);
   const rowSelection = useRowSelection(allIds);
@@ -464,37 +449,28 @@ export function MessageTable({ messages, hospitals, products }: {
           <Table style={{ tableLayout: "fixed" }}>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[40px] px-2" onClick={(e) => e.stopPropagation()}>
+                <ResizableTh width={widths.checkbox} colKey="checkbox" onResizeStart={onMouseDown} className="px-2" onClick={(e) => e.stopPropagation()}>
                   <Checkbox
                     checked={rowSelection.allSelected ? true : rowSelection.someSelected ? "indeterminate" : false}
                     onCheckedChange={() => rowSelection.toggleAll()}
                   />
-                </TableHead>
-                {([
-                  { key: "id", label: "ID", sort: "id" as SortKey, minW: 50 },
-                  { key: "sender", label: "발신자", sort: "sender" as SortKey },
-                  { key: "source", label: "출처", sort: "source_app" as SortKey },
-                  { key: "status", label: "상태", sort: "parse_status" as SortKey },
-                  { key: "order", label: "주문", sort: undefined },
-                  { key: "time", label: "수신시간", sort: "received_at" as SortKey },
-                ] as const).map((col) => (
-                  <TableHead
-                    key={col.key}
-                    className={`relative select-none ${col.sort ? "cursor-pointer" : ""}`}
-                    style={colWidths[col.key] ? { width: colWidths[col.key] } : "minW" in col ? { width: col.minW } : undefined}
-                    onClick={col.sort ? () => toggleSort(col.sort!) : undefined}
-                  >
-                    <span className="inline-flex items-center">
-                      {col.label}
-                      {col.sort && <SortIcon active={sortKey === col.sort} dir={sortDir} />}
-                    </span>
-                    <div
-                      className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-primary/20 active:bg-primary/40"
-                      onMouseDown={(e) => onResizeStart(col.key, e)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </TableHead>
-                ))}
+                </ResizableTh>
+                <ResizableTh width={widths.id} colKey="id" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("id")}>
+                  <span className="inline-flex items-center">ID<SortIcon active={sortKey === "id"} dir={sortDir} /></span>
+                </ResizableTh>
+                <ResizableTh width={widths.sender} colKey="sender" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("sender")}>
+                  <span className="inline-flex items-center">발신자<SortIcon active={sortKey === "sender"} dir={sortDir} /></span>
+                </ResizableTh>
+                <ResizableTh width={widths.source} colKey="source" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("source_app")}>
+                  <span className="inline-flex items-center">출처<SortIcon active={sortKey === "source_app"} dir={sortDir} /></span>
+                </ResizableTh>
+                <ResizableTh width={widths.status} colKey="status" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("parse_status")}>
+                  <span className="inline-flex items-center">상태<SortIcon active={sortKey === "parse_status"} dir={sortDir} /></span>
+                </ResizableTh>
+                <ResizableTh width={widths.order} colKey="order" onResizeStart={onMouseDown}>주문</ResizableTh>
+                <ResizableTh width={widths.time} colKey="time" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("received_at")}>
+                  <span className="inline-flex items-center">수신시간<SortIcon active={sortKey === "received_at"} dir={sortDir} /></span>
+                </ResizableTh>
               </TableRow>
             </TableHeader>
             <TableBody>

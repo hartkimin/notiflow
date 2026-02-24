@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -27,10 +26,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ArrowUp, ArrowDown, ArrowUpDown,
-  Trash2, Plus, Smartphone, Bot,
-  Inbox, Cpu, PackageSearch, ClipboardList, ChevronRight, XCircle, Circle, X,
-  CheckCircle,
-  Pin, PinOff, Clock, Copy, Pencil, MessageSquare,
+  Trash2, Plus, Bot,
+  Cpu, ClipboardList, ChevronRight, X,
+  Pin, PinOff, Copy, Pencil, MessageSquare,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { createMessage, deleteMessage, deleteMessages, reparseMessage, reparseMessages } from "@/lib/actions";
@@ -60,7 +58,7 @@ const SOURCE_LABEL: Record<string, string> = {
   manual: "수동",
 };
 
-type SortKey = "id" | "sender" | "source_app" | "parse_status" | "received_at" | "device_name";
+type SortKey = "id" | "sender" | "source_app" | "parse_status" | "received_at";
 type SortDir = "asc" | "desc";
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
@@ -85,10 +83,6 @@ function formatDateTime(iso: string): string {
     month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit", second: "2-digit",
   });
-}
-
-function truncate(s: string, max = 60): string {
-  return s.length > max ? s.slice(0, max) + "\u2026" : s;
 }
 
 // --- Filters ---
@@ -249,105 +243,6 @@ export function CreateMessageDialog() {
   );
 }
 
-// --- Parse Stepper ---
-
-interface StepInfo {
-  label: string;
-  icon: React.ReactNode;
-  status: "done" | "fail" | "pending" | "na";
-  detail: string;
-  sub: string;
-}
-
-function ParseStepper({ msg }: { msg: RawMessage }) {
-  const parseResult = msg.parse_result as Record<string, unknown> | null;
-  const items = Array.isArray(parseResult) ? parseResult : [];
-  const hasParsed = msg.parse_status === "parsed";
-  const hasFailed = msg.parse_status === "failed";
-
-  let matched = 0, review = 0, unmatched = 0;
-  for (const it of items) {
-    const r = it as Record<string, unknown>;
-    if (r.match_status === "matched") matched++;
-    else if (r.match_status === "review") review++;
-    else unmatched++;
-  }
-
-  const steps: StepInfo[] = [
-    {
-      label: "메시지 수신",
-      icon: <Inbox className="h-4 w-4" />,
-      status: "done",
-      detail: formatDate(msg.received_at),
-      sub: SOURCE_LABEL[msg.source_app] || msg.source_app,
-    },
-    {
-      label: "AI 파싱",
-      icon: <Cpu className="h-4 w-4" />,
-      status: hasFailed ? "fail" : hasParsed ? "done" : "pending",
-      detail: hasParsed
-        ? msg.parse_method === "llm" ? "AI" : msg.parse_method === "regex" ? "정규식" : (msg.parse_method || "-")
-        : hasFailed ? "실패" : "대기중",
-      sub: hasParsed && items.length > 0 ? `${items.length}개 항목` : "",
-    },
-    {
-      label: "제품 매칭",
-      icon: <PackageSearch className="h-4 w-4" />,
-      status: !hasParsed ? (hasFailed ? "fail" : "na") : items.length > 0 ? "done" : "na",
-      detail: hasParsed && items.length > 0
-        ? `매칭 ${matched}`
-        : "-",
-      sub: hasParsed && (review > 0 || unmatched > 0)
-        ? `검토 ${review} / 미매칭 ${unmatched}`
-        : "",
-    },
-    {
-      label: "주문 생성",
-      icon: <ClipboardList className="h-4 w-4" />,
-      status: msg.order_id ? "done" : "na",
-      detail: msg.order_id ? `#${msg.order_id}` : "-",
-      sub: "",
-    },
-  ];
-
-  const statusColor: Record<string, string> = {
-    done: "text-green-600 bg-green-50 border-green-200",
-    fail: "text-red-600 bg-red-50 border-red-200",
-    pending: "text-yellow-600 bg-yellow-50 border-yellow-200",
-    na: "text-muted-foreground bg-muted/30 border-muted",
-  };
-
-  const statusIcon: Record<string, React.ReactNode> = {
-    done: <CheckCircle className="h-3.5 w-3.5 text-green-600" />,
-    fail: <XCircle className="h-3.5 w-3.5 text-red-600" />,
-    pending: <Circle className="h-3.5 w-3.5 text-yellow-500" />,
-    na: <Circle className="h-3.5 w-3.5 text-muted-foreground/40" />,
-  };
-
-  return (
-    <div className="flex items-start gap-1 overflow-x-auto py-2">
-      {steps.map((step, i) => (
-        <div key={step.label} className="flex items-start">
-          <div className={`flex flex-col items-center gap-1 rounded-lg border px-3 py-2 min-w-[120px] ${statusColor[step.status]}`}>
-            <div className="flex items-center gap-1.5">
-              {statusIcon[step.status]}
-              <span className="text-xs font-medium">{step.label}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              {step.icon}
-              <span className="text-xs">{step.detail}</span>
-            </div>
-            {step.sub && <span className="text-[10px] opacity-70">{step.sub}</span>}
-          </div>
-          {i < steps.length - 1 && (
-            <ChevronRight className="h-4 w-4 text-muted-foreground mt-4 mx-0.5 shrink-0" />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // --- Parse Result Table ---
 
 function ParseResultTable({ msg }: { msg: RawMessage }) {
@@ -409,23 +304,6 @@ function ParseResultTable({ msg }: { msg: RawMessage }) {
       </table>
     </div>
   );
-}
-
-// --- Snooze helpers ---
-
-function computeSnoozeTime(option: string): string {
-  const now = new Date();
-  if (option === "1h") {
-    return new Date(now.getTime() + 60 * 60 * 1000).toISOString();
-  }
-  if (option === "3h") {
-    return new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString();
-  }
-  // "tomorrow9am"
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(9, 0, 0, 0);
-  return tomorrow.toISOString();
 }
 
 // --- Message Table ---
@@ -537,17 +415,6 @@ export function MessageTable({ messages, hospitals, products }: {
     toast.success("클립보드에 복사되었습니다.");
   }
 
-  function handleSnoozeChange(msgId: number, option: string) {
-    if (option === "clear") {
-      localState.setSnooze(msgId, null);
-      toast.success("스누즈가 해제되었습니다.");
-    } else {
-      const snoozeTime = computeSnoozeTime(option);
-      localState.setSnooze(msgId, snoozeTime);
-      toast.success("스누즈가 설정되었습니다.");
-    }
-  }
-
   const sorted = useMemo(() => {
     return [...messages].sort((a, b) => {
       // Pinned messages always sort to top
@@ -586,16 +453,13 @@ export function MessageTable({ messages, hospitals, products }: {
                 <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("sender")}>
                   <span className="inline-flex items-center">발신자<SortIcon active={sortKey === "sender"} dir={sortDir} /></span>
                 </TableHead>
-                <TableHead className="max-w-[250px]">내용</TableHead>
                 <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("source_app")}>
                   <span className="inline-flex items-center">출처<SortIcon active={sortKey === "source_app"} dir={sortDir} /></span>
-                </TableHead>
-                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("device_name")}>
-                  <span className="inline-flex items-center">기기명<SortIcon active={sortKey === "device_name"} dir={sortDir} /></span>
                 </TableHead>
                 <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("parse_status")}>
                   <span className="inline-flex items-center">상태<SortIcon active={sortKey === "parse_status"} dir={sortDir} /></span>
                 </TableHead>
+                <TableHead>주문</TableHead>
                 <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("received_at")}>
                   <span className="inline-flex items-center">수신시간<SortIcon active={sortKey === "received_at"} dir={sortDir} /></span>
                 </TableHead>
@@ -605,7 +469,6 @@ export function MessageTable({ messages, hospitals, products }: {
               {sorted.map((msg) => {
                 const msgLocal = localState.getState(msg.id);
                 const statusStep = localState.steps.find((s) => s.id === msgLocal.statusId);
-                const isSnoozed = msgLocal.snoozeAt !== null && new Date(msgLocal.snoozeAt) > new Date();
                 const displayContent = msgLocal.editedContent ?? msg.content;
 
                 return (
@@ -625,30 +488,11 @@ export function MessageTable({ messages, hospitals, products }: {
                           <ChevronRight className={`h-3 w-3 transition-transform ${expandedId === msg.id ? "rotate-90" : ""}`} />
                           {msg.id}
                           {msgLocal.isPinned && <Pin className="h-3 w-3 text-amber-500" />}
-                          {isSnoozed && <Clock className="h-3 w-3 text-blue-500" />}
                         </span>
                       </TableCell>
                       <TableCell className="font-medium">{msg.sender || "-"}</TableCell>
-                      <TableCell className="max-w-[250px] truncate text-sm text-muted-foreground">
-                        <span className="inline-flex items-center gap-1">
-                          {msgLocal.editedContent !== null && <Pencil className="h-3 w-3 text-orange-400 shrink-0" />}
-                          {truncate(msg.content)}
-                        </span>
-                      </TableCell>
                       <TableCell>
                         <Badge variant="outline">{SOURCE_LABEL[msg.source_app] || msg.source_app}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {msg.device_name ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                            <Smartphone className="h-3 w-3" />
-                            {msg.device_name}
-                          </span>
-                        ) : msg.device_id?.startsWith("cap:") ? (
-                          <span className="text-xs text-muted-foreground">모바일</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
                       </TableCell>
                       <TableCell>
                         {statusStep ? (
@@ -666,17 +510,30 @@ export function MessageTable({ messages, hospitals, products }: {
                           <Badge variant="secondary" className="text-muted-foreground">미지정</Badge>
                         )}
                       </TableCell>
+                      <TableCell>
+                        {msg.order_id ? (
+                          <Link
+                            href={`/orders/${msg.order_id}`}
+                            className="text-sm font-mono font-medium text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            #{msg.order_id}
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-sm whitespace-nowrap">{formatDate(msg.received_at)}</TableCell>
                     </TableRow>
 
                     {expandedId === msg.id && (
                       <TableRow className="bg-muted/20 hover:bg-muted/20">
-                        <TableCell colSpan={8} className="p-4">
-                          <div className="space-y-4" onClick={(e) => e.stopPropagation()}>
+                        <TableCell colSpan={7} className="p-4">
+                          <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
 
-                            {/* 1. Message content with edit */}
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between">
+                            {/* Message content */}
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
                                 <span className="text-xs font-medium text-muted-foreground">메시지 내용</span>
                                 <div className="flex items-center gap-1">
                                   {msgLocal.editedContent !== null && (
@@ -700,23 +557,12 @@ export function MessageTable({ messages, hospitals, products }: {
                                   <Textarea
                                     value={editDraft}
                                     onChange={(e) => setEditDraft(e.target.value)}
-                                    rows={5}
+                                    rows={3}
                                     className="text-sm font-sans"
                                   />
                                   <div className="flex gap-2 justify-end">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={handleCancelEdit}
-                                    >
-                                      취소
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      onClick={() => handleSaveEdit(msg.id, msg.content)}
-                                    >
-                                      저장
-                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={handleCancelEdit}>취소</Button>
+                                    <Button size="sm" onClick={() => handleSaveEdit(msg.id, msg.content)}>저장</Button>
                                   </div>
                                 </div>
                               ) : (
@@ -726,12 +572,10 @@ export function MessageTable({ messages, hospitals, products }: {
                               )}
                             </div>
 
-                            <Separator />
-
-                            {/* 2. Status management */}
-                            <div className="space-y-2">
-                              <span className="text-xs font-medium text-muted-foreground">상태 관리</span>
-                              <div className="flex items-center gap-3">
+                            {/* Info bar: Status + Order + Source + Time */}
+                            <div className="flex items-center gap-3 flex-wrap text-sm rounded-md border bg-muted/10 px-3 py-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground shrink-0">상태</span>
                                 <Select
                                   value={msgLocal.statusId ?? "none"}
                                   onValueChange={(val: string) => {
@@ -742,7 +586,7 @@ export function MessageTable({ messages, hospitals, products }: {
                                     }
                                   }}
                                 >
-                                  <SelectTrigger className="w-48">
+                                  <SelectTrigger className="w-36 h-8 text-xs">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -761,70 +605,202 @@ export function MessageTable({ messages, hospitals, products }: {
                                   </SelectContent>
                                 </Select>
                               </div>
-
-                              {msgLocal.statusHistory.length > 0 && (
-                                <div className="space-y-1 mt-2">
-                                  <span className="text-xs text-muted-foreground">변경 이력</span>
-                                  <div className="space-y-1 max-h-32 overflow-y-auto">
-                                    {msgLocal.statusHistory.slice(0, 5).map((change) => (
-                                      <div key={change.id} className="text-xs text-muted-foreground flex items-center gap-1">
-                                        <span>{change.fromStatusName ?? "미지정"}</span>
-                                        <ChevronRight className="h-3 w-3" />
-                                        <span className="font-medium">{change.toStatusName}</span>
-                                        <span className="ml-auto">{formatDateTime(change.changedAt)}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
+                              <span className="text-muted-foreground/40">|</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-muted-foreground">주문</span>
+                                {msg.order_id ? (
+                                  <Link
+                                    href={`/orders/${msg.order_id}`}
+                                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                                  >
+                                    <ClipboardList className="h-3 w-3" />
+                                    #{msg.order_id}
+                                  </Link>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">없음</span>
+                                )}
+                              </div>
+                              <span className="text-muted-foreground/40">|</span>
+                              <span className="text-xs text-muted-foreground">{SOURCE_LABEL[msg.source_app] || msg.source_app}</span>
+                              <span className="text-xs text-muted-foreground ml-auto">{formatDateTime(msg.received_at)}</span>
                             </div>
 
-                            <Separator />
+                            {/* Order creation form (only when no order exists) */}
+                            {!msg.order_id && hospitals && products && (
+                              <ManualParseForm
+                                messageId={msg.id}
+                                hospitals={hospitals}
+                                products={products}
+                                onSuccess={() => router.refresh()}
+                              />
+                            )}
 
-                            {/* 3. Hospital & Order */}
-                            {hospitals && products && (
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />
-                                  <span className="text-xs font-medium text-muted-foreground">거래처 &amp; 발주</span>
+                            {/* Parse result */}
+                            <ParseResultTable msg={msg} />
+
+                            {/* AI Test Result */}
+                            {aiTestResult[msg.id] != null && (
+                              <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Badge variant="secondary" className="text-xs">
+                                    {aiTestResult[msg.id]!.ai_provider}/{aiTestResult[msg.id]!.ai_model}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs">
+                                    {aiTestResult[msg.id]!.method === "llm" ? "AI" : "정규식"} · {aiTestResult[msg.id]!.latency_ms}ms
+                                  </Badge>
+                                  {aiTestResult[msg.id]!.token_usage && (
+                                    <span className="text-[10px] text-muted-foreground">
+                                      토큰: {aiTestResult[msg.id]!.token_usage!.input_tokens}→{aiTestResult[msg.id]!.token_usage!.output_tokens}
+                                    </span>
+                                  )}
+                                  <Badge variant="default" className="text-xs ml-auto">{aiTestResult[msg.id]!.match_summary.matched} 매칭</Badge>
+                                  <Badge variant="secondary" className="text-xs">{aiTestResult[msg.id]!.match_summary.review} 검토</Badge>
+                                  <Badge variant="outline" className="text-xs">{aiTestResult[msg.id]!.match_summary.unmatched} 미매칭</Badge>
                                 </div>
-                                {msg.order_id ? (
-                                  <div className="rounded-md border border-green-200 bg-green-50 p-3 flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <CheckCircle className="h-4 w-4 text-green-600" />
-                                      <span className="text-sm text-green-800">
-                                        주문이 생성되었습니다 <span className="font-mono font-medium">#{msg.order_id}</span>
-                                      </span>
-                                    </div>
-                                    <Link
-                                      href={`/orders/${msg.order_id}`}
-                                      className="text-sm font-medium text-green-700 hover:text-green-900 underline underline-offset-2"
-                                    >
-                                      주문 상세 보기
-                                    </Link>
-                                  </div>
-                                ) : (
-                                  <ManualParseForm
-                                    messageId={msg.id}
-                                    hospitals={hospitals}
-                                    products={products}
-                                    onSuccess={() => router.refresh()}
-                                  />
+                                {aiTestResult[msg.id]!.items.length > 0 && (
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead className="text-xs">원문</TableHead>
+                                        <TableHead className="text-xs">매칭 품목</TableHead>
+                                        <TableHead className="text-xs text-center">수량</TableHead>
+                                        <TableHead className="text-xs text-center">신뢰도</TableHead>
+                                        <TableHead className="text-xs text-center">상태</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {aiTestResult[msg.id]!.items.map((item, i) => (
+                                        <TableRow key={i}>
+                                          <TableCell className="text-xs text-muted-foreground">{item.original_text}</TableCell>
+                                          <TableCell className="text-xs">
+                                            {item.product_official_name ?? <span className="italic text-muted-foreground">미매칭</span>}
+                                          </TableCell>
+                                          <TableCell className="text-xs text-center">{item.quantity} {item.unit}</TableCell>
+                                          <TableCell className="text-xs text-center">
+                                            <Badge variant={item.match_confidence >= 0.8 ? "default" : item.match_confidence >= 0.5 ? "secondary" : "outline"}>
+                                              {Math.round(item.match_confidence * 100)}%
+                                            </Badge>
+                                          </TableCell>
+                                          <TableCell className="text-xs text-center">
+                                            <Badge variant={item.match_status === "matched" ? "default" : item.match_status === "review" ? "secondary" : "outline"}>
+                                              {item.match_status === "matched" ? "매칭" : item.match_status === "review" ? "검토" : "미매칭"}
+                                            </Badge>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
                                 )}
                               </div>
                             )}
 
-                            <Separator />
-
-                            {/* 4. Comments */}
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span className="text-xs font-medium text-muted-foreground">
-                                  코멘트 ({msgLocal.comments.length})
-                                </span>
+                            {/* Action toolbar */}
+                            <div className="flex items-center gap-2 pt-2 border-t">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={aiTestLoading === msg.id || isPending}
+                                onClick={async () => {
+                                  setAiTestLoading(msg.id);
+                                  try {
+                                    const res = await fetch("/api/test-parse", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        content: msg.content,
+                                        hospitalId: msg.hospital_id ?? undefined,
+                                        sender: msg.sender ?? undefined,
+                                      }),
+                                    });
+                                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                                    const result = await res.json();
+                                    setAiTestResult((prev) => ({ ...prev, [msg.id]: result }));
+                                    toast.success(`AI 테스트 완료 (${result.method}) — ${result.items.length}개 품목 감지`);
+                                  } catch {
+                                    toast.error("AI 테스트에 실패했습니다.");
+                                  } finally {
+                                    setAiTestLoading(null);
+                                  }
+                                }}
+                              >
+                                <Bot className="h-4 w-4 mr-1" />
+                                {aiTestLoading === msg.id ? "테스트 중..." : "AI 테스트"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={isPending}
+                                onClick={() => {
+                                  startTransition(async () => {
+                                    try {
+                                      await reparseMessage(msg.id, msg.hospital_id ?? undefined);
+                                      toast.success("파싱이 완료되었습니다.");
+                                      router.refresh();
+                                    } catch {
+                                      toast.error("파싱 실행에 실패했습니다.");
+                                    }
+                                  });
+                                }}
+                              >
+                                <Cpu className="h-4 w-4 mr-1" />
+                                파싱 실행
+                              </Button>
+                              <div className="ml-auto flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => localState.togglePin(msg.id)}
+                                  title={msgLocal.isPinned ? "핀 해제" : "핀 고정"}
+                                >
+                                  {msgLocal.isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => handleCopyContent(msg.id, msg.content)}
+                                  title="복사"
+                                >
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                      disabled={isPending}
+                                      title="삭제"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>메시지를 삭제하시겠습니까?</AlertDialogTitle>
+                                      <AlertDialogDescription>이 작업은 되돌릴 수 없습니다.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>취소</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDelete(msg.id)}
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      >
+                                        삭제
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                               </div>
+                            </div>
 
+                            {/* Comments */}
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-1.5">
+                                <MessageSquare className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">코멘트 ({msgLocal.comments.length})</span>
+                              </div>
                               <div className="flex gap-2">
                                 <Input
                                   value={commentDraft}
@@ -835,31 +811,31 @@ export function MessageTable({ messages, hospitals, products }: {
                                       handleAddComment(msg.id);
                                     }
                                   }}
-                                  placeholder="코멘트를 입력하세요..."
-                                  className="text-sm"
+                                  placeholder="코멘트 입력..."
+                                  className="text-sm h-8"
                                 />
                                 <Button
                                   size="sm"
                                   variant="secondary"
+                                  className="h-8"
                                   onClick={() => handleAddComment(msg.id)}
                                   disabled={!commentDraft.trim()}
                                 >
                                   추가
                                 </Button>
                               </div>
-
                               {msgLocal.comments.length > 0 && (
-                                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                                <div className="space-y-1 max-h-32 overflow-y-auto">
                                   {msgLocal.comments.map((comment) => (
-                                    <div key={comment.id} className="flex items-start justify-between gap-2 rounded-md border bg-background p-2">
+                                    <div key={comment.id} className="flex items-start justify-between gap-2 rounded border bg-background px-2 py-1.5">
                                       <div className="min-w-0 flex-1">
-                                        <p className="text-sm break-words">{comment.text}</p>
-                                        <span className="text-xs text-muted-foreground">{formatDateTime(comment.createdAt)}</span>
+                                        <p className="text-xs break-words">{comment.text}</p>
+                                        <span className="text-[10px] text-muted-foreground">{formatDateTime(comment.createdAt)}</span>
                                       </div>
                                       <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-6 w-6 p-0 shrink-0"
+                                        className="h-5 w-5 p-0 shrink-0"
                                         onClick={() => localState.deleteComment(msg.id, comment.id)}
                                       >
                                         <X className="h-3 w-3" />
@@ -868,189 +844,6 @@ export function MessageTable({ messages, hospitals, products }: {
                                   ))}
                                 </div>
                               )}
-                            </div>
-
-                            <Separator />
-
-                            {/* 5. AI Parsing */}
-                            <div className="space-y-2">
-                              <span className="text-xs font-medium text-muted-foreground">AI 파싱</span>
-                              <ParseStepper msg={msg} />
-                              <ParseResultTable msg={msg} />
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={aiTestLoading === msg.id || isPending}
-                                  onClick={async () => {
-                                    setAiTestLoading(msg.id);
-                                    try {
-                                      const res = await fetch("/api/test-parse", {
-                                        method: "POST",
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({
-                                          content: msg.content,
-                                          hospitalId: msg.hospital_id ?? undefined,
-                                          sender: msg.sender ?? undefined,
-                                        }),
-                                      });
-                                      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                                      const result = await res.json();
-                                      setAiTestResult((prev) => ({ ...prev, [msg.id]: result }));
-                                      toast.success(`AI 테스트 완료 (${result.method}) — ${result.items.length}개 품목 감지`);
-                                    } catch {
-                                      toast.error("AI 테스트에 실패했습니다.");
-                                    } finally {
-                                      setAiTestLoading(null);
-                                    }
-                                  }}
-                                >
-                                  <Bot className="h-4 w-4 mr-1" />
-                                  {aiTestLoading === msg.id ? "테스트 중..." : "AI 테스트"}
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={isPending}
-                                  onClick={() => {
-                                    startTransition(async () => {
-                                      try {
-                                        await reparseMessage(msg.id, msg.hospital_id ?? undefined);
-                                        toast.success("파싱이 완료되었습니다.");
-                                        router.refresh();
-                                      } catch {
-                                        toast.error("파싱 실행에 실패했습니다.");
-                                      }
-                                    });
-                                  }}
-                                >
-                                  <Cpu className="h-4 w-4 mr-1" />
-                                  파싱 실행
-                                </Button>
-                              </div>
-
-                              {/* AI Test Result inline */}
-                              {aiTestResult[msg.id] != null && (
-                                <div className="mt-3 rounded-md border bg-muted/30 p-3 space-y-2">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <Badge variant="secondary" className="text-xs">
-                                      {aiTestResult[msg.id]!.ai_provider}/{aiTestResult[msg.id]!.ai_model}
-                                    </Badge>
-                                    <Badge variant="outline" className="text-xs">
-                                      {aiTestResult[msg.id]!.method === "llm" ? "AI" : "정규식"} · {aiTestResult[msg.id]!.latency_ms}ms
-                                    </Badge>
-                                    {aiTestResult[msg.id]!.token_usage && (
-                                      <span className="text-[10px] text-muted-foreground">
-                                        토큰: {aiTestResult[msg.id]!.token_usage!.input_tokens}→{aiTestResult[msg.id]!.token_usage!.output_tokens}
-                                      </span>
-                                    )}
-                                    <Badge variant="default" className="text-xs ml-auto">{aiTestResult[msg.id]!.match_summary.matched} 매칭</Badge>
-                                    <Badge variant="secondary" className="text-xs">{aiTestResult[msg.id]!.match_summary.review} 검토</Badge>
-                                    <Badge variant="outline" className="text-xs">{aiTestResult[msg.id]!.match_summary.unmatched} 미매칭</Badge>
-                                  </div>
-                                  {aiTestResult[msg.id]!.items.length > 0 && (
-                                    <Table>
-                                      <TableHeader>
-                                        <TableRow>
-                                          <TableHead className="text-xs">원문</TableHead>
-                                          <TableHead className="text-xs">매칭 품목</TableHead>
-                                          <TableHead className="text-xs text-center">수량</TableHead>
-                                          <TableHead className="text-xs text-center">신뢰도</TableHead>
-                                          <TableHead className="text-xs text-center">상태</TableHead>
-                                        </TableRow>
-                                      </TableHeader>
-                                      <TableBody>
-                                        {aiTestResult[msg.id]!.items.map((item, i) => (
-                                          <TableRow key={i}>
-                                            <TableCell className="text-xs text-muted-foreground">{item.original_text}</TableCell>
-                                            <TableCell className="text-xs">
-                                              {item.product_official_name ?? <span className="italic text-muted-foreground">미매칭</span>}
-                                            </TableCell>
-                                            <TableCell className="text-xs text-center">{item.quantity} {item.unit}</TableCell>
-                                            <TableCell className="text-xs text-center">
-                                              <Badge variant={item.match_confidence >= 0.8 ? "default" : item.match_confidence >= 0.5 ? "secondary" : "outline"}>
-                                                {Math.round(item.match_confidence * 100)}%
-                                              </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-xs text-center">
-                                              <Badge variant={item.match_status === "matched" ? "default" : item.match_status === "review" ? "secondary" : "outline"}>
-                                                {item.match_status === "matched" ? "매칭" : item.match_status === "review" ? "검토" : "미매칭"}
-                                              </Badge>
-                                            </TableCell>
-                                          </TableRow>
-                                        ))}
-                                      </TableBody>
-                                    </Table>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-                            <Separator />
-
-                            {/* 6. Action buttons */}
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => localState.togglePin(msg.id)}
-                              >
-                                {msgLocal.isPinned ? (
-                                  <><PinOff className="h-4 w-4 mr-1" />핀 해제</>
-                                ) : (
-                                  <><Pin className="h-4 w-4 mr-1" />핀 고정</>
-                                )}
-                              </Button>
-
-                              <Select
-                                value=""
-                                onValueChange={(val: string) => handleSnoozeChange(msg.id, val)}
-                              >
-                                <SelectTrigger className="w-36 h-8 text-sm">
-                                  <SelectValue placeholder={isSnoozed ? "스누즈 중" : "스누즈"} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="1h">1시간 후</SelectItem>
-                                  <SelectItem value="3h">3시간 후</SelectItem>
-                                  <SelectItem value="tomorrow9am">내일 오전 9시</SelectItem>
-                                  {isSnoozed && (
-                                    <SelectItem value="clear">스누즈 해제</SelectItem>
-                                  )}
-                                </SelectContent>
-                              </Select>
-
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleCopyContent(msg.id, msg.content)}
-                              >
-                                <Copy className="h-4 w-4 mr-1" />
-                                복사
-                              </Button>
-
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="destructive" size="sm" disabled={isPending}>
-                                    <Trash2 className="h-4 w-4 mr-1" />
-                                    삭제
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>메시지를 삭제하시겠습니까?</AlertDialogTitle>
-                                    <AlertDialogDescription>이 작업은 되돌릴 수 없습니다.</AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>취소</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleDelete(msg.id)}
-                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                      삭제
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
                             </div>
 
                           </div>

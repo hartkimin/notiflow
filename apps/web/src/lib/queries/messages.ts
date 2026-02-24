@@ -27,3 +27,22 @@ export async function getMessages(params: {
 
   return { messages: (data ?? []) as RawMessage[], total: count ?? 0 };
 }
+
+/**
+ * Get all messages in a date range (no pagination) for calendar view.
+ */
+export async function getMessagesForCalendar(params: {
+  from: string;  // ISO date string "YYYY-MM-DD"
+  to: string;    // ISO date string "YYYY-MM-DD"
+}): Promise<RawMessage[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("raw_messages")
+    .select("*")
+    .gte("received_at", params.from)
+    .lt("received_at", params.to)
+    .order("received_at", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []) as RawMessage[];
+}

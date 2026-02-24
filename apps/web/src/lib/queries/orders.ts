@@ -172,3 +172,26 @@ export async function updateOrderStatus(id: number, status: string) {
   if (error) throw error;
   return { success: true };
 }
+
+/**
+ * Get all orders in a date range (no pagination) for calendar view.
+ */
+export async function getOrdersForCalendar(params: {
+  from: string;  // ISO date string "YYYY-MM-DD"
+  to: string;    // ISO date string "YYYY-MM-DD"
+}): Promise<Order[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*, hospitals(name)")
+    .gte("order_date", params.from)
+    .lt("order_date", params.to)
+    .order("order_date", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    ...row,
+    hospital_name: (row.hospitals as { name: string } | null)?.name,
+    hospitals: undefined,
+  })) as Order[];
+}

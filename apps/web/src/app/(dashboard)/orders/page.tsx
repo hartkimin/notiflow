@@ -2,108 +2,134 @@ import Link from "next/link";
 import { PlusCircle, File } from "lucide-react";
 
 import { getOrderItems } from "@/lib/queries/orders";
+import { getOrdersForCalendar } from "@/lib/queries/orders";
 import { getProducts } from "@/lib/queries/products";
 import { getHospitals } from "@/lib/queries/hospitals";
 import { OrderTable } from "@/components/order-table";
 import type { ProductOption } from "@/components/order-table";
+import { OrderCalendar } from "@/components/order-calendar";
 import { OrderFilters } from "@/components/order-filters";
 import { Pagination } from "@/components/pagination";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
+  Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
 } from "@/components/ui/card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RealtimeListener } from "@/components/realtime-listener";
+import { parseCalendarParams, toLocalDateStr } from "@/lib/schedule-utils";
+import type { Order } from "@/lib/types";
+import type { CalendarView } from "@/lib/schedule-utils";
 
 interface Props {
-  searchParams: Promise<{ status?: string; from?: string; to?: string; page?: string }>;
+  searchParams: Promise<{
+    tab?: string;
+    status?: string;
+    from?: string;
+    to?: string;
+    page?: string;
+    view?: string;
+    date?: string;
+    week?: string;
+    month?: string;
+  }>;
 }
 
 export default async function OrdersPage({ searchParams }: Props) {
   const params = await searchParams;
+  const tab = params.tab === "calendar" ? "calendar" : "list";
   const page = parseInt(params.page || "1", 10);
   const status = params.status;
   const limit = 20;
   const offset = (page - 1) * limit;
 
   const [result, { products: allProducts }, { hospitals: allHospitals }] = await Promise.all([
-    getOrderItems({
-      status: status,
-      from: params.from,
-      to: params.to,
-      limit,
-      offset,
-    }).catch(() => ({ items: [], total: 0 })),
+    tab === "list"
+      ? getOrderItems({ status, from: params.from, to: params.to, limit, offset })
+          .catch(() => ({ items: [], total: 0 }))
+      : Promise.resolve({ items: [], total: 0 }),
     getProducts({ limit: 1000 }).catch(() => ({ products: [], total: 0 })),
     getHospitals({ limit: 1000 }).catch(() => ({ hospitals: [], total: 0 })),
   ]);
 
   const productOptions: ProductOption[] = allProducts.map((p) => ({
-    id: p.id,
-    name: p.official_name,
+    id: p.id, name: p.official_name,
   }));
-
   const hospitalOptions = allHospitals.map((h) => ({
-    id: h.id,
-    name: h.name,
+    id: h.id, name: h.name,
   }));
-
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
+
+  // Calendar data
+  let calendarOrders: Order[] = [];
+  let calView: CalendarView = "week";
+  let calRef = new Date();
+
+  if (tab === "calendar") {
+    const calParams = parseCalendarParams(params);
+    calView = calParams.view;
+    calRef = calParams.referenceDate;
+    const fromStr = toLocalDateStr(new Date(calParams.startMs));
+    const toStr = toLocalDateStr(new Date(calParams.endMs));
+    calendarOrders = await getOrdersForCalendar({ from: fromStr, to: toStr }).catch(() => []);
+  }
 
   return (
     <>
       <RealtimeListener tables={["orders", "order_items"]} />
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">주문 관리</h1>
-        <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" variant="outline" className="h-8 gap-1">
-            <File className="h-3.5 w-3.5" />
-            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              내보내기
-            </span>
-          </Button>
-          <Button size="sm" className="h-8 gap-1">
-            <PlusCircle className="h-3.5 w-3.5" />
-            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              주문 추가
-            </span>
-          </Button>
-        </div>
+        {tab === "list" && (
+          <div className="ml-auto flex items-center gap-2">
+            <Button size="sm" variant="outline" className="h-8 gap-1">
+              <File className="h-3.5 w-3.5" />
+              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">내보내기</span>
+            </Button>
+            <Button size="sm" className="h-8 gap-1">
+              <PlusCircle className="h-3.5 w-3.5" />
+              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">주문 추가</span>
+            </Button>
+          </div>
+        )}
       </div>
-      <Tabs defaultValue={status || "all"}>
-        <div className="flex items-center">
-          <TabsList>
-            <TabsTrigger value="all" asChild><Link href="/orders">전체</Link></TabsTrigger>
-            <TabsTrigger value="confirmed" asChild><Link href="/orders?status=confirmed">확인됨</Link></TabsTrigger>
-            <TabsTrigger value="processing" asChild><Link href="/orders?status=processing">처리중</Link></TabsTrigger>
-            <TabsTrigger value="delivered" asChild><Link href="/orders?status=delivered">배송완료</Link></TabsTrigger>
-          </TabsList>
-        </div>
-        <TabsContent value={status || "all"}>
-          <Card>
-            <CardHeader>
-              <CardTitle>주문 목록</CardTitle>
-              <CardDescription>
-                <OrderFilters />
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <OrderTable items={result.items} products={productOptions} hospitals={hospitalOptions} />
-            </CardContent>
-            <CardFooter>
-              <Pagination currentPage={page} totalPages={totalPages} totalCount={result.total} />
-            </CardFooter>
-          </Card>
+
+      <Tabs value={tab}>
+        <TabsList>
+          <TabsTrigger value="list" asChild>
+            <Link href="/orders">목록</Link>
+          </TabsTrigger>
+          <TabsTrigger value="calendar" asChild>
+            <Link href="/orders?tab=calendar">캘린더</Link>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="list">
+          {/* Sub-tabs for status filtering */}
+          <Tabs defaultValue={status || "all"}>
+            <TabsList>
+              <TabsTrigger value="all" asChild><Link href="/orders">전체</Link></TabsTrigger>
+              <TabsTrigger value="confirmed" asChild><Link href="/orders?status=confirmed">확인됨</Link></TabsTrigger>
+              <TabsTrigger value="processing" asChild><Link href="/orders?status=processing">처리중</Link></TabsTrigger>
+              <TabsTrigger value="delivered" asChild><Link href="/orders?status=delivered">배송완료</Link></TabsTrigger>
+            </TabsList>
+            <TabsContent value={status || "all"}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>주문 목록</CardTitle>
+                  <CardDescription><OrderFilters /></CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <OrderTable items={result.items} products={productOptions} hospitals={hospitalOptions} />
+                </CardContent>
+                <CardFooter>
+                  <Pagination currentPage={page} totalPages={totalPages} totalCount={result.total} />
+                </CardFooter>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="calendar">
+          <OrderCalendar orders={calendarOrders} view={calView} referenceDate={calRef} />
         </TabsContent>
       </Tabs>
     </>

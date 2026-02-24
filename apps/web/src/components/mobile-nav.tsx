@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import {
   ClipboardList,
   MessageSquare,
-  CalendarDays,
   LayoutDashboard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,7 +13,6 @@ const mobileNavItems = [
   { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
   { href: "/orders", label: "주문", icon: ClipboardList },
   { href: "/messages", label: "메시지", icon: MessageSquare },
-  { href: "/calendar", label: "캘린더", icon: CalendarDays },
 ];
 
 /**

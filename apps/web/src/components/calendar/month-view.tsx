@@ -35,11 +35,13 @@ export function MonthView({
     return map;
   }, [dayCategories]);
 
-  const messageCountByDay = useMemo(() => {
-    const map = new Map<number, number>();
+  const messagesByDay = useMemo(() => {
+    const map = new Map<number, CapturedMessage[]>();
     for (const m of messages) {
       const dayMs = startOfDayMs(new Date(m.received_at));
-      map.set(dayMs, (map.get(dayMs) ?? 0) + 1);
+      const arr = map.get(dayMs);
+      if (arr) arr.push(m);
+      else map.set(dayMs, [m]);
     }
     return map;
   }, [messages]);
@@ -92,7 +94,7 @@ export function MonthView({
           const isCurrentMonth = date.getMonth() === month;
           const isToday = dayMs === todayMs;
           const dayCats = dayCatsByDay.get(dayMs) ?? [];
-          const msgCount = messageCountByDay.get(dayMs) ?? 0;
+          const dayMsgs = messagesByDay.get(dayMs) ?? [];
           const planCount = planCountByDay.get(dayMs) ?? 0;
 
           return (
@@ -134,6 +136,21 @@ export function MonthView({
                 </div>
               )}
 
+              {/* Message previews */}
+              {dayMsgs.length > 0 && (
+                <div className="mt-0.5 flex-1 min-h-0 overflow-hidden space-y-px">
+                  {dayMsgs.slice(0, 2).map((m) => (
+                    <p key={m.id} className="text-[9px] text-muted-foreground truncate leading-tight">
+                      <span className="font-medium">{m.sender}</span>{" "}
+                      {m.content}
+                    </p>
+                  ))}
+                  {dayMsgs.length > 2 && (
+                    <span className="text-[9px] text-muted-foreground">+{dayMsgs.length - 2}건</span>
+                  )}
+                </div>
+              )}
+
               {/* Stats */}
               <div className="mt-auto flex items-center gap-1 flex-wrap">
                 {planCount > 0 && (
@@ -141,9 +158,9 @@ export function MonthView({
                     {planCount}건
                   </span>
                 )}
-                {msgCount > 0 && (
+                {dayMsgs.length > 0 && (
                   <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">
-                    {msgCount}
+                    ✉ {dayMsgs.length}
                   </Badge>
                 )}
               </div>

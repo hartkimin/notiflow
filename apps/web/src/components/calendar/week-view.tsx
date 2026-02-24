@@ -131,6 +131,7 @@ function DayColumn({
   router: ReturnType<typeof useRouter>;
 }) {
   const [addCatOpen, setAddCatOpen] = useState(false);
+  const [msgSectionOpen, setMsgSectionOpen] = useState(false);
 
   // Categories already added to this day
   const addedCatIds = useMemo(
@@ -254,10 +255,40 @@ function DayColumn({
           </Popover>
         )}
 
-        {dayCategories.length === 0 && (
+        {dayCategories.length === 0 && messages.length === 0 && (
           <p className="text-[10px] text-muted-foreground text-center py-4">
             카테고리를 추가하세요
           </p>
+        )}
+
+        {/* All received messages for this day */}
+        {messages.length > 0 && (
+          <div className="rounded border bg-muted/20 mt-1">
+            <button
+              className="w-full flex items-center gap-1 px-1.5 py-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setMsgSectionOpen(!msgSectionOpen)}
+            >
+              <MessageSquare className="h-3 w-3" />
+              <span className="font-medium">수신 메시지</span>
+              <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 ml-auto">
+                {messages.length}
+              </Badge>
+            </button>
+            {msgSectionOpen && (
+              <div className="px-1 pb-1 space-y-0.5">
+                {messages.map((m) => (
+                  <div key={m.id} className="rounded border bg-card p-1.5">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10px] font-medium truncate">{m.sender}</span>
+                      <span className="text-[9px] text-muted-foreground shrink-0">{formatEpochTime(m.received_at)}</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{m.content}</p>
+                    <Badge variant="outline" className="text-[8px] px-0.5 py-0 h-3 mt-0.5">{m.app_name}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

@@ -137,10 +137,51 @@ export function DayView({
         </Popover>
       )}
 
-      {dayCategories.length === 0 && (
+      {dayCategories.length === 0 && messages.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-8">
           카테고리를 추가하여 일정을 관리하세요
         </p>
+      )}
+
+      {/* All received messages for this day */}
+      {messages.length > 0 && (
+        <div className="rounded-lg border bg-card">
+          <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/30">
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium flex-1">수신 메시지</span>
+            <Badge variant="outline" className="text-xs">{messages.length}건</Badge>
+          </div>
+          <div className="p-3 space-y-2">
+            {messages.map((m) => {
+              const cat = categories.find((c) => c.id === m.category_id);
+              return (
+                <div key={m.id} className="rounded border p-2.5 hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm font-medium truncate">{m.sender}</span>
+                      {cat && (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded-full text-white shrink-0"
+                          style={{ backgroundColor: argbToHex(cat.color) }}
+                        >
+                          {cat.name}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0 ml-2">{formatEpochTime(m.received_at)}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{m.content}</p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <Badge variant="outline" className="text-[10px]">{m.app_name}</Badge>
+                    {m.room_name && (
+                      <span className="text-[10px] text-muted-foreground">{m.room_name}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -319,3 +319,19 @@ export interface MessageLocalData {
 }
 
 export type MessageLocalStateMap = Record<number, MessageLocalData>;
+
+// --- Filter Rules (synced with mobile) ---
+
+export interface FilterRule {
+  id: string;
+  category_id: string;
+  sender_keywords: string[];
+  sender_match_type: 'CONTAINS' | 'EXACT' | 'REGEX';
+  sms_phone_number: string | null;
+  include_words: string[];
+  exclude_words: string[];
+  include_match_type: 'OR' | 'AND';
+  condition_type: 'AND' | 'OR';
+  target_app_packages: string[];
+  is_active: boolean;
+}

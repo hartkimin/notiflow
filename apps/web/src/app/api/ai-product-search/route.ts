@@ -32,7 +32,7 @@ async function callClaude(apiKey: string, model: string, prompt: string): Promis
   return { text: textBlock?.text ?? "" };
 }
 
-async function callGemini(apiKey: string, model: string, prompt: string): Promise<AIResult> {
+async function callGemini(apiKey: string, model: string, prompt: string, retries = 1): Promise<AIResult> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
     method: "POST",
@@ -42,7 +42,18 @@ async function callGemini(apiKey: string, model: string, prompt: string): Promis
       generationConfig: { maxOutputTokens: 1024 },
     }),
   });
+  if (res.status === 429 && retries > 0) {
+    // Parse retry delay from response, default 10s, cap at 60s
+    const body = await res.text();
+    const delayMatch = body.match(/"retryDelay":\s*"(\d+)s"/);
+    const delaySec = Math.min(Number(delayMatch?.[1] ?? 10), 60);
+    await new Promise((r) => setTimeout(r, delaySec * 1000));
+    return callGemini(apiKey, model, prompt, retries - 1);
+  }
   if (!res.ok) {
+    if (res.status === 429) {
+      throw new Error("Gemini API 요청 한도를 초과했습니다. 잠시 후 다시 시도하거나, 설정에서 다른 AI 프로바이더로 변경해주세요.");
+    }
     const err = await res.text();
     throw new Error(`Gemini API error (${res.status}): ${err}`);
   }

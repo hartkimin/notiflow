@@ -52,7 +52,7 @@ async function callClaude(apiKey: string, model: string, prompt: string): Promis
   };
 }
 
-async function callGemini(apiKey: string, model: string, prompt: string): Promise<AICallResult> {
+async function callGemini(apiKey: string, model: string, prompt: string, retries = 1): Promise<AICallResult> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
     method: "POST",
@@ -62,7 +62,17 @@ async function callGemini(apiKey: string, model: string, prompt: string): Promis
       generationConfig: { maxOutputTokens: 1024 },
     }),
   });
+  if (res.status === 429 && retries > 0) {
+    const body = await res.text();
+    const delayMatch = body.match(/"retryDelay":\s*"(\d+)s"/);
+    const delaySec = Math.min(Number(delayMatch?.[1] ?? 10), 60);
+    await new Promise((r) => setTimeout(r, delaySec * 1000));
+    return callGemini(apiKey, model, prompt, retries - 1);
+  }
   if (!res.ok) {
+    if (res.status === 429) {
+      throw new Error("Gemini API 요청 한도를 초과했습니다. 잠시 후 다시 시도하거나, 설정에서 다른 AI 프로바이더로 변경해주세요.");
+    }
     const err = await res.text();
     throw new Error(`Gemini API error (${res.status}): ${err}`);
   }
@@ -201,7 +211,7 @@ function toGeminiSchema(schema: any): any {
 }
 
 async function callGeminiStructured(
-  apiKey: string, model: string, system: string, user: string,
+  apiKey: string, model: string, system: string, user: string, retries = 1,
 ): Promise<AIStructuredResult> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const geminiSchema = toGeminiSchema(PARSE_ORDER_SCHEMA);
@@ -218,7 +228,17 @@ async function callGeminiStructured(
       },
     }),
   });
+  if (res.status === 429 && retries > 0) {
+    const body = await res.text();
+    const delayMatch = body.match(/"retryDelay":\s*"(\d+)s"/);
+    const delaySec = Math.min(Number(delayMatch?.[1] ?? 10), 60);
+    await new Promise((r) => setTimeout(r, delaySec * 1000));
+    return callGeminiStructured(apiKey, model, system, user, retries - 1);
+  }
   if (!res.ok) {
+    if (res.status === 429) {
+      throw new Error("Gemini API 요청 한도를 초과했습니다. 잠시 후 다시 시도하거나, 설정에서 다른 AI 프로바이더로 변경해주세요.");
+    }
     const err = await res.text();
     throw new Error(`Gemini API error (${res.status}): ${err}`);
   }

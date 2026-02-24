@@ -40,7 +40,7 @@ import { useMessageLocalState } from "@/hooks/use-message-local-state";
 import type { RawMessage, Hospital, Product } from "@/lib/types";
 
 const MSG_COL_DEFAULTS: Record<string, number> = {
-  checkbox: 40, id: 50, sender: 120, source: 80, status: 80, order: 70, time: 140,
+  checkbox: 40, id: 50, sender: 120, source: 80, status: 80, order: 70, device: 100, time: 140,
 };
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -468,6 +468,7 @@ export function MessageTable({ messages, hospitals, products }: {
                   <span className="inline-flex items-center">상태<SortIcon active={sortKey === "parse_status"} dir={sortDir} /></span>
                 </ResizableTh>
                 <ResizableTh width={widths.order} colKey="order" onResizeStart={onMouseDown}>주문</ResizableTh>
+                <ResizableTh width={widths.device} colKey="device" onResizeStart={onMouseDown}>기기</ResizableTh>
                 <ResizableTh width={widths.time} colKey="time" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("received_at")}>
                   <span className="inline-flex items-center">수신시간<SortIcon active={sortKey === "received_at"} dir={sortDir} /></span>
                 </ResizableTh>
@@ -531,12 +532,13 @@ export function MessageTable({ messages, hospitals, products }: {
                           <span className="text-xs text-muted-foreground">-</span>
                         )}
                       </TableCell>
+                      <TableCell className="text-xs text-muted-foreground truncate">{msg.device_name || "-"}</TableCell>
                       <TableCell className="text-sm whitespace-nowrap">{formatDate(msg.received_at)}</TableCell>
                     </TableRow>
 
                     {expandedId === msg.id && (
                       <TableRow className="bg-muted/20 hover:bg-muted/20">
-                        <TableCell colSpan={7} className="px-3 py-2">
+                        <TableCell colSpan={8} className="px-3 py-2">
                           <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                             {/* 2-col: Message | Parse+AI */}
                             <div className="grid grid-cols-2 gap-3">

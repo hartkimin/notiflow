@@ -1,5 +1,41 @@
 # NotiFlow Release Notes
 
+## v0.9.0 — 2026-02-24
+
+캘린더 리디자인 (일/주/월 뷰 전환), 수신메시지 기기 표시, 버그 수정 및 AI 안정성 개선.
+
+### Web Dashboard (`apps/web`)
+
+#### 캘린더 리디자인
+- **3-뷰 전환 시스템**: 일(Day)/주(Week)/월(Month) 뷰 탭 전환. URL 파라미터 기반 라우팅 (`?view=week&week=2026-02-23`)
+- **ViewSwitcher**: 이전/다음 네비게이션, "오늘" 버튼, 뷰 전환 탭, 설정 사이드패널 토글
+- **WeekView**: 7일 컬럼 그리드, 카테고리별 플랜 관리, 메시지 연결, 체크박스 완료 처리
+- **DayView**: 단일 날짜 확장 뷰, 카테고리 추가/제거, 인라인 플랜 생성
+- **MonthView**: 42셀 달력 그리드, 일별 플랜/메시지 카운트 배지, 클릭 시 일간 뷰 이동
+- **CalendarSidePanel**: 카테고리 관리 + 필터 규칙 편집 2탭 시트
+- **CategoryManager**: CRUD, 12색 팔레트, 활성/비활성 토글, 순서 관리
+- **FilterRuleEditor**: 발신자 키워드, 매칭 타입(CONTAINS/EXACT/REGEX), 포함/제외 단어 설정
+- **주간 일괄 작업**: 전주 불러오기, 전체 카테고리 추가, 다음주 복사
+
+#### 수신메시지 개선
+- **기기명 컬럼 추가**: 메시지 테이블에 수집 기기명(device_name) 컬럼 표시
+
+#### 버그 수정
+- **카테고리 추가 에러 수정**: JS unsigned ARGB(0xFFE57373 = 4.2B) → PostgreSQL signed INTEGER 오버플로우. `toSignedInt32()` 변환 적용
+- **주간 네비게이션 타임존 버그 수정**: `toISOString().slice(0,10)` → `toLocalDateStr()` 변환. UTC 변환으로 인해 KST에서 "오늘" 클릭 시 이전 주로 이동하던 문제 해결
+- **비활성 카테고리 관리 불가 수정**: 사이드패널에 `getAllCategories()` 전달하여 비활성 카테고리도 표시/재활성화 가능
+
+#### AI 안정성 개선
+- **Gemini 429 자동 재시도**: Rate limit 시 `retryDelay` 파싱 후 1회 자동 재시도 (최대 60초 대기)
+- **사용자 친화적 에러**: 한도 초과 시 "다른 프로바이더로 변경해주세요" 한국어 안내 메시지
+- **3곳 일괄 적용**: `callGemini`, `callGeminiStructured`, AI 제품 검색 라우트
+
+### Supabase Backend (`packages/supabase`)
+
+- **Migration `00019`**: RLS 정책 수정 — 모바일 동기화 테이블 7개에 대한 CRUD 정책 재정비
+
+---
+
 ## v0.8.0 — 2026-02-22
 
 검색 하이라이트, 5페이지 튜토리얼, 대화방 읽음 표시, 모바일 UX 개선 및 안정성 수정.

@@ -772,3 +772,72 @@ export async function copyCurrentWeekToNext(sourceWeekStartMs: number) {
   const targetWeekStartMs = sourceWeekStartMs + 7 * 24 * 60 * 60 * 1000;
   return copyPreviousWeekPlans(targetWeekStartMs);
 }
+
+// --- Schedule: Category Management ---
+
+export async function createCategory(data: {
+  name: string;
+  color: number;
+  order_index?: number;
+}) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const now = Date.now();
+  const { error } = await supabase.from("categories").insert({
+    id: generateId(),
+    user_id: user.id,
+    name: data.name,
+    color: data.color,
+    order_index: data.order_index ?? 0,
+    is_active: true,
+    is_deleted: false,
+    created_at: now,
+    updated_at: now,
+  });
+  if (error) throw error;
+  revalidatePath("/calendar");
+  return { success: true };
+}
+
+export async function updateCategory(
+  id: string,
+  data: { name?: string; color?: number; is_active?: boolean; order_index?: number },
+) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("categories")
+    .update({ ...data, updated_at: Date.now() })
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/calendar");
+  return { success: true };
+}
+
+export async function deleteCategory(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("categories")
+    .update({ is_deleted: true, updated_at: Date.now() })
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/calendar");
+  return { success: true };
+}
+
+export async function reorderCategories(orderedIds: string[]) {
+  const supabase = await createClient();
+  const now = Date.now();
+  const promises = orderedIds.map((id, index) =>
+    supabase
+      .from("categories")
+      .update({ order_index: index, updated_at: now })
+      .eq("id", id)
+  );
+  const results = await Promise.all(promises);
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw failed.error;
+  revalidatePath("/calendar");
+  return { success: true };
+}

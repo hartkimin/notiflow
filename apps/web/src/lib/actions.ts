@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { generateId, toSignedInt32 } from "@/lib/schedule-utils";
 import type { ProductAlias } from "@/lib/types";
 import { getAISettings } from "@/lib/ai-client";
 import { parseMessageCore, getHospitalAliases, aiParse, resolveHospitalFromSender } from "@/lib/parse-service";
@@ -158,7 +157,6 @@ export async function deleteOrder(id: number) {
   const supabase = await createClient();
   const { error } = await supabase.from("orders").delete().eq("id", id);
   if (error) throw error;
-  revalidatePath("/calendar");
   revalidatePath("/orders");
   revalidatePath("/dashboard");
   return { success: true };
@@ -168,7 +166,6 @@ export async function updateOrder(id: number, data: Record<string, unknown>) {
   const supabase = await createClient();
   const { error } = await supabase.from("orders").update(data).eq("id", id);
   if (error) throw error;
-  revalidatePath("/calendar");
   revalidatePath("/orders");
   revalidatePath("/dashboard");
   return { success: true };
@@ -179,7 +176,6 @@ export async function deleteOrders(ids: number[]) {
   const supabase = await createClient();
   const { error } = await supabase.from("orders").delete().in("id", ids);
   if (error) throw error;
-  revalidatePath("/calendar");
   revalidatePath("/orders");
   revalidatePath("/dashboard");
   return { success: true };
@@ -214,7 +210,6 @@ export async function createMessage(data: {
     parse_status: "pending",
   });
   if (error) throw error;
-  revalidatePath("/calendar");
   revalidatePath("/messages");
   revalidatePath("/dashboard");
   return { success: true };
@@ -224,7 +219,6 @@ export async function updateMessage(id: number, data: Record<string, unknown>) {
   const supabase = await createClient();
   const { error } = await supabase.from("raw_messages").update(data).eq("id", id);
   if (error) throw error;
-  revalidatePath("/calendar");
   revalidatePath("/messages");
   revalidatePath("/dashboard");
   return { success: true };
@@ -234,7 +228,6 @@ export async function deleteMessage(id: number) {
   const supabase = await createClient();
   const { error } = await supabase.from("raw_messages").delete().eq("id", id);
   if (error) throw error;
-  revalidatePath("/calendar");
   revalidatePath("/messages");
   revalidatePath("/dashboard");
   return { success: true };
@@ -358,7 +351,6 @@ export async function reparseMessage(id: number, hospitalId?: number) {
   }
 
   const result = await parseMessageCore(supabase, settings, msg.id, msg.content, effectiveHospitalId, true);
-  revalidatePath("/calendar");
   revalidatePath("/messages");
   revalidatePath("/dashboard");
   return result;
@@ -401,7 +393,6 @@ export async function reparseMessages(ids: number[], hospitalId?: number) {
       results.push({ id: msg.id, data: null, error: (err as Error).message });
     }
   }
-  revalidatePath("/calendar");
   revalidatePath("/messages");
   revalidatePath("/dashboard");
   return { success: true, results };
@@ -412,7 +403,6 @@ export async function deleteMessages(ids: number[]) {
   const supabase = await createClient();
   const { error } = await supabase.from("raw_messages").delete().in("id", ids);
   if (error) throw error;
-  revalidatePath("/calendar");
   revalidatePath("/messages");
   revalidatePath("/dashboard");
   return { success: true };
@@ -537,374 +527,4 @@ export async function deleteUser(id: string) {
   }
   revalidatePath("/users");
   return result;
-}
-
-// --- Schedule: Plans ---
-
-export async function createPlan(data: {
-  category_id: string;
-  date: number;
-  title: string;
-  order_index?: number;
-}) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
-  const now = Date.now();
-  const { error } = await supabase.from("plans").insert({
-    id: generateId(),
-    user_id: user.id,
-    category_id: data.category_id,
-    date: data.date,
-    title: data.title,
-    is_completed: false,
-    order_index: data.order_index ?? 0,
-    is_deleted: false,
-    created_at: now,
-    updated_at: now,
-  });
-  if (error) throw error;
-  revalidatePath("/calendar");
-  return { success: true };
-}
-
-export async function updatePlan(id: string, data: Record<string, unknown>) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("plans")
-    .update({ ...data, updated_at: Date.now() })
-    .eq("id", id);
-  if (error) throw error;
-  revalidatePath("/calendar");
-  return { success: true };
-}
-
-export async function togglePlanCompletion(id: string, isCompleted: boolean) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("plans")
-    .update({ is_completed: isCompleted, updated_at: Date.now() })
-    .eq("id", id);
-  if (error) throw error;
-  revalidatePath("/calendar");
-  return { success: true };
-}
-
-export async function deletePlan(id: string) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("plans")
-    .update({ is_deleted: true, updated_at: Date.now() })
-    .eq("id", id);
-  if (error) throw error;
-  revalidatePath("/calendar");
-  return { success: true };
-}
-
-export async function linkPlanToMessage(planId: string, messageId: string | null) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("plans")
-    .update({ linked_message_id: messageId, updated_at: Date.now() })
-    .eq("id", planId);
-  if (error) throw error;
-  revalidatePath("/calendar");
-  return { success: true };
-}
-
-export async function updatePlanOrderNumber(planId: string, orderNumber: string | null) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("plans")
-    .update({ order_number: orderNumber, updated_at: Date.now() })
-    .eq("id", planId);
-  if (error) throw error;
-  revalidatePath("/calendar");
-  return { success: true };
-}
-
-// --- Schedule: Day Categories ---
-
-export async function addCategoryToDay(date: number, categoryId: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
-  const now = Date.now();
-  const { error } = await supabase.from("day_categories").insert({
-    id: generateId(),
-    user_id: user.id,
-    date,
-    category_id: categoryId,
-    created_at: now,
-    updated_at: now,
-  });
-  if (error) throw error;
-  revalidatePath("/calendar");
-  return { success: true };
-}
-
-export async function removeCategoryFromDay(dayCategoryId: string) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("day_categories")
-    .delete()
-    .eq("id", dayCategoryId);
-  if (error) throw error;
-  revalidatePath("/calendar");
-  return { success: true };
-}
-
-// --- Schedule: Week Operations ---
-
-export async function addAllCategoriesToWeek(weekStartMs: number) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("id")
-    .eq("is_deleted", false)
-    .eq("is_active", true);
-
-  if (!categories || categories.length === 0) return { success: true };
-
-  const weekEndMs = weekStartMs + 7 * 24 * 60 * 60 * 1000;
-  const { data: existing } = await supabase
-    .from("day_categories")
-    .select("date, category_id")
-    .gte("date", weekStartMs)
-    .lt("date", weekEndMs);
-
-  const existingSet = new Set(
-    (existing ?? []).map((e) => `${e.date}-${e.category_id}`)
-  );
-
-  const now = Date.now();
-  const toInsert: Array<Record<string, unknown>> = [];
-
-  for (let i = 0; i < 7; i++) {
-    const dayMs = weekStartMs + i * 24 * 60 * 60 * 1000;
-    for (const cat of categories) {
-      if (!existingSet.has(`${dayMs}-${cat.id}`)) {
-        toInsert.push({
-          id: generateId(),
-          user_id: user.id,
-          date: dayMs,
-          category_id: cat.id,
-          created_at: now,
-          updated_at: now,
-        });
-      }
-    }
-  }
-
-  if (toInsert.length > 0) {
-    const { error } = await supabase.from("day_categories").insert(toInsert);
-    if (error) throw error;
-  }
-
-  revalidatePath("/calendar");
-  return { success: true };
-}
-
-export async function copyPreviousWeekPlans(targetWeekStartMs: number) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
-  const sourceWeekStartMs = targetWeekStartMs - 7 * 24 * 60 * 60 * 1000;
-  const sourceWeekEndMs = targetWeekStartMs;
-  const now = Date.now();
-
-  // Copy day_categories
-  const { data: srcDayCats } = await supabase
-    .from("day_categories")
-    .select("*")
-    .gte("date", sourceWeekStartMs)
-    .lt("date", sourceWeekEndMs);
-
-  if (srcDayCats && srcDayCats.length > 0) {
-    const dcInsert = srcDayCats.map((dc) => ({
-      id: generateId(),
-      user_id: user.id,
-      date: dc.date + 7 * 24 * 60 * 60 * 1000,
-      category_id: dc.category_id,
-      created_at: now,
-      updated_at: now,
-    }));
-    await supabase.from("day_categories").upsert(dcInsert, { onConflict: "id" });
-  }
-
-  // Copy plans
-  const { data: srcPlans } = await supabase
-    .from("plans")
-    .select("*")
-    .eq("is_deleted", false)
-    .gte("date", sourceWeekStartMs)
-    .lt("date", sourceWeekEndMs);
-
-  if (srcPlans && srcPlans.length > 0) {
-    const planInsert = srcPlans.map((p) => ({
-      id: generateId(),
-      user_id: user.id,
-      category_id: p.category_id,
-      date: p.date + 7 * 24 * 60 * 60 * 1000,
-      title: p.title,
-      is_completed: false,
-      linked_message_id: null,
-      order_number: null,
-      order_index: p.order_index,
-      is_deleted: false,
-      created_at: now,
-      updated_at: now,
-    }));
-    await supabase.from("plans").insert(planInsert);
-  }
-
-  revalidatePath("/calendar");
-  return { success: true };
-}
-
-export async function copyCurrentWeekToNext(sourceWeekStartMs: number) {
-  const targetWeekStartMs = sourceWeekStartMs + 7 * 24 * 60 * 60 * 1000;
-  return copyPreviousWeekPlans(targetWeekStartMs);
-}
-
-// --- Schedule: Category Management ---
-
-export async function createCategory(data: {
-  name: string;
-  color: number;
-  order_index?: number;
-}) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
-  const now = Date.now();
-  const { error } = await supabase.from("categories").insert({
-    id: generateId(),
-    user_id: user.id,
-    name: data.name,
-    color: toSignedInt32(data.color),
-    order_index: data.order_index ?? 0,
-    is_active: true,
-    is_deleted: false,
-    created_at: now,
-    updated_at: now,
-  });
-  if (error) throw error;
-  revalidatePath("/calendar");
-  return { success: true };
-}
-
-export async function updateCategory(
-  id: string,
-  data: { name?: string; color?: number; is_active?: boolean; order_index?: number },
-) {
-  const supabase = await createClient();
-  const patch = { ...data, updated_at: Date.now() };
-  if (patch.color !== undefined) patch.color = toSignedInt32(patch.color);
-  const { error } = await supabase
-    .from("categories")
-    .update(patch)
-    .eq("id", id);
-  if (error) throw error;
-  revalidatePath("/calendar");
-  return { success: true };
-}
-
-export async function deleteCategory(id: string) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("categories")
-    .update({ is_deleted: true, updated_at: Date.now() })
-    .eq("id", id);
-  if (error) throw error;
-  revalidatePath("/calendar");
-  return { success: true };
-}
-
-export async function reorderCategories(orderedIds: string[]) {
-  const supabase = await createClient();
-  const now = Date.now();
-  const promises = orderedIds.map((id, index) =>
-    supabase
-      .from("categories")
-      .update({ order_index: index, updated_at: now })
-      .eq("id", id)
-  );
-  const results = await Promise.all(promises);
-  const failed = results.find((r) => r.error);
-  if (failed?.error) throw failed.error;
-  revalidatePath("/calendar");
-  return { success: true };
-}
-
-// --- Schedule: Filter Rules ---
-
-export async function createFilterRule(data: {
-  category_id: string;
-  sender_keywords?: string[];
-  sender_match_type?: string;
-  sms_phone_number?: string | null;
-  include_words?: string[];
-  exclude_words?: string[];
-  include_match_type?: string;
-  condition_type?: string;
-  target_app_packages?: string[];
-}) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
-  const now = Date.now();
-  const { error } = await supabase.from("filter_rules").insert({
-    id: generateId(),
-    user_id: user.id,
-    category_id: data.category_id,
-    sender_keywords: data.sender_keywords ?? [],
-    sender_match_type: data.sender_match_type ?? "CONTAINS",
-    sms_phone_number: data.sms_phone_number ?? null,
-    include_words: data.include_words ?? [],
-    exclude_words: data.exclude_words ?? [],
-    include_match_type: data.include_match_type ?? "OR",
-    condition_type: data.condition_type ?? "AND",
-    target_app_packages: data.target_app_packages ?? [],
-    is_active: true,
-    is_deleted: false,
-    created_at: now,
-    updated_at: now,
-  });
-  if (error) throw error;
-  revalidatePath("/calendar");
-  return { success: true };
-}
-
-export async function updateFilterRule(
-  id: string,
-  data: Record<string, unknown>,
-) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("filter_rules")
-    .update({ ...data, updated_at: Date.now() })
-    .eq("id", id);
-  if (error) throw error;
-  revalidatePath("/calendar");
-  return { success: true };
-}
-
-export async function deleteFilterRule(id: string) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("filter_rules")
-    .update({ is_deleted: true, updated_at: Date.now() })
-    .eq("id", id);
-  if (error) throw error;
-  revalidatePath("/calendar");
-  return { success: true };
 }

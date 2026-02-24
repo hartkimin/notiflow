@@ -241,23 +241,6 @@ export interface MobileCategory {
   is_active: boolean;
 }
 
-export interface Plan {
-  id: string;
-  category_id: string | null;
-  date: number;           // epoch ms
-  title: string;
-  is_completed: boolean;
-  linked_message_id: string | null;
-  order_number: string | null;
-  order_index: number;
-}
-
-export interface DayCategory {
-  id: string;
-  date: number;           // epoch ms
-  category_id: string;
-}
-
 export interface CapturedMessage {
   id: string;
   app_name: string;
@@ -319,19 +302,3 @@ export interface MessageLocalData {
 }
 
 export type MessageLocalStateMap = Record<number, MessageLocalData>;
-
-// --- Filter Rules (synced with mobile) ---
-
-export interface FilterRule {
-  id: string;
-  category_id: string;
-  sender_keywords: string[];
-  sender_match_type: 'CONTAINS' | 'EXACT' | 'REGEX';
-  sms_phone_number: string | null;
-  include_words: string[];
-  exclude_words: string[];
-  include_match_type: 'OR' | 'AND';
-  condition_type: 'AND' | 'OR';
-  target_app_packages: string[];
-  is_active: boolean;
-}

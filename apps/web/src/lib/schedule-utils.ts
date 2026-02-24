@@ -31,15 +31,6 @@ export function getWeekDates(monday: Date): Date[] {
 }
 
 /**
- * Convert ARGB integer (as stored by Android) to CSS hex color.
- * Android Color.toArgb() produces signed 32-bit int.
- */
-export function argbToHex(argb: number): string {
-  const hex = ((argb & 0x00FFFFFF) >>> 0).toString(16).padStart(6, "0");
-  return `#${hex}`;
-}
-
-/**
  * Format epoch ms to short date string.
  */
 export function formatEpochDate(epochMs: number): string {
@@ -81,13 +72,6 @@ export function formatWeekLabel(monday: Date): string {
 }
 
 /**
- * Generate a UUID v4 (for creating new records matching mobile pattern).
- */
-export function generateId(): string {
-  return crypto.randomUUID();
-}
-
-/**
  * Format a Date as local "YYYY-MM-DD" string (timezone-safe, unlike toISOString).
  */
 export function toLocalDateStr(date: Date): string {
@@ -95,15 +79,6 @@ export function toLocalDateStr(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
-}
-
-/**
- * Convert a JavaScript ARGB number (unsigned) to PostgreSQL-safe signed int32.
- * Android Color.toArgb() returns signed int32; JS number literals like 0xFFE57373
- * are unsigned (4,293,467,011) which overflows PostgreSQL INTEGER.
- */
-export function toSignedInt32(n: number): number {
-  return n | 0;
 }
 
 /**

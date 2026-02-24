@@ -841,3 +841,68 @@ export async function reorderCategories(orderedIds: string[]) {
   revalidatePath("/calendar");
   return { success: true };
 }
+
+// --- Schedule: Filter Rules ---
+
+export async function createFilterRule(data: {
+  category_id: string;
+  sender_keywords?: string[];
+  sender_match_type?: string;
+  sms_phone_number?: string | null;
+  include_words?: string[];
+  exclude_words?: string[];
+  include_match_type?: string;
+  condition_type?: string;
+  target_app_packages?: string[];
+}) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const now = Date.now();
+  const { error } = await supabase.from("filter_rules").insert({
+    id: generateId(),
+    user_id: user.id,
+    category_id: data.category_id,
+    sender_keywords: data.sender_keywords ?? [],
+    sender_match_type: data.sender_match_type ?? "CONTAINS",
+    sms_phone_number: data.sms_phone_number ?? null,
+    include_words: data.include_words ?? [],
+    exclude_words: data.exclude_words ?? [],
+    include_match_type: data.include_match_type ?? "OR",
+    condition_type: data.condition_type ?? "AND",
+    target_app_packages: data.target_app_packages ?? [],
+    is_active: true,
+    is_deleted: false,
+    created_at: now,
+    updated_at: now,
+  });
+  if (error) throw error;
+  revalidatePath("/calendar");
+  return { success: true };
+}
+
+export async function updateFilterRule(
+  id: string,
+  data: Record<string, unknown>,
+) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("filter_rules")
+    .update({ ...data, updated_at: Date.now() })
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/calendar");
+  return { success: true };
+}
+
+export async function deleteFilterRule(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("filter_rules")
+    .update({ is_deleted: true, updated_at: Date.now() })
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/calendar");
+  return { success: true };
+}

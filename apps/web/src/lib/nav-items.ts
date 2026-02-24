@@ -6,7 +6,6 @@ import {
   Bell,
   MessageSquare,
   ClipboardList,
-  CalendarDays,
   Truck,
   BarChart3,
   Shield,
@@ -37,7 +36,6 @@ export const navGroups: NavGroup[] = [
       { href: "/orders", label: "주문관리", icon: ClipboardList },
       { href: "/messages", label: "수신메시지", icon: MessageSquare },
       { href: "/notifications", label: "알림", icon: Bell },
-      { href: "/calendar", label: "캘린더", icon: CalendarDays },
     ],
   },
   {

@@ -34,7 +34,8 @@ import {
   getWeekMonday, getWeekDates, startOfDayMs, argbToHex,
   formatWeekLabel, formatEpochTime,
 } from "@/lib/schedule-utils";
-import type { MobileCategory, Plan, DayCategory, CapturedMessage } from "@/lib/types";
+import type { MobileCategory, Plan, DayCategory, CapturedMessage, FilterRule } from "@/lib/types";
+import type { CalendarView } from "@/lib/schedule-utils";
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -43,7 +44,11 @@ interface ScheduleViewProps {
   plans: Plan[];
   dayCategories: DayCategory[];
   messages: CapturedMessage[];
-  weekStartMs: number;
+  filterRules: FilterRule[];
+  view: CalendarView;
+  startMs: number;
+  endMs: number;
+  referenceDate: number; // epoch ms
 }
 
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
@@ -51,11 +56,12 @@ const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
 // ─── Main Component ────────────────────────────────────────────
 
 export function ScheduleView({
-  categories, plans, dayCategories, messages, weekStartMs,
+  categories, plans, dayCategories, messages, filterRules,
+  view, startMs, endMs, referenceDate,
 }: ScheduleViewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const monday = useMemo(() => new Date(weekStartMs), [weekStartMs]);
+  const monday = useMemo(() => new Date(referenceDate), [referenceDate]);
   const weekDates = useMemo(() => getWeekDates(monday), [monday]);
 
   // Group data by day (epoch ms at start of day)
@@ -103,7 +109,7 @@ export function ScheduleView({
   function handleAddAllCategories() {
     startTransition(async () => {
       try {
-        await addAllCategoriesToWeek(weekStartMs);
+        await addAllCategoriesToWeek(startMs);
         toast.success("전체 카테고리를 추가했습니다.");
         router.refresh();
       } catch { toast.error("카테고리 추가 실패"); }
@@ -113,7 +119,7 @@ export function ScheduleView({
   function handleCopyPrevWeek() {
     startTransition(async () => {
       try {
-        await copyPreviousWeekPlans(weekStartMs);
+        await copyPreviousWeekPlans(startMs);
         toast.success("전주 플랜을 불러왔습니다.");
         router.refresh();
       } catch { toast.error("전주 복사 실패"); }
@@ -123,7 +129,7 @@ export function ScheduleView({
   function handleCopyToNext() {
     startTransition(async () => {
       try {
-        await copyCurrentWeekToNext(weekStartMs);
+        await copyCurrentWeekToNext(startMs);
         toast.success("다음주로 복사했습니다.");
         router.refresh();
       } catch { toast.error("다음주 복사 실패"); }

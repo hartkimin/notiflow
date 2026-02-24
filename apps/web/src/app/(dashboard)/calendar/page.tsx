@@ -2,39 +2,57 @@ import { ScheduleView } from "@/components/schedule-view";
 import { RealtimeListener } from "@/components/realtime-listener";
 import {
   getCategories,
-  getWeekPlans,
-  getWeekDayCategories,
-  getWeekMessages,
+  getPlans,
+  getDayCategories,
+  getMessages,
+  getFilterRules,
 } from "@/lib/queries/schedule";
-import { parseWeekParam, startOfDayMs } from "@/lib/schedule-utils";
+import { parseCalendarParams } from "@/lib/schedule-utils";
 
 interface Props {
-  searchParams: Promise<{ week?: string }>;
+  searchParams: Promise<{
+    view?: string;
+    week?: string;
+    date?: string;
+    month?: string;
+  }>;
 }
 
 export default async function CalendarPage({ searchParams }: Props) {
   const params = await searchParams;
-  const monday = parseWeekParam(params.week);
-  const weekStartMs = startOfDayMs(monday);
+  const calendarParams = parseCalendarParams(params);
+  const { view, startMs, endMs } = calendarParams;
 
-  const [categories, plans, dayCategories, messages] = await Promise.all([
-    getCategories().catch(() => []),
-    getWeekPlans(weekStartMs).catch(() => []),
-    getWeekDayCategories(weekStartMs).catch(() => []),
-    getWeekMessages(weekStartMs).catch(() => []),
-  ]);
+  const [categories, plans, dayCategories, messages, filterRules] =
+    await Promise.all([
+      getCategories().catch(() => []),
+      getPlans(startMs, endMs).catch(() => []),
+      getDayCategories(startMs, endMs).catch(() => []),
+      getMessages(startMs, endMs).catch(() => []),
+      getFilterRules().catch(() => []),
+    ]);
 
   return (
     <div className="flex flex-col h-full">
       <RealtimeListener
-        tables={["categories", "plans", "day_categories", "captured_messages"]}
+        tables={[
+          "categories",
+          "plans",
+          "day_categories",
+          "captured_messages",
+          "filter_rules",
+        ]}
       />
       <ScheduleView
         categories={categories}
         plans={plans}
         dayCategories={dayCategories}
         messages={messages}
-        weekStartMs={weekStartMs}
+        filterRules={filterRules}
+        view={view}
+        startMs={startMs}
+        endMs={endMs}
+        referenceDate={calendarParams.referenceDate.getTime()}
       />
     </div>
   );

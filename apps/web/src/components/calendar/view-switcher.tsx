@@ -9,6 +9,7 @@ import {
   formatMonthLabel,
   formatDayLabel,
   getWeekMonday,
+  toLocalDateStr,
   type CalendarView,
 } from "@/lib/schedule-utils";
 
@@ -31,11 +32,11 @@ export function ViewSwitcher({
     if (view === "day") {
       const d = new Date(referenceDate);
       d.setDate(d.getDate() + direction);
-      router.push(`/calendar?view=day&date=${d.toISOString().slice(0, 10)}`);
+      router.push(`/calendar?view=day&date=${toLocalDateStr(d)}`);
     } else if (view === "week") {
       const d = new Date(referenceDate);
       d.setDate(d.getDate() + direction * 7);
-      router.push(`/calendar?view=week&week=${d.toISOString().slice(0, 10)}`);
+      router.push(`/calendar?view=week&week=${toLocalDateStr(d)}`);
     } else {
       const d = new Date(referenceDate);
       d.setMonth(d.getMonth() + direction);
@@ -47,10 +48,10 @@ export function ViewSwitcher({
   function goToday() {
     if (view === "day") {
       const d = new Date();
-      router.push(`/calendar?view=day&date=${d.toISOString().slice(0, 10)}`);
+      router.push(`/calendar?view=day&date=${toLocalDateStr(d)}`);
     } else if (view === "week") {
       const mon = getWeekMonday(new Date());
-      router.push(`/calendar?view=week&week=${mon.toISOString().slice(0, 10)}`);
+      router.push(`/calendar?view=week&week=${toLocalDateStr(mon)}`);
     } else {
       const d = new Date();
       const param = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -61,10 +62,10 @@ export function ViewSwitcher({
   function switchView(newView: string) {
     if (newView === "day") {
       const d = view === "week" ? referenceDate : new Date();
-      router.push(`/calendar?view=day&date=${d.toISOString().slice(0, 10)}`);
+      router.push(`/calendar?view=day&date=${toLocalDateStr(d)}`);
     } else if (newView === "week") {
       const mon = getWeekMonday(referenceDate);
-      router.push(`/calendar?view=week&week=${mon.toISOString().slice(0, 10)}`);
+      router.push(`/calendar?view=week&week=${toLocalDateStr(mon)}`);
     } else {
       const param = `${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, "0")}`;
       router.push(`/calendar?view=month&month=${param}`);

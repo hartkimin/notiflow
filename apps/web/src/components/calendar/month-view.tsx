@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { getMonthGridDates, startOfDayMs, argbToHex } from "@/lib/schedule-utils";
+import { getMonthGridDates, startOfDayMs, argbToHex, toLocalDateStr } from "@/lib/schedule-utils";
 import type { MobileCategory, Plan, DayCategory, CapturedMessage } from "@/lib/types";
 
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
@@ -61,7 +61,7 @@ export function MonthView({
   const cellCount = rowCount * 7;
 
   function handleDateClick(date: Date) {
-    router.push(`/calendar?view=day&date=${date.toISOString().slice(0, 10)}`);
+    router.push(`/calendar?view=day&date=${toLocalDateStr(date)}`);
   }
 
   return (

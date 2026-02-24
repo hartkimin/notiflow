@@ -26,6 +26,7 @@ import { CalendarSidePanel } from "@/components/calendar/side-panel";
 
 interface ScheduleViewProps {
   categories: MobileCategory[];
+  allCategories: MobileCategory[];
   plans: Plan[];
   dayCategories: DayCategory[];
   messages: CapturedMessage[];
@@ -37,7 +38,7 @@ interface ScheduleViewProps {
 }
 
 export function ScheduleView({
-  categories, plans, dayCategories, messages, filterRules,
+  categories, allCategories, plans, dayCategories, messages, filterRules,
   view, startMs, endMs, referenceDate,
 }: ScheduleViewProps) {
   const router = useRouter();
@@ -184,7 +185,7 @@ export function ScheduleView({
       <CalendarSidePanel
         open={sidePanelOpen}
         onOpenChange={setSidePanelOpen}
-        categories={categories}
+        categories={allCategories}
         filterRules={filterRules}
       />
     </div>

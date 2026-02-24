@@ -88,6 +88,25 @@ export function generateId(): string {
 }
 
 /**
+ * Format a Date as local "YYYY-MM-DD" string (timezone-safe, unlike toISOString).
+ */
+export function toLocalDateStr(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Convert a JavaScript ARGB number (unsigned) to PostgreSQL-safe signed int32.
+ * Android Color.toArgb() returns signed int32; JS number literals like 0xFFE57373
+ * are unsigned (4,293,467,011) which overflows PostgreSQL INTEGER.
+ */
+export function toSignedInt32(n: number): number {
+  return n | 0;
+}
+
+/**
  * Get the first day of the month containing the given date (local timezone).
  */
 export function getMonthStart(date: Date): Date {

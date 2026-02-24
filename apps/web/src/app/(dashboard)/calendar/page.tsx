@@ -2,6 +2,7 @@ import { ScheduleView } from "@/components/schedule-view";
 import { RealtimeListener } from "@/components/realtime-listener";
 import {
   getCategories,
+  getAllCategories,
   getPlans,
   getDayCategories,
   getMessages,
@@ -23,9 +24,10 @@ export default async function CalendarPage({ searchParams }: Props) {
   const calendarParams = parseCalendarParams(params);
   const { view, startMs, endMs } = calendarParams;
 
-  const [categories, plans, dayCategories, messages, filterRules] =
+  const [categories, allCategories, plans, dayCategories, messages, filterRules] =
     await Promise.all([
       getCategories().catch(() => []),
+      getAllCategories().catch(() => []),
       getPlans(startMs, endMs).catch(() => []),
       getDayCategories(startMs, endMs).catch(() => []),
       getMessages(startMs, endMs).catch(() => []),
@@ -45,6 +47,7 @@ export default async function CalendarPage({ searchParams }: Props) {
       />
       <ScheduleView
         categories={categories}
+        allCategories={allCategories}
         plans={plans}
         dayCategories={dayCategories}
         messages={messages}

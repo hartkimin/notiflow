@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { generateId } from "@/lib/schedule-utils";
+import { generateId, toSignedInt32 } from "@/lib/schedule-utils";
 import type { ProductAlias } from "@/lib/types";
 import { getAISettings } from "@/lib/ai-client";
 import { parseMessageCore, getHospitalAliases, aiParse, resolveHospitalFromSender } from "@/lib/parse-service";
@@ -789,7 +789,7 @@ export async function createCategory(data: {
     id: generateId(),
     user_id: user.id,
     name: data.name,
-    color: data.color,
+    color: toSignedInt32(data.color),
     order_index: data.order_index ?? 0,
     is_active: true,
     is_deleted: false,
@@ -806,9 +806,11 @@ export async function updateCategory(
   data: { name?: string; color?: number; is_active?: boolean; order_index?: number },
 ) {
   const supabase = await createClient();
+  const patch = { ...data, updated_at: Date.now() };
+  if (patch.color !== undefined) patch.color = toSignedInt32(patch.color);
   const { error } = await supabase
     .from("categories")
-    .update({ ...data, updated_at: Date.now() })
+    .update(patch)
     .eq("id", id);
   if (error) throw error;
   revalidatePath("/calendar");

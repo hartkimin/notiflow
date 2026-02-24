@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useTransition, useCallback, useRef } from "react";
+import React, { useState, useMemo, useTransition, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -346,22 +346,19 @@ export function MessageTable({ messages, hospitals, products }: {
 
   // Column resize
   const [colWidths, setColWidths] = useState<Record<string, number | undefined>>({});
-  const resizingRef = useRef<{ key: string; startX: number; startW: number } | null>(null);
 
   const onResizeStart = useCallback((key: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const th = (e.target as HTMLElement).parentElement!;
+    const startX = e.clientX;
     const startW = th.getBoundingClientRect().width;
-    resizingRef.current = { key, startX: e.clientX, startW };
 
     const onMove = (ev: MouseEvent) => {
-      if (!resizingRef.current) return;
-      const diff = ev.clientX - resizingRef.current.startX;
-      setColWidths((prev) => ({ ...prev, [key]: Math.max(40, resizingRef.current!.startW + diff) }));
+      const diff = ev.clientX - startX;
+      setColWidths((prev) => ({ ...prev, [key]: Math.max(40, startW + diff) }));
     };
     const onUp = () => {
-      resizingRef.current = null;
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
     };

@@ -663,11 +663,11 @@ export function MessageTable({ messages, hospitals, products }: {
                                         headers: { "Content-Type": "application/json" },
                                         body: JSON.stringify({ content: msg.content, hospitalId: msg.hospital_id ?? undefined, sender: msg.sender ?? undefined }),
                                       });
-                                      if (!res.ok) throw new Error(`HTTP ${res.status}`);
                                       const result = await res.json();
+                                      if (!res.ok) throw new Error(result.error ?? `HTTP ${res.status}`);
                                       setAiTestResult((prev) => ({ ...prev, [msg.id]: result }));
                                       toast.success(`AI 테스트 완료 (${result.method}) — ${result.items.length}개 품목 감지`);
-                                    } catch { toast.error("AI 테스트에 실패했습니다."); }
+                                    } catch (err) { toast.error(err instanceof Error ? err.message : "AI 테스트에 실패했습니다."); }
                                     finally { setAiTestLoading(null); }
                                   }}
                                 >

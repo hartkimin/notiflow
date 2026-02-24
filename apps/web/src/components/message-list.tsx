@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useTransition } from "react";
+import React, { useState, useMemo, useTransition, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -344,6 +344,31 @@ export function MessageTable({ messages, hospitals, products }: {
 
   const localState = useMessageLocalState();
 
+  // Column resize
+  const [colWidths, setColWidths] = useState<Record<string, number | undefined>>({});
+  const resizingRef = useRef<{ key: string; startX: number; startW: number } | null>(null);
+
+  const onResizeStart = useCallback((key: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const th = (e.target as HTMLElement).parentElement!;
+    const startW = th.getBoundingClientRect().width;
+    resizingRef.current = { key, startX: e.clientX, startW };
+
+    const onMove = (ev: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const diff = ev.clientX - resizingRef.current.startX;
+      setColWidths((prev) => ({ ...prev, [key]: Math.max(40, resizingRef.current!.startW + diff) }));
+    };
+    const onUp = () => {
+      resizingRef.current = null;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, []);
+
   const allIds = useMemo(() => messages.map((m) => m.id), [messages]);
   const rowSelection = useRowSelection(allIds);
 
@@ -437,8 +462,8 @@ export function MessageTable({ messages, hospitals, products }: {
       {messages.length === 0 ? (
         <p className="text-sm text-muted-foreground py-8 text-center">수신된 메시지가 없습니다.</p>
       ) : (
-        <div className="rounded-md border">
-          <Table>
+        <div className="rounded-md border overflow-x-auto">
+          <Table style={{ tableLayout: "fixed" }}>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[40px] px-2" onClick={(e) => e.stopPropagation()}>
@@ -447,22 +472,31 @@ export function MessageTable({ messages, hospitals, products }: {
                     onCheckedChange={() => rowSelection.toggleAll()}
                   />
                 </TableHead>
-                <TableHead className="w-[50px] cursor-pointer select-none" onClick={() => toggleSort("id")}>
-                  <span className="inline-flex items-center">ID<SortIcon active={sortKey === "id"} dir={sortDir} /></span>
-                </TableHead>
-                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("sender")}>
-                  <span className="inline-flex items-center">발신자<SortIcon active={sortKey === "sender"} dir={sortDir} /></span>
-                </TableHead>
-                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("source_app")}>
-                  <span className="inline-flex items-center">출처<SortIcon active={sortKey === "source_app"} dir={sortDir} /></span>
-                </TableHead>
-                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("parse_status")}>
-                  <span className="inline-flex items-center">상태<SortIcon active={sortKey === "parse_status"} dir={sortDir} /></span>
-                </TableHead>
-                <TableHead>주문</TableHead>
-                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("received_at")}>
-                  <span className="inline-flex items-center">수신시간<SortIcon active={sortKey === "received_at"} dir={sortDir} /></span>
-                </TableHead>
+                {([
+                  { key: "id", label: "ID", sort: "id" as SortKey, minW: 50 },
+                  { key: "sender", label: "발신자", sort: "sender" as SortKey },
+                  { key: "source", label: "출처", sort: "source_app" as SortKey },
+                  { key: "status", label: "상태", sort: "parse_status" as SortKey },
+                  { key: "order", label: "주문", sort: undefined },
+                  { key: "time", label: "수신시간", sort: "received_at" as SortKey },
+                ] as const).map((col) => (
+                  <TableHead
+                    key={col.key}
+                    className={`relative select-none ${col.sort ? "cursor-pointer" : ""}`}
+                    style={colWidths[col.key] ? { width: colWidths[col.key] } : "minW" in col ? { width: col.minW } : undefined}
+                    onClick={col.sort ? () => toggleSort(col.sort!) : undefined}
+                  >
+                    <span className="inline-flex items-center">
+                      {col.label}
+                      {col.sort && <SortIcon active={sortKey === col.sort} dir={sortDir} />}
+                    </span>
+                    <div
+                      className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-primary/20 active:bg-primary/40"
+                      onMouseDown={(e) => onResizeStart(col.key, e)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -528,252 +562,162 @@ export function MessageTable({ messages, hospitals, products }: {
 
                     {expandedId === msg.id && (
                       <TableRow className="bg-muted/20 hover:bg-muted/20">
-                        <TableCell colSpan={7} className="p-4">
-                          <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
-
-                            {/* Message content */}
-                            <div>
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs font-medium text-muted-foreground">메시지 내용</span>
-                                <div className="flex items-center gap-1">
-                                  {msgLocal.editedContent !== null && (
-                                    <span className="text-xs text-orange-500">(편집됨)</span>
-                                  )}
-                                  {editingMsgId !== msg.id && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 px-2"
-                                      onClick={() => handleStartEdit(msg.id, msg.content)}
-                                    >
-                                      <Pencil className="h-3 w-3 mr-1" />
-                                      편집
-                                    </Button>
-                                  )}
-                                </div>
+                        <TableCell colSpan={7} className="px-3 py-2">
+                          <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                            {/* 2-col: Message | Parse+AI */}
+                            <div className="grid grid-cols-2 gap-3">
+                            {/* Left: Message content */}
+                            <div className="min-w-0">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-medium text-muted-foreground">메시지 내용 {msgLocal.editedContent !== null && <span className="text-orange-500">(편집됨)</span>}</span>
+                                {editingMsgId !== msg.id && (
+                                  <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => handleStartEdit(msg.id, msg.content)}>
+                                    <Pencil className="h-3 w-3 mr-1" />편집
+                                  </Button>
+                                )}
                               </div>
                               {editingMsgId === msg.id ? (
-                                <div className="space-y-2">
-                                  <Textarea
-                                    value={editDraft}
-                                    onChange={(e) => setEditDraft(e.target.value)}
-                                    rows={3}
-                                    className="text-sm font-sans"
-                                  />
+                                <div className="space-y-1.5 mt-1">
+                                  <Textarea value={editDraft} onChange={(e) => setEditDraft(e.target.value)} rows={3} className="text-sm font-sans" />
                                   <div className="flex gap-2 justify-end">
-                                    <Button variant="outline" size="sm" onClick={handleCancelEdit}>취소</Button>
-                                    <Button size="sm" onClick={() => handleSaveEdit(msg.id, msg.content)}>저장</Button>
+                                    <Button variant="outline" size="sm" className="h-7" onClick={handleCancelEdit}>취소</Button>
+                                    <Button size="sm" className="h-7" onClick={() => handleSaveEdit(msg.id, msg.content)}>저장</Button>
                                   </div>
                                 </div>
                               ) : (
-                                <div className="rounded-md border bg-muted/30 p-3">
-                                  <pre className="text-sm whitespace-pre-wrap font-sans">{displayContent}</pre>
+                                <div className="rounded-md border bg-muted/30 px-2 py-1.5 mt-1">
+                                  <pre className="text-sm whitespace-pre-wrap font-sans leading-snug">{displayContent}</pre>
                                 </div>
                               )}
                             </div>
 
-                            {/* Info bar: Status + Order + Source + Time */}
-                            <div className="flex items-center gap-3 flex-wrap text-sm rounded-md border bg-muted/10 px-3 py-2">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground shrink-0">상태</span>
-                                <Select
-                                  value={msgLocal.statusId ?? "none"}
-                                  onValueChange={(val: string) => {
-                                    if (val === "none") {
-                                      localState.clearStatus(msg.id);
-                                    } else {
-                                      localState.changeStatus(msg.id, val);
-                                    }
+                            {/* Right: Parse result + AI test */}
+                            <div className="min-w-0 space-y-2">
+                              <ParseResultTable msg={msg} />
+                              {aiTestResult[msg.id] != null && (
+                                <div className="rounded-md border bg-muted/30 p-2 space-y-1.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                      {aiTestResult[msg.id]!.ai_provider}/{aiTestResult[msg.id]!.ai_model}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                      {aiTestResult[msg.id]!.method === "llm" ? "AI" : "정규식"} · {aiTestResult[msg.id]!.latency_ms}ms
+                                    </Badge>
+                                    <div className="ml-auto flex gap-1">
+                                      <Badge variant="default" className="text-[10px] px-1.5 py-0">{aiTestResult[msg.id]!.match_summary.matched} 매칭</Badge>
+                                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{aiTestResult[msg.id]!.match_summary.review} 검토</Badge>
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">{aiTestResult[msg.id]!.match_summary.unmatched} 미매칭</Badge>
+                                    </div>
+                                  </div>
+                                  {aiTestResult[msg.id]!.items.length > 0 && (
+                                    <table className="w-full text-xs">
+                                      <thead><tr className="border-b bg-muted/50">
+                                        <th className="text-left p-1 font-medium">원문</th>
+                                        <th className="text-left p-1 font-medium">매칭</th>
+                                        <th className="text-center p-1 font-medium">수량</th>
+                                        <th className="text-center p-1 font-medium">신뢰도</th>
+                                      </tr></thead>
+                                      <tbody>
+                                        {aiTestResult[msg.id]!.items.map((item, i) => (
+                                          <tr key={i} className="border-b last:border-0">
+                                            <td className="p-1 text-muted-foreground">{item.original_text}</td>
+                                            <td className="p-1">{item.product_official_name ?? <span className="italic text-muted-foreground">-</span>}</td>
+                                            <td className="p-1 text-center">{item.quantity} {item.unit}</td>
+                                            <td className="p-1 text-center">
+                                              <Badge variant={item.match_confidence >= 0.8 ? "default" : "outline"} className="text-[10px] px-1.5 py-0">
+                                                {Math.round(item.match_confidence * 100)}%
+                                              </Badge>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            </div>{/* /grid */}
+
+                            {/* Order creation form */}
+                            {!msg.order_id && hospitals && products && (
+                              <ManualParseForm messageId={msg.id} hospitals={hospitals} products={products} onSuccess={() => router.refresh()} />
+                            )}
+
+                            {/* Merged info + actions bar */}
+                            <div className="flex items-center gap-2 rounded-md border bg-muted/10 px-2 py-1">
+                              <Select
+                                value={msgLocal.statusId ?? "none"}
+                                onValueChange={(val: string) => {
+                                  if (val === "none") localState.clearStatus(msg.id);
+                                  else localState.changeStatus(msg.id, val);
+                                }}
+                              >
+                                <SelectTrigger className="w-28 h-7 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">미지정</SelectItem>
+                                  {localState.steps.map((step) => (
+                                    <SelectItem key={step.id} value={step.id}>
+                                      <span className="inline-flex items-center gap-1.5">
+                                        <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: step.color }} />
+                                        {step.name}
+                                      </span>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <span className="text-muted-foreground/30">|</span>
+                              {msg.order_id ? (
+                                <Link href={`/orders/${msg.order_id}`} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                                  <ClipboardList className="h-3 w-3" />#{msg.order_id}
+                                </Link>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">주문 없음</span>
+                              )}
+                              <span className="text-muted-foreground/30">|</span>
+                              <span className="text-xs text-muted-foreground">{SOURCE_LABEL[msg.source_app] || msg.source_app}</span>
+                              <span className="text-xs text-muted-foreground">{formatDateTime(msg.received_at)}</span>
+                              <div className="ml-auto flex items-center gap-0.5">
+                                <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
+                                  disabled={aiTestLoading === msg.id || isPending}
+                                  onClick={async () => {
+                                    setAiTestLoading(msg.id);
+                                    try {
+                                      const res = await fetch("/api/test-parse", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ content: msg.content, hospitalId: msg.hospital_id ?? undefined, sender: msg.sender ?? undefined }),
+                                      });
+                                      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                                      const result = await res.json();
+                                      setAiTestResult((prev) => ({ ...prev, [msg.id]: result }));
+                                      toast.success(`AI 테스트 완료 (${result.method}) — ${result.items.length}개 품목 감지`);
+                                    } catch { toast.error("AI 테스트에 실패했습니다."); }
+                                    finally { setAiTestLoading(null); }
                                   }}
                                 >
-                                  <SelectTrigger className="w-36 h-8 text-xs">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="none">미지정</SelectItem>
-                                    {localState.steps.map((step) => (
-                                      <SelectItem key={step.id} value={step.id}>
-                                        <span className="inline-flex items-center gap-2">
-                                          <span
-                                            className="inline-block h-2.5 w-2.5 rounded-full"
-                                            style={{ backgroundColor: step.color }}
-                                          />
-                                          {step.name}
-                                        </span>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <span className="text-muted-foreground/40">|</span>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs text-muted-foreground">주문</span>
-                                {msg.order_id ? (
-                                  <Link
-                                    href={`/orders/${msg.order_id}`}
-                                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                                  >
-                                    <ClipboardList className="h-3 w-3" />
-                                    #{msg.order_id}
-                                  </Link>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">없음</span>
-                                )}
-                              </div>
-                              <span className="text-muted-foreground/40">|</span>
-                              <span className="text-xs text-muted-foreground">{SOURCE_LABEL[msg.source_app] || msg.source_app}</span>
-                              <span className="text-xs text-muted-foreground ml-auto">{formatDateTime(msg.received_at)}</span>
-                            </div>
-
-                            {/* Order creation form (only when no order exists) */}
-                            {!msg.order_id && hospitals && products && (
-                              <ManualParseForm
-                                messageId={msg.id}
-                                hospitals={hospitals}
-                                products={products}
-                                onSuccess={() => router.refresh()}
-                              />
-                            )}
-
-                            {/* Parse result */}
-                            <ParseResultTable msg={msg} />
-
-                            {/* AI Test Result */}
-                            {aiTestResult[msg.id] != null && (
-                              <div className="rounded-md border bg-muted/30 p-3 space-y-2">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <Badge variant="secondary" className="text-xs">
-                                    {aiTestResult[msg.id]!.ai_provider}/{aiTestResult[msg.id]!.ai_model}
-                                  </Badge>
-                                  <Badge variant="outline" className="text-xs">
-                                    {aiTestResult[msg.id]!.method === "llm" ? "AI" : "정규식"} · {aiTestResult[msg.id]!.latency_ms}ms
-                                  </Badge>
-                                  {aiTestResult[msg.id]!.token_usage && (
-                                    <span className="text-[10px] text-muted-foreground">
-                                      토큰: {aiTestResult[msg.id]!.token_usage!.input_tokens}→{aiTestResult[msg.id]!.token_usage!.output_tokens}
-                                    </span>
-                                  )}
-                                  <Badge variant="default" className="text-xs ml-auto">{aiTestResult[msg.id]!.match_summary.matched} 매칭</Badge>
-                                  <Badge variant="secondary" className="text-xs">{aiTestResult[msg.id]!.match_summary.review} 검토</Badge>
-                                  <Badge variant="outline" className="text-xs">{aiTestResult[msg.id]!.match_summary.unmatched} 미매칭</Badge>
-                                </div>
-                                {aiTestResult[msg.id]!.items.length > 0 && (
-                                  <Table>
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead className="text-xs">원문</TableHead>
-                                        <TableHead className="text-xs">매칭 품목</TableHead>
-                                        <TableHead className="text-xs text-center">수량</TableHead>
-                                        <TableHead className="text-xs text-center">신뢰도</TableHead>
-                                        <TableHead className="text-xs text-center">상태</TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {aiTestResult[msg.id]!.items.map((item, i) => (
-                                        <TableRow key={i}>
-                                          <TableCell className="text-xs text-muted-foreground">{item.original_text}</TableCell>
-                                          <TableCell className="text-xs">
-                                            {item.product_official_name ?? <span className="italic text-muted-foreground">미매칭</span>}
-                                          </TableCell>
-                                          <TableCell className="text-xs text-center">{item.quantity} {item.unit}</TableCell>
-                                          <TableCell className="text-xs text-center">
-                                            <Badge variant={item.match_confidence >= 0.8 ? "default" : item.match_confidence >= 0.5 ? "secondary" : "outline"}>
-                                              {Math.round(item.match_confidence * 100)}%
-                                            </Badge>
-                                          </TableCell>
-                                          <TableCell className="text-xs text-center">
-                                            <Badge variant={item.match_status === "matched" ? "default" : item.match_status === "review" ? "secondary" : "outline"}>
-                                              {item.match_status === "matched" ? "매칭" : item.match_status === "review" ? "검토" : "미매칭"}
-                                            </Badge>
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Action toolbar */}
-                            <div className="flex items-center gap-2 pt-2 border-t">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={aiTestLoading === msg.id || isPending}
-                                onClick={async () => {
-                                  setAiTestLoading(msg.id);
-                                  try {
-                                    const res = await fetch("/api/test-parse", {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({
-                                        content: msg.content,
-                                        hospitalId: msg.hospital_id ?? undefined,
-                                        sender: msg.sender ?? undefined,
-                                      }),
-                                    });
-                                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                                    const result = await res.json();
-                                    setAiTestResult((prev) => ({ ...prev, [msg.id]: result }));
-                                    toast.success(`AI 테스트 완료 (${result.method}) — ${result.items.length}개 품목 감지`);
-                                  } catch {
-                                    toast.error("AI 테스트에 실패했습니다.");
-                                  } finally {
-                                    setAiTestLoading(null);
-                                  }
-                                }}
-                              >
-                                <Bot className="h-4 w-4 mr-1" />
-                                {aiTestLoading === msg.id ? "테스트 중..." : "AI 테스트"}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={isPending}
-                                onClick={() => {
-                                  startTransition(async () => {
-                                    try {
-                                      await reparseMessage(msg.id, msg.hospital_id ?? undefined);
-                                      toast.success("파싱이 완료되었습니다.");
-                                      router.refresh();
-                                    } catch {
-                                      toast.error("파싱 실행에 실패했습니다.");
-                                    }
-                                  });
-                                }}
-                              >
-                                <Cpu className="h-4 w-4 mr-1" />
-                                파싱 실행
-                              </Button>
-                              <div className="ml-auto flex items-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => localState.togglePin(msg.id)}
-                                  title={msgLocal.isPinned ? "핀 해제" : "핀 고정"}
-                                >
-                                  {msgLocal.isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                                  <Bot className="h-3 w-3 mr-1" />{aiTestLoading === msg.id ? "테스트..." : "AI"}
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => handleCopyContent(msg.id, msg.content)}
-                                  title="복사"
+                                <Button size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={isPending}
+                                  onClick={() => { startTransition(async () => {
+                                    try { await reparseMessage(msg.id, msg.hospital_id ?? undefined); toast.success("파싱 완료"); router.refresh(); }
+                                    catch { toast.error("파싱 실패"); }
+                                  }); }}
                                 >
-                                  <Copy className="h-4 w-4" />
+                                  <Cpu className="h-3 w-3 mr-1" />파싱
+                                </Button>
+                                <span className="text-muted-foreground/30 mx-0.5">|</span>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => localState.togglePin(msg.id)} title={msgLocal.isPinned ? "핀 해제" : "핀 고정"}>
+                                  {msgLocal.isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleCopyContent(msg.id, msg.content)} title="복사">
+                                  <Copy className="h-3.5 w-3.5" />
                                 </Button>
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                      disabled={isPending}
-                                      title="삭제"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
+                                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" disabled={isPending} title="삭제">
+                                      <Trash2 className="h-3.5 w-3.5" />
                                     </Button>
                                   </AlertDialogTrigger>
                                   <AlertDialogContent>
@@ -783,68 +727,36 @@ export function MessageTable({ messages, hospitals, products }: {
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                       <AlertDialogCancel>취소</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => handleDelete(msg.id)}
-                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                      >
-                                        삭제
-                                      </AlertDialogAction>
+                                      <AlertDialogAction onClick={() => handleDelete(msg.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">삭제</AlertDialogAction>
                                     </AlertDialogFooter>
                                   </AlertDialogContent>
                                 </AlertDialog>
                               </div>
                             </div>
 
-                            {/* Comments */}
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-1.5">
-                                <MessageSquare className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-xs text-muted-foreground">코멘트 ({msgLocal.comments.length})</span>
-                              </div>
-                              <div className="flex gap-2">
-                                <Input
-                                  value={commentDraft}
-                                  onChange={(e) => setCommentDraft(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter" && !e.shiftKey) {
-                                      e.preventDefault();
-                                      handleAddComment(msg.id);
-                                    }
-                                  }}
-                                  placeholder="코멘트 입력..."
-                                  className="text-sm h-8"
-                                />
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  className="h-8"
-                                  onClick={() => handleAddComment(msg.id)}
-                                  disabled={!commentDraft.trim()}
-                                >
-                                  추가
-                                </Button>
-                              </div>
-                              {msgLocal.comments.length > 0 && (
-                                <div className="space-y-1 max-h-32 overflow-y-auto">
-                                  {msgLocal.comments.map((comment) => (
-                                    <div key={comment.id} className="flex items-start justify-between gap-2 rounded border bg-background px-2 py-1.5">
-                                      <div className="min-w-0 flex-1">
-                                        <p className="text-xs break-words">{comment.text}</p>
-                                        <span className="text-[10px] text-muted-foreground">{formatDateTime(comment.createdAt)}</span>
-                                      </div>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-5 w-5 p-0 shrink-0"
-                                        onClick={() => localState.deleteComment(msg.id, comment.id)}
-                                      >
-                                        <X className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                            {/* Comments (inline) */}
+                            <div className="flex items-center gap-2">
+                              <MessageSquare className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="text-[10px] text-muted-foreground shrink-0">({msgLocal.comments.length})</span>
+                              <Input value={commentDraft} onChange={(e) => setCommentDraft(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddComment(msg.id); } }}
+                                placeholder="코멘트..." className="text-xs h-7 flex-1" />
+                              <Button size="sm" variant="secondary" className="h-7 text-xs px-2"
+                                onClick={() => handleAddComment(msg.id)} disabled={!commentDraft.trim()}>추가</Button>
                             </div>
+                            {msgLocal.comments.length > 0 && (
+                              <div className="space-y-1 max-h-24 overflow-y-auto">
+                                {msgLocal.comments.map((comment) => (
+                                  <div key={comment.id} className="flex items-center justify-between gap-2 rounded border bg-background px-2 py-1">
+                                    <p className="text-xs break-words min-w-0 flex-1">{comment.text}</p>
+                                    <span className="text-[10px] text-muted-foreground shrink-0">{formatDate(comment.createdAt)}</span>
+                                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0 shrink-0" onClick={() => localState.deleteComment(msg.id, comment.id)}>
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
 
                           </div>
                         </TableCell>

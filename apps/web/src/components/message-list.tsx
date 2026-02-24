@@ -350,7 +350,8 @@ export function MessageTable({ messages, hospitals, products }: {
   const onResizeStart = useCallback((key: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const th = (e.target as HTMLElement).parentElement!;
+    const th = (e.target as HTMLElement).closest("th");
+    if (!th) return;
     const startX = e.clientX;
     const startW = th.getBoundingClientRect().width;
 

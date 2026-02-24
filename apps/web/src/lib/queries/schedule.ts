@@ -71,14 +71,3 @@ export async function getFilterRules(): Promise<FilterRule[]> {
   if (error) throw error;
   return (data ?? []) as FilterRule[];
 }
-
-// Backward-compatible wrappers (used until page.tsx is updated)
-export function getWeekPlans(weekStartMs: number) {
-  return getPlans(weekStartMs, weekStartMs + 7 * 24 * 60 * 60 * 1000);
-}
-export function getWeekDayCategories(weekStartMs: number) {
-  return getDayCategories(weekStartMs, weekStartMs + 7 * 24 * 60 * 60 * 1000);
-}
-export function getWeekMessages(weekStartMs: number) {
-  return getMessages(weekStartMs, weekStartMs + 7 * 24 * 60 * 60 * 1000);
-}

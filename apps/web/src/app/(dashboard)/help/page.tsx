@@ -34,6 +34,29 @@ import { APP_VERSION } from "@/lib/version";
 const releases = [
   {
     version: APP_VERSION,
+    date: "2026-02-25",
+    title: "데이터 캘린더 리디자인",
+    highlights: [
+      {
+        icon: CalendarDays,
+        text: "캘린더 탭 추가 — 수신메시지와 주문관리에 목록/캘린더 탭 전환 기능 추가",
+      },
+      {
+        icon: CalendarDays,
+        text: "일/주/월 뷰 전환 — 수신시간·주문일 기준으로 일별, 주별, 월별 캘린더 뷰 제공",
+      },
+      {
+        icon: MessageSquare,
+        text: "상세 사이드 패널 — 캘린더에서 항목 클릭 시 우측 슬라이드 패널로 상세 내역 표시",
+      },
+      {
+        icon: Zap,
+        text: "기존 캘린더 제거 — /calendar 페이지 및 관련 코드 완전 삭제 (3,600줄 → 2,600줄로 축소)",
+      },
+    ],
+  },
+  {
+    version: "0.0.0.3",
     date: "2026-02-24",
     title: "캘린더 버그 수정 & 기기 컬럼 추가",
     highlights: [

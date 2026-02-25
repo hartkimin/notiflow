@@ -349,7 +349,7 @@ export function ProductTable({ products, hospitals }: { products: Product[]; hos
   );
 }
 
-function ProductFormDialog({
+export function ProductFormDialog({
   open, onClose, title, product,
 }: {
   open: boolean;

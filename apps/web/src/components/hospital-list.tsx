@@ -318,7 +318,7 @@ export function HospitalTable({ hospitals }: { hospitals: Hospital[] }) {
   );
 }
 
-function HospitalFormDialog({
+export function HospitalFormDialog({
   open, onClose, title, hospital,
 }: {
   open: boolean;

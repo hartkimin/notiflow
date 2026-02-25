@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Trash2, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,8 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { createManualOrder } from "@/app/(dashboard)/messages/actions";
+import { HospitalFormDialog } from "@/components/hospital-list";
+import { ProductFormDialog } from "@/components/product-list";
 import type { Hospital, Product } from "@/lib/types";
 
 interface ParseItem {
@@ -40,6 +43,7 @@ export function ManualParseForm({
   products: Product[];
   onSuccess?: (orderNumber: string) => void;
 }) {
+  const router = useRouter();
   const [hospitalId, setHospitalId] = useState("");
   const [hospitalOpen, setHospitalOpen] = useState(false);
   const [items, setItems] = useState<ParseItem[]>([
@@ -47,6 +51,8 @@ export function ManualParseForm({
   ]);
   const [productOpenIdx, setProductOpenIdx] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [showAddHospital, setShowAddHospital] = useState(false);
+  const [showAddProduct, setShowAddProduct] = useState(false);
 
   const selectedHospital = hospitals.find((h) => String(h.id) === hospitalId);
 
@@ -113,7 +119,12 @@ export function ManualParseForm({
   return (
     <div className="space-y-4">
       <div>
-        <Label>거래처</Label>
+        <div className="flex items-center justify-between mb-1">
+          <Label>거래처</Label>
+          <Button type="button" variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={() => setShowAddHospital(true)}>
+            <Plus className="h-3 w-3 mr-0.5" />추가
+          </Button>
+        </div>
         <Popover open={hospitalOpen} onOpenChange={setHospitalOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -163,7 +174,12 @@ export function ManualParseForm({
       </div>
 
       <div className="space-y-3">
-        <Label>주문 항목</Label>
+        <div className="flex items-center justify-between">
+          <Label>주문 항목</Label>
+          <Button type="button" variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={() => setShowAddProduct(true)}>
+            <Plus className="h-3 w-3 mr-0.5" />품목 추가
+          </Button>
+        </div>
         {items.map((item, idx) => (
           <div key={idx} className="flex gap-2 items-end">
             <div className="flex-1">
@@ -257,6 +273,17 @@ export function ManualParseForm({
       <Button className="w-full" onClick={handleSubmit} disabled={isPending}>
         {isPending ? "처리중..." : "주문 생성"}
       </Button>
+
+      <HospitalFormDialog
+        open={showAddHospital}
+        onClose={() => { setShowAddHospital(false); router.refresh(); }}
+        title="거래처 추가"
+      />
+      <ProductFormDialog
+        open={showAddProduct}
+        onClose={() => { setShowAddProduct(false); router.refresh(); }}
+        title="품목 추가"
+      />
     </div>
   );
 }

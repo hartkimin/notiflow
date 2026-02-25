@@ -46,7 +46,7 @@ export function MessageInbox({
     <div className="flex flex-col">
       <ResizablePanelGroup
         direction="horizontal"
-        className="h-[calc(100vh-13rem)] rounded-lg border overflow-hidden"
+        className="h-[calc(100vh-9rem)] rounded-lg border overflow-hidden"
       >
         <ResizablePanel defaultSize={50} minSize={20}>
           <MessageListPanel

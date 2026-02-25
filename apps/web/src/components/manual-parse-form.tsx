@@ -181,88 +181,89 @@ export function ManualParseForm({
           </Button>
         </div>
         {items.map((item, idx) => (
-          <div key={idx} className="flex gap-2 items-end">
-            <div className="flex-1">
-              {idx === 0 && <span className="text-xs text-muted-foreground">품목</span>}
-              <Popover
-                open={productOpenIdx === idx}
-                onOpenChange={(open: boolean) => setProductOpenIdx(open ? idx : null)}
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={productOpenIdx === idx}
-                    className="w-full justify-between font-normal"
-                  >
-                    {item.product_id ? getProductName(item.product_id) : "품목 검색..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="품목명, 제조사 검색..." />
-                    <CommandList>
-                      <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
-                      <CommandGroup>
-                        {products.map((p) => (
-                          <CommandItem
-                            key={p.id}
-                            value={`${p.name} ${p.official_name} ${p.short_name ?? ""} ${p.manufacturer ?? ""} ${p.category}`}
-                            onSelect={() => {
-                              updateItem(idx, "product_id", String(p.id));
-                              setProductOpenIdx(null);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4 shrink-0",
-                                item.product_id === String(p.id) ? "opacity-100" : "opacity-0",
-                              )}
-                            />
-                            <div className="flex flex-col min-w-0">
-                              <span className="truncate">{p.name}</span>
-                              <span className="text-xs text-muted-foreground truncate">
-                                {[p.manufacturer, p.category].filter(Boolean).join(" · ")}
-                              </span>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="w-20">
-              {idx === 0 && <span className="text-xs text-muted-foreground">수량</span>}
-              <Input
-                type="number"
-                min="1"
-                value={item.quantity}
-                onChange={(e) => updateItem(idx, "quantity", e.target.value)}
-              />
-            </div>
-            <div className="w-28">
-              {idx === 0 && <span className="text-xs text-muted-foreground">단가</span>}
-              <Input
-                type="number"
-                min="0"
-                value={item.unit_price}
-                onChange={(e) => updateItem(idx, "unit_price", e.target.value)}
-                placeholder="0"
-              />
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 shrink-0"
-              onClick={() => removeItem(idx)}
-              disabled={items.length <= 1}
+          <div key={idx} className="space-y-1.5 rounded border p-2">
+            <Popover
+              open={productOpenIdx === idx}
+              onOpenChange={(open: boolean) => setProductOpenIdx(open ? idx : null)}
             >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={productOpenIdx === idx}
+                  className="w-full justify-between font-normal h-8 text-xs"
+                >
+                  {item.product_id ? getProductName(item.product_id) : "품목 검색..."}
+                  <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="품목명, 제조사 검색..." />
+                  <CommandList>
+                    <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
+                    <CommandGroup>
+                      {products.map((p) => (
+                        <CommandItem
+                          key={p.id}
+                          value={`${p.name} ${p.official_name} ${p.short_name ?? ""} ${p.manufacturer ?? ""} ${p.category}`}
+                          onSelect={() => {
+                            updateItem(idx, "product_id", String(p.id));
+                            setProductOpenIdx(null);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4 shrink-0",
+                              item.product_id === String(p.id) ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                          <div className="flex flex-col min-w-0">
+                            <span className="truncate">{p.name}</span>
+                            <span className="text-xs text-muted-foreground truncate">
+                              {[p.manufacturer, p.category].filter(Boolean).join(" · ")}
+                            </span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <span className="text-[10px] text-muted-foreground">수량</span>
+                <Input
+                  type="number"
+                  min="1"
+                  value={item.quantity}
+                  onChange={(e) => updateItem(idx, "quantity", e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="flex-1">
+                <span className="text-[10px] text-muted-foreground">단가</span>
+                <Input
+                  type="number"
+                  min="0"
+                  value={item.unit_price}
+                  onChange={(e) => updateItem(idx, "unit_price", e.target.value)}
+                  placeholder="0"
+                  className="h-8 text-xs"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={() => removeItem(idx)}
+                disabled={items.length <= 1}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         ))}
         <Button type="button" variant="outline" size="sm" onClick={addItem}>

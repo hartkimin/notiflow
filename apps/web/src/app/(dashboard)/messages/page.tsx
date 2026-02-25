@@ -1,6 +1,7 @@
 import { getMessages, getMessagesForCalendar } from "@/lib/queries/messages";
 import { getHospitals } from "@/lib/queries/hospitals";
 import { getProducts } from "@/lib/queries/products";
+import { getForecastsForCalendar } from "@/lib/queries/forecasts";
 import { MessagesView } from "@/components/messages-view";
 import { RealtimeListener } from "@/components/realtime-listener";
 import { toLocalDateStr } from "@/lib/schedule-utils";
@@ -45,12 +46,13 @@ export default async function MessagesPage({ searchParams }: Props) {
   const toStr = toLocalDateStr(new Date(calYear, calMonth + 1, 1 + 7));
 
   // Fetch both datasets in parallel for instant tab switching
-  const [result, calendarMessages, hospitalsResult, productsResult] = await Promise.all([
+  const [result, calendarMessages, hospitalsResult, productsResult, calendarForecasts] = await Promise.all([
     getMessages({ from: params.from, to: params.to, parse_status: params.parse_status, source_app: params.source_app, limit, offset })
       .catch(() => ({ messages: [], total: 0 })),
     getMessagesForCalendar({ from: fromStr, to: toStr }).catch(() => []),
     getHospitals({ limit: 500 }).catch(() => ({ hospitals: [], total: 0 })),
     getProducts({ limit: 500 }).catch(() => ({ products: [], total: 0 })),
+    getForecastsForCalendar({ from: fromStr, to: toStr }).catch(() => []),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
@@ -67,6 +69,7 @@ export default async function MessagesPage({ searchParams }: Props) {
         totalPages={totalPages}
         totalCount={result.total}
         calendarMessages={calendarMessages}
+        calendarForecasts={calendarForecasts}
         initialCalView={calView}
         initialCalDate={calRef}
       />

@@ -14,11 +14,12 @@ interface MonthGridProps<T> {
   referenceDate: Date;
   onItemClick: (item: T) => void;
   onDateClick: (date: Date) => void;
+  onDateDoubleClick?: (date: Date) => void;
 }
 
 export function MonthGrid<T>({
   items, dateAccessor, idAccessor, renderItem,
-  referenceDate, onItemClick, onDateClick,
+  referenceDate, onItemClick, onDateClick, onDateDoubleClick,
 }: MonthGridProps<T>) {
   const year = referenceDate.getFullYear();
   const month = referenceDate.getMonth();
@@ -74,6 +75,7 @@ export function MonthGrid<T>({
           return (
             <div
               key={dayMs}
+              onDoubleClick={() => onDateDoubleClick?.(date)}
               className={[
                 "rounded-lg border p-1.5 text-left flex flex-col min-h-0 overflow-hidden",
                 !isCurrentMonth && "opacity-40",

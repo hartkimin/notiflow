@@ -506,6 +506,7 @@ interface MessageCalendarProps {
   onViewChange?: (view: CalendarView) => void;
   referenceDate?: Date;
   onDateChange?: (date: Date) => void;
+  onDateDoubleClick?: (date: Date) => void;
 }
 
 export function MessageCalendar({
@@ -520,6 +521,7 @@ export function MessageCalendar({
   onViewChange,
   referenceDate,
   onDateChange,
+  onDateDoubleClick,
 }: MessageCalendarProps) {
   const items: MessageCalendarItem[] = useMemo(() => [
     ...forecasts.map((f) => ({ kind: "forecast" as const, data: f })),
@@ -545,6 +547,7 @@ export function MessageCalendar({
       onViewChange={onViewChange}
       referenceDate={referenceDate}
       onDateChange={onDateChange}
+      onDateDoubleClick={onDateDoubleClick}
     />
   );
 }

@@ -30,6 +30,8 @@ interface DataCalendarProps<T> {
   /** Controlled referenceDate — overrides internal state when provided */
   referenceDate?: Date;
   onDateChange?: (date: Date) => void;
+  /** Called when a date cell is double-clicked */
+  onDateDoubleClick?: (date: Date) => void;
 }
 
 export function DataCalendar<T>({
@@ -37,7 +39,7 @@ export function DataCalendar<T>({
   renderMonthItem, renderWeekItem, renderDayItem,
   renderDetail, detailTitle,
   initialView, initialDate, basePath, tabParam = "calendar",
-  hideHeader, view: controlledView, onViewChange, referenceDate: controlledDate, onDateChange,
+  hideHeader, view: controlledView, onViewChange, referenceDate: controlledDate, onDateChange, onDateDoubleClick,
 }: DataCalendarProps<T>) {
   const router = useRouter();
   const [internalView, setInternalView] = useState<CalendarView>(initialView);
@@ -100,6 +102,7 @@ export function DataCalendar<T>({
           referenceDate={referenceDate}
           onItemClick={handleItemClick}
           onDateClick={handleDateClick}
+          onDateDoubleClick={onDateDoubleClick}
         />
       )}
 
@@ -111,6 +114,7 @@ export function DataCalendar<T>({
           renderItem={renderWeekItem}
           referenceDate={referenceDate}
           onItemClick={handleItemClick}
+          onDateDoubleClick={onDateDoubleClick}
         />
       )}
 

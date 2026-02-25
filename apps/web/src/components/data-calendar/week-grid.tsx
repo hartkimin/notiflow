@@ -13,11 +13,12 @@ interface WeekGridProps<T> {
   renderItem: (item: T) => React.ReactNode;
   referenceDate: Date; // Monday
   onItemClick: (item: T) => void;
+  onDateDoubleClick?: (date: Date) => void;
 }
 
 export function WeekGrid<T>({
   items, dateAccessor, idAccessor, renderItem,
-  referenceDate, onItemClick,
+  referenceDate, onItemClick, onDateDoubleClick,
 }: WeekGridProps<T>) {
   const weekDates = useMemo(() => getWeekDates(getWeekMonday(referenceDate)), [referenceDate]);
 
@@ -44,6 +45,7 @@ export function WeekGrid<T>({
         return (
           <div
             key={dayMs}
+            onDoubleClick={() => onDateDoubleClick?.(date)}
             className={[
               "flex flex-col rounded-lg border min-h-0",
               isToday && "ring-2 ring-primary/50",

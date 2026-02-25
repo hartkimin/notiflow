@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Search, Plus } from "lucide-react";
+import { CalendarPlus, CalendarRange, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,11 +11,14 @@ import {
 import { MessageInbox } from "@/components/message-inbox";
 import { MessageCalendar } from "@/components/message-calendar";
 import { CreateMessageDialog } from "@/components/message-list";
+import { ForecastDialog } from "@/components/forecast-dialog";
+import { ForecastBatchDialog } from "@/components/forecast-batch-dialog";
 import {
   formatWeekLabel, formatMonthLabel, formatDayLabel, getWeekMonday,
+  toLocalDateStr,
 } from "@/lib/schedule-utils";
 import type { CalendarView } from "@/lib/schedule-utils";
-import type { RawMessage, Hospital, Product } from "@/lib/types";
+import type { RawMessage, Hospital, Product, OrderForecast } from "@/lib/types";
 
 // ─── Types ──────────────────────────────────────
 
@@ -32,6 +35,7 @@ interface MessagesViewProps {
   totalCount: number;
   // Calendar data
   calendarMessages: RawMessage[];
+  calendarForecasts: OrderForecast[];
   initialCalView: CalendarView;
   initialCalDate: Date;
 }
@@ -42,7 +46,7 @@ export function MessagesView({
   initialTab,
   messages, hospitals, products,
   currentPage, totalPages, totalCount,
-  calendarMessages, initialCalView, initialCalDate,
+  calendarMessages, calendarForecasts, initialCalView, initialCalDate,
 }: MessagesViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -53,6 +57,11 @@ export function MessagesView({
   // Calendar state (lifted from DataCalendar for toolbar control)
   const [calView, setCalView] = useState<CalendarView>(initialCalView);
   const [calDate, setCalDate] = useState<Date>(initialCalDate);
+
+  // Forecast dialog state
+  const [forecastDialogOpen, setForecastDialogOpen] = useState(false);
+  const [forecastDialogDate, setForecastDialogDate] = useState<string | undefined>();
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
 
   // Loaded month for calendar server-navigation check
   const loadedYear = initialCalDate.getFullYear();
@@ -95,6 +104,11 @@ export function MessagesView({
     setCalView("day");
     navigateCalDate(new Date());
   }, [navigateCalDate]);
+
+  const handleDateDoubleClick = useCallback((date: Date) => {
+    setForecastDialogDate(toLocalDateStr(date));
+    setForecastDialogOpen(true);
+  }, []);
 
   const calLabel =
     calView === "day" ? formatDayLabel(calDate) :
@@ -216,6 +230,14 @@ export function MessagesView({
                 </button>
               ))}
             </div>
+
+            {/* Forecast buttons */}
+            <Button variant="outline" size="sm" className="h-8 text-xs shrink-0" onClick={() => setForecastDialogOpen(true)}>
+              <CalendarPlus className="h-3.5 w-3.5 mr-1" />예상 등록
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs shrink-0" onClick={() => setBatchDialogOpen(true)}>
+              <CalendarRange className="h-3.5 w-3.5 mr-1" />주간 예상
+            </Button>
           </div>
         )}
 
@@ -238,6 +260,9 @@ export function MessagesView({
       ) : (
         <MessageCalendar
           messages={calendarMessages}
+          forecasts={calendarForecasts}
+          hospitals={hospitals}
+          products={products}
           initialView={initialCalView}
           initialDate={initialCalDate}
           hideHeader
@@ -245,8 +270,23 @@ export function MessagesView({
           onViewChange={setCalView}
           referenceDate={calDate}
           onDateChange={navigateCalDate}
+          onDateDoubleClick={handleDateDoubleClick}
         />
       )}
+      <ForecastDialog
+        open={forecastDialogOpen}
+        onOpenChange={setForecastDialogOpen}
+        hospitals={hospitals}
+        products={products}
+        initialDate={forecastDialogDate}
+      />
+      <ForecastBatchDialog
+        open={batchDialogOpen}
+        onOpenChange={setBatchDialogOpen}
+        hospitals={hospitals}
+        products={products}
+        referenceDate={calDate}
+      />
     </div>
   );
 }

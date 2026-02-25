@@ -181,3 +181,8 @@ export async function getMatchingForecasts(hospitalId: number | null, receivedAt
   const { findMatchingForecasts } = await import("@/lib/queries/forecasts");
   return findMatchingForecasts({ hospitalId, receivedAt });
 }
+
+export async function getForecastDetail(id: number) {
+  const { getForecast } = await import("@/lib/queries/forecasts");
+  return getForecast(id);
+}

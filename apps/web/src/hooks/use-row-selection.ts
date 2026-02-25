@@ -35,3 +35,5 @@ export function useRowSelection(allIds: number[]) {
 
   return { selected, toggle, toggleAll, clear, count, allSelected, someSelected };
 }
+
+export type RowSelectionHook = ReturnType<typeof useRowSelection>;

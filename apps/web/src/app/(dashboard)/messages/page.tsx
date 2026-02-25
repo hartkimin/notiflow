@@ -1,13 +1,10 @@
 import { getMessages, getMessagesForCalendar } from "@/lib/queries/messages";
 import { getHospitals } from "@/lib/queries/hospitals";
 import { getProducts } from "@/lib/queries/products";
-import { MessageFilters, MessageTable, CreateMessageDialog } from "@/components/message-list";
+import { CreateMessageDialog } from "@/components/message-list";
+import { MessageInbox } from "@/components/message-inbox";
 import { MessageCalendar } from "@/components/message-calendar";
-import { Pagination } from "@/components/pagination";
 import { ClientTabs } from "@/components/client-tabs";
-import {
-  Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
-} from "@/components/ui/card";
 import { RealtimeListener } from "@/components/realtime-listener";
 import { toLocalDateStr } from "@/lib/schedule-utils";
 import type { CalendarView } from "@/lib/schedule-utils";
@@ -77,18 +74,14 @@ export default async function MessagesPage({ searchParams }: Props) {
             value: "list",
             label: "목록",
             content: (
-              <Card>
-                <CardHeader>
-                  <CardTitle>메시지 목록</CardTitle>
-                  <CardDescription><MessageFilters /></CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <MessageTable messages={result.messages} hospitals={hospitalsResult.hospitals} products={productsResult.products} />
-                </CardContent>
-                <CardFooter>
-                  <Pagination currentPage={page} totalPages={totalPages} totalCount={result.total} />
-                </CardFooter>
-              </Card>
+              <MessageInbox
+                messages={result.messages}
+                hospitals={hospitalsResult.hospitals}
+                products={productsResult.products}
+                currentPage={page}
+                totalPages={totalPages}
+                totalCount={result.total}
+              />
             ),
           },
           {

@@ -199,3 +199,5 @@ export function useMessageLocalState() {
     updateSteps,
   };
 }
+
+export type MessageLocalStateHook = ReturnType<typeof useMessageLocalState>;

@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
-  formatWeekLabel, formatMonthLabel, formatDayLabel,
+  formatWeekLabel, formatMonthLabel, formatDayLabel, getWeekMonday,
 } from "@/lib/schedule-utils";
 import type { CalendarView } from "@/lib/schedule-utils";
 
@@ -28,7 +28,7 @@ export function CalendarHeader({
 
   const label =
     view === "day" ? formatDayLabel(referenceDate) :
-    view === "week" ? formatWeekLabel(referenceDate) :
+    view === "week" ? formatWeekLabel(getWeekMonday(referenceDate)) :
     formatMonthLabel(referenceDate);
 
   return (

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
-import { getWeekDates, startOfDayMs } from "@/lib/schedule-utils";
+import { getWeekDates, getWeekMonday, startOfDayMs } from "@/lib/schedule-utils";
 
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
 
@@ -19,7 +19,7 @@ export function WeekGrid<T>({
   items, dateAccessor, idAccessor, renderItem,
   referenceDate, onItemClick,
 }: WeekGridProps<T>) {
-  const weekDates = useMemo(() => getWeekDates(referenceDate), [referenceDate]);
+  const weekDates = useMemo(() => getWeekDates(getWeekMonday(referenceDate)), [referenceDate]);
 
   const itemsByDay = useMemo(() => {
     const map = new Map<number, T[]>();

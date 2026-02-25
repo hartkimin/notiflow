@@ -108,7 +108,7 @@ export function ForecastBatchDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
+    <Dialog open={open} onOpenChange={(v: boolean) => { onOpenChange(v); if (!v) resetForm(); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>주간 예상 일괄 등록</DialogTitle>

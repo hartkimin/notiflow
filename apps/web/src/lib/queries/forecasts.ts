@@ -18,11 +18,10 @@ export async function getForecastsForCalendar(params: {
     .order("forecast_date", { ascending: true })
     .limit(500);
   if (error) throw error;
-  return (data ?? []).map((row: Record<string, unknown>) => ({
-    ...row,
-    hospital_name: (row.hospitals as { name: string } | null)?.name ?? undefined,
-    hospitals: undefined,
-  })) as OrderForecast[];
+  return (data ?? []).map((row) => {
+    const { hospitals: h, ...rest } = row as Record<string, unknown> & { hospitals: { name: string } | null };
+    return { ...rest, hospital_name: h?.name ?? undefined } as OrderForecast;
+  });
 }
 
 /**
@@ -82,9 +81,8 @@ export async function findMatchingForecasts(params: {
     .order("forecast_date");
 
   if (error) throw error;
-  return (data ?? []).map((row: Record<string, unknown>) => ({
-    ...row,
-    hospital_name: (row.hospitals as { name: string } | null)?.name ?? undefined,
-    hospitals: undefined,
-  })) as OrderForecast[];
+  return (data ?? []).map((row) => {
+    const { hospitals: h, ...rest } = row as Record<string, unknown> & { hospitals: { name: string } | null };
+    return { ...rest, hospital_name: h?.name ?? undefined } as OrderForecast;
+  });
 }

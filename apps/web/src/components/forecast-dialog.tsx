@@ -101,7 +101,7 @@ export function ForecastDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
+    <Dialog open={open} onOpenChange={(v: boolean) => { onOpenChange(v); if (!v) resetForm(); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>예상 주문 등록</DialogTitle>

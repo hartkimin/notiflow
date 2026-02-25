@@ -160,6 +160,7 @@ export interface RawMessage {
   order_id: number | null;
   is_order_message: boolean | null;
   synced_at: string;
+  forecast_id: number | null;
 }
 
 export interface CalendarDay {
@@ -302,3 +303,53 @@ export interface MessageLocalData {
 }
 
 export type MessageLocalStateMap = Record<number, MessageLocalData>;
+
+// --- Order Forecasts ---
+
+export type ForecastStatus = 'pending' | 'matched' | 'partial' | 'missed' | 'cancelled';
+
+export interface OrderForecast {
+  id: number;
+  hospital_id: number;
+  hospital_name?: string;
+  forecast_date: string;
+  notes: string | null;
+  status: ForecastStatus;
+  source: 'manual' | 'pattern';
+  pattern_id: number | null;
+  message_id: number | null;
+  matched_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ForecastItem {
+  id: number;
+  forecast_id: number;
+  product_id: number | null;
+  product_name: string | null;
+  quantity: number | null;
+  unit_type: string;
+  notes: string | null;
+}
+
+export interface OrderForecastDetail extends OrderForecast {
+  items: ForecastItem[];
+}
+
+export interface OrderPattern {
+  id: number;
+  hospital_id: number;
+  hospital_name?: string;
+  name: string | null;
+  recurrence: { type: string; days: number[]; interval: number };
+  default_items: Array<{ product_id: number; product_name?: string; quantity: number }> | null;
+  notes: string | null;
+  is_active: boolean;
+  last_generated: string | null;
+}
+
+/** Discriminated union for calendar items (messages + forecasts) */
+export type MessageCalendarItem =
+  | { kind: 'message'; data: RawMessage }
+  | { kind: 'forecast'; data: OrderForecast };

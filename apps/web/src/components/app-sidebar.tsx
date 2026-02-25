@@ -47,11 +47,27 @@ export function AppSidebar({ userName, collapsed = false, onToggle }: AppSidebar
               )}
             </Link>
             {!collapsed && (
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-1">
                 <NotificationToggle />
+                <button
+                  onClick={onToggle}
+                  className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </button>
               </div>
             )}
           </div>
+          {collapsed && (
+            <div className="flex justify-center py-2">
+              <button
+                onClick={onToggle}
+                className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
           {/* Navigation */}
           <div className="flex-1 overflow-y-auto py-2">
@@ -143,26 +159,6 @@ export function AppSidebar({ userName, collapsed = false, onToggle }: AppSidebar
               </div>
             )}
 
-            {/* Toggle button */}
-            <div className={cn("px-4 pb-3", collapsed ? "flex justify-center px-2" : "lg:px-6")}>
-              <button
-                onClick={onToggle}
-                className={cn(
-                  "flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground",
-                  "transition-colors hover:bg-accent hover:text-accent-foreground",
-                  collapsed && "justify-center"
-                )}
-              >
-                {collapsed ? (
-                  <ChevronsRight className="h-4 w-4" />
-                ) : (
-                  <>
-                    <ChevronsLeft className="h-4 w-4" />
-                    <span className="whitespace-nowrap">접기</span>
-                  </>
-                )}
-              </button>
-            </div>
           </div>
         </div>
       </div>

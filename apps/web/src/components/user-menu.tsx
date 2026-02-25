@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleUser, LogOut } from "lucide-react";
+import { CircleUser, HelpCircle, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -33,12 +33,20 @@ export function UserMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+        <DropdownMenuLabel>내 계정</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/settings">설정</Link>
+          <Link href="/settings">
+            <Settings className="mr-2 h-4 w-4" />
+            <span>설정</span>
+          </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem>Support</DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/help">
+            <HelpCircle className="mr-2 h-4 w-4" />
+            <span>도움말</span>
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut}>
           <LogOut className="mr-2 h-4 w-4" />

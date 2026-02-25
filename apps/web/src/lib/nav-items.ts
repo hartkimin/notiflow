@@ -2,17 +2,11 @@ import {
   Package,
   Package2,
   Users,
-  Brain,
-  Bell,
   MessageSquare,
   ClipboardList,
-  Truck,
-  BarChart3,
-  Shield,
   Building2,
   Factory,
   Smartphone,
-  HelpCircle,
   LayoutDashboard,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -35,15 +29,6 @@ export const navGroups: NavGroup[] = [
       { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
       { href: "/orders", label: "주문관리", icon: ClipboardList },
       { href: "/messages", label: "수신메시지", icon: MessageSquare },
-      { href: "/notifications", label: "알림", icon: Bell },
-    ],
-  },
-  {
-    label: "운영",
-    items: [
-      { href: "/deliveries", label: "배송현황", icon: Truck },
-      { href: "/reports", label: "매출리포트", icon: BarChart3 },
-      { href: "/kpis", label: "KPIS신고", icon: Shield },
     ],
   },
   {
@@ -59,8 +44,6 @@ export const navGroups: NavGroup[] = [
     items: [
       { href: "/users", label: "사용자", icon: Users },
       { href: "/devices", label: "모바일 기기", icon: Smartphone },
-      { href: "/settings", label: "AI 설정", icon: Brain },
-      { href: "/help", label: "도움말", icon: HelpCircle },
     ],
   },
 ];

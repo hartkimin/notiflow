@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, Search } from "lucide-react";
+import { Menu } from "lucide-react";
 import { navGroups, Package2 } from "@/lib/nav-items";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "./theme-toggle";
@@ -82,18 +81,7 @@ export function Nav({ syncInterval = 5 }: { syncInterval?: number }) {
           </div>
         </SheetContent>
       </Sheet>
-      <div className="w-full flex-1">
-        <form>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="검색..."
-              className="w-full appearance-none bg-background pl-8 shadow-none md:w-2/3 lg:w-1/3"
-            />
-          </div>
-        </form>
-      </div>
+      <div className="flex-1" />
       <AutoRefreshProvider intervalMinutes={syncInterval} />
       <NotificationToggle />
       <ThemeToggle />

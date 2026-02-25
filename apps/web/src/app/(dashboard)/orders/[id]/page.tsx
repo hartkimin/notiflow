@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, MessageSquare } from "lucide-react";
 
 import { getOrder } from "@/lib/queries/orders";
+import { getProducts } from "@/lib/queries/products";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,8 +33,12 @@ export default async function OrderDetailPage({ params }: Props) {
   if (isNaN(orderId)) notFound();
 
   let order;
+  let products;
   try {
-    order = await getOrder(orderId);
+    [order, { products }] = await Promise.all([
+      getOrder(orderId),
+      getProducts({ limit: 500 }),
+    ]);
   } catch {
     notFound();
   }
@@ -88,7 +93,7 @@ export default async function OrderDetailPage({ params }: Props) {
           <CardTitle className="text-base">주문 정보</CardTitle>
         </CardHeader>
         <CardContent>
-          <OrderDetailClient order={order} />
+          <OrderDetailClient order={order} products={products} />
         </CardContent>
       </Card>
 

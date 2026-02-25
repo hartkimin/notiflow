@@ -192,6 +192,14 @@ export async function updateOrderItem(
   return { success: true };
 }
 
+export async function deleteOrderItem(id: number) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("order_items").delete().eq("id", id);
+  if (error) throw error;
+  revalidatePath("/orders");
+  return { success: true };
+}
+
 // --- Messages ---
 
 export async function createMessage(data: {
@@ -463,7 +471,7 @@ export async function requestDeviceSync(id: string) {
     body: { device_id: id },
   });
   if (error) {
-    return { success: false, error: error.message ?? "동기화 요청 실패", fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
+    return { success: false, error: data?.error ?? error.message ?? "동기화 요청 실패", fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
   }
   revalidatePath("/devices");
   revalidatePath("/dashboard");
@@ -476,7 +484,7 @@ export async function requestAllDevicesSync() {
     body: { device_id: "all" },
   });
   if (error) {
-    return { success: false, error: error.message ?? "동기화 요청 실패", fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
+    return { success: false, error: data?.error ?? error.message ?? "동기화 요청 실패", fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
   }
   revalidatePath("/devices");
   revalidatePath("/dashboard");

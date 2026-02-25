@@ -1,7 +1,7 @@
 "use server";
 
 import { confirmOrder, updateOrderStatus } from "@/lib/queries/orders";
-import { deleteOrders, updateOrder, updateOrderItem } from "@/lib/actions";
+import { deleteOrders, updateOrder, updateOrderItem, deleteOrderItem } from "@/lib/actions";
 import { revalidatePath } from "next/cache";
 
 export async function confirmOrderAction(orderId: number) {
@@ -25,6 +25,11 @@ export async function updateOrderItemAction(
   data: { quantity?: number; unit_price?: number; product_id?: number },
 ) {
   await updateOrderItem(itemId, data);
+}
+
+export async function deleteOrderItemAction(itemId: number) {
+  await deleteOrderItem(itemId);
+  revalidatePath("/orders");
 }
 
 export async function updateDeliveryDateAction(

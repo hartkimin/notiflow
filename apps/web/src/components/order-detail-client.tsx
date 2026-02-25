@@ -28,6 +28,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -39,12 +46,13 @@ import { ResizableTh } from "@/components/resizable-th";
 import {
   confirmOrderAction,
   deleteOrdersAction,
+  deleteOrderItemAction,
   updateDeliveryDateAction,
   updateOrderItemAction,
   updateOrderStatusAction,
 } from "@/app/(dashboard)/orders/actions";
 import { toast } from "sonner";
-import type { OrderDetail, OrderItem } from "@/lib/types";
+import type { OrderDetail, Product } from "@/lib/types";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "임시",
@@ -69,18 +77,24 @@ const DETAIL_COL_DEFAULTS: Record<string, number> = {
   idx: 40, product: 200, original: 150, quantity: 80, unit_price: 90, total: 90,
 };
 
-interface OrderDetailClientProps {
-  order: OrderDetail;
+interface EditItemState {
+  quantity: number;
+  unit_price: number;
+  product_id: number | null;
 }
 
-export function OrderDetailClient({ order }: OrderDetailClientProps) {
+interface OrderDetailClientProps {
+  order: OrderDetail;
+  products: Product[];
+}
+
+export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const { widths, onMouseDown } = useResizableColumns("order-detail", DETAIL_COL_DEFAULTS);
   const [isEditing, setIsEditing] = useState(false);
-  const [editQuantities, setEditQuantities] = useState<Record<number, number>>(
-    {},
-  );
+  const [editItems, setEditItems] = useState<Record<number, EditItemState>>({});
+  const [deletedIds, setDeletedIds] = useState<Set<number>>(new Set());
   const [deliveryDate, setDeliveryDate] = useState(
     order.delivery_date ?? "",
   );
@@ -105,7 +119,7 @@ export function OrderDetailClient({ order }: OrderDetailClientProps) {
     });
   }
 
-  // --- Delete ---
+  // --- Delete order ---
 
   function handleDelete() {
     startTransition(async () => {
@@ -122,42 +136,98 @@ export function OrderDetailClient({ order }: OrderDetailClientProps) {
   // --- Inline item editing ---
 
   function handleStartEdit() {
-    const initial: Record<number, number> = {};
+    const initial: Record<number, EditItemState> = {};
     for (const item of order.items) {
-      initial[item.id] = item.quantity;
+      initial[item.id] = {
+        quantity: item.quantity,
+        unit_price: item.unit_price ?? 0,
+        product_id: item.product_id,
+      };
     }
-    setEditQuantities(initial);
+    setEditItems(initial);
+    setDeletedIds(new Set());
     setIsEditing(true);
   }
 
   function handleCancelEdit() {
     setIsEditing(false);
-    setEditQuantities({});
+    setEditItems({});
+    setDeletedIds(new Set());
+  }
+
+  function updateEditItem(itemId: number, field: keyof EditItemState, value: number | null) {
+    setEditItems((prev) => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], [field]: value },
+    }));
+  }
+
+  function handleProductChange(itemId: number, productIdStr: string) {
+    const pid = Number(productIdStr);
+    updateEditItem(itemId, "product_id", pid);
+    // Auto-fill unit_price from product
+    const product = products.find((p) => p.id === pid);
+    if (product?.unit_price) {
+      updateEditItem(itemId, "unit_price", product.unit_price);
+    }
+  }
+
+  function markItemDeleted(itemId: number) {
+    setDeletedIds((prev) => new Set(prev).add(itemId));
+  }
+
+  function unmarkItemDeleted(itemId: number) {
+    setDeletedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(itemId);
+      return next;
+    });
   }
 
   function handleSaveItems() {
     startTransition(async () => {
       try {
-        const updates: Promise<unknown>[] = [];
+        const ops: Promise<unknown>[] = [];
+
+        // Delete items
+        for (const id of deletedIds) {
+          ops.push(deleteOrderItemAction(id));
+        }
+
+        // Update changed items (skip deleted ones)
         for (const item of order.items) {
-          const newQty = editQuantities[item.id];
-          if (newQty !== undefined && newQty !== item.quantity) {
-            updates.push(
-              updateOrderItemAction(item.id, { quantity: newQty }),
-            );
+          if (deletedIds.has(item.id)) continue;
+          const edit = editItems[item.id];
+          if (!edit) continue;
+
+          const changes: { quantity?: number; unit_price?: number; product_id?: number } = {};
+          if (edit.quantity !== item.quantity) changes.quantity = edit.quantity;
+          if (edit.unit_price !== (item.unit_price ?? 0)) changes.unit_price = edit.unit_price;
+          if (edit.product_id !== item.product_id && edit.product_id !== null) {
+            changes.product_id = edit.product_id;
+          }
+          if (Object.keys(changes).length > 0) {
+            ops.push(updateOrderItemAction(item.id, changes));
           }
         }
-        if (updates.length === 0) {
+
+        if (ops.length === 0) {
           setIsEditing(false);
           return;
         }
-        await Promise.all(updates);
-        toast.success(`${updates.length}개 품목이 수정되었습니다.`);
+        await Promise.all(ops);
+        const delCount = deletedIds.size;
+        const updateCount = ops.length - delCount;
+        const parts: string[] = [];
+        if (updateCount > 0) parts.push(`${updateCount}개 수정`);
+        if (delCount > 0) parts.push(`${delCount}개 삭제`);
+        toast.success(`품목 ${parts.join(", ")} 완료`);
         setIsEditing(false);
-        setEditQuantities({});
+        setEditItems({});
+        setDeletedIds(new Set());
         router.refresh();
       } catch {
-        toast.error("수량 수정에 실패했습니다.");
+        toast.error("품목 수정에 실패했습니다.");
       }
     });
   }
@@ -179,11 +249,13 @@ export function OrderDetailClient({ order }: OrderDetailClientProps) {
 
   // --- Computed totals ---
 
-  const supplyTotal = order.items.reduce(
-    (sum, item) =>
-      sum + (item.line_total ?? item.quantity * (item.unit_price ?? 0)),
-    0,
-  );
+  const visibleItems = order.items.filter((item) => !deletedIds.has(item.id));
+  const supplyTotal = visibleItems.reduce((sum, item) => {
+    const edit = editItems[item.id];
+    const qty = edit ? edit.quantity : item.quantity;
+    const price = edit ? edit.unit_price : (item.unit_price ?? 0);
+    return sum + qty * price;
+  }, 0);
   const taxTotal = Math.round(supplyTotal * 0.1);
 
   return (
@@ -371,46 +443,69 @@ export function OrderDetailClient({ order }: OrderDetailClientProps) {
                 <ResizableTh width={widths.quantity} colKey="quantity" onResizeStart={onMouseDown} className="text-right">수량</ResizableTh>
                 <ResizableTh width={widths.unit_price} colKey="unit_price" onResizeStart={onMouseDown} className="text-right">단가</ResizableTh>
                 <ResizableTh width={widths.total} colKey="total" onResizeStart={onMouseDown} className="text-right pr-6">금액</ResizableTh>
+                {isEditing && <th className="w-[40px]" />}
               </TableRow>
             </TableHeader>
             <TableBody>
               {order.items.map((item, idx) => {
+                const isDeleted = deletedIds.has(item.id);
                 const itemAny = item as unknown as Record<string, unknown>;
                 const productName = itemAny.products
                   ? (itemAny.products as { name: string }).name
                   : `제품 #${item.product_id ?? "미매칭"}`;
-                const qty = isEditing
-                  ? (editQuantities[item.id] ?? item.quantity)
-                  : item.quantity;
-                const lineTotal =
-                  item.line_total ?? qty * (item.unit_price ?? 0);
+
+                const edit = editItems[item.id];
+                const qty = edit ? edit.quantity : item.quantity;
+                const unitPrice = edit ? edit.unit_price : (item.unit_price ?? 0);
+                const lineTotal = qty * unitPrice;
+
                 return (
-                  <TableRow key={item.id}>
+                  <TableRow
+                    key={item.id}
+                    className={isDeleted ? "opacity-30 line-through" : undefined}
+                  >
                     <TableCell className="pl-6 text-muted-foreground">
                       {idx + 1}
                     </TableCell>
                     <TableCell>
-                      <span className="font-medium">{productName}</span>
-                      {item.match_status !== "matched" && (
-                        <Badge variant="outline" className="text-xs ml-2">
-                          {item.match_status}
-                        </Badge>
+                      {isEditing && !isDeleted ? (
+                        <Select
+                          value={String(edit?.product_id ?? item.product_id ?? "")}
+                          onValueChange={(v: string) => handleProductChange(item.id, v)}
+                        >
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue placeholder="품목 선택..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {products.map((p) => (
+                              <SelectItem key={p.id} value={String(p.id)}>
+                                {p.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <>
+                          <span className="font-medium">{productName}</span>
+                          {item.match_status !== "matched" && (
+                            <Badge variant="outline" className="text-xs ml-2">
+                              {item.match_status}
+                            </Badge>
+                          )}
+                        </>
                       )}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell print:table-cell text-xs text-muted-foreground max-w-[200px] truncate">
                       {item.original_text || "-"}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {isEditing ? (
+                      {isEditing && !isDeleted ? (
                         <Input
                           type="number"
                           min={0}
-                          value={editQuantities[item.id] ?? item.quantity}
+                          value={edit?.quantity ?? item.quantity}
                           onChange={(e) =>
-                            setEditQuantities((prev) => ({
-                              ...prev,
-                              [item.id]: Number(e.target.value),
-                            }))
+                            updateEditItem(item.id, "quantity", Number(e.target.value))
                           }
                           className="h-7 w-[70px] text-right text-sm ml-auto"
                         />
@@ -419,11 +514,48 @@ export function OrderDetailClient({ order }: OrderDetailClientProps) {
                       )}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {(item.unit_price ?? 0).toLocaleString("ko-KR")}
+                      {isEditing && !isDeleted ? (
+                        <Input
+                          type="number"
+                          min={0}
+                          value={edit?.unit_price ?? (item.unit_price ?? 0)}
+                          onChange={(e) =>
+                            updateEditItem(item.id, "unit_price", Number(e.target.value))
+                          }
+                          className="h-7 w-[90px] text-right text-sm ml-auto"
+                        />
+                      ) : (
+                        (item.unit_price ?? 0).toLocaleString("ko-KR")
+                      )}
                     </TableCell>
                     <TableCell className="text-right pr-6 tabular-nums font-medium">
                       {lineTotal.toLocaleString("ko-KR")}
                     </TableCell>
+                    {isEditing && (
+                      <TableCell className="px-1">
+                        {isDeleted ? (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => unmarkItemDeleted(item.id)}
+                            title="삭제 취소"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => markItemDeleted(item.id)}
+                            title="품목 삭제"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}

@@ -56,6 +56,7 @@ import {
   confirmOrderAction,
   deleteOrdersAction,
   deleteOrderItemAction,
+  updateDeliveredAtAction,
   updateDeliveryDateAction,
   updateOrderItemAction,
   updateOrderStatusAction,
@@ -107,6 +108,9 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
   const [productOpenId, setProductOpenId] = useState<number | null>(null);
   const [deliveryDate, setDeliveryDate] = useState(
     order.delivery_date ?? "",
+  );
+  const [deliveredAt, setDeliveredAt] = useState(
+    order.delivered_at ? order.delivered_at.slice(0, 10) : "",
   );
 
   const isEditable = !["delivered", "cancelled"].includes(order.status);
@@ -257,6 +261,19 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
     });
   }
 
+  function handleDeliveredAtChange(value: string) {
+    setDeliveredAt(value);
+    startTransition(async () => {
+      try {
+        await updateDeliveredAtAction(order.id, value || null);
+        toast.success("실제 배송일이 변경되었습니다.");
+        router.refresh();
+      } catch {
+        toast.error("실제 배송일 변경에 실패했습니다.");
+      }
+    });
+  }
+
   // --- Computed totals ---
 
   const visibleItems = order.items.filter((item) => !deletedIds.has(item.id));
@@ -304,11 +321,13 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
             <CalendarCheck className="h-3.5 w-3.5 shrink-0" />
             <span>실제 배송일</span>
           </div>
-          <span className="text-sm">
-            {order.delivered_at
-              ? new Date(order.delivered_at).toLocaleDateString("ko-KR")
-              : "-"}
-          </span>
+          <Input
+            type="date"
+            value={deliveredAt}
+            onChange={(e) => handleDeliveredAtChange(e.target.value)}
+            disabled={isPending}
+            className="h-7 w-[140px] text-sm"
+          />
         </div>
       </div>
 

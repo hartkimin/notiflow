@@ -39,6 +39,13 @@ export async function updateDeliveryDateAction(
   await updateOrder(orderId, { delivery_date: date });
 }
 
+export async function updateDeliveredAtAction(
+  orderId: number,
+  date: string | null,
+) {
+  await updateOrder(orderId, { delivered_at: date });
+}
+
 export async function updateOrderHospitalAction(
   orderId: number,
   hospitalId: number,

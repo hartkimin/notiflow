@@ -15,10 +15,15 @@ ON CONFLICT (key) DO NOTHING;
 
 -- Test user (for local development only)
 -- Email: test@notiflow.local / Password: test1234
+-- NOTE: GoTrue scans token columns as non-nullable strings in Go, so we must
+--       provide empty strings for confirmation_token, recovery_token, etc.
 INSERT INTO auth.users (
   id, instance_id, email, encrypted_password,
   email_confirmed_at, created_at, updated_at,
-  raw_app_meta_data, raw_user_meta_data, aud, role
+  raw_app_meta_data, raw_user_meta_data, aud, role,
+  confirmation_token, recovery_token, email_change_token_new,
+  email_change, phone, phone_change, phone_change_token,
+  email_change_token_current, reauthentication_token, is_sso_user, is_anonymous
 ) VALUES (
   'a0000000-0000-0000-0000-000000000001',
   '00000000-0000-0000-0000-000000000000',
@@ -27,7 +32,10 @@ INSERT INTO auth.users (
   now(), now(), now(),
   '{"provider":"email","providers":["email"]}',
   '{"name":"테스트 관리자"}',
-  'authenticated', 'authenticated'
+  'authenticated', 'authenticated',
+  '', '', '',
+  '', '', '', '',
+  '', '', false, false
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO auth.identities (

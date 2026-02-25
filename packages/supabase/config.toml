@@ -368,6 +368,30 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# ---------------------------------------------------------------------------
+# Edge Functions — disable gateway JWT verification per function.
+# Local Supabase Auth issues ES256 tokens, but the Edge Functions gateway
+# only verifies HS256. Our functions handle auth internally via verifyAdmin()
+# or service-role calls, so gateway verification is unnecessary.
+# ---------------------------------------------------------------------------
+[functions.manage-users]
+verify_jwt = false
+
+[functions.parse-message]
+verify_jwt = false
+
+[functions.send-push]
+verify_jwt = false
+
+[functions.test-parse]
+verify_jwt = false
+
+[functions.trigger-sync]
+verify_jwt = false
+
+[functions.ai-product-search]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

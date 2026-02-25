@@ -89,7 +89,7 @@ export default async function OrderDetailPage({ params }: Props) {
 
       {/* Order info + items in single card */}
       <Card className="print:border print:shadow-none">
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-3 print:hidden">
           <CardTitle className="text-base">주문 정보</CardTitle>
         </CardHeader>
         <CardContent>

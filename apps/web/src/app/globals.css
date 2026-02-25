@@ -200,12 +200,13 @@
 
 /* ── Print styles ─────────────────────────────── */
 @media print {
-  /* Hide sidebar and navigation */
-  body > div > div:first-child {
+  /* Hide sidebar, navigation, mobile nav */
+  [data-sidebar], nav, header, [data-mobile-nav] {
     display: none !important;
   }
-  nav, header {
-    display: none !important;
+  /* Collapse dashboard grid to single column */
+  .grid.min-h-screen {
+    display: block !important;
   }
   .print\:hidden {
     display: none !important;
@@ -223,9 +224,19 @@
   }
   /* Ensure content fills page */
   main {
-    padding: 0 !important;
+    padding: 0.5rem !important;
+    overflow: visible !important;
+  }
+  /* Print-friendly table */
+  table {
+    font-size: 12px !important;
+  }
+  /* Remove background colors for ink saving */
+  .bg-muted\/30, .bg-muted, .bg-muted\/50 {
+    background: transparent !important;
   }
   @page {
-    margin: 15mm;
+    size: A4;
+    margin: 12mm 15mm;
   }
 }

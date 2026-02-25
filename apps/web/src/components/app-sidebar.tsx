@@ -25,7 +25,7 @@ export function AppSidebar({ userName, collapsed = false, onToggle }: AppSidebar
 
   return (
     <TooltipProvider>
-      <div className="hidden border-r bg-muted/40 md:block overflow-hidden">
+      <div data-sidebar className="hidden border-r bg-muted/40 md:block overflow-hidden">
         <div className="flex h-full max-h-screen flex-col">
           {/* Header */}
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">

@@ -6,6 +6,8 @@ import {
   Building2,
   Calendar,
   CalendarCheck,
+  Check,
+  ChevronsUpDown,
   Hash,
   Pencil,
   Save,
@@ -28,12 +30,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -95,6 +104,7 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editItems, setEditItems] = useState<Record<number, EditItemState>>({});
   const [deletedIds, setDeletedIds] = useState<Set<number>>(new Set());
+  const [productOpenId, setProductOpenId] = useState<number | null>(null);
   const [deliveryDate, setDeliveryDate] = useState(
     order.delivery_date ?? "",
   );
@@ -260,8 +270,8 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
 
   return (
     <div className="space-y-4">
-      {/* Order info metadata */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3 text-sm">
+      {/* Order info metadata — hidden on print (shown in print header) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3 text-sm print:hidden">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Building2 className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{order.hospital_name}</span>
@@ -302,8 +312,8 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
         </div>
       </div>
 
-      {/* Status + action buttons row */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Status + action buttons row — hidden on print */}
+      <div className="flex flex-wrap items-center gap-2 print:hidden">
         <Badge
           variant={STATUS_VARIANT[order.status] ?? "secondary"}
           className="text-sm"
@@ -389,12 +399,12 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
         </AlertDialog>
       </div>
 
-      <Separator />
+      <Separator className="print:hidden" />
 
       {/* Items table */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <h4 className="text-sm font-medium">
+          <h4 className="text-sm font-medium print:text-base print:font-semibold">
             주문 품목 ({order.items.length}건)
           </h4>
           {isEditable &&
@@ -403,13 +413,13 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
                 size="sm"
                 variant="ghost"
                 onClick={handleStartEdit}
-                className="h-7 text-xs"
+                className="h-7 text-xs print:hidden"
               >
                 <Pencil className="h-3.5 w-3.5 mr-1" />
                 수정
               </Button>
             ) : (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 print:hidden">
                 <Button
                   size="sm"
                   variant="ghost"
@@ -443,7 +453,7 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
                 <ResizableTh width={widths.quantity} colKey="quantity" onResizeStart={onMouseDown} className="text-right">수량</ResizableTh>
                 <ResizableTh width={widths.unit_price} colKey="unit_price" onResizeStart={onMouseDown} className="text-right">단가</ResizableTh>
                 <ResizableTh width={widths.total} colKey="total" onResizeStart={onMouseDown} className="text-right pr-6">금액</ResizableTh>
-                {isEditing && <th className="w-[40px]" />}
+                {isEditing && <th className="w-[40px] print:hidden" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -469,21 +479,61 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
                     </TableCell>
                     <TableCell>
                       {isEditing && !isDeleted ? (
-                        <Select
-                          value={String(edit?.product_id ?? item.product_id ?? "")}
-                          onValueChange={(v: string) => handleProductChange(item.id, v)}
+                        <Popover
+                          open={productOpenId === item.id}
+                          onOpenChange={(open: boolean) => setProductOpenId(open ? item.id : null)}
                         >
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue placeholder="품목 선택..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map((p) => (
-                              <SelectItem key={p.id} value={String(p.id)}>
-                                {p.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={productOpenId === item.id}
+                              className="w-full justify-between font-normal h-7 text-xs"
+                            >
+                              <span className="truncate">
+                                {(() => {
+                                  const pid = edit?.product_id ?? item.product_id;
+                                  const found = products.find((p) => p.id === pid);
+                                  return found ? found.name : "품목 검색...";
+                                })()}
+                              </span>
+                              <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="품목명, 제조사 검색..." />
+                              <CommandList>
+                                <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
+                                <CommandGroup>
+                                  {products.map((p) => (
+                                    <CommandItem
+                                      key={p.id}
+                                      value={`${p.name} ${p.official_name ?? ""} ${p.short_name ?? ""} ${p.manufacturer ?? ""} ${p.category ?? ""}`}
+                                      onSelect={() => {
+                                        handleProductChange(item.id, String(p.id));
+                                        setProductOpenId(null);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-3 w-3 shrink-0",
+                                          (edit?.product_id ?? item.product_id) === p.id ? "opacity-100" : "opacity-0",
+                                        )}
+                                      />
+                                      <div className="flex flex-col min-w-0">
+                                        <span className="truncate text-xs">{p.name}</span>
+                                        <span className="text-[10px] text-muted-foreground truncate">
+                                          {[p.manufacturer, p.category].filter(Boolean).join(" · ")}
+                                        </span>
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       ) : (
                         <>
                           <span className="font-medium">{productName}</span>
@@ -532,7 +582,7 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
                       {lineTotal.toLocaleString("ko-KR")}
                     </TableCell>
                     {isEditing && (
-                      <TableCell className="px-1">
+                      <TableCell className="px-1 print:hidden">
                         {isDeleted ? (
                           <Button
                             size="icon"

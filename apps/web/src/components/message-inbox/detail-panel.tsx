@@ -62,7 +62,7 @@ export function MessageDetailPanel({ message, localState }: DetailPanelProps) {
 
   if (!message) {
     return (
-      <div className="flex-1 flex items-center justify-center border-r">
+      <div className="flex-1 flex items-center justify-center">
         <div className="text-center space-y-2">
           <MessageSquare className="h-10 w-10 text-muted-foreground/30 mx-auto" />
           <p className="text-sm text-muted-foreground">메시지를 선택하세요</p>
@@ -160,7 +160,7 @@ export function MessageDetailPanel({ message, localState }: DetailPanelProps) {
   const testResult = aiTestResult[msg.id];
 
   return (
-    <div className="flex-1 flex flex-col border-r min-w-0">
+    <div className="flex flex-col h-full min-w-0">
       {/* Meta bar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b flex-wrap">
         <Select

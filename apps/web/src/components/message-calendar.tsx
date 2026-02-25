@@ -153,9 +153,17 @@ interface MessageCalendarProps {
   messages: RawMessage[];
   initialView: CalendarView;
   initialDate: Date;
+  hideHeader?: boolean;
+  view?: CalendarView;
+  onViewChange?: (view: CalendarView) => void;
+  referenceDate?: Date;
+  onDateChange?: (date: Date) => void;
 }
 
-export function MessageCalendar({ messages, initialView, initialDate }: MessageCalendarProps) {
+export function MessageCalendar({
+  messages, initialView, initialDate,
+  hideHeader, view, onViewChange, referenceDate, onDateChange,
+}: MessageCalendarProps) {
   return (
     <DataCalendar
       items={messages}
@@ -170,6 +178,11 @@ export function MessageCalendar({ messages, initialView, initialDate }: MessageC
       initialDate={initialDate}
       basePath="/messages"
       tabParam="calendar"
+      hideHeader={hideHeader}
+      view={view}
+      onViewChange={onViewChange}
+      referenceDate={referenceDate}
+      onDateChange={onDateChange}
     />
   );
 }

@@ -18,7 +18,7 @@ export function OrderPanel({ message, hospitals, products }: OrderPanelProps) {
 
   if (!message) {
     return (
-      <div className="flex flex-col w-[280px] shrink-0 border-l">
+      <div className="flex flex-col h-full">
         <div className="px-3 py-2 border-b">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">주문</h3>
         </div>
@@ -31,7 +31,7 @@ export function OrderPanel({ message, hospitals, products }: OrderPanelProps) {
 
   if (message.order_id) {
     return (
-      <div className="flex flex-col w-[280px] shrink-0 border-l">
+      <div className="flex flex-col h-full">
         <div className="px-3 py-2 border-b">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">주문 정보</h3>
         </div>
@@ -49,7 +49,7 @@ export function OrderPanel({ message, hospitals, products }: OrderPanelProps) {
   }
 
   return (
-    <div className="flex flex-col w-[280px] shrink-0 border-l">
+    <div className="flex flex-col h-full">
       <div className="px-3 py-2 border-b">
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">주문 생성</h3>
       </div>

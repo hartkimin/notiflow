@@ -22,6 +22,14 @@ interface DataCalendarProps<T> {
   initialDate: Date;
   basePath: string;
   tabParam?: string;
+  /** Hide the built-in CalendarHeader (when toolbar is managed externally) */
+  hideHeader?: boolean;
+  /** Controlled view — overrides internal state when provided */
+  view?: CalendarView;
+  onViewChange?: (view: CalendarView) => void;
+  /** Controlled referenceDate — overrides internal state when provided */
+  referenceDate?: Date;
+  onDateChange?: (date: Date) => void;
 }
 
 export function DataCalendar<T>({
@@ -29,11 +37,17 @@ export function DataCalendar<T>({
   renderMonthItem, renderWeekItem, renderDayItem,
   renderDetail, detailTitle,
   initialView, initialDate, basePath, tabParam = "calendar",
+  hideHeader, view: controlledView, onViewChange, referenceDate: controlledDate, onDateChange,
 }: DataCalendarProps<T>) {
   const router = useRouter();
-  const [view, setView] = useState<CalendarView>(initialView);
-  const [referenceDate, setReferenceDate] = useState<Date>(initialDate);
+  const [internalView, setInternalView] = useState<CalendarView>(initialView);
+  const [internalDate, setInternalDate] = useState<Date>(initialDate);
   const [selectedItem, setSelectedItem] = useState<T | null>(null);
+
+  const view = controlledView ?? internalView;
+  const setView = onViewChange ?? setInternalView;
+  const referenceDate = controlledDate ?? internalDate;
+  const setReferenceDate = onDateChange ?? setInternalDate;
 
   // The month for which server data is loaded
   const loadedYear = initialDate.getFullYear();
@@ -67,13 +81,15 @@ export function DataCalendar<T>({
 
   return (
     <div className="flex flex-col h-[calc(100vh-12rem)]">
-      <CalendarHeader
-        view={view}
-        referenceDate={referenceDate}
-        onViewChange={setView}
-        onNavigate={navigateToDate}
-        onToday={handleToday}
-      />
+      {!hideHeader && (
+        <CalendarHeader
+          view={view}
+          referenceDate={referenceDate}
+          onViewChange={setView}
+          onNavigate={navigateToDate}
+          onToday={handleToday}
+        />
+      )}
 
       {view === "month" && (
         <MonthGrid

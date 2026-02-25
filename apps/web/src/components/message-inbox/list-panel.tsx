@@ -58,7 +58,7 @@ export function MessageListPanel({
   }, [messages, sortKey, localState]);
 
   return (
-    <div className="flex flex-col w-[300px] shrink-0 border-r">
+    <div className="flex flex-col h-full">
       {/* Sort selector */}
       <div className="flex items-center gap-2 px-3 py-2 border-b">
         <Select value={sortKey} onValueChange={(v: string) => setSortKey(v as SortKey)}>

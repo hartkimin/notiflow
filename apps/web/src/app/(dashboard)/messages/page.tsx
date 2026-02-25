@@ -1,10 +1,7 @@
 import { getMessages, getMessagesForCalendar } from "@/lib/queries/messages";
 import { getHospitals } from "@/lib/queries/hospitals";
 import { getProducts } from "@/lib/queries/products";
-import { CreateMessageDialog } from "@/components/message-list";
-import { MessageInbox } from "@/components/message-inbox";
-import { MessageCalendar } from "@/components/message-calendar";
-import { ClientTabs } from "@/components/client-tabs";
+import { MessagesView } from "@/components/messages-view";
 import { RealtimeListener } from "@/components/realtime-listener";
 import { toLocalDateStr } from "@/lib/schedule-utils";
 import type { CalendarView } from "@/lib/schedule-utils";
@@ -61,37 +58,17 @@ export default async function MessagesPage({ searchParams }: Props) {
   return (
     <>
       <RealtimeListener tables={["raw_messages", "captured_messages"]} />
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold md:text-2xl">수신메시지</h1>
-        <CreateMessageDialog />
-      </div>
-
-      <ClientTabs
+      <MessagesView
         initialTab={initialTab}
-        basePath="/messages"
-        tabs={[
-          {
-            value: "list",
-            label: "목록",
-            content: (
-              <MessageInbox
-                messages={result.messages}
-                hospitals={hospitalsResult.hospitals}
-                products={productsResult.products}
-                currentPage={page}
-                totalPages={totalPages}
-                totalCount={result.total}
-              />
-            ),
-          },
-          {
-            value: "calendar",
-            label: "캘린더",
-            content: (
-              <MessageCalendar messages={calendarMessages} initialView={calView} initialDate={calRef} />
-            ),
-          },
-        ]}
+        messages={result.messages}
+        hospitals={hospitalsResult.hospitals}
+        products={productsResult.products}
+        currentPage={page}
+        totalPages={totalPages}
+        totalCount={result.total}
+        calendarMessages={calendarMessages}
+        initialCalView={calView}
+        initialCalDate={calRef}
       />
     </>
   );

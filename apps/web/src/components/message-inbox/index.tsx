@@ -10,7 +10,9 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { InboxFilterBar } from "./filter-bar";
+import {
+  ResizablePanelGroup, ResizablePanel, ResizableHandle,
+} from "@/components/ui/resizable";
 import { MessageListPanel } from "./list-panel";
 import { MessageDetailPanel } from "./detail-panel";
 import { OrderPanel } from "./order-panel";
@@ -39,33 +41,41 @@ export function MessageInbox({
   const rowSelection = useRowSelection(allIds);
 
   const selectedMsg = messages.find((m) => m.id === selectedId) ?? null;
-  const pendingCount = messages.filter((m) => m.parse_status === "pending" || m.parse_status === "failed").length;
 
   return (
     <div className="flex flex-col">
-      <InboxFilterBar totalCount={totalCount} pendingCount={pendingCount} />
-
-      <div className="flex h-[calc(100vh-13rem)] rounded-lg border overflow-hidden">
-        <MessageListPanel
-          messages={messages}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          localState={localState}
-          rowSelection={rowSelection}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalCount={totalCount}
-        />
-        <MessageDetailPanel
-          message={selectedMsg}
-          localState={localState}
-        />
-        <OrderPanel
-          message={selectedMsg}
-          hospitals={hospitals}
-          products={products}
-        />
-      </div>
+      <ResizablePanelGroup
+        direction="horizontal"
+        className="h-[calc(100vh-13rem)] rounded-lg border overflow-hidden"
+      >
+        <ResizablePanel defaultSize={50} minSize={20}>
+          <MessageListPanel
+            messages={messages}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            localState={localState}
+            rowSelection={rowSelection}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalCount={totalCount}
+          />
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize={20} minSize={15}>
+          <MessageDetailPanel
+            message={selectedMsg}
+            localState={localState}
+          />
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize={30} minSize={15}>
+          <OrderPanel
+            message={selectedMsg}
+            hospitals={hospitals}
+            products={products}
+          />
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
       {/* Bulk action bar */}
       {rowSelection.count > 0 && (

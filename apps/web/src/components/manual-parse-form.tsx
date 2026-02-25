@@ -231,8 +231,8 @@ export function ManualParseForm({
                 </Command>
               </PopoverContent>
             </Popover>
-            <div className="flex gap-2 items-end">
-              <div className="flex-1">
+            <div className="space-y-1">
+              <div>
                 <span className="text-[10px] text-muted-foreground">수량</span>
                 <Input
                   type="number"
@@ -242,7 +242,7 @@ export function ManualParseForm({
                   className="h-8 text-xs"
                 />
               </div>
-              <div className="flex-1">
+              <div>
                 <span className="text-[10px] text-muted-foreground">단가</span>
                 <Input
                   type="number"
@@ -256,12 +256,12 @@ export function ManualParseForm({
               <Button
                 type="button"
                 variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
+                size="sm"
+                className="h-7 w-full text-xs"
                 onClick={() => removeItem(idx)}
                 disabled={items.length <= 1}
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-3.5 w-3.5 mr-1" />삭제
               </Button>
             </div>
           </div>

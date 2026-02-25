@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Bot, Trash2, X } from "lucide-react";
@@ -19,6 +19,7 @@ import { OrderPanel } from "./order-panel";
 import { useMessageLocalState } from "@/hooks/use-message-local-state";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { reparseMessages, deleteMessages } from "@/lib/actions";
+import { requestSidebarCollapse } from "@/hooks/use-sidebar-collapse";
 import type { RawMessage, Hospital, Product } from "@/lib/types";
 
 interface MessageInboxProps {
@@ -41,6 +42,11 @@ export function MessageInbox({
   const rowSelection = useRowSelection(allIds);
 
   const selectedMsg = messages.find((m) => m.id === selectedId) ?? null;
+
+  // Auto-collapse sidebar to give 3-panel layout more horizontal space
+  useEffect(() => {
+    requestSidebarCollapse();
+  }, []);
 
   return (
     <div className="flex flex-col">

@@ -10,9 +10,6 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  ResizablePanelGroup, ResizablePanel, ResizableHandle,
-} from "@/components/ui/resizable";
 import { MessageListPanel } from "./list-panel";
 import { MessageDetailPanel } from "./detail-panel";
 import { OrderPanel } from "./order-panel";
@@ -50,11 +47,9 @@ export function MessageInbox({
 
   return (
     <div className="flex flex-col">
-      <ResizablePanelGroup
-        direction="horizontal"
-        className="h-[calc(100vh-9rem)] rounded-lg border overflow-hidden"
-      >
-        <ResizablePanel defaultSize={50} minSize={20}>
+      {/* 3:3:3:1(여백) fixed grid — sidebar 크기에 무관하게 동일 비율 */}
+      <div className="grid grid-cols-[3fr_3fr_3fr_1fr] h-[calc(100vh-9rem)]">
+        <div className="border rounded-l-lg overflow-hidden min-w-0">
           <MessageListPanel
             messages={messages}
             selectedId={selectedId}
@@ -65,23 +60,22 @@ export function MessageInbox({
             totalPages={totalPages}
             totalCount={totalCount}
           />
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={20} minSize={15}>
+        </div>
+        <div className="border-y border-r overflow-hidden min-w-0">
           <MessageDetailPanel
             message={selectedMsg}
             localState={localState}
           />
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={30} minSize={15}>
+        </div>
+        <div className="border-y border-r rounded-r-lg overflow-hidden min-w-0">
           <OrderPanel
             message={selectedMsg}
             hospitals={hospitals}
             products={products}
           />
-        </ResizablePanel>
-      </ResizablePanelGroup>
+        </div>
+        {/* 1fr 여백 */}
+      </div>
 
       {/* Bulk action bar */}
       {rowSelection.count > 0 && (

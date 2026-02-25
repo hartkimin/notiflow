@@ -15,7 +15,7 @@ export async function getUsers(): Promise<{ users: UserProfile[]; total: number 
 
   // Call the manage-users Edge Function
   const { data, error } = await supabase.functions.invoke("manage-users", {
-    method: "GET",
+    body: { _action: "list" },
   });
 
   if (error) {

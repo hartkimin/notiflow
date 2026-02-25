@@ -9,6 +9,7 @@ import type { ProductOption } from "@/components/order-table";
 import { OrderCalendar } from "@/components/order-calendar";
 import { OrderFilters } from "@/components/order-filters";
 import { Pagination } from "@/components/pagination";
+import { ClientTabs } from "@/components/client-tabs";
 import { Button } from "@/components/ui/button";
 import {
   Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
@@ -16,7 +17,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RealtimeListener } from "@/components/realtime-listener";
 import { toLocalDateStr } from "@/lib/schedule-utils";
-import type { Order } from "@/lib/types";
 import type { CalendarView } from "@/lib/schedule-utils";
 
 interface Props {
@@ -33,17 +33,31 @@ interface Props {
 
 export default async function OrdersPage({ searchParams }: Props) {
   const params = await searchParams;
-  const tab = params.tab === "calendar" ? "calendar" : "list";
+  const initialTab = params.tab === "calendar" ? "calendar" : "list";
   const page = parseInt(params.page || "1", 10);
   const status = params.status;
   const limit = 20;
   const offset = (page - 1) * limit;
 
-  const [result, { products: allProducts }, { hospitals: allHospitals }] = await Promise.all([
-    tab === "list"
-      ? getOrderItems({ status, from: params.from, to: params.to, limit, offset })
-          .catch(() => ({ items: [], total: 0 }))
-      : Promise.resolve({ items: [], total: 0 }),
+  // Calendar month range
+  let calYear: number, calMonth: number;
+  if (params.month) {
+    const parts = params.month.split("-").map(Number);
+    calYear = parts[0]; calMonth = parts[1] - 1;
+  } else {
+    const now = new Date();
+    calYear = now.getFullYear(); calMonth = now.getMonth();
+  }
+  const calRef = new Date(calYear, calMonth, 1);
+  const calView: CalendarView = (params.view === "day" || params.view === "month") ? params.view : "week";
+  const fromStr = toLocalDateStr(new Date(calYear, calMonth, 1 - 7));
+  const toStr = toLocalDateStr(new Date(calYear, calMonth + 1, 1 + 7));
+
+  // Fetch both datasets in parallel for instant tab switching
+  const [result, calendarOrders, { products: allProducts }, { hospitals: allHospitals }] = await Promise.all([
+    getOrderItems({ status, from: params.from, to: params.to, limit, offset })
+      .catch(() => ({ items: [], total: 0 })),
+    getOrdersForCalendar({ from: fromStr, to: toStr }).catch(() => []),
     getProducts({ limit: 1000 }).catch(() => ({ products: [], total: 0 })),
     getHospitals({ limit: 1000 }).catch(() => ({ hospitals: [], total: 0 })),
   ]);
@@ -56,86 +70,64 @@ export default async function OrdersPage({ searchParams }: Props) {
   }));
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
-  // Calendar: always fetch full month (with ±7 day padding for edge weeks)
-  let calendarOrders: Order[] = [];
-  let calView: CalendarView = "week";
-  let calRef = new Date();
-
-  if (tab === "calendar") {
-    let year: number, month: number;
-    if (params.month) {
-      const parts = params.month.split("-").map(Number);
-      year = parts[0]; month = parts[1] - 1;
-    } else {
-      const now = new Date();
-      year = now.getFullYear(); month = now.getMonth();
-    }
-    calRef = new Date(year, month, 1);
-    calView = (params.view === "day" || params.view === "month") ? params.view : "week";
-    const fromStr = toLocalDateStr(new Date(year, month, 1 - 7));
-    const toStr = toLocalDateStr(new Date(year, month + 1, 1 + 7));
-    calendarOrders = await getOrdersForCalendar({ from: fromStr, to: toStr }).catch(() => []);
-  }
-
   return (
     <>
       <RealtimeListener tables={["orders", "order_items"]} />
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">주문 관리</h1>
-        {tab === "list" && (
-          <div className="ml-auto flex items-center gap-2">
-            <Button size="sm" variant="outline" className="h-8 gap-1">
-              <File className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">내보내기</span>
-            </Button>
-            <Button size="sm" className="h-8 gap-1">
-              <PlusCircle className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">주문 추가</span>
-            </Button>
-          </div>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          <Button size="sm" variant="outline" className="h-8 gap-1">
+            <File className="h-3.5 w-3.5" />
+            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">내보내기</span>
+          </Button>
+          <Button size="sm" className="h-8 gap-1">
+            <PlusCircle className="h-3.5 w-3.5" />
+            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">주문 추가</span>
+          </Button>
+        </div>
       </div>
 
-      <Tabs value={tab}>
-        <TabsList>
-          <TabsTrigger value="list" asChild>
-            <Link href="/orders">목록</Link>
-          </TabsTrigger>
-          <TabsTrigger value="calendar" asChild>
-            <Link href="/orders?tab=calendar">캘린더</Link>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="list">
-          {/* Sub-tabs for status filtering */}
-          <Tabs defaultValue={status || "all"}>
-            <TabsList>
-              <TabsTrigger value="all" asChild><Link href="/orders">전체</Link></TabsTrigger>
-              <TabsTrigger value="confirmed" asChild><Link href="/orders?status=confirmed">확인됨</Link></TabsTrigger>
-              <TabsTrigger value="processing" asChild><Link href="/orders?status=processing">처리중</Link></TabsTrigger>
-              <TabsTrigger value="delivered" asChild><Link href="/orders?status=delivered">배송완료</Link></TabsTrigger>
-            </TabsList>
-            <TabsContent value={status || "all"}>
-              <Card>
-                <CardHeader>
-                  <CardTitle>주문 목록</CardTitle>
-                  <CardDescription><OrderFilters /></CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <OrderTable items={result.items} products={productOptions} hospitals={hospitalOptions} />
-                </CardContent>
-                <CardFooter>
-                  <Pagination currentPage={page} totalPages={totalPages} totalCount={result.total} />
-                </CardFooter>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </TabsContent>
-
-        <TabsContent value="calendar">
-          <OrderCalendar orders={calendarOrders} initialView={calView} initialDate={calRef} />
-        </TabsContent>
-      </Tabs>
+      <ClientTabs
+        initialTab={initialTab}
+        basePath="/orders"
+        tabs={[
+          {
+            value: "list",
+            label: "목록",
+            content: (
+              <Tabs defaultValue={status || "all"}>
+                <TabsList>
+                  <TabsTrigger value="all" asChild><Link href="/orders">전체</Link></TabsTrigger>
+                  <TabsTrigger value="confirmed" asChild><Link href="/orders?status=confirmed">확인됨</Link></TabsTrigger>
+                  <TabsTrigger value="processing" asChild><Link href="/orders?status=processing">처리중</Link></TabsTrigger>
+                  <TabsTrigger value="delivered" asChild><Link href="/orders?status=delivered">배송완료</Link></TabsTrigger>
+                </TabsList>
+                <TabsContent value={status || "all"}>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>주문 목록</CardTitle>
+                      <CardDescription><OrderFilters /></CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <OrderTable items={result.items} products={productOptions} hospitals={hospitalOptions} />
+                    </CardContent>
+                    <CardFooter>
+                      <Pagination currentPage={page} totalPages={totalPages} totalCount={result.total} />
+                    </CardFooter>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            ),
+          },
+          {
+            value: "calendar",
+            label: "캘린더",
+            content: (
+              <OrderCalendar orders={calendarOrders} initialView={calView} initialDate={calRef} />
+            ),
+          },
+        ]}
+      />
     </>
   );
 }

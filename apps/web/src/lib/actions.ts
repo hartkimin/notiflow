@@ -493,8 +493,7 @@ export async function createUser(data: {
 }) {
   const supabase = await createClient();
   const { data: result, error } = await supabase.functions.invoke("manage-users", {
-    method: "POST",
-    body: data,
+    body: { _action: "create", ...data },
   });
   if (error) {
     return { error: result?.error ?? error.message ?? "사용자 생성 실패" };
@@ -506,8 +505,7 @@ export async function createUser(data: {
 export async function updateUser(id: string, data: Record<string, unknown>) {
   const supabase = await createClient();
   const { data: result, error } = await supabase.functions.invoke("manage-users", {
-    method: "PATCH",
-    body: { id, ...data },
+    body: { _action: "update", id, ...data },
   });
   if (error) {
     return { error: result?.error ?? error.message ?? "사용자 수정 실패" };
@@ -519,8 +517,7 @@ export async function updateUser(id: string, data: Record<string, unknown>) {
 export async function deleteUser(id: string) {
   const supabase = await createClient();
   const { data: result, error } = await supabase.functions.invoke("manage-users", {
-    method: "DELETE",
-    body: { id },
+    body: { _action: "delete", id },
   });
   if (error) {
     return { error: result?.error ?? error.message ?? "사용자 비활성화 실패" };

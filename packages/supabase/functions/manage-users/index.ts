@@ -364,18 +364,31 @@ Deno.serve(async (req) => {
     const auth = await verifyAdmin(req, supabase);
     if (auth.error) return auth.error;
 
-    // Route by HTTP method
-    switch (req.method) {
-      case "GET":
+    // Route by body._action (primary) or HTTP method (fallback).
+    // supabase.functions.invoke() may relay all requests as POST,
+    // so _action in the body is the reliable routing mechanism.
+    let action: string;
+    if (req.method === "GET") {
+      action = "list";
+    } else {
+      const body = await req.clone().json().catch(() => ({}));
+      action = body._action ?? req.method.toLowerCase();
+    }
+
+    switch (action) {
+      case "list":
+      case "get":
         return await handleGet(supabase);
-      case "POST":
+      case "create":
+      case "post":
         return await handlePost(req, supabase);
-      case "PATCH":
+      case "update":
+      case "patch":
         return await handlePatch(req, supabase);
-      case "DELETE":
+      case "delete":
         return await handleDelete(req, supabase);
       default:
-        return errorResponse(`Method ${req.method} not allowed`, 405);
+        return errorResponse(`Unknown action: ${action}`, 405);
     }
   } catch (err) {
     console.error("manage-users unexpected error:", err);

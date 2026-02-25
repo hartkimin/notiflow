@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -325,9 +325,10 @@ export function UserTable({ users }: { users: DashboardUser[] }) {
         mode="create"
       />
 
-      {/* Edit Dialog */}
+      {/* Edit Dialog — key forces clean re-mount per user */}
       {editItem && (
         <UserFormDialog
+          key={editItem.id}
           open={!!editItem}
           onClose={() => setEditItem(null)}
           mode="edit"
@@ -376,6 +377,11 @@ function UserFormDialog({
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const isEdit = mode === "edit";
+
+  // Sync role state when user prop changes
+  useEffect(() => {
+    if (user) setRole(user.role);
+  }, [user]);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

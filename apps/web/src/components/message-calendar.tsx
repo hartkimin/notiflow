@@ -151,11 +151,11 @@ function DetailContent({ msg }: { msg: RawMessage }) {
 
 interface MessageCalendarProps {
   messages: RawMessage[];
-  view: CalendarView;
-  referenceDate: Date;
+  initialView: CalendarView;
+  initialDate: Date;
 }
 
-export function MessageCalendar({ messages, view, referenceDate }: MessageCalendarProps) {
+export function MessageCalendar({ messages, initialView, initialDate }: MessageCalendarProps) {
   return (
     <DataCalendar
       items={messages}
@@ -166,8 +166,8 @@ export function MessageCalendar({ messages, view, referenceDate }: MessageCalend
       renderDayItem={(m) => <DayItem msg={m} />}
       renderDetail={(m) => <DetailContent msg={m} />}
       detailTitle={(m) => `${m.sender ?? "메시지"} — ${formatTime(m.received_at)}`}
-      view={view}
-      referenceDate={referenceDate}
+      initialView={initialView}
+      initialDate={initialDate}
       basePath="/messages"
       tabParam="calendar"
     />

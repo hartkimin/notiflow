@@ -8,7 +8,6 @@ import { WeekGrid } from "./week-grid";
 import { DayList } from "./day-list";
 import { DetailPanel } from "./detail-panel";
 import type { CalendarView } from "@/lib/schedule-utils";
-import { toLocalDateStr } from "@/lib/schedule-utils";
 
 interface DataCalendarProps<T> {
   items: T[];
@@ -19,8 +18,8 @@ interface DataCalendarProps<T> {
   renderDayItem: (item: T) => React.ReactNode;
   renderDetail: (item: T) => React.ReactNode;
   detailTitle: (item: T) => string;
-  view: CalendarView;
-  referenceDate: Date;
+  initialView: CalendarView;
+  initialDate: Date;
   basePath: string;
   tabParam?: string;
 }
@@ -29,30 +28,51 @@ export function DataCalendar<T>({
   items, dateAccessor, idAccessor,
   renderMonthItem, renderWeekItem, renderDayItem,
   renderDetail, detailTitle,
-  view, referenceDate, basePath, tabParam = "calendar",
+  initialView, initialDate, basePath, tabParam = "calendar",
 }: DataCalendarProps<T>) {
   const router = useRouter();
+  const [view, setView] = useState<CalendarView>(initialView);
+  const [referenceDate, setReferenceDate] = useState<Date>(initialDate);
   const [selectedItem, setSelectedItem] = useState<T | null>(null);
+
+  // The month for which server data is loaded
+  const loadedYear = initialDate.getFullYear();
+  const loadedMonth = initialDate.getMonth();
+
+  const navigateToDate = useCallback((date: Date) => {
+    // Different month → server navigation to fetch new data
+    if (date.getMonth() !== loadedMonth || date.getFullYear() !== loadedYear) {
+      const m = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      router.push(`${basePath}?tab=${tabParam}&month=${m}`);
+      return;
+    }
+    // Same month → instant client-side state update
+    setReferenceDate(date);
+  }, [loadedMonth, loadedYear, router, basePath, tabParam]);
+
+  const handleToday = useCallback(() => {
+    const today = new Date();
+    setView("day");
+    navigateToDate(today);
+  }, [navigateToDate]);
 
   const handleItemClick = useCallback((item: T) => {
     setSelectedItem(item);
   }, []);
 
   const handleDateClick = useCallback((date: Date) => {
-    const params = new URLSearchParams();
-    params.set("tab", tabParam);
-    params.set("view", "day");
-    params.set("date", toLocalDateStr(date));
-    router.push(`${basePath}?${params.toString()}`);
-  }, [router, basePath, tabParam]);
+    setView("day");
+    navigateToDate(date);
+  }, [navigateToDate]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-12rem)]">
       <CalendarHeader
         view={view}
         referenceDate={referenceDate}
-        basePath={basePath}
-        tabParam={tabParam}
+        onViewChange={setView}
+        onNavigate={navigateToDate}
+        onToday={handleToday}
       />
 
       {view === "month" && (

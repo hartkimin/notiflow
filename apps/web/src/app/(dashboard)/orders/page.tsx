@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { PlusCircle, File } from "lucide-react";
 
-import { getOrderItems } from "@/lib/queries/orders";
-import { getOrdersForCalendar } from "@/lib/queries/orders";
+import { getOrderItems, getOrdersForCalendar } from "@/lib/queries/orders";
 import { getProducts } from "@/lib/queries/products";
 import { getHospitals } from "@/lib/queries/hospitals";
 import { OrderTable } from "@/components/order-table";
@@ -16,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RealtimeListener } from "@/components/realtime-listener";
-import { parseCalendarParams, toLocalDateStr } from "@/lib/schedule-utils";
+import { toLocalDateStr } from "@/lib/schedule-utils";
 import type { Order } from "@/lib/types";
 import type { CalendarView } from "@/lib/schedule-utils";
 
@@ -28,8 +27,6 @@ interface Props {
     to?: string;
     page?: string;
     view?: string;
-    date?: string;
-    week?: string;
     month?: string;
   }>;
 }
@@ -59,17 +56,24 @@ export default async function OrdersPage({ searchParams }: Props) {
   }));
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
-  // Calendar data
+  // Calendar: always fetch full month (with ±7 day padding for edge weeks)
   let calendarOrders: Order[] = [];
   let calView: CalendarView = "week";
   let calRef = new Date();
 
   if (tab === "calendar") {
-    const calParams = parseCalendarParams(params);
-    calView = calParams.view;
-    calRef = calParams.referenceDate;
-    const fromStr = toLocalDateStr(new Date(calParams.startMs));
-    const toStr = toLocalDateStr(new Date(calParams.endMs));
+    let year: number, month: number;
+    if (params.month) {
+      const parts = params.month.split("-").map(Number);
+      year = parts[0]; month = parts[1] - 1;
+    } else {
+      const now = new Date();
+      year = now.getFullYear(); month = now.getMonth();
+    }
+    calRef = new Date(year, month, 1);
+    calView = (params.view === "day" || params.view === "month") ? params.view : "week";
+    const fromStr = toLocalDateStr(new Date(year, month, 1 - 7));
+    const toStr = toLocalDateStr(new Date(year, month + 1, 1 + 7));
     calendarOrders = await getOrdersForCalendar({ from: fromStr, to: toStr }).catch(() => []);
   }
 
@@ -129,7 +133,7 @@ export default async function OrdersPage({ searchParams }: Props) {
         </TabsContent>
 
         <TabsContent value="calendar">
-          <OrderCalendar orders={calendarOrders} view={calView} referenceDate={calRef} />
+          <OrderCalendar orders={calendarOrders} initialView={calView} initialDate={calRef} />
         </TabsContent>
       </Tabs>
     </>

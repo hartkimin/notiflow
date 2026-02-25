@@ -115,11 +115,11 @@ function DetailContent({ order }: { order: Order }) {
 
 interface OrderCalendarProps {
   orders: Order[];
-  view: CalendarView;
-  referenceDate: Date;
+  initialView: CalendarView;
+  initialDate: Date;
 }
 
-export function OrderCalendar({ orders, view, referenceDate }: OrderCalendarProps) {
+export function OrderCalendar({ orders, initialView, initialDate }: OrderCalendarProps) {
   return (
     <DataCalendar
       items={orders}
@@ -130,8 +130,8 @@ export function OrderCalendar({ orders, view, referenceDate }: OrderCalendarProp
       renderDayItem={(o) => <DayItem order={o} />}
       renderDetail={(o) => <DetailContent order={o} />}
       detailTitle={(o) => `주문 ${o.order_number}`}
-      view={view}
-      referenceDate={referenceDate}
+      initialView={initialView}
+      initialDate={initialDate}
       basePath="/orders"
       tabParam="calendar"
     />

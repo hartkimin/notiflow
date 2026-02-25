@@ -48,7 +48,9 @@ export default async function OrdersPage({ searchParams }: Props) {
     const now = new Date();
     calYear = now.getFullYear(); calMonth = now.getMonth();
   }
-  const calRef = new Date(calYear, calMonth, 1);
+  const today = new Date();
+  const isCurrentMonth = calYear === today.getFullYear() && calMonth === today.getMonth();
+  const calRef = isCurrentMonth ? today : new Date(calYear, calMonth, 1);
   const calView: CalendarView = (params.view === "day" || params.view === "month") ? params.view : "week";
   const fromStr = toLocalDateStr(new Date(calYear, calMonth, 1 - 7));
   const toStr = toLocalDateStr(new Date(calYear, calMonth + 1, 1 + 7));

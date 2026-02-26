@@ -374,6 +374,7 @@ export function ProductFormDialog({
   const [unit, setUnit] = useState(product?.unit || "개");
   const [unitPrice, setUnitPrice] = useState(product?.unit_price != null ? String(product.unit_price) : "");
   const [efficacy, setEfficacy] = useState(product?.efficacy || "");
+  const [mfdsItemId, setMfdsItemId] = useState<number | null>(product?.mfds_item_id ?? null);
 
   // Reset form when product changes (edit vs create)
   useEffect(() => {
@@ -386,6 +387,7 @@ export function ProductFormDialog({
     setUnit(product?.unit || "개");
     setUnitPrice(product?.unit_price != null ? String(product.unit_price) : "");
     setEfficacy(product?.efficacy || "");
+    setMfdsItemId(product?.mfds_item_id ?? null);
   }, [product]);
 
   async function handleAiSearch() {
@@ -434,6 +436,7 @@ export function ProductFormDialog({
       standard_code: standardCode || undefined,
       unit: unit || undefined,
       unit_price: unitPrice ? parseFloat(unitPrice) : undefined,
+      mfds_item_id: mfdsItemId ?? undefined,
     };
 
     startTransition(async () => {
@@ -549,9 +552,8 @@ export function ProductFormDialog({
             setOfficialName(data.official_name);
             if (data.manufacturer) setManufacturer(data.manufacturer);
             if (data.ingredient) setIngredient(data.ingredient);
-            if (data.efficacy) setEfficacy(data.efficacy);
             if (data.standard_code) setStandardCode(data.standard_code);
-            setCategory(data.category);
+            if (data.mfds_item_id) setMfdsItemId(data.mfds_item_id);
             toast.success("식약처 정보가 입력되었습니다.");
           }}
         />

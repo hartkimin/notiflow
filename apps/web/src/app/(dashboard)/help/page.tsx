@@ -20,6 +20,10 @@ import {
   Search,
   Building2,
   Cpu,
+  SlidersHorizontal,
+  LayoutGrid,
+  Keyboard,
+  Filter,
 } from "lucide-react";
 import {
   Card,
@@ -34,6 +38,33 @@ import { APP_VERSION } from "@/lib/version";
 const releases = [
   {
     version: APP_VERSION,
+    date: "2026-02-26",
+    title: "품목 검색 UI/UX 전면 재설계",
+    highlights: [
+      {
+        icon: Search,
+        text: "통합 검색창 — 품목명, 업체명, 코드를 하나의 검색창에서 자동 판별하여 검색",
+      },
+      {
+        icon: Filter,
+        text: "필터 칩 — 업체명, 코드, 등급 등 추가 조건을 칩으로 조합하여 정밀 검색",
+      },
+      {
+        icon: SlidersHorizontal,
+        text: "아코디언 상세 — 핵심 9개 컬럼만 표시, 행 클릭 시 전체 정보 확장",
+      },
+      {
+        icon: LayoutGrid,
+        text: "모바일 카드 뷰 — 768px 이하에서 자동으로 카드 리스트 전환",
+      },
+      {
+        icon: Keyboard,
+        text: "키보드 접근성 — Escape 닫기, Enter/Space 토글, Tab 행 이동",
+      },
+    ],
+  },
+  {
+    version: "0.0.0.4",
     date: "2026-02-25",
     title: "데이터 캘린더 리디자인",
     highlights: [

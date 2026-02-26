@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useTransition, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -172,60 +172,69 @@ export function MfdsSearchPanel({
 
   // ── Search logic (smart detection + fallback retry) ───────────────
 
-  function doSearch(targetPage = 1) {
-    const q = query.trim();
-    if (!q && activeFilters.length === 0) {
-      toast.error("검색어를 1개 이상 입력해주세요.");
-      return;
-    }
+  const doSearch = useCallback(
+    (targetPage = 1) => {
+      const q = query.trim();
 
-    startTransition(async () => {
-      setIsLoading(true);
-      try {
-        // Build chip-based filters
-        const chipFilters: Record<string, string> = {};
-        for (const chip of activeFilters) {
-          chipFilters[chip.field] = chip.value;
-        }
+      startTransition(async () => {
+        setIsLoading(true);
+        try {
+          // Build chip-based filters
+          const chipFilters: Record<string, string> = {};
+          for (const chip of activeFilters) {
+            chipFilters[chip.field] = chip.value;
+          }
 
-        // Merge smart detection with chip filters
-        const detected = q ? detectSearchFields(q, tab) : { primary: {}, fallback: null };
-        const mergedPrimary = { ...detected.primary, ...chipFilters };
+          // Merge smart detection with chip filters (empty query = list all)
+          const detected = q ? detectSearchFields(q, tab) : { primary: {}, fallback: null };
+          const mergedPrimary = { ...detected.primary, ...chipFilters };
 
-        const searchFn = tab === "drug" ? searchMfdsDrug : searchMfdsDevice;
-        let result = await searchFn(mergedPrimary, targetPage);
+          const searchFn = tab === "drug" ? searchMfdsDrug : searchMfdsDevice;
+          let result = await searchFn(mergedPrimary, targetPage);
 
-        // Fallback retry if primary yields 0 results
-        if (result.totalCount === 0 && detected.fallback) {
-          const mergedFallback = { ...detected.fallback, ...chipFilters };
-          result = await searchFn(mergedFallback, targetPage);
-        }
+          // Fallback retry if primary yields 0 results
+          if (result.totalCount === 0 && detected.fallback) {
+            const mergedFallback = { ...detected.fallback, ...chipFilters };
+            result = await searchFn(mergedFallback, targetPage);
+          }
 
-        setResults(result.items as Record<string, unknown>[]);
-        setTotalCount(result.totalCount);
-        setPage(targetPage);
-        setHasSearched(true);
-        setExpandedRowId(null);
+          setResults(result.items as Record<string, unknown>[]);
+          setTotalCount(result.totalCount);
+          setPage(targetPage);
+          setHasSearched(true);
+          setExpandedRowId(null);
 
-        // Add to recent searches
-        if (q) {
-          recentSearches.add(q, tab);
-        }
-      } catch (err) {
-        toast.error(
-          `검색 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
-          {
-            action: {
-              label: "재시도",
-              onClick: () => doSearch(targetPage),
+          // Add to recent searches (only when user typed something)
+          if (q) {
+            recentSearches.add(q, tab);
+          }
+        } catch (err) {
+          toast.error(
+            `검색 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
+            {
+              action: {
+                label: "재시도",
+                onClick: () => doSearch(targetPage),
+              },
             },
-          },
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    });
-  }
+          );
+        } finally {
+          setIsLoading(false);
+        }
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [query, activeFilters, tab],
+  );
+
+  // ── Initial load ────────────────────────────────────────────────
+  const initialLoaded = useRef(false);
+  useEffect(() => {
+    if (!initialLoaded.current) {
+      initialLoaded.current = true;
+      doSearch(1);
+    }
+  }, [doSearch]);
 
   // ── Add handler ───────────────────────────────────────────────────
 
@@ -269,13 +278,21 @@ export function MfdsSearchPanel({
     setResults([]);
     setTotalCount(0);
     setPage(1);
-    setHasSearched(false);
     setSorting([]);
     setColumnVisibility({});
     setGlobalFilter("");
     setColumnSizing({});
     setExpandedRowId(null);
   }
+
+  // Re-fetch when tab changes (doSearch picks up the new tab via dependency)
+  const prevTab = useRef(tab);
+  useEffect(() => {
+    if (prevTab.current !== tab) {
+      prevTab.current = tab;
+      doSearch(1);
+    }
+  }, [tab, doSearch]);
 
   // ── Recent search click ───────────────────────────────────────────
 

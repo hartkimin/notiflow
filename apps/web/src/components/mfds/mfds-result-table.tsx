@@ -88,10 +88,16 @@ export function MfdsResultTable({
   const headerGroups = table.getHeaderGroups();
   const totalColSpan = table.getVisibleLeafColumns().length;
 
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape" && expandedRowId) {
+      onExpandToggle(expandedRowId);
+    }
+  }
+
   return (
     <>
       {/* ── Mobile card list (< 768px) ─────────────────────── */}
-      <div className="space-y-2 md:hidden">
+      <div className="space-y-2 md:hidden" tabIndex={0} onKeyDown={handleKeyDown}>
         {rows.map((row) => {
           const item = row.original;
           const code = getStandardCode(item, tab);
@@ -114,7 +120,7 @@ export function MfdsResultTable({
       </div>
 
       {/* ── Desktop table (≥ 768px) ────────────────────────── */}
-      <div className="border rounded-md overflow-x-auto hidden md:block">
+      <div className="border rounded-md overflow-x-auto hidden md:block" tabIndex={0} onKeyDown={handleKeyDown}>
         <table className="w-full text-sm">
           {/* ── Header ──────────────────────────────────────────── */}
           <thead className="bg-muted/50">

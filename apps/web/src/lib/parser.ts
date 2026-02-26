@@ -381,20 +381,9 @@ export async function matchProductsBulk(
     .eq("is_active", true);
 
   // product_aliases table has been dropped — alias matching is no longer available.
-  const aliases: never[] = [];
-
-  // Build in-memory lookup maps
+  // Keep empty maps so downstream alias-lookup code still compiles without changes.
   const hospitalAliasMap = new Map<string, { product_id: number; alias_id: number }>();
   const globalAliasMap = new Map<string, { product_id: number; alias_id: number }>();
-
-  for (const a of aliases ?? []) {
-    const key = (a.alias_normalized || a.alias).toLowerCase().trim();
-    if (a.hospital_id && a.hospital_id === hospitalId) {
-      hospitalAliasMap.set(key, { product_id: a.product_id, alias_id: a.id });
-    } else if (!a.hospital_id) {
-      globalAliasMap.set(key, { product_id: a.product_id, alias_id: a.id });
-    }
-  }
 
   const productMap = new Map<number, { name: string; official_name: string | null; short_name: string | null }>();
   const productNameMap = new Map<string, number>();
@@ -518,40 +507,7 @@ export async function matchProductsBulk(
       };
     }
 
-    // Level 3: Contains match on alias text
-    let bestAlias: { product_id: number; confidence: number; alias_id: number; isHospital: boolean } | null = null;
-
-    for (const a of aliases ?? []) {
-      const aKey = (a.alias_normalized || a.alias).toLowerCase().trim();
-      if (aKey.includes(norm) || norm.includes(aKey)) {
-        const longer = Math.max(aKey.length, norm.length);
-        const shorter = Math.min(aKey.length, norm.length);
-        const confidence = shorter / longer;
-        const isHospital = a.hospital_id === hospitalId;
-
-        if (!bestAlias || confidence > bestAlias.confidence || (isHospital && !bestAlias.isHospital)) {
-          bestAlias = { product_id: a.product_id, confidence, alias_id: a.id, isHospital };
-        }
-      }
-    }
-
-    if (bestAlias && bestAlias.confidence >= 0.5) {
-      const product = productMap.get(bestAlias.product_id);
-      matchedAliasIds.push(bestAlias.alias_id);
-      const conf = bestAlias.isHospital
-        ? Math.max(bestAlias.confidence, 0.9)
-        : Math.max(bestAlias.confidence, 0.8);
-      return {
-        parsed,
-        match: {
-          product_id: bestAlias.product_id,
-          product_name: product?.official_name ?? product?.name ?? null,
-          confidence: Math.round(conf * 100) / 100,
-          method: "contains",
-          match_status: "review",
-        },
-      };
-    }
+    // Level 3: Contains match on alias text — skipped (product_aliases table dropped)
 
     // Level 4: Product name contains (0.6)
     let bestProduct: { id: number; confidence: number } | null = null;
@@ -595,21 +551,7 @@ export async function matchProductsBulk(
         }
       }
 
-      // Also check aliases
-      for (const a of aliases ?? []) {
-        const aKey = (a.alias_normalized || a.alias).toLowerCase().trim();
-        if (Math.abs(aKey.length - norm.length) > 2) continue;
-        const dist = levenshtein(norm, aKey);
-        if (dist <= 2 && (!bestFuzzy || dist < bestFuzzy.distance)) {
-          const product = productMap.get(a.product_id);
-          matchedAliasIds.push(a.id);
-          bestFuzzy = {
-            id: a.product_id,
-            name: product?.official_name ?? product?.name ?? aKey,
-            distance: dist,
-          };
-        }
-      }
+      // Alias fuzzy matching — skipped (product_aliases table dropped)
 
       if (bestFuzzy) {
         return {

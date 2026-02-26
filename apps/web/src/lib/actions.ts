@@ -2,61 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { ProductAlias, SyncDiffEntry } from "@/lib/types";
+import type { SyncDiffEntry } from "@/lib/types";
 import { getAISettings } from "@/lib/ai-client";
 import { parseMessageCore, getHospitalAliases, aiParse, resolveHospitalFromSender } from "@/lib/parse-service";
 import { matchProductsBulk, type ProductCatalogEntry } from "@/lib/parser";
-
-// --- Products ---
-
-export async function createProduct(data: {
-  official_name: string;
-  short_name?: string;
-  category?: string;
-  manufacturer?: string;
-  ingredient?: string;
-  efficacy?: string;
-  standard_code?: string;
-  unit?: string;
-  unit_price?: number;
-  auto_info?: Record<string, unknown>;
-  mfds_raw?: Record<string, unknown>;
-  mfds_source_type?: string;
-}) {
-  const supabase = await createClient();
-  const { data: row, error } = await supabase.from("products").insert({
-    ...data,
-    name: data.official_name,
-  }).select("id").single();
-  if (error) throw error;
-  revalidatePath("/products");
-  return { success: true, id: row.id as number };
-}
-
-export async function updateProduct(id: number, data: Record<string, unknown>) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("products").update(data).eq("id", id);
-  if (error) throw error;
-  revalidatePath("/products");
-  return { success: true };
-}
-
-export async function deleteProduct(id: number) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("products").delete().eq("id", id);
-  if (error) throw error;
-  revalidatePath("/products");
-  return { success: true };
-}
-
-export async function deleteProducts(ids: number[]) {
-  if (ids.length === 0) return { success: true };
-  const supabase = await createClient();
-  const { error } = await supabase.from("products").delete().in("id", ids);
-  if (error) throw error;
-  revalidatePath("/products");
-  return { success: true };
-}
 
 // --- Hospitals ---
 
@@ -100,57 +49,6 @@ export async function deleteHospitals(ids: number[]) {
   const { error } = await supabase.from("hospitals").delete().in("id", ids);
   if (error) throw error;
   revalidatePath("/hospitals");
-  return { success: true };
-}
-
-// --- Product Aliases ---
-
-export async function getProductAliases(productId: number): Promise<ProductAlias[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("product_aliases")
-    .select("*")
-    .eq("product_id", productId)
-    .order("id");
-  if (error) throw error;
-  return (data ?? []) as ProductAlias[];
-}
-
-export async function createProductAlias(productId: number, data: {
-  alias: string;
-  hospital_id?: number | null;
-}) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("product_aliases")
-    .insert({ product_id: productId, ...data });
-  if (error) throw error;
-  revalidatePath("/products");
-  return { success: true };
-}
-
-export async function updateProductAlias(_productId: number, aliasId: number, data: {
-  alias?: string;
-  hospital_id?: number | null;
-}) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("product_aliases")
-    .update(data)
-    .eq("id", aliasId);
-  if (error) throw error;
-  revalidatePath("/products");
-  return { success: true };
-}
-
-export async function deleteProductAlias(_productId: number, aliasId: number) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("product_aliases")
-    .delete()
-    .eq("id", aliasId);
-  if (error) throw error;
-  revalidatePath("/products");
   return { success: true };
 }
 
@@ -689,58 +587,6 @@ export async function searchMfdsDevice(
     totalCount: (body?.totalCount as number) ?? 0,
     page,
   };
-}
-
-export async function addMfdsItemToProducts(
-  item: Record<string, unknown>,
-  sourceType: "drug" | "device_std",
-) {
-  const supabase = await createClient();
-
-  const mapped: Record<string, unknown> = sourceType === "drug"
-    ? {
-        name: item.ITEM_NAME ?? "",
-        official_name: item.ITEM_NAME ?? "",
-        manufacturer: item.ENTP_NAME ?? null,
-        standard_code: item.BAR_CODE ?? null,
-        ingredient: item.MATERIAL_NAME ?? null,
-        category: "drug",
-      }
-    : {
-        name: item.PRDLST_NM ?? "",
-        official_name: item.PRDLST_NM ?? "",
-        manufacturer: item.MNFT_IPRT_ENTP_NM ?? null,
-        standard_code: item.UDIDI_CD ?? null,
-        efficacy: item.USE_PURPS_CONT ?? null,
-        category: "device",
-      };
-
-  if (mapped.standard_code) {
-    const { data: existing } = await supabase
-      .from("products")
-      .select("id")
-      .eq("standard_code", mapped.standard_code as string)
-      .maybeSingle();
-
-    if (existing) {
-      return { success: true, id: existing.id, alreadyExists: true };
-    }
-  }
-
-  const { data: row, error } = await supabase
-    .from("products")
-    .insert({
-      ...mapped,
-      mfds_raw: item,
-      mfds_source_type: sourceType,
-    })
-    .select("id")
-    .single();
-
-  if (error) throw error;
-
-  revalidatePath("/products");
-  return { success: true, id: row.id, alreadyExists: false };
 }
 
 // --- My Drugs / My Devices ---

@@ -156,14 +156,6 @@ export interface ProductSupplier {
   is_primary: boolean;
 }
 
-export interface ProductAlias {
-  id: number;
-  hospital_id: number | null;
-  alias: string;
-  product_id: number;
-  source: string;
-}
-
 // --- My Products (MFDS-aligned) ---
 
 export interface MyDrug {

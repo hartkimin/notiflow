@@ -164,6 +164,81 @@ export interface ProductAlias {
   source: string;
 }
 
+// --- My Products (MFDS-aligned) ---
+
+export interface MyDrug {
+  id: number;
+  item_seq: string | null;
+  item_name: string | null;
+  item_eng_name: string | null;
+  entp_name: string | null;
+  entp_no: string | null;
+  item_permit_date: string | null;
+  cnsgn_manuf: string | null;
+  etc_otc_code: string | null;
+  chart: string | null;
+  bar_code: string | null;
+  material_name: string | null;
+  ee_doc_id: string | null;
+  ud_doc_id: string | null;
+  nb_doc_id: string | null;
+  storage_method: string | null;
+  valid_term: string | null;
+  pack_unit: string | null;
+  edi_code: string | null;
+  permit_kind_name: string | null;
+  cancel_date: string | null;
+  cancel_name: string | null;
+  change_date: string | null;
+  atc_code: string | null;
+  rare_drug_yn: string | null;
+  added_at: string;
+  synced_at: string;
+}
+
+export interface MyDevice {
+  id: number;
+  udidi_cd: string | null;
+  prdlst_nm: string | null;
+  mnft_iprt_entp_nm: string | null;
+  mdeq_clsf_no: string | null;
+  clsf_no_grad_cd: string | null;
+  permit_no: string | null;
+  prmsn_ymd: string | null;
+  foml_info: string | null;
+  prdt_nm_info: string | null;
+  hmbd_trspt_mdeq_yn: string | null;
+  dspsbl_mdeq_yn: string | null;
+  trck_mng_trgt_yn: string | null;
+  total_dev: string | null;
+  cmbnmd_yn: string | null;
+  use_before_strlzt_need_yn: string | null;
+  sterilization_method_nm: string | null;
+  use_purps_cont: string | null;
+  strg_cnd_info: string | null;
+  circ_cnd_info: string | null;
+  rcprslry_trgt_yn: string | null;
+  added_at: string;
+  synced_at: string;
+}
+
+export interface SyncDiffEntry {
+  column: string;
+  label: string;
+  oldValue: string;
+  newValue: string;
+}
+
+export interface ProductCatalogRow {
+  id: number;
+  name: string;
+  official_name: string;
+  short_name: string | null;
+  is_active: boolean;
+  standard_code: string | null;
+  source_type: string;
+}
+
 export interface RawMessage {
   id: number;
   source_app: string;

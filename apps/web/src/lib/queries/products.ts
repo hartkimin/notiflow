@@ -1,38 +1,43 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Product } from "@/lib/types";
+import type { MyDrug, MyDevice } from "@/lib/types";
 
-export async function getProducts(params: {
-  search?: string;
-  category?: string;
-  limit?: number;
-  offset?: number;
-} = {}): Promise<{ products: Product[]; total: number }> {
-  const supabase = await createClient();
-
-  let query = supabase.from("products").select("*", { count: "exact" });
-
-  if (params.search) {
-    query = query.or(`name.ilike.%${params.search}%,official_name.ilike.%${params.search}%`);
-  }
-  if (params.category) query = query.eq("category", params.category);
-
-  query = query
-    .order("name")
-    .range(params.offset || 0, (params.offset || 0) + (params.limit || 50) - 1);
-
-  const { data, count, error } = await query;
-  if (error) throw error;
-
-  return { products: (data ?? []) as Product[], total: count ?? 0 };
-}
-
-export async function getProduct(id: number): Promise<Product> {
+export async function getMyDrugs(): Promise<MyDrug[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("products")
+    .from("my_drugs")
     .select("*")
-    .eq("id", id)
-    .single();
+    .order("added_at", { ascending: false });
   if (error) throw error;
-  return data as Product;
+  return (data ?? []) as MyDrug[];
+}
+
+export async function getMyDevices(): Promise<MyDevice[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("my_devices")
+    .select("*")
+    .order("added_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as MyDevice[];
+}
+
+export async function getExistingStandardCodes(): Promise<string[]> {
+  const supabase = await createClient();
+  const [{ data: drugs }, { data: devices }] = await Promise.all([
+    supabase.from("my_drugs").select("bar_code"),
+    supabase.from("my_devices").select("udidi_cd"),
+  ]);
+  const codes: string[] = [];
+  for (const d of drugs ?? []) if (d.bar_code) codes.push(d.bar_code);
+  for (const d of devices ?? []) if (d.udidi_cd) codes.push(d.udidi_cd);
+  return codes;
+}
+
+export async function getProductsCatalog() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("products_catalog")
+    .select("id, name, official_name, short_name, is_active, standard_code");
+  if (error) throw error;
+  return data ?? [];
 }

@@ -127,6 +127,7 @@ export interface Product {
   unit: string | null;
   unit_price: number | null;
   is_active: boolean;
+  mfds_item_id: number | null;
 }
 
 export interface Supplier {
@@ -448,4 +449,80 @@ export interface DeviceStdSearchResponse {
   totalCount: number;
   pageNo: number;
   numOfRows: number;
+}
+
+// --- MFDS Unified Items (식약처 통합 데이터) ---
+
+export type MfdsSourceType = "drug" | "device" | "device_std";
+
+export interface MfdsItem {
+  id: number;
+  source_type: MfdsSourceType;
+  source_key: string;
+  item_name: string;
+  manufacturer: string | null;
+  permit_no: string | null;
+  permit_date: string | null;
+  standard_code: string | null;
+  classification_no: string | null;
+  classification_grade: string | null;
+  product_name: string | null;
+  use_purpose: string | null;
+  edi_code: string | null;
+  atc_code: string | null;
+  main_item_ingr: string | null;
+  bizrno: string | null;
+  rare_drug_yn: string | null;
+  mnsc_nm: string | null;
+  mnsc_natn_cd: string | null;
+  prmsn_dclr_divs_nm: string | null;
+  foml_info: string | null;
+  hmbd_trspt_mdeq_yn: string | null;
+  dspsbl_mdeq_yn: string | null;
+  trck_mng_trgt_yn: string | null;
+  total_dev: string | null;
+  cmbnmd_yn: string | null;
+  use_before_strlzt_need_yn: string | null;
+  sterilization_method: string | null;
+  strg_cnd_info: string | null;
+  circ_cnd_info: string | null;
+  rcprslry_trgt_yn: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MfdsSyncLog {
+  id: number;
+  started_at: string;
+  finished_at: string | null;
+  status: "running" | "success" | "failed";
+  trigger_type: "manual" | "scheduled";
+  triggered_by: string | null;
+  source_filter: string | null;
+  drug_total: number;
+  drug_added: number;
+  drug_updated: number;
+  device_total: number;
+  device_added: number;
+  device_updated: number;
+  device_std_total: number;
+  device_std_added: number;
+  device_std_updated: number;
+  products_updated: number;
+  error_message: string | null;
+  duration_ms: number | null;
+}
+
+export interface MfdsSearchResponse {
+  items: MfdsItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface MfdsSyncStats {
+  drug_count: number;
+  device_count: number;
+  device_std_count: number;
+  last_sync: MfdsSyncLog | null;
 }

@@ -72,6 +72,11 @@ export function AISettingsForm({ settings }: { settings: AISettings }) {
   const [showKey, setShowKey] = useState(false);
   const [isSavingKey, setIsSavingKey] = useState(false);
 
+  // Drug API key state
+  const [drugApiKey, setDrugApiKey] = useState("");
+  const [showDrugKey, setShowDrugKey] = useState(false);
+  const [isSavingDrugKey, setIsSavingDrugKey] = useState(false);
+
   // Test parse state
   const [testMessage, setTestMessage] = useState("");
   const [testResult, setTestResult] = useState<Record<string, unknown> | null>(null);
@@ -139,6 +144,38 @@ export function AISettingsForm({ settings }: { settings: AISettings }) {
       toast.error("API 키 삭제에 실패했습니다.");
     } finally {
       setIsSavingKey(false);
+    }
+  }
+
+  async function handleSaveDrugApiKey() {
+    if (!drugApiKey.trim()) {
+      toast.error("API 키를 입력하세요.");
+      return;
+    }
+    setIsSavingDrugKey(true);
+    try {
+      await updateSettingAction("drug_api_service_key", drugApiKey.trim());
+      toast.success("의약품 API 키가 저장되었습니다.");
+      setDrugApiKey("");
+      setShowDrugKey(false);
+      router.refresh();
+    } catch {
+      toast.error("API 키 저장에 실패했습니다.");
+    } finally {
+      setIsSavingDrugKey(false);
+    }
+  }
+
+  async function handleDeleteDrugApiKey() {
+    setIsSavingDrugKey(true);
+    try {
+      await updateSettingAction("drug_api_service_key", "");
+      toast.success("의약품 API 키가 삭제되었습니다.");
+      router.refresh();
+    } catch {
+      toast.error("API 키 삭제에 실패했습니다.");
+    } finally {
+      setIsSavingDrugKey(false);
     }
   }
 
@@ -421,6 +458,74 @@ export function AISettingsForm({ settings }: { settings: AISettings }) {
               0.0 ~ 1.0 사이의 값. 높을수록 정확한 매칭만 자동 처리됩니다.
             </p>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Drug API Key */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Key className="h-4 w-4" />
+            의약품 API 키
+          </CardTitle>
+          <CardDescription>
+            공공데이터포털에서 발급받은 식약처 의약품 허가정보 API 인증키를 입력합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {settings.drug_api_key?.set && (
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-green-600">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                등록됨
+              </Badge>
+              <code className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                {settings.drug_api_key.masked}
+              </code>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive h-6 px-2 text-xs"
+                disabled={isSavingDrugKey}
+                onClick={handleDeleteDrugApiKey}
+              >
+                삭제
+              </Button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Input
+                type={showDrugKey ? "text" : "password"}
+                value={drugApiKey}
+                onChange={(e) => setDrugApiKey(e.target.value)}
+                placeholder={settings.drug_api_key?.set
+                  ? "새 키로 변경하려면 입력..."
+                  : "공공데이터포털 인증키 입력..."}
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full w-10"
+                onClick={() => setShowDrugKey(!showDrugKey)}
+                tabIndex={-1}
+              >
+                {showDrugKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+            <Button
+              size="sm"
+              disabled={isSavingDrugKey || !drugApiKey.trim()}
+              onClick={handleSaveDrugApiKey}
+            >
+              {isSavingDrugKey ? <Loader2 className="h-4 w-4 animate-spin" /> : "저장"}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            공공데이터포털(data.go.kr) → 마이페이지 → 활용신청 현황에서 인증키를 확인할 수 있습니다.
+          </p>
         </CardContent>
       </Card>
 

@@ -19,15 +19,16 @@ export async function createProduct(data: {
   standard_code?: string;
   unit?: string;
   unit_price?: number;
+  auto_info?: Record<string, unknown>;
 }) {
   const supabase = await createClient();
-  const { error } = await supabase.from("products").insert({
+  const { data: row, error } = await supabase.from("products").insert({
     ...data,
     name: data.official_name,
-  });
+  }).select("id").single();
   if (error) throw error;
   revalidatePath("/products");
-  return { success: true };
+  return { success: true, id: row.id as number };
 }
 
 export async function updateProduct(id: number, data: Record<string, unknown>) {

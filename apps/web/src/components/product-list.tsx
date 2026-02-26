@@ -14,7 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Tags, LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown, Loader2, Sparkles } from "lucide-react";
+import { Plus, Pencil, Trash2, Tags, LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown, Loader2, Sparkles, Pill } from "lucide-react";
 import {
   createProduct, updateProduct, deleteProduct, deleteProducts,
   getProductAliases, createProductAlias, updateProductAlias, deleteProductAlias,
@@ -24,7 +24,8 @@ import { useResizableColumns } from "@/hooks/use-resizable-columns";
 import { ResizableTh } from "@/components/resizable-th";
 import { BulkActionBar } from "@/components/bulk-action-bar";
 import { useRowSelection } from "@/hooks/use-row-selection";
-import type { Product, ProductAlias, Hospital } from "@/lib/types";
+import { DrugSearchDialog } from "@/components/drug-search-dialog";
+import type { Product, ProductAlias, Hospital, DrugSearchResult } from "@/lib/types";
 
 const PRODUCT_COL_DEFAULTS: Record<string, number> = {
   checkbox: 40, id: 50, official_name: 180, short_name: 90, category: 100, manufacturer: 100,
@@ -359,6 +360,7 @@ export function ProductFormDialog({
 }) {
   const [isPending, startTransition] = useTransition();
   const [isAiSearching, setIsAiSearching] = useState(false);
+  const [showDrugSearch, setShowDrugSearch] = useState(false);
   const router = useRouter();
 
   // Controlled form state
@@ -483,6 +485,15 @@ export function ProductFormDialog({
                     <><Sparkles className="h-4 w-4 mr-1" />AI 검색</>
                   )}
                 </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowDrugSearch(true)}
+                  className="shrink-0"
+                >
+                  <Pill className="h-4 w-4 mr-1" />의약품
+                </Button>
               </div>
             </div>
             <div className="space-y-1">
@@ -529,6 +540,19 @@ export function ProductFormDialog({
             </Button>
           </DialogFooter>
         </form>
+        <DrugSearchDialog
+          open={showDrugSearch}
+          onClose={() => setShowDrugSearch(false)}
+          mode="fill"
+          onDrugSelect={(drug: DrugSearchResult) => {
+            setOfficialName(drug.item_name);
+            if (drug.entp_name) setManufacturer(drug.entp_name);
+            if (drug.main_item_ingr) setIngredient(drug.main_item_ingr);
+            if (drug.edi_code) setStandardCode(drug.edi_code);
+            setCategory("medication");
+            toast.success("의약품 정보가 입력되었습니다.");
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

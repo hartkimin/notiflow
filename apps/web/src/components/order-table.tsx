@@ -41,6 +41,7 @@ import {
   ChevronsUpDown,
   ExternalLink,
   Pencil,
+  Pill,
   Save,
   Trash2,
   X,
@@ -67,7 +68,8 @@ import { useRowSelection } from "@/hooks/use-row-selection";
 import { useResizableColumns } from "@/hooks/use-resizable-columns";
 import { ResizableTh } from "@/components/resizable-th";
 import { toast } from "sonner";
-import type { OrderItemFlat } from "@/lib/types";
+import { DrugSearchDialog } from "@/components/drug-search-dialog";
+import type { DrugSearchResult, OrderItemFlat } from "@/lib/types";
 
 export interface ProductOption {
   id: number;
@@ -360,6 +362,7 @@ function OrderAccordionContent({
   const [supplierOpenId, setSupplierOpenId] = useState<number | null>(null);
   const [kpisEditId, setKpisEditId] = useState<number | null>(null);
   const [kpisNotes, setKpisNotes] = useState("");
+  const [drugSearchItemId, setDrugSearchItemId] = useState<number | null>(null);
 
   async function handleConfirm() {
     try {
@@ -591,53 +594,64 @@ function OrderAccordionContent({
                 <TableRow key={item.id}>
                   <TableCell className="text-sm font-medium">
                     {isEditing ? (
-                      <Popover
-                        open={productOpenId === item.id}
-                        onOpenChange={(open: boolean) => setProductOpenId(open ? item.id : null)}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            className="h-7 w-full max-w-[220px] justify-between font-normal text-sm px-2"
-                          >
-                            <span className="truncate">
-                              {editItems[item.id]?.product_id
-                                ? products.find((p) => p.id === editItems[item.id]?.product_id)?.name ?? "미매칭"
-                                : "품목 검색..."}
-                            </span>
-                            <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[280px] p-0" align="start">
-                          <Command>
-                            <CommandInput placeholder="품목명 검색..." />
-                            <CommandList>
-                              <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
-                              <CommandGroup>
-                                {products.map((p) => (
-                                  <CommandItem
-                                    key={p.id}
-                                    value={p.name}
-                                    onSelect={() => {
-                                      updateItemField(item.id, "product_id", p.id);
-                                      setProductOpenId(null);
-                                    }}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4 shrink-0",
-                                        editItems[item.id]?.product_id === p.id ? "opacity-100" : "opacity-0",
-                                      )}
-                                    />
-                                    <span className="truncate">{p.name}</span>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
+                      <div className="flex items-center gap-1">
+                        <Popover
+                          open={productOpenId === item.id}
+                          onOpenChange={(open: boolean) => setProductOpenId(open ? item.id : null)}
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className="h-7 w-full max-w-[220px] justify-between font-normal text-sm px-2"
+                            >
+                              <span className="truncate">
+                                {editItems[item.id]?.product_id
+                                  ? products.find((p) => p.id === editItems[item.id]?.product_id)?.name ?? "미매칭"
+                                  : "품목 검색..."}
+                              </span>
+                              <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[280px] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="품목명 검색..." />
+                              <CommandList>
+                                <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
+                                <CommandGroup>
+                                  {products.map((p) => (
+                                    <CommandItem
+                                      key={p.id}
+                                      value={p.name}
+                                      onSelect={() => {
+                                        updateItemField(item.id, "product_id", p.id);
+                                        setProductOpenId(null);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4 shrink-0",
+                                          editItems[item.id]?.product_id === p.id ? "opacity-100" : "opacity-0",
+                                        )}
+                                      />
+                                      <span className="truncate">{p.name}</span>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0"
+                          title="의약품 API 검색"
+                          onClick={() => setDrugSearchItemId(item.id)}
+                        >
+                          <Pill className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     ) : (
                       <>
                         {item.product_name}
@@ -855,6 +869,21 @@ function OrderAccordionContent({
           </AlertDialogContent>
         </AlertDialog>
       </div>
+
+      {drugSearchItemId !== null && (
+        <DrugSearchDialog
+          open={drugSearchItemId !== null}
+          onClose={() => setDrugSearchItemId(null)}
+          mode="create"
+          onProductCreated={(productId: number, _drug: DrugSearchResult) => {
+            if (drugSearchItemId && productId > 0) {
+              updateItemField(drugSearchItemId, "product_id", productId);
+            }
+            setDrugSearchItemId(null);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -370,3 +370,26 @@ export interface OrderPattern {
 export type MessageCalendarItem =
   | { kind: 'message'; data: RawMessage }
   | { kind: 'forecast'; data: OrderForecast };
+
+// --- Drug API (식약처 의약품 허가정보) ---
+
+export interface DrugSearchResult {
+  item_seq: string;           // 품목기준코드
+  item_name: string;          // 품목명
+  entp_name: string;          // 업체명
+  entp_no: string;            // 업체허가번호
+  item_permit_date: string;   // 허가일자
+  edi_code: string | null;    // 보험코드
+  atc_code: string | null;    // ATC코드
+  main_item_ingr: string | null; // 주성분
+  bar_code: string | null;    // 표준코드/바코드
+  bizrno: string | null;      // 사업자등록번호
+  rare_drug_yn: string | null; // 희귀의약품여부
+}
+
+export interface DrugSearchResponse {
+  items: DrugSearchResult[];
+  totalCount: number;
+  pageNo: number;
+  numOfRows: number;
+}

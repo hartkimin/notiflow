@@ -16,6 +16,7 @@ export interface AISettings {
   ai_confidence_threshold: number;
   sync_interval_minutes: number;
   ai_api_keys: Record<AIProvider, AIApiKeyInfo>;
+  drug_api_key: AIApiKeyInfo;
 }
 
 function maskApiKey(key: unknown): AIApiKeyInfo {
@@ -45,6 +46,7 @@ export async function getSettings(): Promise<AISettings> {
       "ai_api_key_anthropic",
       "ai_api_key_google",
       "ai_api_key_openai",
+      "drug_api_service_key",
     ]);
 
   if (error) throw error;
@@ -72,6 +74,7 @@ export async function getSettings(): Promise<AISettings> {
       google: maskApiKey(map.get("ai_api_key_google")),
       openai: maskApiKey(map.get("ai_api_key_openai")),
     },
+    drug_api_key: maskApiKey(map.get("drug_api_service_key")),
   };
 }
 

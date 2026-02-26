@@ -20,6 +20,7 @@ export async function createProduct(data: {
   unit?: string;
   unit_price?: number;
   auto_info?: Record<string, unknown>;
+  mfds_item_id?: number;
 }) {
   const supabase = await createClient();
   const { data: row, error } = await supabase.from("products").insert({
@@ -604,4 +605,88 @@ export async function getOrderComments(orderId: number) {
     .order("created_at", { ascending: true });
   if (error) throw error;
   return data ?? [];
+}
+
+// --- MFDS Sync ---
+
+export async function triggerMfdsSync(source: "all" | "drug" | "device" | "device_std" = "all") {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { data, error } = await supabase.functions.invoke("sync-mfds", {
+    body: { trigger: "manual", source, user_id: user?.id },
+  });
+
+  if (error) {
+    return { success: false, error: data?.error ?? error.message };
+  }
+
+  revalidatePath("/settings");
+  revalidatePath("/products");
+  return data as { success: boolean; log_id: number; stats: Record<string, number>; errors?: string[] };
+}
+
+export async function getMfdsSyncStats() {
+  const supabase = await createClient();
+
+  const [drugCount, deviceCount, deviceStdCount] = await Promise.all([
+    supabase.from("mfds_items").select("id", { count: "exact", head: true }).eq("source_type", "drug"),
+    supabase.from("mfds_items").select("id", { count: "exact", head: true }).eq("source_type", "device"),
+    supabase.from("mfds_items").select("id", { count: "exact", head: true }).eq("source_type", "device_std"),
+  ]);
+
+  const { data: lastSync } = await supabase
+    .from("mfds_sync_logs")
+    .select("*")
+    .eq("status", "success")
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return {
+    drug_count: drugCount.count ?? 0,
+    device_count: deviceCount.count ?? 0,
+    device_std_count: deviceStdCount.count ?? 0,
+    last_sync: lastSync ?? null,
+  };
+}
+
+export async function getMfdsSyncLogs(limit = 10) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("mfds_sync_logs")
+    .select("*")
+    .order("started_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function searchMfdsItems(
+  sourceType: "drug" | "device" | "device_std",
+  query: string,
+  page = 1,
+  pageSize = 10,
+) {
+  const supabase = await createClient();
+  const offset = (page - 1) * pageSize;
+  const pattern = `%${query}%`;
+
+  const { data, error, count } = await supabase
+    .from("mfds_items")
+    .select("*", { count: "exact" })
+    .eq("source_type", sourceType)
+    .or(`item_name.ilike.${pattern},manufacturer.ilike.${pattern},product_name.ilike.${pattern}`)
+    .order("item_name")
+    .range(offset, offset + pageSize - 1);
+
+  if (error) throw error;
+
+  return {
+    items: data ?? [],
+    totalCount: count ?? 0,
+    page,
+    pageSize,
+  };
 }

@@ -393,3 +393,27 @@ export interface DrugSearchResponse {
   pageNo: number;
   numOfRows: number;
 }
+
+// --- Device API (식약처 의료기기 허가정보) ---
+
+export interface DeviceSearchResult {
+  prdlst_sn: string;          // 의료기기품목일련번호
+  prdlst_nm: string;          // 품목명
+  meddev_item_no: string;     // 의료기기품목허가번호
+  mnft_clnt_nm: string;       // 제조/수입업체명
+  mnsc_nm: string | null;     // 제조원
+  mnsc_natn_cd: string | null; // 제조국
+  use_purps_cont: string | null; // 사용목적
+  prmsn_ymd: string | null;   // 허가일자
+  prmsn_dclr_divs_nm: string | null; // 허가신고구분
+  mdeq_clsf_no: string | null; // 분류번호
+  clsf_no_grad_cd: string | null; // 분류등급 (1~4)
+  prdt_nm_info: string | null; // 상품명
+}
+
+export interface DeviceSearchResponse {
+  items: DeviceSearchResult[];
+  totalCount: number;
+  pageNo: number;
+  numOfRows: number;
+}

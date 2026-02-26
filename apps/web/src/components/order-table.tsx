@@ -69,7 +69,7 @@ import { useResizableColumns } from "@/hooks/use-resizable-columns";
 import { ResizableTh } from "@/components/resizable-th";
 import { toast } from "sonner";
 import { DrugSearchDialog } from "@/components/drug-search-dialog";
-import type { DrugSearchResult, OrderItemFlat } from "@/lib/types";
+import type { OrderItemFlat } from "@/lib/types";
 
 export interface ProductOption {
   id: number;
@@ -875,7 +875,7 @@ function OrderAccordionContent({
           open={drugSearchItemId !== null}
           onClose={() => setDrugSearchItemId(null)}
           mode="create"
-          onProductCreated={(productId: number, _drug: DrugSearchResult) => {
+          onProductCreated={(productId: number) => {
             if (drugSearchItemId && productId > 0) {
               updateItemField(drugSearchItemId, "product_id", productId);
             }

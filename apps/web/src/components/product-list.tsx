@@ -25,7 +25,8 @@ import { ResizableTh } from "@/components/resizable-th";
 import { BulkActionBar } from "@/components/bulk-action-bar";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { DrugSearchDialog } from "@/components/drug-search-dialog";
-import type { Product, ProductAlias, Hospital, DrugSearchResult } from "@/lib/types";
+import type { MedicalProductFill } from "@/components/drug-search-dialog";
+import type { Product, ProductAlias, Hospital } from "@/lib/types";
 
 const PRODUCT_COL_DEFAULTS: Record<string, number> = {
   checkbox: 40, id: 50, official_name: 180, short_name: 90, category: 100, manufacturer: 100,
@@ -492,7 +493,7 @@ export function ProductFormDialog({
                   onClick={() => setShowDrugSearch(true)}
                   className="shrink-0"
                 >
-                  <Pill className="h-4 w-4 mr-1" />의약품
+                  <Pill className="h-4 w-4 mr-1" />식약처
                 </Button>
               </div>
             </div>
@@ -544,13 +545,14 @@ export function ProductFormDialog({
           open={showDrugSearch}
           onClose={() => setShowDrugSearch(false)}
           mode="fill"
-          onDrugSelect={(drug: DrugSearchResult) => {
-            setOfficialName(drug.item_name);
-            if (drug.entp_name) setManufacturer(drug.entp_name);
-            if (drug.main_item_ingr) setIngredient(drug.main_item_ingr);
-            if (drug.edi_code) setStandardCode(drug.edi_code);
-            setCategory("medication");
-            toast.success("의약품 정보가 입력되었습니다.");
+          onSelect={(data: MedicalProductFill) => {
+            setOfficialName(data.official_name);
+            if (data.manufacturer) setManufacturer(data.manufacturer);
+            if (data.ingredient) setIngredient(data.ingredient);
+            if (data.efficacy) setEfficacy(data.efficacy);
+            if (data.standard_code) setStandardCode(data.standard_code);
+            setCategory(data.category);
+            toast.success("식약처 정보가 입력되었습니다.");
           }}
         />
       </DialogContent>

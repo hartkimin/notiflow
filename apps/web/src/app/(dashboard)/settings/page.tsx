@@ -1,15 +1,9 @@
 import { getSettings } from "@/lib/queries/settings";
-import { getMfdsSyncStats, getMfdsSyncLogs } from "@/lib/actions";
 import { AISettingsForm } from "@/components/ai-settings";
 import { SyncSettingsForm } from "@/components/sync-settings";
-import { MfdsSyncPanel } from "@/components/mfds-sync-panel";
 
 export default async function SettingsPage() {
-  const [settings, syncStats, syncLogs] = await Promise.all([
-    getSettings(),
-    getMfdsSyncStats(),
-    getMfdsSyncLogs(),
-  ]);
+  const settings = await getSettings();
 
   return (
     <>
@@ -21,7 +15,6 @@ export default async function SettingsPage() {
       </div>
       <SyncSettingsForm syncInterval={settings.sync_interval_minutes} />
       <AISettingsForm settings={settings} />
-      <MfdsSyncPanel stats={syncStats} logs={syncLogs} />
     </>
   );
 }

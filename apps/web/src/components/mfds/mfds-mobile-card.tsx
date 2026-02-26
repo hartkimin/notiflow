@@ -85,6 +85,7 @@ export function MfdsMobileCard({
             isAdding={isAdding}
             onAdd={onAdd}
             colSpan={1}
+            variant="div"
           />
         </div>
       )}

@@ -26,6 +26,8 @@ export interface MfdsRowDetailProps {
   isAdding: boolean;
   onAdd: () => void;
   colSpan: number;
+  /** Render as a plain div instead of a table row (for mobile card context) */
+  variant?: "table-row" | "div";
 }
 
 // ---------------------------------------------------------------------------
@@ -122,68 +124,78 @@ export function MfdsRowDetail({
   isAdding,
   onAdd,
   colSpan,
+  variant = "table-row",
 }: MfdsRowDetailProps) {
   const groups = GROUPS_BY_TAB[tab];
 
+  const content = (
+    <div className="bg-muted/20 px-6 py-4">
+      {/* Field groups grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {groups.map((group) => {
+          const visibleFields = group.fields.filter((f) =>
+            isNonEmpty(item[f.key])
+          );
+
+          if (visibleFields.length === 0) return null;
+
+          return (
+            <div key={group.title}>
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                {group.title}
+              </h4>
+              <dl className="space-y-1">
+                {visibleFields.map((field) => (
+                  <div key={field.key} className="flex gap-2 text-sm">
+                    <dt className="text-muted-foreground shrink-0 w-24 text-right">
+                      {field.label}
+                    </dt>
+                    <dd className="break-words min-w-0">
+                      {String(item[field.key])}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Add button area */}
+      <div className="flex justify-end pt-2 border-t mt-4">
+        {isAdded ? (
+          <Badge variant="secondary" className="gap-1">
+            <Check className="h-3 w-3" />
+            추가됨
+          </Badge>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isAdding}
+            onClick={onAdd}
+            className="gap-1"
+          >
+            {isAdding ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+            내 품목에 추가
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
+  if (variant === "div") {
+    return content;
+  }
+
   return (
     <tr>
-      <td colSpan={colSpan} className="bg-muted/20 border-t px-6 py-4">
-        {/* Field groups grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {groups.map((group) => {
-            // Filter out fields with empty values
-            const visibleFields = group.fields.filter((f) =>
-              isNonEmpty(item[f.key])
-            );
-
-            if (visibleFields.length === 0) return null;
-
-            return (
-              <div key={group.title}>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  {group.title}
-                </h4>
-                <dl className="space-y-1">
-                  {visibleFields.map((field) => (
-                    <div key={field.key} className="flex gap-2 text-sm">
-                      <dt className="text-muted-foreground shrink-0 w-24 text-right">
-                        {field.label}
-                      </dt>
-                      <dd className="break-words min-w-0">
-                        {String(item[field.key])}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Add button area */}
-        <div className="flex justify-end pt-2 border-t mt-4">
-          {isAdded ? (
-            <Badge variant="secondary" className="gap-1">
-              <Check className="h-3 w-3" />
-              추가됨
-            </Badge>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isAdding}
-              onClick={onAdd}
-              className="gap-1"
-            >
-              {isAdding ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-              내 품목에 추가
-            </Button>
-          )}
-        </div>
+      <td colSpan={colSpan} className="border-t p-0">
+        {content}
       </td>
     </tr>
   );

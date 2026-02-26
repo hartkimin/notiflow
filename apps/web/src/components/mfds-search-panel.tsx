@@ -214,6 +214,12 @@ export function MfdsSearchPanel({
       } catch (err) {
         toast.error(
           `검색 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
+          {
+            action: {
+              label: "재시도",
+              onClick: () => doSearch(targetPage),
+            },
+          },
         );
       } finally {
         setIsLoading(false);
@@ -328,6 +334,8 @@ export function MfdsSearchPanel({
         isPending={isPending}
         isLoading={isLoading}
         hasSearched={hasSearched}
+        globalFilter={globalFilter}
+        onGlobalFilterReset={() => setGlobalFilter("")}
       />
 
       {/* Pagination */}

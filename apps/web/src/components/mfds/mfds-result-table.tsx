@@ -9,6 +9,7 @@ import {
   ArrowDown,
   ArrowUpDown,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MfdsRowDetail } from "./mfds-row-detail";
 import { MfdsMobileCard } from "./mfds-mobile-card";
@@ -29,6 +30,8 @@ interface MfdsResultTableProps {
   isPending: boolean;
   isLoading: boolean;
   hasSearched: boolean;
+  globalFilter: string;
+  onGlobalFilterReset: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -57,6 +60,8 @@ export function MfdsResultTable({
   isPending,
   isLoading,
   hasSearched,
+  globalFilter,
+  onGlobalFilterReset,
 }: MfdsResultTableProps) {
   // State 3: No search yet — render nothing
   if (!hasSearched) return null;
@@ -73,13 +78,27 @@ export function MfdsResultTable({
   }
 
   const rows = table.getRowModel().rows;
+  const filteredRows = table.getFilteredRowModel().rows;
+  const hasData = table.getCoreRowModel().rows.length > 0;
 
-  // State 2: Empty after search
-  if (rows.length === 0) {
+  // State 2a: API returned 0 results
+  if (!hasData) {
     return (
       <div className="text-center py-12 text-muted-foreground space-y-1">
         <p>검색 결과가 없습니다.</p>
         <p className="text-sm">다른 검색어를 시도하거나, 필터를 줄여보세요.</p>
+      </div>
+    );
+  }
+
+  // State 2b: Global filter excluded all rows
+  if (filteredRows.length === 0 && globalFilter) {
+    return (
+      <div className="text-center py-12 text-muted-foreground space-y-2">
+        <p>필터 조건에 맞는 항목이 없습니다.</p>
+        <Button variant="outline" size="sm" onClick={onGlobalFilterReset}>
+          필터 초기화
+        </Button>
       </div>
     );
   }
@@ -194,10 +213,17 @@ export function MfdsResultTable({
                 <Fragment key={row.id}>
                   {/* Data row */}
                   <tr
+                    tabIndex={0}
                     className={`hover:bg-muted/30 cursor-pointer transition-colors ${
                       isExpanded ? "bg-muted/20" : ""
                     }`}
                     onClick={() => onExpandToggle(row.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onExpandToggle(row.id);
+                      }
+                    }}
                   >
                     {row.getVisibleCells().map((cell) => {
                       const isAction = cell.column.id === "_action";

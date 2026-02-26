@@ -417,3 +417,35 @@ export interface DeviceSearchResponse {
   pageNo: number;
   numOfRows: number;
 }
+
+// --- Device Standard Code API (식약처 의료기기 표준코드별 제품정보) ---
+
+export interface DeviceStdSearchResult {
+  udidi_cd: string;                  // UDI-DI코드
+  prdlst_nm: string;                 // 품목명
+  mdeq_clsf_no: string | null;      // 분류번호
+  clsf_no_grad_cd: string | null;    // 등급 (1~4)
+  permit_no: string | null;          // 품목허가번호
+  prmsn_ymd: string | null;          // 품목허가일자
+  foml_info: string | null;          // 모델명
+  prdt_nm_info: string | null;       // 제품명(상품명)
+  hmbd_trspt_mdeq_yn: string | null; // 인체이식형여부
+  dspsbl_mdeq_yn: string | null;     // 일회용여부
+  trck_mng_trgt_yn: string | null;   // 추적관리대상여부
+  total_dev: string | null;          // 한벌구성의료기기여부
+  cmbnmd_yn: string | null;          // 조합의료기기여부
+  use_before_strlzt_need_yn: string | null; // 사용전멸균필요여부
+  sterilization_method_nm: string | null;   // 멸균방법
+  use_purps_cont: string | null;     // 사용목적
+  strg_cnd_info: string | null;      // 저장조건
+  circ_cnd_info: string | null;      // 유통취급조건
+  mnft_iprt_entp_nm: string | null;  // 제조수입업체명
+  rcprslry_trgt_yn: string | null;   // 요양급여대상여부
+}
+
+export interface DeviceStdSearchResponse {
+  items: DeviceStdSearchResult[];
+  totalCount: number;
+  pageNo: number;
+  numOfRows: number;
+}

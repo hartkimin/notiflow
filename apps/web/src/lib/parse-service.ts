@@ -81,21 +81,12 @@ export async function resolveHospitalFromSender(
 // ---------------------------------------------------------------------------
 
 export async function getHospitalAliases(
-  supabase: SupabaseClient,
-  hospitalId: number,
+  _supabase: SupabaseClient,
+  _hospitalId: number,
 ): Promise<{ alias: string; product_name: string }[]> {
-  const { data } = await supabase
-    .from("product_aliases")
-    .select("alias, product_id, products(official_name)")
-    .or(`hospital_id.eq.${hospitalId},hospital_id.is.null`);
-
-  return (data ?? []).map(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (a: any) => ({
-      alias: a.alias as string,
-      product_name: (Array.isArray(a.products) ? a.products[0]?.official_name : a.products?.official_name) ?? "",
-    }),
-  );
+  // product_aliases table has been dropped — alias matching is no longer available.
+  // Return empty array so callers continue to work without aliases.
+  return [];
 }
 
 // ---------------------------------------------------------------------------
@@ -298,7 +289,7 @@ export async function parseMessageCore(
 
   // Load product catalog for AI context
   const { data: productRows } = await supabase
-    .from("products")
+    .from("products_catalog")
     .select("official_name, short_name")
     .eq("is_active", true);
 

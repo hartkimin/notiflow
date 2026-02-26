@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     }
 
     const { data: productRows } = await supabase
-      .from("products")
+      .from("products_catalog")
       .select("official_name, short_name")
       .eq("is_active", true);
 

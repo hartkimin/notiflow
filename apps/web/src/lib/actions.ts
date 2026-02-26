@@ -276,7 +276,7 @@ export async function testParseMessage(content: string, hospitalId?: number, sen
   }
 
   const { data: productRows } = await supabase
-    .from("products")
+    .from("products_catalog")
     .select("official_name, short_name")
     .eq("is_active", true);
 

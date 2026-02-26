@@ -100,7 +100,7 @@ export async function POST(req: Request) {
 
       // Load product catalog
       const { data: productRows } = await supabase
-        .from("products")
+        .from("products_catalog")
         .select("official_name, short_name")
         .eq("is_active", true);
 

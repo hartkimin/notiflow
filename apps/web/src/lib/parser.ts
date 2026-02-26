@@ -376,21 +376,12 @@ export async function matchProductsBulk(
   if (items.length === 0) return [];
 
   const { data: products } = await supabase
-    .from("products")
+    .from("products_catalog")
     .select("id, name, official_name, short_name")
     .eq("is_active", true);
 
-  let aliasQuery = supabase
-    .from("product_aliases")
-    .select("id, product_id, alias, alias_normalized, hospital_id");
-
-  if (hospitalId) {
-    aliasQuery = aliasQuery.or(
-      `hospital_id.eq.${hospitalId},hospital_id.is.null`,
-    );
-  }
-
-  const { data: aliases } = await aliasQuery;
+  // product_aliases table has been dropped — alias matching is no longer available.
+  const aliases: never[] = [];
 
   // Build in-memory lookup maps
   const hospitalAliasMap = new Map<string, { product_id: number; alias_id: number }>();
@@ -648,18 +639,7 @@ export async function matchProductsBulk(
     };
   });
 
-  // Update match_count / last_matched_at for matched aliases
-  if (matchedAliasIds.length > 0) {
-    const uniqueIds = [...new Set(matchedAliasIds)];
-    try {
-      await supabase.rpc("increment_alias_match_counts", { alias_ids: uniqueIds });
-    } catch {
-      await supabase
-        .from("product_aliases")
-        .update({ last_matched_at: new Date().toISOString() })
-        .in("id", uniqueIds);
-    }
-  }
+  // product_aliases table has been dropped — alias match count tracking removed.
 
   return results;
 }

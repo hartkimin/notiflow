@@ -66,6 +66,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { MessageSquareText } from "lucide-react";
 import { toast } from "sonner";
+import { MfdsSearchPanel } from "@/components/mfds-search-panel";
 import type { OrderDetail, OrderComment, Product, Supplier } from "@/lib/types";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -119,6 +120,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
   const [deletedIds, setDeletedIds] = useState<Set<number>>(new Set());
   const [productOpenId, setProductOpenId] = useState<number | null>(null);
   const [supplierOpenId, setSupplierOpenId] = useState<number | null>(null);
+  const [showMfdsSearch, setShowMfdsSearch] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [deliveryDate, setDeliveryDate] = useState(
     order.delivery_date ?? "",
@@ -444,42 +446,72 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
           <h4 className="text-sm font-medium print:text-base print:font-semibold">
             주문 품목 ({order.items.length}건)
           </h4>
-          {isEditable &&
-            (!isEditing ? (
+          <div className="flex items-center gap-1 print:hidden">
+            {isEditable && (
               <Button
+                variant="outline"
                 size="sm"
-                variant="ghost"
-                onClick={handleStartEdit}
-                className="h-7 text-xs print:hidden"
+                onClick={() => setShowMfdsSearch(!showMfdsSearch)}
+                className="h-7 text-xs"
               >
-                <Pencil className="h-3.5 w-3.5 mr-1" />
-                수정
+                식약처 검색
               </Button>
-            ) : (
-              <div className="flex items-center gap-1 print:hidden">
+            )}
+            {isEditable &&
+              (!isEditing ? (
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={handleSaveItems}
-                  disabled={isPending}
+                  onClick={handleStartEdit}
                   className="h-7 text-xs"
                 >
-                  <Save className="h-3.5 w-3.5 mr-1" />
-                  {isPending ? "저장중..." : "저장"}
+                  <Pencil className="h-3.5 w-3.5 mr-1" />
+                  수정
                 </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={handleCancelEdit}
-                  disabled={isPending}
-                  className="h-7 text-xs"
-                >
-                  <X className="h-3.5 w-3.5 mr-1" />
-                  취소
-                </Button>
-              </div>
-            ))}
+              ) : (
+                <>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleSaveItems}
+                    disabled={isPending}
+                    className="h-7 text-xs"
+                  >
+                    <Save className="h-3.5 w-3.5 mr-1" />
+                    {isPending ? "저장중..." : "저장"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleCancelEdit}
+                    disabled={isPending}
+                    className="h-7 text-xs"
+                  >
+                    <X className="h-3.5 w-3.5 mr-1" />
+                    취소
+                  </Button>
+                </>
+              ))}
+          </div>
         </div>
+        {showMfdsSearch && (
+          <div className="border rounded-lg p-4 space-y-2 mb-2 print:hidden">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">식약처 품목 검색</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowMfdsSearch(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <MfdsSearchPanel
+              mode="pick"
+              onSelect={(productId) => {
+                setShowMfdsSearch(false);
+                toast.success("품목이 추가되었습니다. 주문 항목에서 선택할 수 있습니다.");
+                router.refresh();
+              }}
+            />
+          </div>
+        )}
         <div className="overflow-x-auto -mx-6">
           <Table style={{ tableLayout: "fixed" }}>
             <TableHeader>

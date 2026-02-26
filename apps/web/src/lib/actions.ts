@@ -20,7 +20,8 @@ export async function createProduct(data: {
   unit?: string;
   unit_price?: number;
   auto_info?: Record<string, unknown>;
-  mfds_item_id?: number;
+  mfds_raw?: Record<string, unknown>;
+  mfds_source_type?: string;
 }) {
   const supabase = await createClient();
   const { data: row, error } = await supabase.from("products").insert({
@@ -607,134 +608,135 @@ export async function getOrderComments(orderId: number) {
   return data ?? [];
 }
 
-// --- MFDS Sync ---
+// --- MFDS Direct API Search ---
 
-export async function triggerMfdsSync(source: "all" | "drug" | "device" | "device_std" = "all") {
+async function getMfdsApiKey(): Promise<string> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "drug_api_service_key")
+    .single();
+  if (!data?.value) throw new Error("MFDS API 키가 설정되지 않았습니다. 설정 페이지에서 등록해주세요.");
+  return data.value;
+}
 
-  const sources: ("drug" | "device" | "device_std")[] =
-    source === "all" ? ["drug", "device", "device_std"] : [source];
+function parseMfdsApiItems(body: Record<string, unknown>): Record<string, unknown>[] {
+  if (!body) return [];
+  const items = body.items as Record<string, unknown> | undefined;
+  if (!items) return [];
+  if (Array.isArray(items)) return items;
+  const item = items.item;
+  if (!item) return [];
+  return Array.isArray(item) ? item : [item];
+}
 
-  const allStats: Record<string, number> = {};
-  const allErrors: string[] = [];
+export async function searchMfdsDrug(
+  filters: { name?: string; company?: string; code?: string },
+  page = 1,
+) {
+  const serviceKey = await getMfdsApiKey();
+  const params = new URLSearchParams({
+    serviceKey,
+    pageNo: String(page),
+    numOfRows: "25",
+    type: "json",
+  });
+  if (filters.name) params.set("ITEM_NAME", filters.name);
+  if (filters.company) params.set("ENTP_NAME", filters.company);
+  if (filters.code) params.set("ITEM_SEQ", filters.code);
 
-  for (const src of sources) {
-    let startPage = 1;
-    let logId: number | null = null;
-    let syncStartedAt: string | null = null;
+  const url = `https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService07/getDrugPrdtPrmsnDtlInq06?${params}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`MFDS API 오류: ${res.status}`);
 
-    while (true) {
-      const reqBody: Record<string, unknown> = {
-        trigger: "manual",
-        source: src,
-        user_id: user?.id,
-        startPage,
-        maxPages: 20,
+  const json = await res.json();
+  const body = json?.body;
+
+  return {
+    items: parseMfdsApiItems(body),
+    totalCount: (body?.totalCount as number) ?? 0,
+    page,
+  };
+}
+
+export async function searchMfdsDevice(
+  filters: { name?: string; company?: string; code?: string },
+  page = 1,
+) {
+  const serviceKey = await getMfdsApiKey();
+  const params = new URLSearchParams({
+    serviceKey,
+    pageNo: String(page),
+    numOfRows: "25",
+    type: "json",
+  });
+  if (filters.name) params.set("PRDLST_NM", filters.name);
+  if (filters.company) params.set("MNFT_IPRT_ENTP_NM", filters.company);
+  if (filters.code) params.set("UDIDI_CD", filters.code);
+
+  const url = `https://apis.data.go.kr/1471000/MdeqStdCdPrdtInfoService03/getMdeqStdCdPrdtInfoInq03?${params}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`MFDS API 오류: ${res.status}`);
+
+  const json = await res.json();
+  const body = json?.body;
+
+  return {
+    items: parseMfdsApiItems(body),
+    totalCount: (body?.totalCount as number) ?? 0,
+    page,
+  };
+}
+
+export async function addMfdsItemToProducts(
+  item: Record<string, unknown>,
+  sourceType: "drug" | "device_std",
+) {
+  const supabase = await createClient();
+
+  const mapped: Record<string, unknown> = sourceType === "drug"
+    ? {
+        name: item.ITEM_NAME ?? "",
+        official_name: item.ITEM_NAME ?? "",
+        manufacturer: item.ENTP_NAME ?? null,
+        standard_code: item.BAR_CODE ?? null,
+        ingredient: item.MAIN_ITEM_INGR ?? null,
+        category: "drug",
+      }
+    : {
+        name: item.PRDLST_NM ?? "",
+        official_name: item.PRDLST_NM ?? "",
+        manufacturer: item.MNFT_IPRT_ENTP_NM ?? null,
+        standard_code: item.UDIDI_CD ?? null,
+        efficacy: item.USE_PURPS_CONT ?? null,
+        category: "device",
       };
-      if (logId) {
-        reqBody.logId = logId;
-        reqBody.syncStartedAt = syncStartedAt;
-      }
 
-      const { data, error } = await supabase.functions.invoke("sync-mfds", {
-        body: reqBody,
-      });
+  if (mapped.standard_code) {
+    const { data: existing } = await supabase
+      .from("products")
+      .select("id")
+      .eq("standard_code", mapped.standard_code as string)
+      .maybeSingle();
 
-      if (error) {
-        allErrors.push(data?.error ?? error.message);
-        break;
-      }
-
-      const result = data as Record<string, unknown>;
-      if (!logId && result.logId) logId = result.logId as number;
-      if (!logId && result.log_id) logId = result.log_id as number;
-      if (result.syncStartedAt) syncStartedAt = result.syncStartedAt as string;
-      if (result.errors) allErrors.push(...(result.errors as string[]));
-
-      // Merge stats
-      if (result.stats) {
-        for (const [k, v] of Object.entries(result.stats as Record<string, number>)) {
-          allStats[k] = (allStats[k] ?? 0) + v;
-        }
-      }
-
-      if (!result.hasMore) break;
-      startPage = result.nextPage as number;
+    if (existing) {
+      return { success: true, id: existing.id, alreadyExists: true };
     }
   }
 
-  revalidatePath("/settings");
+  const { data: row, error } = await supabase
+    .from("products")
+    .insert({
+      ...mapped,
+      mfds_raw: item,
+      mfds_source_type: sourceType,
+    })
+    .select("id")
+    .single();
+
+  if (error) throw error;
+
   revalidatePath("/products");
-
-  return {
-    success: allErrors.length === 0,
-    stats: allStats,
-    errors: allErrors.length > 0 ? allErrors : undefined,
-  };
-}
-
-export async function getMfdsSyncStats() {
-  const supabase = await createClient();
-
-  const [drugCount, deviceCount, deviceStdCount] = await Promise.all([
-    supabase.from("mfds_items").select("id", { count: "exact", head: true }).eq("source_type", "drug"),
-    supabase.from("mfds_items").select("id", { count: "exact", head: true }).eq("source_type", "device"),
-    supabase.from("mfds_items").select("id", { count: "exact", head: true }).eq("source_type", "device_std"),
-  ]);
-
-  const { data: lastSync } = await supabase
-    .from("mfds_sync_logs")
-    .select("*")
-    .eq("status", "success")
-    .order("started_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  return {
-    drug_count: drugCount.count ?? 0,
-    device_count: deviceCount.count ?? 0,
-    device_std_count: deviceStdCount.count ?? 0,
-    last_sync: lastSync ?? null,
-  };
-}
-
-export async function getMfdsSyncLogs(limit = 10) {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("mfds_sync_logs")
-    .select("*")
-    .order("started_at", { ascending: false })
-    .limit(limit);
-
-  if (error) throw error;
-  return data ?? [];
-}
-
-export async function searchMfdsItems(
-  sourceType: "drug" | "device" | "device_std",
-  query: string,
-  page = 1,
-  pageSize = 10,
-) {
-  const supabase = await createClient();
-  const offset = (page - 1) * pageSize;
-  const pattern = `%${query}%`;
-
-  const { data, error, count } = await supabase
-    .from("mfds_items")
-    .select("*", { count: "exact" })
-    .eq("source_type", sourceType)
-    .or(`item_name.ilike.${pattern},manufacturer.ilike.${pattern},product_name.ilike.${pattern}`)
-    .order("item_name")
-    .range(offset, offset + pageSize - 1);
-
-  if (error) throw error;
-
-  return {
-    items: data ?? [],
-    totalCount: count ?? 0,
-    page,
-    pageSize,
-  };
+  return { success: true, id: row.id, alreadyExists: false };
 }

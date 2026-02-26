@@ -13,11 +13,25 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2, Check, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2 } from "lucide-react";
 import {
   searchMfdsDrug,
   searchMfdsDevice,
-  addMfdsItemToProducts,
+  addToMyDrugs,
+  addToMyDevices,
+  syncMyDrug,
+  syncMyDevice,
+  applyDrugSync,
+  applyDeviceSync,
+  deleteMyDrug,
+  deleteMyDevice,
 } from "@/lib/actions";
 import { detectSearchFields, type FilterChip } from "@/lib/mfds-search-utils";
 import { useRecentSearches } from "@/hooks/use-recent-searches";
@@ -25,14 +39,16 @@ import { MfdsSearchBar } from "@/components/mfds/mfds-search-bar";
 import { MfdsResultToolbar } from "@/components/mfds/mfds-result-toolbar";
 import { MfdsResultTable } from "@/components/mfds/mfds-result-table";
 import { MfdsPagination } from "@/components/mfds/mfds-pagination";
-import type { MfdsApiSource } from "@/lib/types";
+import type { MfdsApiSource, SyncDiffEntry } from "@/lib/types";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
 interface MfdsSearchPanelProps {
-  mode: "browse" | "pick";
+  mode: "browse" | "pick" | "manage";
   onSelect?: (productId: number) => void;
   existingStandardCodes?: string[];
+  myDrugs?: Record<string, unknown>[];
+  myDevices?: Record<string, unknown>[];
 }
 
 // ─── Component ──────────────────────────────────────────────────────
@@ -41,6 +57,8 @@ export function MfdsSearchPanel({
   mode,
   onSelect,
   existingStandardCodes = [],
+  myDrugs,
+  myDevices,
 }: MfdsSearchPanelProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -77,6 +95,11 @@ export function MfdsSearchPanel({
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
 
+  // Sync state (manage mode only)
+  const [syncingId, setSyncingId] = useState<number | null>(null);
+  const [syncDiff, setSyncDiff] = useState<{ id: number; changes: SyncDiffEntry[] } | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
   const pageSize = 25;
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -100,15 +123,45 @@ export function MfdsSearchPanel({
 
     const actionCol: ColumnDef<Record<string, unknown>> = {
       id: "_action",
-      header: mode === "browse" ? "추가" : "선택",
-      size: 70,
+      header: mode === "manage" ? "동기화" : mode === "browse" ? "추가" : "선택",
+      size: mode === "manage" ? 110 : 70,
       enableResizing: false,
       enableSorting: false,
       enableGlobalFilter: false,
       cell: ({ row }) => {
         const item = row.original;
-        const code =
-          ((tab === "drug" ? item.BAR_CODE : item.UDIDI_CD) as string) ?? "";
+
+        if (mode === "manage") {
+          const itemId = item.id as number;
+          const isSyncing = syncingId === itemId;
+          return (
+            <div className="flex gap-1">
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={isSyncing}
+                onClick={(e) => { e.stopPropagation(); handleSync(item); }}
+              >
+                {isSyncing ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3 w-3" />
+                )}
+              </Button>
+              <Button
+                size="xs"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                disabled={deletingId === itemId}
+                onClick={(e) => { e.stopPropagation(); handleDelete(item); }}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          );
+        }
+
+        const code = ((tab === "drug" ? item.BAR_CODE : item.UDIDI_CD) as string) ?? "";
         const alreadyAdded = existingStandardCodes.includes(code);
 
         if (alreadyAdded) {
@@ -203,7 +256,7 @@ export function MfdsSearchPanel({
     const dataCols = tab === "drug" ? drugDataCols : deviceDataCols;
     return [expandCol, ...dataCols, actionCol];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, mode, existingStandardCodes, isPending, addingId, expandedRowId]);
+  }, [tab, mode, existingStandardCodes, isPending, addingId, expandedRowId, syncingId, deletingId]);
 
   // ── Table instance ────────────────────────────────────────────────
 
@@ -288,15 +341,25 @@ export function MfdsSearchPanel({
     }
   }, [doSearch]);
 
+  // ── Manage mode: load data from DB props ──────────────────────────
+  useEffect(() => {
+    if (mode !== "manage") return;
+    const data = tab === "drug" ? (myDrugs ?? []) : (myDevices ?? []);
+    setResults(data);
+    setTotalCount(data.length);
+    setHasSearched(true);
+  }, [mode, tab, myDrugs, myDevices]);
+
   // ── Add handler ───────────────────────────────────────────────────
 
   function handleAdd(item: Record<string, unknown>) {
-    const code =
-      ((tab === "drug" ? item.BAR_CODE : item.UDIDI_CD) as string) ?? "";
+    const code = ((tab === "drug" ? item.BAR_CODE : item.UDIDI_CD) as string) ?? "";
     setAddingId(code);
     startTransition(async () => {
       try {
-        const result = await addMfdsItemToProducts(item, tab);
+        const result = tab === "drug"
+          ? await addToMyDrugs(item)
+          : await addToMyDevices(item);
         if (result.alreadyExists) {
           toast.info("이미 내 품목에 등록된 항목입니다.");
         } else {
@@ -312,11 +375,86 @@ export function MfdsSearchPanel({
         }
         router.refresh();
       } catch (err) {
-        toast.error(
-          `추가 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
-        );
+        toast.error(`추가 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
       } finally {
         setAddingId(null);
+      }
+    });
+  }
+
+  // ── Sync handler (manage mode) ───────────────────────────────────
+
+  function handleSync(item: Record<string, unknown>) {
+    const itemId = item.id as number;
+    setSyncingId(itemId);
+    startTransition(async () => {
+      try {
+        const result = tab === "drug"
+          ? await syncMyDrug(itemId)
+          : await syncMyDevice(itemId);
+
+        if (!result.found) {
+          toast.error("식약처 API에서 해당 품목을 찾을 수 없습니다.");
+          return;
+        }
+
+        if (result.changes.length === 0) {
+          toast.success("최신 상태입니다.");
+        } else {
+          setSyncDiff({ id: itemId, changes: result.changes });
+        }
+      } catch (err) {
+        toast.error(`동기화 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
+      } finally {
+        setSyncingId(null);
+      }
+    });
+  }
+
+  function handleApplySync() {
+    if (!syncDiff) return;
+    startTransition(async () => {
+      try {
+        const updates: Record<string, string> = {};
+        for (const c of syncDiff.changes) {
+          updates[c.column] = c.newValue;
+        }
+        if (tab === "drug") {
+          await applyDrugSync(syncDiff.id, updates);
+        } else {
+          await applyDeviceSync(syncDiff.id, updates);
+        }
+        toast.success("변경사항이 적용되었습니다.");
+        setSyncDiff(null);
+        router.refresh();
+      } catch (err) {
+        toast.error(`적용 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
+      }
+    });
+  }
+
+  function handleDelete(item: Record<string, unknown>) {
+    const itemId = item.id as number;
+    const name = tab === "drug"
+      ? (item.ITEM_NAME as string) ?? (item.item_name as string) ?? ""
+      : (item.PRDLST_NM as string) ?? (item.prdlst_nm as string) ?? "";
+
+    if (!confirm(`"${name}" 항목을 삭제하시겠습니까?`)) return;
+
+    setDeletingId(itemId);
+    startTransition(async () => {
+      try {
+        if (tab === "drug") {
+          await deleteMyDrug(itemId);
+        } else {
+          await deleteMyDevice(itemId);
+        }
+        toast.success("삭제되었습니다.");
+        router.refresh();
+      } catch (err) {
+        toast.error(`삭제 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
+      } finally {
+        setDeletingId(null);
       }
     });
   }
@@ -369,7 +507,13 @@ export function MfdsSearchPanel({
         onQueryChange={setQuery}
         activeFilters={activeFilters}
         onFiltersChange={setActiveFilters}
-        onSearch={() => doSearch(1)}
+        onSearch={() => {
+          if (mode === "manage") {
+            setGlobalFilter(query);
+          } else {
+            doSearch(1);
+          }
+        }}
         isPending={isPending}
         recentSearches={recentSearches.items}
         onRecentClick={handleRecentClick}
@@ -408,13 +552,59 @@ export function MfdsSearchPanel({
       />
 
       {/* Pagination */}
-      <MfdsPagination
-        page={page}
-        totalPages={totalPages}
-        totalCount={totalCount}
-        isPending={isPending}
-        onPageChange={(p) => doSearch(p)}
-      />
+      {mode !== "manage" && (
+        <MfdsPagination
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          isPending={isPending}
+          onPageChange={(p) => doSearch(p)}
+        />
+      )}
+
+      {/* Sync diff dialog */}
+      {syncDiff && (
+        <Dialog open onOpenChange={() => setSyncDiff(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>품목 변경사항 확인</DialogTitle>
+            </DialogHeader>
+            <div className="max-h-80 overflow-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="py-2 pr-3 font-medium">항목</th>
+                    <th className="py-2 pr-3 font-medium">현재값</th>
+                    <th className="py-2 font-medium">새 값</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {syncDiff.changes.map((c) => (
+                    <tr key={c.column} className="border-b">
+                      <td className="py-2 pr-3 text-muted-foreground">{c.label}</td>
+                      <td className="py-2 pr-3 line-through text-red-500 break-all">
+                        {c.oldValue || "(비어있음)"}
+                      </td>
+                      <td className="py-2 text-green-600 break-all">
+                        {c.newValue || "(비어있음)"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSyncDiff(null)}>
+                취소
+              </Button>
+              <Button onClick={handleApplySync} disabled={isPending}>
+                {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                적용
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

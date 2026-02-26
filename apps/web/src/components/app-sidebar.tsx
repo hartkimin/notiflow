@@ -85,9 +85,10 @@ export function AppSidebar({ userName, collapsed = false, onToggle }: AppSidebar
                 )}
                 <nav className={cn("grid gap-0.5", collapsed ? "px-1.5" : "px-2 lg:px-3")}>
                   {group.items.map((item) => {
-                    const isActive =
-                      item.href === pathname ||
-                      (item.href !== "/" && pathname.startsWith(item.href));
+                    const isActive = item.exact
+                      ? item.href === pathname
+                      : item.href === pathname ||
+                        (item.href !== "/" && pathname.startsWith(item.href));
 
                     const linkContent = (
                       <Link

@@ -42,9 +42,10 @@ export function Nav({ syncInterval = 5 }: { syncInterval?: number }) {
                 </div>
                 <nav className="grid gap-0.5 px-2">
                   {group.items.map((item) => {
-                    const isActive =
-                      item.href === pathname ||
-                      (item.href !== "/" && pathname.startsWith(item.href));
+                    const isActive = item.exact
+                      ? item.href === pathname
+                      : item.href === pathname ||
+                        (item.href !== "/" && pathname.startsWith(item.href));
                     return (
                       <Link
                         key={item.href}

@@ -1,5 +1,4 @@
 import {
-  Package,
   Package2,
   Users,
   MessageSquare,
@@ -8,6 +7,8 @@ import {
   Factory,
   Smartphone,
   LayoutDashboard,
+  Search,
+  BookmarkCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -15,6 +16,8 @@ export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  /** When true, only highlight when pathname === href (no prefix matching) */
+  exact?: boolean;
 }
 
 export interface NavGroup {
@@ -35,7 +38,8 @@ export const navGroups: NavGroup[] = [
     label: "마스터 데이터",
     items: [
       { href: "/hospitals", label: "거래처", icon: Building2 },
-      { href: "/products", label: "품목", icon: Package },
+      { href: "/products", label: "품목 검색", icon: Search, exact: true },
+      { href: "/products/my", label: "내 품목", icon: BookmarkCheck },
       { href: "/suppliers", label: "공급사", icon: Factory },
     ],
   },

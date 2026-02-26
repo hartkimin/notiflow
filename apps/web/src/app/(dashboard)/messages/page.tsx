@@ -1,6 +1,6 @@
 import { getMessages, getMessagesForCalendar } from "@/lib/queries/messages";
 import { getHospitals } from "@/lib/queries/hospitals";
-import { getProducts } from "@/lib/queries/products";
+import { getProductsCatalog } from "@/lib/queries/products";
 import { getForecastsForCalendar } from "@/lib/queries/forecasts";
 import { MessagesView } from "@/components/messages-view";
 import { RealtimeListener } from "@/components/realtime-listener";
@@ -51,7 +51,7 @@ export default async function MessagesPage({ searchParams }: Props) {
       .catch(() => ({ messages: [], total: 0 })),
     getMessagesForCalendar({ from: fromStr, to: toStr }).catch(() => []),
     getHospitals({ limit: 500 }).catch(() => ({ hospitals: [], total: 0 })),
-    getProducts({ limit: 500 }).catch(() => ({ products: [], total: 0 })),
+    getProductsCatalog().catch(() => []),
     getForecastsForCalendar({ from: fromStr, to: toStr }).catch(() => []),
   ]);
 
@@ -64,7 +64,7 @@ export default async function MessagesPage({ searchParams }: Props) {
         initialTab={initialTab}
         messages={result.messages}
         hospitals={hospitalsResult.hospitals}
-        products={productsResult.products}
+        products={productsResult as any}
         currentPage={page}
         totalPages={totalPages}
         totalCount={result.total}

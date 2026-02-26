@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, MessageSquare } from "lucide-react";
 
 import { getOrder } from "@/lib/queries/orders";
-import { getProducts } from "@/lib/queries/products";
+import { getProductsCatalog } from "@/lib/queries/products";
 import { getSuppliers } from "@/lib/queries/suppliers";
 import { getOrderComments } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
@@ -41,12 +41,14 @@ export default async function OrderDetailPage({ params }: Props) {
   try {
     const [orderData, prodData, suppData, commentsData] = await Promise.all([
       getOrder(orderId),
-      getProducts({ limit: 500 }),
+      getProductsCatalog(),
       getSuppliers({ limit: 500 }),
       getOrderComments(orderId),
     ]);
     order = orderData;
-    products = prodData.products;
+    // products_catalog VIEW returns a subset of Product fields; cast for backward compat
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    products = prodData as any;
     supplierOptions = suppData.suppliers.map((s) => ({ id: s.id, name: s.name }));
     comments = commentsData;
   } catch {

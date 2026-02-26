@@ -23,7 +23,6 @@ import {
 import { cn } from "@/lib/utils";
 import { createManualOrder } from "@/app/(dashboard)/messages/actions";
 import { HospitalFormDialog } from "@/components/hospital-list";
-import { ProductFormDialog } from "@/components/product-list";
 import type { Hospital, Product } from "@/lib/types";
 
 interface ParseItem {
@@ -52,7 +51,6 @@ export function ManualParseForm({
   const [productOpenIdx, setProductOpenIdx] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
   const [showAddHospital, setShowAddHospital] = useState(false);
-  const [showAddProduct, setShowAddProduct] = useState(false);
 
   const selectedHospital = hospitals.find((h) => String(h.id) === hospitalId);
 
@@ -176,9 +174,6 @@ export function ManualParseForm({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <Label>주문 항목</Label>
-          <Button type="button" variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={() => setShowAddProduct(true)}>
-            <Plus className="h-3 w-3 mr-0.5" />품목 추가
-          </Button>
         </div>
         {items.map((item, idx) => (
           <div key={idx} className="space-y-1.5 rounded border p-2">
@@ -279,11 +274,6 @@ export function ManualParseForm({
         open={showAddHospital}
         onClose={() => { setShowAddHospital(false); router.refresh(); }}
         title="거래처 추가"
-      />
-      <ProductFormDialog
-        open={showAddProduct}
-        onClose={() => { setShowAddProduct(false); router.refresh(); }}
-        title="품목 추가"
       />
     </div>
   );

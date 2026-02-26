@@ -127,7 +127,8 @@ export interface Product {
   unit: string | null;
   unit_price: number | null;
   is_active: boolean;
-  mfds_item_id: number | null;
+  mfds_raw: Record<string, unknown> | null;
+  mfds_source_type: string | null;
 }
 
 export interface Supplier {
@@ -372,78 +373,55 @@ export type MessageCalendarItem =
   | { kind: 'message'; data: RawMessage }
   | { kind: 'forecast'; data: OrderForecast };
 
-// --- MFDS Unified Items (식약처 통합 데이터) ---
+// --- MFDS Direct API Search ---
 
-export type MfdsSourceType = "drug" | "device" | "device_std";
+export type MfdsApiSource = "drug" | "device_std";
 
-export interface MfdsItem {
-  id: number;
-  source_type: MfdsSourceType;
-  source_key: string;
-  item_name: string;
-  manufacturer: string | null;
-  permit_no: string | null;
-  permit_date: string | null;
-  standard_code: string | null;
-  classification_no: string | null;
-  classification_grade: string | null;
-  product_name: string | null;
-  use_purpose: string | null;
-  edi_code: string | null;
-  atc_code: string | null;
-  main_item_ingr: string | null;
-  bizrno: string | null;
-  rare_drug_yn: string | null;
-  mnsc_nm: string | null;
-  mnsc_natn_cd: string | null;
-  prmsn_dclr_divs_nm: string | null;
-  foml_info: string | null;
-  hmbd_trspt_mdeq_yn: string | null;
-  dspsbl_mdeq_yn: string | null;
-  trck_mng_trgt_yn: string | null;
-  total_dev: string | null;
-  cmbnmd_yn: string | null;
-  use_before_strlzt_need_yn: string | null;
-  sterilization_method: string | null;
-  strg_cnd_info: string | null;
-  circ_cnd_info: string | null;
-  rcprslry_trgt_yn: string | null;
-  created_at: string;
-  updated_at: string;
+/** Raw API response item from 의약품 허가정보 */
+export interface MfdsDrugItem {
+  ITEM_SEQ: string;
+  ITEM_NAME: string;
+  ENTP_NAME: string;
+  ENTP_NO: string;
+  ITEM_PERMIT_DATE: string;
+  BAR_CODE: string;
+  EDI_CODE: string;
+  ATC_CODE: string;
+  MAIN_ITEM_INGR: string;
+  BIZRNO: string;
+  RARE_DRUG_YN: string;
+  [key: string]: string;
 }
 
-export interface MfdsSyncLog {
-  id: number;
-  started_at: string;
-  finished_at: string | null;
-  status: "running" | "success" | "failed";
-  trigger_type: "manual" | "scheduled";
-  triggered_by: string | null;
-  source_filter: string | null;
-  drug_total: number;
-  drug_added: number;
-  drug_updated: number;
-  device_total: number;
-  device_added: number;
-  device_updated: number;
-  device_std_total: number;
-  device_std_added: number;
-  device_std_updated: number;
-  products_updated: number;
-  error_message: string | null;
-  duration_ms: number | null;
+/** Raw API response item from 의료기기 표준코드 */
+export interface MfdsDeviceStdItem {
+  UDIDI_CD: string;
+  PRDLST_NM: string;
+  MNFT_IPRT_ENTP_NM: string;
+  PERMIT_NO: string;
+  PRMSN_YMD: string;
+  MDEQ_CLSF_NO: string;
+  CLSF_NO_GRAD_CD: string;
+  PRDT_NM_INFO: string;
+  USE_PURPS_CONT: string;
+  FOML_INFO: string;
+  HMBD_TRSPT_MDEQ_YN: string;
+  DSPSBL_MDEQ_YN: string;
+  TRCK_MNG_TRGT_YN: string;
+  TOTAL_DEV: string;
+  CMBNMD_YN: string;
+  USE_BEFORE_STRLZT_NEED_YN: string;
+  STERILIZATION_METHOD_NM: string;
+  STRG_CND_INFO: string;
+  CIRC_CND_INFO: string;
+  RCPRSLRY_TRGT_YN: string;
+  [key: string]: string;
 }
 
-export interface MfdsSearchResponse {
-  items: MfdsItem[];
+export type MfdsApiItem = MfdsDrugItem | MfdsDeviceStdItem;
+
+export interface MfdsApiSearchResult {
+  items: MfdsApiItem[];
   totalCount: number;
   page: number;
-  pageSize: number;
-}
-
-export interface MfdsSyncStats {
-  drug_count: number;
-  device_count: number;
-  device_std_count: number;
-  last_sync: MfdsSyncLog | null;
 }

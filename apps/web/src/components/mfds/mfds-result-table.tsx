@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MfdsRowDetail } from "./mfds-row-detail";
+import { MfdsMobileCard } from "./mfds-mobile-card";
 import type { MfdsApiSource } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -88,123 +89,149 @@ export function MfdsResultTable({
   const totalColSpan = table.getVisibleLeafColumns().length;
 
   return (
-    <div className="border rounded-md overflow-x-auto">
-      <table className="w-full text-sm">
-        {/* ── Header ──────────────────────────────────────────── */}
-        <thead className="bg-muted/50">
-          {headerGroups.map((headerGroup) => (
-            <tr key={headerGroup.id}>
-              {headerGroup.headers.map((header) => {
-                const isUtility =
-                  header.id === "_action" || header.id === "_expand";
+    <>
+      {/* ── Mobile card list (< 768px) ─────────────────────── */}
+      <div className="space-y-2 md:hidden">
+        {rows.map((row) => {
+          const item = row.original;
+          const code = getStandardCode(item, tab);
+          const isAdded = existingStandardCodes.includes(code);
+          const isAdding = isPending && addingId === code;
 
-                return (
-                  <th
-                    key={header.id}
-                    className={`relative px-3 py-2 text-left whitespace-nowrap select-none ${
-                      isUtility ? "w-12" : ""
-                    }`}
-                    style={
-                      isUtility ? undefined : { width: header.getSize() }
-                    }
-                  >
-                    <div
-                      className={`flex items-center gap-1 ${
-                        header.column.getCanSort()
-                          ? "cursor-pointer hover:text-foreground"
-                          : ""
+          return (
+            <MfdsMobileCard
+              key={row.id}
+              item={item}
+              tab={tab}
+              isExpanded={expandedRowId === row.id}
+              onToggle={() => onExpandToggle(row.id)}
+              isAdded={isAdded}
+              isAdding={isAdding}
+              onAdd={() => onAdd(item)}
+            />
+          );
+        })}
+      </div>
+
+      {/* ── Desktop table (≥ 768px) ────────────────────────── */}
+      <div className="border rounded-md overflow-x-auto hidden md:block">
+        <table className="w-full text-sm">
+          {/* ── Header ──────────────────────────────────────────── */}
+          <thead className="bg-muted/50">
+            {headerGroups.map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => {
+                  const isUtility =
+                    header.id === "_action" || header.id === "_expand";
+
+                  return (
+                    <th
+                      key={header.id}
+                      className={`relative px-3 py-2 text-left whitespace-nowrap select-none ${
+                        isUtility ? "w-12" : ""
                       }`}
-                      onClick={header.column.getToggleSortingHandler()}
+                      style={
+                        isUtility ? undefined : { width: header.getSize() }
+                      }
                     >
-                      {flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )}
-                      {header.column.getIsSorted() === "asc" && (
-                        <ArrowUp className="h-3 w-3 flex-shrink-0" />
-                      )}
-                      {header.column.getIsSorted() === "desc" && (
-                        <ArrowDown className="h-3 w-3 flex-shrink-0" />
-                      )}
-                      {header.column.getCanSort() &&
-                        !header.column.getIsSorted() && (
-                          <ArrowUpDown className="h-3 w-3 text-muted-foreground/30 flex-shrink-0" />
-                        )}
-                    </div>
-
-                    {/* Resize handle (not for _action / _expand) */}
-                    {!isUtility && header.column.getCanResize() && (
                       <div
-                        onMouseDown={header.getResizeHandler()}
-                        onTouchStart={header.getResizeHandler()}
-                        className={`absolute right-0 top-0 h-full w-1.5 cursor-col-resize select-none touch-none hover:bg-primary/50 ${
-                          header.column.getIsResizing() ? "bg-primary" : ""
+                        className={`flex items-center gap-1 ${
+                          header.column.getCanSort()
+                            ? "cursor-pointer hover:text-foreground"
+                            : ""
                         }`}
-                      />
-                    )}
-                  </th>
-                );
-              })}
-            </tr>
-          ))}
-        </thead>
-
-        {/* ── Body ────────────────────────────────────────────── */}
-        <tbody className="divide-y">
-          {rows.map((row) => {
-            const isExpanded = expandedRowId === row.id;
-            const item = row.original;
-            const code = getStandardCode(item, tab);
-            const isAdded = existingStandardCodes.includes(code);
-            const isAdding = isPending && addingId === code;
-
-            return (
-              <Fragment key={row.id}>
-                {/* Data row */}
-                <tr
-                  className={`hover:bg-muted/30 cursor-pointer transition-colors ${
-                    isExpanded ? "bg-muted/20" : ""
-                  }`}
-                  onClick={() => onExpandToggle(row.id)}
-                >
-                  {row.getVisibleCells().map((cell) => {
-                    const isAction = cell.column.id === "_action";
-                    return (
-                      <td
-                        key={cell.id}
-                        className="px-3 py-2 whitespace-nowrap max-w-[300px] truncate"
-                        style={{ width: cell.column.getSize() }}
-                        onClick={
-                          isAction
-                            ? (e) => e.stopPropagation()
-                            : undefined
-                        }
+                        onClick={header.column.getToggleSortingHandler()}
                       >
                         {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
+                          header.column.columnDef.header,
+                          header.getContext(),
                         )}
-                      </td>
-                    );
-                  })}
-                </tr>
+                        {header.column.getIsSorted() === "asc" && (
+                          <ArrowUp className="h-3 w-3 flex-shrink-0" />
+                        )}
+                        {header.column.getIsSorted() === "desc" && (
+                          <ArrowDown className="h-3 w-3 flex-shrink-0" />
+                        )}
+                        {header.column.getCanSort() &&
+                          !header.column.getIsSorted() && (
+                            <ArrowUpDown className="h-3 w-3 text-muted-foreground/30 flex-shrink-0" />
+                          )}
+                      </div>
 
-                {/* Expanded detail row */}
-                {isExpanded && (
-                  <MfdsRowDetail
-                    item={item}
-                    tab={tab}
-                    isAdded={isAdded}
-                    isAdding={isAdding}
-                    onAdd={() => onAdd(item)}
-                    colSpan={totalColSpan}
-                  />
-                )}
-              </Fragment>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+                      {/* Resize handle (not for _action / _expand) */}
+                      {!isUtility && header.column.getCanResize() && (
+                        <div
+                          onMouseDown={header.getResizeHandler()}
+                          onTouchStart={header.getResizeHandler()}
+                          className={`absolute right-0 top-0 h-full w-1.5 cursor-col-resize select-none touch-none hover:bg-primary/50 ${
+                            header.column.getIsResizing() ? "bg-primary" : ""
+                          }`}
+                        />
+                      )}
+                    </th>
+                  );
+                })}
+              </tr>
+            ))}
+          </thead>
+
+          {/* ── Body ────────────────────────────────────────────── */}
+          <tbody className="divide-y">
+            {rows.map((row) => {
+              const isExpanded = expandedRowId === row.id;
+              const item = row.original;
+              const code = getStandardCode(item, tab);
+              const isAdded = existingStandardCodes.includes(code);
+              const isAdding = isPending && addingId === code;
+
+              return (
+                <Fragment key={row.id}>
+                  {/* Data row */}
+                  <tr
+                    className={`hover:bg-muted/30 cursor-pointer transition-colors ${
+                      isExpanded ? "bg-muted/20" : ""
+                    }`}
+                    onClick={() => onExpandToggle(row.id)}
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const isAction = cell.column.id === "_action";
+                      return (
+                        <td
+                          key={cell.id}
+                          className="px-3 py-2 whitespace-nowrap max-w-[300px] truncate"
+                          style={{ width: cell.column.getSize() }}
+                          onClick={
+                            isAction
+                              ? (e) => e.stopPropagation()
+                              : undefined
+                          }
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+
+                  {/* Expanded detail row */}
+                  {isExpanded && (
+                    <MfdsRowDetail
+                      item={item}
+                      tab={tab}
+                      isAdded={isAdded}
+                      isAdding={isAdding}
+                      onAdd={() => onAdd(item)}
+                      colSpan={totalColSpan}
+                    />
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }

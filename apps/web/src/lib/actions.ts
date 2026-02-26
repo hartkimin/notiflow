@@ -421,6 +421,14 @@ export async function deleteMessages(ids: number[]) {
 export async function createSupplier(data: {
   name: string;
   short_name?: string;
+  business_number?: string;
+  ceo_name?: string;
+  phone?: string;
+  fax?: string;
+  address?: string;
+  website?: string;
+  business_type?: string;
+  business_category?: string;
   notes?: string;
 }) {
   const supabase = await createClient();

@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown, Sparkles, Loader2 } from "lucide-react";
 import { createSupplier, updateSupplier, deleteSupplier, deleteSuppliers } from "@/lib/actions";
 import { toast } from "sonner";
 import { useResizableColumns } from "@/hooks/use-resizable-columns";
@@ -24,10 +24,10 @@ import { useRowSelection } from "@/hooks/use-row-selection";
 import type { Supplier } from "@/lib/types";
 
 const SUPPLIER_COL_DEFAULTS: Record<string, number> = {
-  checkbox: 40, id: 50, name: 150, short_name: 100, contact_info: 160, notes: 150, is_active: 70, actions: 90,
+  checkbox: 40, id: 50, name: 150, short_name: 100, ceo_name: 100, phone: 120, business_type: 100, notes: 150, is_active: 70, actions: 90,
 };
 
-type SortKey = "id" | "name" | "short_name" | "notes" | "is_active";
+type SortKey = "id" | "name" | "short_name" | "ceo_name" | "phone" | "notes" | "is_active";
 type SortDir = "asc" | "desc";
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
@@ -155,7 +155,13 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
                 <ResizableTh width={widths.short_name} colKey="short_name" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("short_name")}>
                   <span className="inline-flex items-center">약칭<SortIcon active={sortKey === "short_name"} dir={sortDir} /></span>
                 </ResizableTh>
-                <ResizableTh width={widths.contact_info} colKey="contact_info" onResizeStart={onMouseDown}>연락처</ResizableTh>
+                <ResizableTh width={widths.ceo_name} colKey="ceo_name" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("ceo_name")}>
+                  <span className="inline-flex items-center">대표자<SortIcon active={sortKey === "ceo_name"} dir={sortDir} /></span>
+                </ResizableTh>
+                <ResizableTh width={widths.phone} colKey="phone" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("phone")}>
+                  <span className="inline-flex items-center">전화번호<SortIcon active={sortKey === "phone"} dir={sortDir} /></span>
+                </ResizableTh>
+                <ResizableTh width={widths.business_type} colKey="business_type" onResizeStart={onMouseDown}>업태/종목</ResizableTh>
                 <ResizableTh width={widths.notes} colKey="notes" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("notes")}>
                   <span className="inline-flex items-center">비고<SortIcon active={sortKey === "notes"} dir={sortDir} /></span>
                 </ResizableTh>
@@ -177,10 +183,12 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
                   <TableCell className="font-mono text-xs overflow-hidden text-ellipsis">{s.id}</TableCell>
                   <TableCell className="font-medium overflow-hidden text-ellipsis">{s.name}</TableCell>
                   <TableCell className="text-muted-foreground text-sm overflow-hidden text-ellipsis">{s.short_name || "-"}</TableCell>
+                  <TableCell className="text-sm overflow-hidden text-ellipsis">{s.ceo_name || "-"}</TableCell>
+                  <TableCell className="text-sm overflow-hidden text-ellipsis">{s.phone || "-"}</TableCell>
                   <TableCell className="text-xs text-muted-foreground overflow-hidden text-ellipsis">
-                    {s.contact_info ? Object.entries(s.contact_info).map(([k, v]) => (
-                      <span key={k} className="block">{k}: {String(v)}</span>
-                    )) : "-"}
+                    {s.business_type || s.business_category
+                      ? [s.business_type, s.business_category].filter(Boolean).join(" / ")
+                      : "-"}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground overflow-hidden text-ellipsis">{s.notes || "-"}</TableCell>
                   <TableCell className="overflow-hidden text-ellipsis">
@@ -225,12 +233,16 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
                 {s.short_name && (
                   <p className="text-sm text-muted-foreground">약칭: {s.short_name}</p>
                 )}
-                {s.contact_info && Object.keys(s.contact_info).length > 0 && (
-                  <div className="text-xs text-muted-foreground">
-                    {Object.entries(s.contact_info).map(([k, v]) => (
-                      <p key={k}>{k}: {String(v)}</p>
-                    ))}
-                  </div>
+                {s.ceo_name && (
+                  <p className="text-sm text-muted-foreground">대표자: {s.ceo_name}</p>
+                )}
+                {s.phone && (
+                  <p className="text-sm text-muted-foreground">전화: {s.phone}</p>
+                )}
+                {(s.business_type || s.business_category) && (
+                  <p className="text-xs text-muted-foreground">
+                    {[s.business_type, s.business_category].filter(Boolean).join(" / ")}
+                  </p>
                 )}
                 {s.notes && (
                   <p className="text-sm text-muted-foreground">{s.notes}</p>
@@ -293,15 +305,73 @@ function SupplierFormDialog({
   supplier?: Supplier;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [isAiSearching, setIsAiSearching] = useState(false);
   const router = useRouter();
+
+  // Controlled form state for AI auto-fill
+  const [name, setName] = useState(supplier?.name || "");
+  const [shortName, setShortName] = useState(supplier?.short_name || "");
+  const [businessNumber, setBusinessNumber] = useState(supplier?.business_number || "");
+  const [ceoName, setCeoName] = useState(supplier?.ceo_name || "");
+  const [phone, setPhone] = useState(supplier?.phone || "");
+  const [fax, setFax] = useState(supplier?.fax || "");
+  const [address, setAddress] = useState(supplier?.address || "");
+  const [website, setWebsite] = useState(supplier?.website || "");
+  const [businessType, setBusinessType] = useState(supplier?.business_type || "");
+  const [businessCategory, setBusinessCategory] = useState(supplier?.business_category || "");
+  const [notes, setNotes] = useState(supplier?.notes || "");
+
+  async function handleAiSearch() {
+    if (!name.trim()) {
+      toast.error("공급사명을 먼저 입력해주세요.");
+      return;
+    }
+    setIsAiSearching(true);
+    try {
+      const res = await fetch("/api/ai-supplier-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: name.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "AI 검색 실패");
+
+      const s = data.supplier;
+      if (s.name) setName(s.name);
+      if (s.short_name) setShortName(s.short_name);
+      if (s.business_number) setBusinessNumber(s.business_number);
+      if (s.ceo_name) setCeoName(s.ceo_name);
+      if (s.phone) setPhone(s.phone);
+      if (s.fax) setFax(s.fax);
+      if (s.address) setAddress(s.address);
+      if (s.website) setWebsite(s.website);
+      if (s.business_type) setBusinessType(s.business_type);
+      if (s.business_category) setBusinessCategory(s.business_category);
+
+      const providerLabel = data.ai_provider === "google" ? "Gemini" :
+                           data.ai_provider === "openai" ? "GPT" : "Claude";
+      toast.success(`AI 검색 완료 (${providerLabel}, ${data.latency_ms}ms)`);
+    } catch (err) {
+      toast.error(`AI 검색 실패: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsAiSearching(false);
+    }
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const fd = new FormData(e.currentTarget);
     const data = {
-      name: fd.get("name") as string,
-      short_name: fd.get("short_name") as string || undefined,
-      notes: fd.get("notes") as string || undefined,
+      name,
+      short_name: shortName || undefined,
+      business_number: businessNumber || undefined,
+      ceo_name: ceoName || undefined,
+      phone: phone || undefined,
+      fax: fax || undefined,
+      address: address || undefined,
+      website: website || undefined,
+      business_type: businessType || undefined,
+      business_category: businessCategory || undefined,
+      notes: notes || undefined,
     };
 
     startTransition(async () => {
@@ -323,23 +393,98 @@ function SupplierFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-3">
+            {/* Row 1: Name + AI Search */}
             <div className="space-y-1">
               <Label>공급사명 *</Label>
-              <Input name="name" required defaultValue={supplier?.name || ""} />
+              <div className="flex gap-2">
+                <Input
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="공급사명을 입력하세요"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isAiSearching || !name.trim()}
+                  onClick={handleAiSearch}
+                  className="shrink-0"
+                >
+                  {isAiSearching ? (
+                    <><Loader2 className="h-4 w-4 mr-1 animate-spin" />검색중</>
+                  ) : (
+                    <><Sparkles className="h-4 w-4 mr-1" />AI 검색</>
+                  )}
+                </Button>
+              </div>
             </div>
+
+            {/* Row 2: Short Name + CEO */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>약칭</Label>
+                <Input value={shortName} onChange={(e) => setShortName(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>대표자명</Label>
+                <Input value={ceoName} onChange={(e) => setCeoName(e.target.value)} />
+              </div>
+            </div>
+
+            {/* Row 3: Business Number */}
             <div className="space-y-1">
-              <Label>약칭</Label>
-              <Input name="short_name" defaultValue={supplier?.short_name || ""} />
+              <Label>사업자등록번호</Label>
+              <Input value={businessNumber} onChange={(e) => setBusinessNumber(e.target.value)} placeholder="xxx-xx-xxxxx" />
             </div>
+
+            {/* Row 4: Phone + Fax */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>전화번호</Label>
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>팩스번호</Label>
+                <Input value={fax} onChange={(e) => setFax(e.target.value)} />
+              </div>
+            </div>
+
+            {/* Row 5: Address */}
+            <div className="space-y-1">
+              <Label>주소</Label>
+              <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+            </div>
+
+            {/* Row 6: Website */}
+            <div className="space-y-1">
+              <Label>홈페이지</Label>
+              <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://" />
+            </div>
+
+            {/* Row 7: Business Type + Category */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>업태</Label>
+                <Input value={businessType} onChange={(e) => setBusinessType(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>종목</Label>
+                <Input value={businessCategory} onChange={(e) => setBusinessCategory(e.target.value)} />
+              </div>
+            </div>
+
+            {/* Row 8: Notes */}
             <div className="space-y-1">
               <Label>비고</Label>
-              <Input name="notes" defaultValue={supplier?.notes || ""} />
+              <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
           </div>
           <DialogFooter>

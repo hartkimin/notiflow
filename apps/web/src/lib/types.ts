@@ -125,6 +125,14 @@ export interface Supplier {
   name: string;
   short_name: string | null;
   contact_info: Record<string, unknown> | null;
+  business_number: string | null;
+  ceo_name: string | null;
+  phone: string | null;
+  fax: string | null;
+  address: string | null;
+  website: string | null;
+  business_type: string | null;
+  business_category: string | null;
   notes: string | null;
   is_active: boolean;
 }

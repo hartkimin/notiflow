@@ -54,12 +54,14 @@ export function MfdsSyncPanel({ stats, logs }: MfdsSyncPanelProps) {
     startTransition(async () => {
       try {
         const result = await triggerMfdsSync("all");
-        if (result.success) {
+        if (result.success && "stats" in result) {
+          const s = result.stats;
           toast.success(
-            `동기화 완료: 의약품 ${result.stats?.drug_added ?? 0}건 추가, 의료기기 ${result.stats?.device_added ?? 0}건 추가, UDI ${result.stats?.device_std_added ?? 0}건 추가`,
+            `동기화 완료: 의약품 ${s.drug_added ?? 0}건 추가, 의료기기 ${s.device_added ?? 0}건 추가, UDI ${s.device_std_added ?? 0}건 추가`,
           );
         } else {
-          toast.error(`동기화 실패: ${result.error ?? "알 수 없는 오류"}`);
+          const errMsg = "error" in result ? result.error : "알 수 없는 오류";
+          toast.error(`동기화 실패: ${errMsg}`);
         }
         router.refresh();
       } catch (err) {

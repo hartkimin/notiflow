@@ -703,7 +703,7 @@ export async function addMfdsItemToProducts(
         official_name: item.ITEM_NAME ?? "",
         manufacturer: item.ENTP_NAME ?? null,
         standard_code: item.BAR_CODE ?? null,
-        ingredient: item.MAIN_ITEM_INGR ?? null,
+        ingredient: item.MATERIAL_NAME ?? null,
         category: "drug",
       }
     : {

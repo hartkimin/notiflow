@@ -377,34 +377,46 @@ export type MessageCalendarItem =
 
 export type MfdsApiSource = "drug" | "device_std";
 
-/** Raw API response item from 의약품 허가정보 */
+/** Raw API response item from 의약품 제품 허가정보 (getDrugPrdtPrmsnDtlInq06) */
 export interface MfdsDrugItem {
   ITEM_SEQ: string;
   ITEM_NAME: string;
+  ITEM_ENG_NAME: string;
   ENTP_NAME: string;
   ENTP_NO: string;
   ITEM_PERMIT_DATE: string;
+  CNSGN_MANUF: string;
+  ETC_OTC_CODE: string;
+  CHART: string;
   BAR_CODE: string;
+  MATERIAL_NAME: string;
+  EE_DOC_ID: string;
+  UD_DOC_ID: string;
+  NB_DOC_ID: string;
+  STORAGE_METHOD: string;
+  VALID_TERM: string;
+  PACK_UNIT: string;
   EDI_CODE: string;
+  PERMIT_KIND_NAME: string;
+  CANCEL_DATE: string;
+  CANCEL_NAME: string;
+  CHANGE_DATE: string;
   ATC_CODE: string;
-  MAIN_ITEM_INGR: string;
-  BIZRNO: string;
   RARE_DRUG_YN: string;
   [key: string]: string;
 }
 
-/** Raw API response item from 의료기기 표준코드 */
+/** Raw API response item from 의료기기 표준코드별 제품정보 (getMdeqStdCdPrdtInfoInq03) */
 export interface MfdsDeviceStdItem {
   UDIDI_CD: string;
   PRDLST_NM: string;
   MNFT_IPRT_ENTP_NM: string;
-  PERMIT_NO: string;
-  PRMSN_YMD: string;
   MDEQ_CLSF_NO: string;
   CLSF_NO_GRAD_CD: string;
-  PRDT_NM_INFO: string;
-  USE_PURPS_CONT: string;
+  PERMIT_NO: string;
+  PRMSN_YMD: string;
   FOML_INFO: string;
+  PRDT_NM_INFO: string;
   HMBD_TRSPT_MDEQ_YN: string;
   DSPSBL_MDEQ_YN: string;
   TRCK_MNG_TRGT_YN: string;
@@ -412,6 +424,7 @@ export interface MfdsDeviceStdItem {
   CMBNMD_YN: string;
   USE_BEFORE_STRLZT_NEED_YN: string;
   STERILIZATION_METHOD_NM: string;
+  USE_PURPS_CONT: string;
   STRG_CND_INFO: string;
   CIRC_CND_INFO: string;
   RCPRSLRY_TRGT_YN: string;

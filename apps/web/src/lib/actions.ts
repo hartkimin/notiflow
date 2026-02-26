@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { ProductAlias } from "@/lib/types";
+import type { ProductAlias, SyncDiffEntry } from "@/lib/types";
 import { getAISettings } from "@/lib/ai-client";
 import { parseMessageCore, getHospitalAliases, aiParse, resolveHospitalFromSender } from "@/lib/parse-service";
 import { matchProductsBulk, type ProductCatalogEntry } from "@/lib/parser";
@@ -741,4 +741,231 @@ export async function addMfdsItemToProducts(
 
   revalidatePath("/products");
   return { success: true, id: row.id, alreadyExists: false };
+}
+
+// --- My Drugs / My Devices ---
+
+export async function addToMyDrugs(item: Record<string, unknown>) {
+  const supabase = await createClient();
+  const barCode = (item.BAR_CODE as string) ?? null;
+
+  if (barCode) {
+    const { data: existing } = await supabase
+      .from("my_drugs")
+      .select("id")
+      .eq("bar_code", barCode)
+      .maybeSingle();
+    if (existing) return { success: true, id: existing.id, alreadyExists: true };
+  }
+
+  const row: Record<string, unknown> = {};
+  const drugKeys = [
+    "ITEM_SEQ", "ITEM_NAME", "ITEM_ENG_NAME", "ENTP_NAME", "ENTP_NO",
+    "ITEM_PERMIT_DATE", "CNSGN_MANUF", "ETC_OTC_CODE", "CHART", "BAR_CODE",
+    "MATERIAL_NAME", "EE_DOC_ID", "UD_DOC_ID", "NB_DOC_ID", "STORAGE_METHOD",
+    "VALID_TERM", "PACK_UNIT", "EDI_CODE", "PERMIT_KIND_NAME", "CANCEL_DATE",
+    "CANCEL_NAME", "CHANGE_DATE", "ATC_CODE", "RARE_DRUG_YN",
+  ];
+  for (const key of drugKeys) {
+    row[key.toLowerCase()] = (item[key] as string) ?? null;
+  }
+
+  const { data, error } = await supabase
+    .from("my_drugs")
+    .insert(row)
+    .select("id")
+    .single();
+  if (error) throw error;
+
+  revalidatePath("/products");
+  return { success: true, id: data.id, alreadyExists: false };
+}
+
+export async function addToMyDevices(item: Record<string, unknown>) {
+  const supabase = await createClient();
+  const udidiCd = (item.UDIDI_CD as string) ?? null;
+
+  if (udidiCd) {
+    const { data: existing } = await supabase
+      .from("my_devices")
+      .select("id")
+      .eq("udidi_cd", udidiCd)
+      .maybeSingle();
+    if (existing) return { success: true, id: existing.id, alreadyExists: true };
+  }
+
+  const row: Record<string, unknown> = {};
+  const deviceKeys = [
+    "UDIDI_CD", "PRDLST_NM", "MNFT_IPRT_ENTP_NM", "MDEQ_CLSF_NO",
+    "CLSF_NO_GRAD_CD", "PERMIT_NO", "PRMSN_YMD", "FOML_INFO", "PRDT_NM_INFO",
+    "HMBD_TRSPT_MDEQ_YN", "DSPSBL_MDEQ_YN", "TRCK_MNG_TRGT_YN", "TOTAL_DEV",
+    "CMBNMD_YN", "USE_BEFORE_STRLZT_NEED_YN", "STERILIZATION_METHOD_NM",
+    "USE_PURPS_CONT", "STRG_CND_INFO", "CIRC_CND_INFO", "RCPRSLRY_TRGT_YN",
+  ];
+  for (const key of deviceKeys) {
+    row[key.toLowerCase()] = (item[key] as string) ?? null;
+  }
+
+  const { data, error } = await supabase
+    .from("my_devices")
+    .insert(row)
+    .select("id")
+    .single();
+  if (error) throw error;
+
+  revalidatePath("/products");
+  return { success: true, id: data.id, alreadyExists: false };
+}
+
+export async function deleteMyDrug(id: number) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("my_drugs").delete().eq("id", id);
+  if (error) throw error;
+  revalidatePath("/products/my");
+  return { success: true };
+}
+
+export async function deleteMyDevice(id: number) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("my_devices").delete().eq("id", id);
+  if (error) throw error;
+  revalidatePath("/products/my");
+  return { success: true };
+}
+
+// --- Sync ---
+
+const DRUG_API_KEYS = [
+  "ITEM_SEQ", "ITEM_NAME", "ITEM_ENG_NAME", "ENTP_NAME", "ENTP_NO",
+  "ITEM_PERMIT_DATE", "CNSGN_MANUF", "ETC_OTC_CODE", "CHART", "BAR_CODE",
+  "MATERIAL_NAME", "EE_DOC_ID", "UD_DOC_ID", "NB_DOC_ID", "STORAGE_METHOD",
+  "VALID_TERM", "PACK_UNIT", "EDI_CODE", "PERMIT_KIND_NAME", "CANCEL_DATE",
+  "CANCEL_NAME", "CHANGE_DATE", "ATC_CODE", "RARE_DRUG_YN",
+];
+
+const DEVICE_API_KEYS = [
+  "UDIDI_CD", "PRDLST_NM", "MNFT_IPRT_ENTP_NM", "MDEQ_CLSF_NO",
+  "CLSF_NO_GRAD_CD", "PERMIT_NO", "PRMSN_YMD", "FOML_INFO", "PRDT_NM_INFO",
+  "HMBD_TRSPT_MDEQ_YN", "DSPSBL_MDEQ_YN", "TRCK_MNG_TRGT_YN", "TOTAL_DEV",
+  "CMBNMD_YN", "USE_BEFORE_STRLZT_NEED_YN", "STERILIZATION_METHOD_NM",
+  "USE_PURPS_CONT", "STRG_CND_INFO", "CIRC_CND_INFO", "RCPRSLRY_TRGT_YN",
+];
+
+const DRUG_LABELS: Record<string, string> = {
+  item_seq: "품목기준코드", item_name: "품목명", item_eng_name: "영문명",
+  entp_name: "업체명", entp_no: "업체허가번호", item_permit_date: "허가일자",
+  cnsgn_manuf: "위탁제조업체", etc_otc_code: "전문/일반", chart: "성상",
+  bar_code: "표준코드", material_name: "성분", ee_doc_id: "효능효과",
+  ud_doc_id: "용법용량", nb_doc_id: "주의사항", storage_method: "저장방법",
+  valid_term: "유효기간", pack_unit: "포장단위", edi_code: "보험코드",
+  permit_kind_name: "허가구분", cancel_date: "취소일자", cancel_name: "상태",
+  change_date: "변경일자", atc_code: "ATC코드", rare_drug_yn: "희귀의약품",
+};
+
+const DEVICE_LABELS: Record<string, string> = {
+  udidi_cd: "UDI-DI코드", prdlst_nm: "품목명", mnft_iprt_entp_nm: "제조수입업체명",
+  mdeq_clsf_no: "분류번호", clsf_no_grad_cd: "등급", permit_no: "품목허가번호",
+  prmsn_ymd: "허가일자", foml_info: "모델명", prdt_nm_info: "제품명",
+  hmbd_trspt_mdeq_yn: "인체이식형여부", dspsbl_mdeq_yn: "일회용여부",
+  trck_mng_trgt_yn: "추적관리대상", total_dev: "한벌구성여부",
+  cmbnmd_yn: "조합의료기기", use_before_strlzt_need_yn: "사전멸균필요",
+  sterilization_method_nm: "멸균방법", use_purps_cont: "사용목적",
+  strg_cnd_info: "저장조건", circ_cnd_info: "유통취급조건",
+  rcprslry_trgt_yn: "요양급여대상",
+};
+
+export async function syncMyDrug(id: number) {
+  const supabase = await createClient();
+
+  const { data: drug, error } = await supabase
+    .from("my_drugs")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+
+  const apiResult = await searchMfdsDrug({ BAR_CODE: drug.bar_code ?? "" });
+  if (apiResult.items.length === 0) {
+    return { found: false, changes: [] as SyncDiffEntry[] };
+  }
+
+  const apiItem = apiResult.items[0] as Record<string, unknown>;
+  const changes: SyncDiffEntry[] = [];
+
+  for (const apiKey of DRUG_API_KEYS) {
+    const dbKey = apiKey.toLowerCase();
+    const oldVal = (drug[dbKey] as string) ?? "";
+    const newVal = ((apiItem[apiKey] as string) ?? "");
+    if (oldVal !== newVal) {
+      changes.push({
+        column: dbKey,
+        label: DRUG_LABELS[dbKey] ?? dbKey,
+        oldValue: oldVal,
+        newValue: newVal,
+      });
+    }
+  }
+
+  await supabase.from("my_drugs").update({ synced_at: new Date().toISOString() }).eq("id", id);
+
+  return { found: true, changes };
+}
+
+export async function syncMyDevice(id: number) {
+  const supabase = await createClient();
+
+  const { data: device, error } = await supabase
+    .from("my_devices")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+
+  const apiResult = await searchMfdsDevice({ UDIDI_CD: device.udidi_cd ?? "" });
+  if (apiResult.items.length === 0) {
+    return { found: false, changes: [] as SyncDiffEntry[] };
+  }
+
+  const apiItem = apiResult.items[0] as Record<string, unknown>;
+  const changes: SyncDiffEntry[] = [];
+
+  for (const apiKey of DEVICE_API_KEYS) {
+    const dbKey = apiKey.toLowerCase();
+    const oldVal = (device[dbKey] as string) ?? "";
+    const newVal = ((apiItem[apiKey] as string) ?? "");
+    if (oldVal !== newVal) {
+      changes.push({
+        column: dbKey,
+        label: DEVICE_LABELS[dbKey] ?? dbKey,
+        oldValue: oldVal,
+        newValue: newVal,
+      });
+    }
+  }
+
+  await supabase.from("my_devices").update({ synced_at: new Date().toISOString() }).eq("id", id);
+
+  return { found: true, changes };
+}
+
+export async function applyDrugSync(id: number, updates: Record<string, string>) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("my_drugs")
+    .update({ ...updates, synced_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/products/my");
+  return { success: true };
+}
+
+export async function applyDeviceSync(id: number, updates: Record<string, string>) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("my_devices")
+    .update({ ...updates, synced_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/products/my");
+  return { success: true };
 }

@@ -17,8 +17,6 @@ function errorResponse(message: string, status = 400): Response {
   return jsonResponse({ error: message }, status);
 }
 
-// --- Field extraction helper (handles variable API key casing) ---
-
 function gf(r: Record<string, unknown>, ...keys: string[]): string | null {
   for (const k of keys) {
     if (r[k] != null && String(r[k]).trim() !== "" && String(r[k]).trim() !== "별첨") {
@@ -27,8 +25,6 @@ function gf(r: Record<string, unknown>, ...keys: string[]): string | null {
   }
   return null;
 }
-
-// --- Parse variable MFDS API response structures ---
 
 function parseApiItems(body: Record<string, unknown>): unknown[] {
   if (!body) return [];
@@ -44,8 +40,6 @@ function parseApiItems(body: Record<string, unknown>): unknown[] {
   }
   return [];
 }
-
-// --- API Configurations ---
 
 type SourceType = "drug" | "device" | "device_std";
 
@@ -144,6 +138,8 @@ const API_CONFIGS: Record<SourceType, ApiConfig> = {
 };
 
 // --- Main handler ---
+// Processes a single source, up to maxPages pages per call.
+// Returns hasMore=true if more pages remain (caller should re-invoke).
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -158,18 +154,29 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json().catch(() => ({}));
     const trigger: string = body.trigger ?? "manual";
-    const sourceFilter: string = body.source ?? "all";
+    const source: string = body.source ?? "drug";
     const userId: string | null = body.user_id ?? null;
+    const startPage: number = body.startPage ?? 1;
+    const maxPages: number = body.maxPages ?? 20;
+    const existingLogId: number | null = body.logId ?? null;
+    const existingSyncStartedAt: string | null = body.syncStartedAt ?? null;
 
-    // Check for already-running sync
-    const { data: running } = await supabase
-      .from("mfds_sync_logs")
-      .select("id")
-      .eq("status", "running")
-      .limit(1);
+    // "all" is not processed here — the caller should invoke for each source
+    if (source === "all") {
+      return errorResponse("source=all은 지원되지 않습니다. drug/device/device_std를 개별 호출하세요.", 400);
+    }
 
-    if (running && running.length > 0) {
-      return errorResponse("이미 동기화가 진행 중입니다.", 409);
+    // Check for already-running sync (skip for continuation calls)
+    if (!existingLogId) {
+      const { data: running } = await supabase
+        .from("mfds_sync_logs")
+        .select("id")
+        .eq("status", "running")
+        .limit(1);
+
+      if (running && running.length > 0) {
+        return errorResponse("이미 동기화가 진행 중입니다.", 409);
+      }
     }
 
     // Get API key from settings
@@ -188,145 +195,140 @@ Deno.serve(async (req: Request) => {
       return errorResponse("API 키가 설정되지 않았습니다.", 422);
     }
 
-    // Create sync log entry
-    const { data: logRow, error: logError } = await supabase
-      .from("mfds_sync_logs")
-      .insert({
-        trigger_type: trigger,
-        triggered_by: userId,
-        source_filter: sourceFilter,
-        status: "running",
-      })
-      .select("id, started_at")
-      .single();
+    // Create or reuse sync log entry
+    let logId: number;
+    let syncStartedAt: string;
+    if (existingLogId) {
+      logId = existingLogId;
+      syncStartedAt = existingSyncStartedAt ?? new Date().toISOString();
+    } else {
+      const { data: logRow, error: logError } = await supabase
+        .from("mfds_sync_logs")
+        .insert({
+          trigger_type: trigger,
+          triggered_by: userId,
+          source_filter: source,
+          status: "running",
+        })
+        .select("id, started_at")
+        .single();
 
-    if (logError || !logRow) {
-      return errorResponse("동기화 로그 생성 실패", 500);
+      if (logError || !logRow) {
+        return errorResponse("동기화 로그 생성 실패", 500);
+      }
+      logId = logRow.id;
+      syncStartedAt = logRow.started_at;
     }
 
-    const logId = logRow.id;
-    const syncStartedAt = logRow.started_at;
     const startTime = Date.now();
-
-    const stats: Record<string, number> = {
-      drug_total: 0, drug_added: 0, drug_updated: 0,
-      device_total: 0, device_added: 0, device_updated: 0,
-      device_std_total: 0, device_std_added: 0, device_std_updated: 0,
-      products_updated: 0,
-    };
-
-    const sources: SourceType[] =
-      sourceFilter === "all"
-        ? ["drug", "device", "device_std"]
-        : [sourceFilter as SourceType];
-
     const errors: string[] = [];
+    const config = API_CONFIGS[source as SourceType];
 
-    for (const source of sources) {
-      try {
-        const config = API_CONFIGS[source];
-        let page = 1;
-        const numOfRows = 100;
-        let totalCount = 0;
-        let added = 0;
-        let updated = 0;
+    let page = startPage;
+    let totalCount = 0;
+    let processedItems = 0;
+    let pagesProcessed = 0;
+    let reachedEnd = false;
 
-        while (true) {
-          const params = new URLSearchParams({
-            serviceKey,
-            pageNo: String(page),
-            numOfRows: String(numOfRows),
-            type: "json",
+    while (pagesProcessed < maxPages) {
+      const params = new URLSearchParams({
+        serviceKey,
+        pageNo: String(page),
+        numOfRows: "100",
+        type: "json",
+      });
+
+      const res = await fetch(`${config.baseUrl}?${params.toString()}`);
+      if (!res.ok) {
+        errors.push(`${source} API HTTP ${res.status} at page ${page}`);
+        break;
+      }
+
+      const data = await res.json();
+      const apiBody = data.body;
+      if (!apiBody) { reachedEnd = true; break; }
+
+      if (totalCount === 0) {
+        totalCount = apiBody.totalCount ?? 0;
+        console.log(`[sync-mfds] ${source}: totalCount=${totalCount}, startPage=${startPage}`);
+      }
+
+      const rawItems = parseApiItems(apiBody);
+      if (rawItems.length === 0) { reachedEnd = true; break; }
+
+      const mapped = rawItems
+        .map((raw) => config.mapItem(raw as Record<string, unknown>))
+        .filter((item) => (item.source_key as string) !== "");
+
+      if (mapped.length > 0) {
+        const { error: upsertError } = await supabase
+          .from("mfds_items")
+          .upsert(mapped, {
+            onConflict: "source_type,source_key",
+            ignoreDuplicates: false,
           });
 
-          const res = await fetch(`${config.baseUrl}?${params.toString()}`);
-          if (!res.ok) {
-            errors.push(`${source} API HTTP ${res.status} at page ${page}`);
-            break;
-          }
-
-          const data = await res.json();
-          const apiBody = data.body;
-          if (!apiBody) break;
-
-          if (page === 1) {
-            totalCount = apiBody.totalCount ?? 0;
-            console.log(`[sync-mfds] ${source}: totalCount=${totalCount}`);
-          }
-
-          const rawItems = parseApiItems(apiBody);
-          if (rawItems.length === 0) break;
-
-          const mapped = rawItems
-            .map((raw) => config.mapItem(raw as Record<string, unknown>))
-            .filter((item) => (item.source_key as string) !== "");
-
-          if (mapped.length > 0) {
-            const { data: upserted, error: upsertError } = await supabase
-              .from("mfds_items")
-              .upsert(mapped, {
-                onConflict: "source_type,source_key",
-                ignoreDuplicates: false,
-              })
-              .select("id, created_at, updated_at");
-
-            if (upsertError) {
-              errors.push(`${source} upsert error page ${page}: ${upsertError.message}`);
-              break;
-            }
-
-            for (const row of upserted ?? []) {
-              // If created_at equals updated_at, it was just inserted (new)
-              if (row.created_at === row.updated_at) {
-                added++;
-              } else {
-                updated++;
-              }
-            }
-          }
-
-          if (page * numOfRows >= totalCount) break;
-          page++;
+        if (upsertError) {
+          errors.push(`${source} upsert error page ${page}: ${upsertError.message}`);
+          break;
         }
+        processedItems += mapped.length;
+      }
 
-        // Prefix mapping: "device_std" -> "device_std_", "drug" -> "drug_", "device" -> "device_"
-        const prefix = source === "device_std" ? "device_std" : source;
-        stats[`${prefix}_total`] = totalCount;
-        stats[`${prefix}_added`] = added;
-        stats[`${prefix}_updated`] = updated;
+      pagesProcessed++;
+      if (page * 100 >= totalCount) { reachedEnd = true; break; }
+      page++;
+    }
 
-        console.log(`[sync-mfds] ${source}: done (added=${added}, updated=${updated})`);
+    const hasMore = !reachedEnd && errors.length === 0;
+
+    const prefix = source === "device_std" ? "device_std" : source;
+    const stats: Record<string, number> = {
+      [`${prefix}_total`]: totalCount,
+      [`${prefix}_added`]: processedItems,
+    };
+
+    console.log(`[sync-mfds] ${source}: chunk done (processed=${processedItems}, pages=${pagesProcessed}, hasMore=${hasMore})`);
+
+    if (hasMore) {
+      // Update log with progress
+      await supabase.from("mfds_sync_logs").update(stats).eq("id", logId);
+
+      return jsonResponse({
+        success: true,
+        hasMore: true,
+        nextPage: page,
+        logId,
+        syncStartedAt,
+        stats,
+      });
+    }
+
+    // Final chunk for this source
+    if (errors.length === 0) {
+      // Update products if this is the last source
+      try {
+        const { data: rpcResult } = await supabase.rpc("update_products_from_mfds", {
+          sync_started: syncStartedAt,
+        });
+        stats.products_updated = typeof rpcResult === "number" ? rpcResult : 0;
       } catch (err) {
-        errors.push(`${source}: ${(err as Error).message}`);
-        console.error(`[sync-mfds] ${source} error:`, err);
+        errors.push(`products update: ${(err as Error).message}`);
       }
     }
 
-    // Auto-update linked products
-    try {
-      const { data: rpcResult } = await supabase.rpc("update_products_from_mfds", {
-        sync_started: syncStartedAt,
-      });
-      stats.products_updated = typeof rpcResult === "number" ? rpcResult : 0;
-    } catch (err) {
-      errors.push(`products update: ${(err as Error).message}`);
-    }
-
-    // Finalize sync log
     const finalStatus = errors.length > 0 ? "failed" : "success";
-    await supabase
-      .from("mfds_sync_logs")
-      .update({
-        status: finalStatus,
-        finished_at: new Date().toISOString(),
-        duration_ms: Date.now() - startTime,
-        error_message: errors.length > 0 ? errors.join("; ") : null,
-        ...stats,
-      })
-      .eq("id", logId);
+    await supabase.from("mfds_sync_logs").update({
+      status: finalStatus,
+      finished_at: new Date().toISOString(),
+      duration_ms: Date.now() - startTime,
+      error_message: errors.length > 0 ? errors.join("; ") : null,
+      ...stats,
+    }).eq("id", logId);
 
     return jsonResponse({
       success: errors.length === 0,
+      hasMore: false,
       log_id: logId,
       stats,
       errors: errors.length > 0 ? errors : undefined,

@@ -613,17 +613,65 @@ export async function triggerMfdsSync(source: "all" | "drug" | "device" | "devic
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { data, error } = await supabase.functions.invoke("sync-mfds", {
-    body: { trigger: "manual", source, user_id: user?.id },
-  });
+  const sources: ("drug" | "device" | "device_std")[] =
+    source === "all" ? ["drug", "device", "device_std"] : [source];
 
-  if (error) {
-    return { success: false, error: data?.error ?? error.message };
+  const allStats: Record<string, number> = {};
+  const allErrors: string[] = [];
+
+  for (const src of sources) {
+    let startPage = 1;
+    let logId: number | null = null;
+    let syncStartedAt: string | null = null;
+
+    while (true) {
+      const reqBody: Record<string, unknown> = {
+        trigger: "manual",
+        source: src,
+        user_id: user?.id,
+        startPage,
+        maxPages: 20,
+      };
+      if (logId) {
+        reqBody.logId = logId;
+        reqBody.syncStartedAt = syncStartedAt;
+      }
+
+      const { data, error } = await supabase.functions.invoke("sync-mfds", {
+        body: reqBody,
+      });
+
+      if (error) {
+        allErrors.push(data?.error ?? error.message);
+        break;
+      }
+
+      const result = data as Record<string, unknown>;
+      if (!logId && result.logId) logId = result.logId as number;
+      if (!logId && result.log_id) logId = result.log_id as number;
+      if (result.syncStartedAt) syncStartedAt = result.syncStartedAt as string;
+      if (result.errors) allErrors.push(...(result.errors as string[]));
+
+      // Merge stats
+      if (result.stats) {
+        for (const [k, v] of Object.entries(result.stats as Record<string, number>)) {
+          allStats[k] = (allStats[k] ?? 0) + v;
+        }
+      }
+
+      if (!result.hasMore) break;
+      startPage = result.nextPage as number;
+    }
   }
 
   revalidatePath("/settings");
   revalidatePath("/products");
-  return data as { success: boolean; log_id: number; stats: Record<string, number>; errors?: string[] };
+
+  return {
+    success: allErrors.length === 0,
+    stats: allStats,
+    errors: allErrors.length > 0 ? allErrors : undefined,
+  };
 }
 
 export async function getMfdsSyncStats() {

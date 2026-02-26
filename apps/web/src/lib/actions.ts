@@ -730,6 +730,8 @@ export async function syncMyDrug(id: number) {
     .single();
   if (error) throw error;
 
+  if (!drug.bar_code) return { found: false, changes: [] as SyncDiffEntry[] };
+
   const apiResult = await searchMfdsDrug({ BAR_CODE: drug.bar_code ?? "" });
   if (apiResult.items.length === 0) {
     return { found: false, changes: [] as SyncDiffEntry[] };
@@ -767,6 +769,8 @@ export async function syncMyDevice(id: number) {
     .single();
   if (error) throw error;
 
+  if (!device.udidi_cd) return { found: false, changes: [] as SyncDiffEntry[] };
+
   const apiResult = await searchMfdsDevice({ UDIDI_CD: device.udidi_cd ?? "" });
   if (apiResult.items.length === 0) {
     return { found: false, changes: [] as SyncDiffEntry[] };
@@ -796,9 +800,14 @@ export async function syncMyDevice(id: number) {
 
 export async function applyDrugSync(id: number, updates: Record<string, string>) {
   const supabase = await createClient();
+  const allowed = new Set(DRUG_API_KEYS.map(k => k.toLowerCase()));
+  const filtered: Record<string, string> = {};
+  for (const [key, val] of Object.entries(updates)) {
+    if (allowed.has(key)) filtered[key] = val;
+  }
   const { error } = await supabase
     .from("my_drugs")
-    .update({ ...updates, synced_at: new Date().toISOString() })
+    .update({ ...filtered, synced_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw error;
   revalidatePath("/products/my");
@@ -807,9 +816,14 @@ export async function applyDrugSync(id: number, updates: Record<string, string>)
 
 export async function applyDeviceSync(id: number, updates: Record<string, string>) {
   const supabase = await createClient();
+  const allowed = new Set(DEVICE_API_KEYS.map(k => k.toLowerCase()));
+  const filtered: Record<string, string> = {};
+  for (const [key, val] of Object.entries(updates)) {
+    if (allowed.has(key)) filtered[key] = val;
+  }
   const { error } = await supabase
     .from("my_devices")
-    .update({ ...updates, synced_at: new Date().toISOString() })
+    .update({ ...filtered, synced_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw error;
   revalidatePath("/products/my");

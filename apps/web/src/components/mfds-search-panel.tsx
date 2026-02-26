@@ -335,11 +335,12 @@ export function MfdsSearchPanel({
   // ── Initial load ────────────────────────────────────────────────
   const initialLoaded = useRef(false);
   useEffect(() => {
+    if (mode === "manage") return;
     if (!initialLoaded.current) {
       initialLoaded.current = true;
       doSearch(1);
     }
-  }, [doSearch]);
+  }, [doSearch, mode]);
 
   // ── Manage mode: load data from DB props ──────────────────────────
   useEffect(() => {

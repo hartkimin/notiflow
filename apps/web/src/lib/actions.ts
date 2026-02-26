@@ -623,12 +623,14 @@ async function getMfdsApiKey(): Promise<string> {
 
 function parseMfdsApiItems(body: Record<string, unknown>): Record<string, unknown>[] {
   if (!body) return [];
-  const items = body.items as Record<string, unknown> | undefined;
+  const items = body.items;
   if (!items) return [];
-  if (Array.isArray(items)) return items;
-  const item = items.item;
+  if (Array.isArray(items)) return items as Record<string, unknown>[];
+  const obj = items as Record<string, unknown>;
+  const item = obj.item;
   if (!item) return [];
-  return Array.isArray(item) ? item : [item];
+  if (Array.isArray(item)) return item as Record<string, unknown>[];
+  return [item as Record<string, unknown>];
 }
 
 export async function searchMfdsDrug(

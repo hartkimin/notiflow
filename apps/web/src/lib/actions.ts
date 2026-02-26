@@ -183,7 +183,7 @@ export async function deleteOrders(ids: number[]) {
 
 export async function updateOrderItem(
   id: number,
-  data: { quantity?: number; unit_price?: number; product_id?: number },
+  data: { quantity?: number; unit_price?: number; product_id?: number; supplier_id?: number | null },
 ) {
   const supabase = await createClient();
   const { error } = await supabase.from("order_items").update(data).eq("id", id);
@@ -540,4 +540,67 @@ export async function deleteUser(id: string) {
   }
   revalidatePath("/users");
   return result;
+}
+
+// --- KPIS Reports ---
+
+export async function upsertKpisReport(
+  orderItemId: number,
+  data: { report_status?: string; notes?: string },
+) {
+  const supabase = await createClient();
+  // Check existing
+  const { data: existing } = await supabase
+    .from("kpis_reports")
+    .select("id")
+    .eq("order_item_id", orderItemId)
+    .maybeSingle();
+
+  if (existing) {
+    const updates: Record<string, unknown> = { ...data };
+    if (data.report_status === "reported") updates.reported_at = new Date().toISOString();
+    const { error } = await supabase.from("kpis_reports").update(updates).eq("id", existing.id);
+    if (error) throw error;
+  } else {
+    const insert: Record<string, unknown> = { order_item_id: orderItemId, ...data };
+    if (data.report_status === "reported") insert.reported_at = new Date().toISOString();
+    const { error } = await supabase.from("kpis_reports").insert(insert);
+    if (error) throw error;
+  }
+  revalidatePath("/orders");
+  return { success: true };
+}
+
+// --- Order Comments ---
+
+export async function createOrderComment(orderId: number, content: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error } = await supabase.from("order_comments").insert({
+    order_id: orderId,
+    user_id: user?.id ?? null,
+    content,
+  });
+  if (error) throw error;
+  revalidatePath(`/orders/${orderId}`);
+  return { success: true };
+}
+
+export async function deleteOrderComment(commentId: number, orderId: number) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("order_comments").delete().eq("id", commentId);
+  if (error) throw error;
+  revalidatePath(`/orders/${orderId}`);
+  return { success: true };
+}
+
+export async function getOrderComments(orderId: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("order_comments")
+    .select("*")
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
 }

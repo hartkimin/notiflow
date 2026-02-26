@@ -4,6 +4,8 @@ import { ArrowLeft, MessageSquare } from "lucide-react";
 
 import { getOrder } from "@/lib/queries/orders";
 import { getProducts } from "@/lib/queries/products";
+import { getSuppliers } from "@/lib/queries/suppliers";
+import { getOrderComments } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,11 +36,19 @@ export default async function OrderDetailPage({ params }: Props) {
 
   let order;
   let products;
+  let supplierOptions;
+  let comments;
   try {
-    [order, { products }] = await Promise.all([
+    const [orderData, prodData, suppData, commentsData] = await Promise.all([
       getOrder(orderId),
       getProducts({ limit: 500 }),
+      getSuppliers({ limit: 500 }),
+      getOrderComments(orderId),
     ]);
+    order = orderData;
+    products = prodData.products;
+    supplierOptions = suppData.suppliers.map((s) => ({ id: s.id, name: s.name }));
+    comments = commentsData;
   } catch {
     notFound();
   }
@@ -93,7 +103,7 @@ export default async function OrderDetailPage({ params }: Props) {
           <CardTitle className="text-base">주문 정보</CardTitle>
         </CardHeader>
         <CardContent>
-          <OrderDetailClient order={order} products={products} />
+          <OrderDetailClient order={order} products={products} suppliers={supplierOptions} comments={comments} />
         </CardContent>
       </Card>
 

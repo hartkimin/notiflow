@@ -60,9 +60,13 @@ import {
   updateDeliveryDateAction,
   updateOrderItemAction,
   updateOrderStatusAction,
+  createOrderCommentAction,
+  deleteOrderCommentAction,
 } from "@/app/(dashboard)/orders/actions";
+import { Textarea } from "@/components/ui/textarea";
+import { MessageSquareText } from "lucide-react";
 import { toast } from "sonner";
-import type { OrderDetail, Product } from "@/lib/types";
+import type { OrderDetail, OrderComment, Product, Supplier } from "@/lib/types";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "임시",
@@ -84,21 +88,29 @@ const STATUS_VARIANT: Record<
 };
 
 const DETAIL_COL_DEFAULTS: Record<string, number> = {
-  idx: 40, product: 200, original: 150, quantity: 80, unit_price: 90, total: 90,
+  idx: 40, product: 180, supplier: 120, original: 120, quantity: 80, unit_price: 90, total: 90,
 };
 
 interface EditItemState {
   quantity: number;
   unit_price: number;
   product_id: number | null;
+  supplier_id: number | null;
+}
+
+interface SupplierOption {
+  id: number;
+  name: string;
 }
 
 interface OrderDetailClientProps {
   order: OrderDetail;
   products: Product[];
+  suppliers?: SupplierOption[];
+  comments?: OrderComment[];
 }
 
-export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
+export function OrderDetailClient({ order, products, suppliers = [], comments = [] }: OrderDetailClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const { widths, onMouseDown } = useResizableColumns("order-detail", DETAIL_COL_DEFAULTS);
@@ -106,6 +118,8 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
   const [editItems, setEditItems] = useState<Record<number, EditItemState>>({});
   const [deletedIds, setDeletedIds] = useState<Set<number>>(new Set());
   const [productOpenId, setProductOpenId] = useState<number | null>(null);
+  const [supplierOpenId, setSupplierOpenId] = useState<number | null>(null);
+  const [commentText, setCommentText] = useState("");
   const [deliveryDate, setDeliveryDate] = useState(
     order.delivery_date ?? "",
   );
@@ -156,6 +170,7 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
         quantity: item.quantity,
         unit_price: item.unit_price ?? 0,
         product_id: item.product_id,
+        supplier_id: item.supplier_id,
       };
     }
     setEditItems(initial);
@@ -214,11 +229,14 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
           const edit = editItems[item.id];
           if (!edit) continue;
 
-          const changes: { quantity?: number; unit_price?: number; product_id?: number } = {};
+          const changes: { quantity?: number; unit_price?: number; product_id?: number; supplier_id?: number | null } = {};
           if (edit.quantity !== item.quantity) changes.quantity = edit.quantity;
           if (edit.unit_price !== (item.unit_price ?? 0)) changes.unit_price = edit.unit_price;
           if (edit.product_id !== item.product_id && edit.product_id !== null) {
             changes.product_id = edit.product_id;
+          }
+          if (edit.supplier_id !== item.supplier_id) {
+            changes.supplier_id = edit.supplier_id;
           }
           if (Object.keys(changes).length > 0) {
             ops.push(updateOrderItemAction(item.id, changes));
@@ -468,6 +486,7 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
               <TableRow>
                 <ResizableTh width={widths.idx} colKey="idx" onResizeStart={onMouseDown} className="pl-6">#</ResizableTh>
                 <ResizableTh width={widths.product} colKey="product" onResizeStart={onMouseDown}>품목</ResizableTh>
+                <ResizableTh width={widths.supplier} colKey="supplier" onResizeStart={onMouseDown}>매입처</ResizableTh>
                 <ResizableTh width={widths.original} colKey="original" onResizeStart={onMouseDown} className="hidden sm:table-cell print:table-cell">원문</ResizableTh>
                 <ResizableTh width={widths.quantity} colKey="quantity" onResizeStart={onMouseDown} className="text-right">수량</ResizableTh>
                 <ResizableTh width={widths.unit_price} colKey="unit_price" onResizeStart={onMouseDown} className="text-right">단가</ResizableTh>
@@ -564,6 +583,65 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
                         </>
                       )}
                     </TableCell>
+                    <TableCell className="text-sm">
+                      {isEditing && !isDeleted ? (
+                        <Popover
+                          open={supplierOpenId === item.id}
+                          onOpenChange={(open: boolean) => setSupplierOpenId(open ? item.id : null)}
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className="w-full justify-between font-normal h-7 text-xs"
+                            >
+                              <span className="truncate">
+                                {(() => {
+                                  const sid = edit?.supplier_id ?? item.supplier_id;
+                                  const found = suppliers.find((s) => s.id === sid);
+                                  return found ? found.name : "매입처 선택...";
+                                })()}
+                              </span>
+                              <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="매입처명 검색..." />
+                              <CommandList>
+                                <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
+                                <CommandGroup>
+                                  {suppliers.map((s) => (
+                                    <CommandItem
+                                      key={s.id}
+                                      value={s.name}
+                                      onSelect={() => {
+                                        updateEditItem(item.id, "supplier_id", s.id);
+                                        setSupplierOpenId(null);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-3 w-3 shrink-0",
+                                          (edit?.supplier_id ?? item.supplier_id) === s.id ? "opacity-100" : "opacity-0",
+                                        )}
+                                      />
+                                      <span className="truncate text-xs">{s.name}</span>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      ) : (
+                        (() => {
+                          const itemAny2 = item as unknown as Record<string, unknown>;
+                          const supplierObj = itemAny2.suppliers as { name: string } | null;
+                          return supplierObj?.name ?? "-";
+                        })()
+                      )}
+                    </TableCell>
                     <TableCell className="hidden sm:table-cell print:table-cell text-xs text-muted-foreground max-w-[200px] truncate">
                       {item.original_text || "-"}
                     </TableCell>
@@ -657,6 +735,78 @@ export function OrderDetailClient({ order, products }: OrderDetailClientProps) {
           </div>
         </>
       )}
+
+      {/* Comments section */}
+      <Separator className="print:hidden" />
+      <div className="space-y-3 print:hidden">
+        <h4 className="text-sm font-medium flex items-center gap-1.5">
+          <MessageSquareText className="h-4 w-4" />
+          코멘트 ({comments.length})
+        </h4>
+        {comments.length > 0 && (
+          <div className="space-y-2">
+            {comments.map((c) => (
+              <div key={c.id} className="flex items-start gap-2 text-sm rounded-md border p-2.5">
+                <div className="flex-1 min-w-0">
+                  <p className="whitespace-pre-wrap">{c.content}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {new Date(c.created_at).toLocaleString("ko-KR", {
+                      month: "2-digit", day: "2-digit",
+                      hour: "2-digit", minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => {
+                    startTransition(async () => {
+                      try {
+                        await deleteOrderCommentAction(c.id, order.id);
+                        toast.success("코멘트가 삭제되었습니다.");
+                        router.refresh();
+                      } catch {
+                        toast.error("코멘트 삭제에 실패했습니다.");
+                      }
+                    });
+                  }}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!commentText.trim()) return;
+            const text = commentText.trim();
+            setCommentText("");
+            startTransition(async () => {
+              try {
+                await createOrderCommentAction(order.id, text);
+                toast.success("코멘트가 추가되었습니다.");
+                router.refresh();
+              } catch {
+                toast.error("코멘트 추가에 실패했습니다.");
+              }
+            });
+          }}
+        >
+          <Textarea
+            placeholder="코멘트 입력..."
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            className="flex-1 resize-none h-16 text-sm"
+          />
+          <Button type="submit" size="sm" disabled={isPending || !commentText.trim()} className="shrink-0 self-end">
+            {isPending ? "저장중..." : "등록"}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }

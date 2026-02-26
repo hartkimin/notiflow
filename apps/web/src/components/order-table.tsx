@@ -52,7 +52,16 @@ import {
   updateOrderHospitalAction,
   updateOrderItemAction,
   updateOrderStatusAction,
+  upsertKpisReportAction,
 } from "@/app/(dashboard)/orders/actions";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { BulkActionBar } from "@/components/bulk-action-bar";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { useResizableColumns } from "@/hooks/use-resizable-columns";
@@ -66,6 +75,11 @@ export interface ProductOption {
 }
 
 export interface HospitalOption {
+  id: number;
+  name: string;
+}
+
+export interface SupplierOption {
   id: number;
   name: string;
 }
@@ -125,10 +139,12 @@ export function OrderTable({
   items,
   products = [],
   hospitals = [],
+  suppliers = [],
 }: {
   items: OrderItemFlat[];
   products?: ProductOption[];
   hospitals?: HospitalOption[];
+  suppliers?: SupplierOption[];
 }) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
@@ -206,6 +222,7 @@ export function OrderTable({
                     group={group}
                     products={products}
                     hospitals={hospitals}
+                    suppliers={suppliers}
                     isExpanded={isExpanded}
                     isSelected={rowSelection.selected.has(group.order_id)}
                     onToggle={() => toggleExpand(group.order_id)}
@@ -233,6 +250,7 @@ function OrderGroupRow({
   group,
   products,
   hospitals,
+  suppliers,
   isExpanded,
   isSelected,
   onToggle,
@@ -242,6 +260,7 @@ function OrderGroupRow({
   group: OrderGroup;
   products: ProductOption[];
   hospitals: HospitalOption[];
+  suppliers: SupplierOption[];
   isExpanded: boolean;
   isSelected: boolean;
   onToggle: () => void;
@@ -306,7 +325,7 @@ function OrderGroupRow({
       {isExpanded && (
         <TableRow className="bg-muted/30 hover:bg-muted/30">
           <TableCell colSpan={colCount} className="p-0">
-            <OrderAccordionContent group={group} products={products} hospitals={hospitals} />
+            <OrderAccordionContent group={group} products={products} hospitals={hospitals} suppliers={suppliers} />
           </TableCell>
         </TableRow>
       )}
@@ -317,16 +336,19 @@ function OrderGroupRow({
 interface ItemEdits {
   quantity: number;
   product_id: number | null;
+  supplier_id: number | null;
 }
 
 function OrderAccordionContent({
   group,
   products,
   hospitals,
+  suppliers,
 }: {
   group: OrderGroup;
   products: ProductOption[];
   hospitals: HospitalOption[];
+  suppliers: SupplierOption[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -335,6 +357,9 @@ function OrderAccordionContent({
   const [deliveryDate, setDeliveryDate] = useState(group.delivery_date ?? "");
   const [hospitalOpen, setHospitalOpen] = useState(false);
   const [productOpenId, setProductOpenId] = useState<number | null>(null);
+  const [supplierOpenId, setSupplierOpenId] = useState<number | null>(null);
+  const [kpisEditId, setKpisEditId] = useState<number | null>(null);
+  const [kpisNotes, setKpisNotes] = useState("");
 
   async function handleConfirm() {
     try {
@@ -360,6 +385,7 @@ function OrderAccordionContent({
       initial[item.id] = {
         quantity: item.quantity,
         product_id: item.product_id,
+        supplier_id: item.supplier_id ?? null,
       };
     }
     setEditItems(initial);
@@ -378,10 +404,13 @@ function OrderAccordionContent({
         for (const item of group.items) {
           const edits = editItems[item.id];
           if (!edits) continue;
-          const changes: { quantity?: number; product_id?: number } = {};
+          const changes: { quantity?: number; product_id?: number; supplier_id?: number | null } = {};
           if (edits.quantity !== item.quantity) changes.quantity = edits.quantity;
           if (edits.product_id !== item.product_id && edits.product_id != null) {
             changes.product_id = edits.product_id;
+          }
+          if (edits.supplier_id !== (item.supplier_id ?? null)) {
+            changes.supplier_id = edits.supplier_id;
           }
           if (Object.keys(changes).length > 0) {
             updates.push(updateOrderItemAction(item.id, changes));
@@ -639,18 +668,135 @@ function OrderAccordionContent({
                     {item.box_quantity != null ? item.box_quantity.toLocaleString() : "-"}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {item.supplier_name ?? "-"}
+                    {isEditing ? (
+                      <Popover
+                        open={supplierOpenId === item.id}
+                        onOpenChange={(open: boolean) => setSupplierOpenId(open ? item.id : null)}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="h-7 w-full max-w-[140px] justify-between font-normal text-xs px-2"
+                          >
+                            <span className="truncate">
+                              {editItems[item.id]?.supplier_id
+                                ? suppliers.find((s) => s.id === editItems[item.id]?.supplier_id)?.name ?? "미지정"
+                                : "매입처 선택..."}
+                            </span>
+                            <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[220px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="매입처 검색..." />
+                            <CommandList>
+                              <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
+                              <CommandGroup>
+                                {suppliers.map((s) => (
+                                  <CommandItem
+                                    key={s.id}
+                                    value={s.name}
+                                    onSelect={() => {
+                                      updateItemField(item.id, "supplier_id", s.id);
+                                      setSupplierOpenId(null);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-3.5 w-3.5 shrink-0",
+                                        editItems[item.id]?.supplier_id === s.id ? "opacity-100" : "opacity-0",
+                                      )}
+                                    />
+                                    <span className="truncate text-xs">{s.name}</span>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    ) : (
+                      item.supplier_name ?? "-"
+                    )}
                   </TableCell>
                   <TableCell>
-                    {item.kpis_status ? (
-                      <Badge
-                        variant={KPIS_VARIANT[item.kpis_status] ?? "secondary"}
-                        className="text-xs"
-                      >
-                        {KPIS_LABEL[item.kpis_status] ?? item.kpis_status}
-                      </Badge>
+                    {kpisEditId === item.id ? (
+                      <div className="space-y-1">
+                        <Select
+                          defaultValue={item.kpis_status ?? "pending"}
+                          onValueChange={(val: string) => {
+                            startTransition(async () => {
+                              try {
+                                await upsertKpisReportAction(item.id, { report_status: val, notes: kpisNotes || undefined });
+                                toast.success("KPIS 상태가 저장되었습니다.");
+                                setKpisEditId(null);
+                                router.refresh();
+                              } catch { toast.error("KPIS 저장 실패"); }
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="h-7 text-xs w-[100px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">미신고</SelectItem>
+                            <SelectItem value="reported">신고완료</SelectItem>
+                            <SelectItem value="confirmed">확인됨</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Textarea
+                          placeholder="KPIS 메모..."
+                          value={kpisNotes}
+                          onChange={(e) => setKpisNotes(e.target.value)}
+                          className="text-xs h-14 resize-none"
+                        />
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 text-xs px-2"
+                            onClick={() => {
+                              startTransition(async () => {
+                                try {
+                                  await upsertKpisReportAction(item.id, { notes: kpisNotes || undefined });
+                                  toast.success("KPIS 메모가 저장되었습니다.");
+                                  setKpisEditId(null);
+                                  router.refresh();
+                                } catch { toast.error("KPIS 저장 실패"); }
+                              });
+                            }}
+                          >
+                            <Save className="h-3 w-3 mr-0.5" />저장
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => setKpisEditId(null)}>
+                            <X className="h-3 w-3 mr-0.5" />취소
+                          </Button>
+                        </div>
+                      </div>
                     ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
+                      <button
+                        type="button"
+                        className="text-left"
+                        onClick={() => {
+                          setKpisEditId(item.id);
+                          setKpisNotes(item.kpis_notes ?? "");
+                        }}
+                      >
+                        {item.kpis_status ? (
+                          <Badge
+                            variant={KPIS_VARIANT[item.kpis_status] ?? "secondary"}
+                            className="text-xs cursor-pointer"
+                          >
+                            {KPIS_LABEL[item.kpis_status] ?? item.kpis_status}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground hover:underline cursor-pointer">미등록</span>
+                        )}
+                        {item.kpis_notes && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5 truncate max-w-[80px]">{item.kpis_notes}</p>
+                        )}
+                      </button>
                     )}
                   </TableCell>
                 </TableRow>

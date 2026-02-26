@@ -4,6 +4,7 @@ import { PlusCircle, File } from "lucide-react";
 import { getOrderItems, getOrdersForCalendar } from "@/lib/queries/orders";
 import { getProducts } from "@/lib/queries/products";
 import { getHospitals } from "@/lib/queries/hospitals";
+import { getSuppliers } from "@/lib/queries/suppliers";
 import { OrderTable } from "@/components/order-table";
 import type { ProductOption } from "@/components/order-table";
 import { OrderCalendar } from "@/components/order-calendar";
@@ -56,12 +57,13 @@ export default async function OrdersPage({ searchParams }: Props) {
   const toStr = toLocalDateStr(new Date(calYear, calMonth + 1, 1 + 7));
 
   // Fetch both datasets in parallel for instant tab switching
-  const [result, calendarOrders, { products: allProducts }, { hospitals: allHospitals }] = await Promise.all([
+  const [result, calendarOrders, { products: allProducts }, { hospitals: allHospitals }, { suppliers: allSuppliers }] = await Promise.all([
     getOrderItems({ status, from: params.from, to: params.to, limit, offset })
       .catch(() => ({ items: [], total: 0 })),
     getOrdersForCalendar({ from: fromStr, to: toStr }).catch(() => []),
     getProducts({ limit: 1000 }).catch(() => ({ products: [], total: 0 })),
     getHospitals({ limit: 1000 }).catch(() => ({ hospitals: [], total: 0 })),
+    getSuppliers({ limit: 1000 }).catch(() => ({ suppliers: [], total: 0 })),
   ]);
 
   const productOptions: ProductOption[] = allProducts.map((p) => ({
@@ -69,6 +71,9 @@ export default async function OrdersPage({ searchParams }: Props) {
   }));
   const hospitalOptions = allHospitals.map((h) => ({
     id: h.id, name: h.name,
+  }));
+  const supplierOptions = allSuppliers.map((s) => ({
+    id: s.id, name: s.name,
   }));
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
@@ -111,7 +116,7 @@ export default async function OrdersPage({ searchParams }: Props) {
                       <CardDescription><OrderFilters /></CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <OrderTable items={result.items} products={productOptions} hospitals={hospitalOptions} />
+                      <OrderTable items={result.items} products={productOptions} hospitals={hospitalOptions} suppliers={supplierOptions} />
                     </CardContent>
                     <CardFooter>
                       <Pagination currentPage={page} totalPages={totalPages} totalCount={result.total} />

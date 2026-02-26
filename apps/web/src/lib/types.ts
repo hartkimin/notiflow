@@ -51,6 +51,14 @@ export interface OrderDetail extends Order {
   message_received_at: string | null;
 }
 
+export interface OrderComment {
+  id: number;
+  order_id: number;
+  user_id: string | null;
+  content: string;
+  created_at: string;
+}
+
 export interface OrderItemFlat {
   id: number;
   order_id: number;
@@ -64,6 +72,7 @@ export interface OrderItemFlat {
   quantity: number;
   unit_type: string;
   box_quantity: number | null;
+  supplier_id: number | null;
   supplier_name: string | null;
   kpis_status: string | null;
   kpis_notes: string | null;

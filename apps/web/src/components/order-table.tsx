@@ -41,7 +41,6 @@ import {
   ChevronsUpDown,
   ExternalLink,
   Pencil,
-  Pill,
   Save,
   Trash2,
   X,
@@ -68,7 +67,6 @@ import { useRowSelection } from "@/hooks/use-row-selection";
 import { useResizableColumns } from "@/hooks/use-resizable-columns";
 import { ResizableTh } from "@/components/resizable-th";
 import { toast } from "sonner";
-import { DrugSearchDialog } from "@/components/drug-search-dialog";
 import type { OrderItemFlat } from "@/lib/types";
 
 export interface ProductOption {
@@ -362,7 +360,6 @@ function OrderAccordionContent({
   const [supplierOpenId, setSupplierOpenId] = useState<number | null>(null);
   const [kpisEditId, setKpisEditId] = useState<number | null>(null);
   const [kpisNotes, setKpisNotes] = useState("");
-  const [drugSearchItemId, setDrugSearchItemId] = useState<number | null>(null);
 
   async function handleConfirm() {
     try {
@@ -642,15 +639,6 @@ function OrderAccordionContent({
                             </Command>
                           </PopoverContent>
                         </Popover>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 shrink-0"
-                          title="의약품 API 검색"
-                          onClick={() => setDrugSearchItemId(item.id)}
-                        >
-                          <Pill className="h-3.5 w-3.5" />
-                        </Button>
                       </div>
                     ) : (
                       <>
@@ -870,20 +858,6 @@ function OrderAccordionContent({
         </AlertDialog>
       </div>
 
-      {drugSearchItemId !== null && (
-        <DrugSearchDialog
-          open={drugSearchItemId !== null}
-          onClose={() => setDrugSearchItemId(null)}
-          mode="create"
-          onProductCreated={(productId: number) => {
-            if (drugSearchItemId && productId > 0) {
-              updateItemField(drugSearchItemId, "product_id", productId);
-            }
-            setDrugSearchItemId(null);
-            router.refresh();
-          }}
-        />
-      )}
     </div>
   );
 }

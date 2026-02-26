@@ -634,7 +634,7 @@ function parseMfdsApiItems(body: Record<string, unknown>): Record<string, unknow
 }
 
 export async function searchMfdsDrug(
-  filters: { name?: string; company?: string; code?: string },
+  filters: Record<string, string>,
   page = 1,
 ) {
   const serviceKey = await getMfdsApiKey();
@@ -644,9 +644,9 @@ export async function searchMfdsDrug(
     numOfRows: "25",
     type: "json",
   });
-  if (filters.name) params.set("ITEM_NAME", filters.name);
-  if (filters.company) params.set("ENTP_NAME", filters.company);
-  if (filters.code) params.set("ITEM_SEQ", filters.code);
+  for (const [key, value] of Object.entries(filters)) {
+    if (value.trim()) params.set(key, value.trim());
+  }
 
   const url = `https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService07/getDrugPrdtPrmsnDtlInq06?${params}`;
   const res = await fetch(url);
@@ -663,7 +663,7 @@ export async function searchMfdsDrug(
 }
 
 export async function searchMfdsDevice(
-  filters: { name?: string; company?: string; code?: string },
+  filters: Record<string, string>,
   page = 1,
 ) {
   const serviceKey = await getMfdsApiKey();
@@ -673,9 +673,9 @@ export async function searchMfdsDevice(
     numOfRows: "25",
     type: "json",
   });
-  if (filters.name) params.set("PRDLST_NM", filters.name);
-  if (filters.company) params.set("MNFT_IPRT_ENTP_NM", filters.company);
-  if (filters.code) params.set("UDIDI_CD", filters.code);
+  for (const [key, value] of Object.entries(filters)) {
+    if (value.trim()) params.set(key, value.trim());
+  }
 
   const url = `https://apis.data.go.kr/1471000/MdeqStdCdPrdtInfoService03/getMdeqStdCdPrdtInfoInq03?${params}`;
   const res = await fetch(url);

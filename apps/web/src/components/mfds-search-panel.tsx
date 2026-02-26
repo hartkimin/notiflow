@@ -1,12 +1,45 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useMemo, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  flexRender,
+  type ColumnDef,
+  type ColumnOrderState,
+  type VisibilityState,
+  type SortingState,
+} from "@tanstack/react-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, Check, Search } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  Loader2,
+  Plus,
+  Check,
+  Search,
+  Settings2,
+  ChevronDown,
+  ChevronRight,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  Filter,
+  GripVertical,
+  X,
+} from "lucide-react";
 import {
   searchMfdsDrug,
   searchMfdsDevice,
@@ -14,13 +47,22 @@ import {
 } from "@/lib/actions";
 import type { MfdsApiSource } from "@/lib/types";
 
+// ─── Types ──────────────────────────────────────────────────────────
+
+interface MfdsCol {
+  key: string;
+  label: string;
+}
+
 interface MfdsSearchPanelProps {
   mode: "browse" | "pick";
   onSelect?: (productId: number) => void;
   existingStandardCodes?: string[];
 }
 
-const DRUG_COLUMNS = [
+// ─── Column Definitions (display) ───────────────────────────────────
+
+const DRUG_COLUMNS: MfdsCol[] = [
   { key: "ITEM_SEQ", label: "품목기준코드" },
   { key: "ITEM_NAME", label: "품목명" },
   { key: "ITEM_ENG_NAME", label: "품목영문명" },
@@ -47,7 +89,7 @@ const DRUG_COLUMNS = [
   { key: "RARE_DRUG_YN", label: "희귀의약품" },
 ];
 
-const DEVICE_STD_COLUMNS = [
+const DEVICE_STD_COLUMNS: MfdsCol[] = [
   { key: "UDIDI_CD", label: "UDI-DI코드" },
   { key: "PRDLST_NM", label: "품목명" },
   { key: "MNFT_IPRT_ENTP_NM", label: "제조수입업체명" },
@@ -70,6 +112,30 @@ const DEVICE_STD_COLUMNS = [
   { key: "RCPRSLRY_TRGT_YN", label: "요양급여대상여부" },
 ];
 
+// ─── API Search Parameters (서버 검색 가능 필드) ─────────────────────
+
+const DRUG_SEARCH_PARAMS: MfdsCol[] = [
+  { key: "ITEM_NAME", label: "품목명" },
+  { key: "ENTP_NAME", label: "업체명" },
+  { key: "ITEM_SEQ", label: "품목기준코드" },
+  { key: "BAR_CODE", label: "표준코드" },
+  { key: "EDI_CODE", label: "보험코드" },
+  { key: "ATC_CODE", label: "ATC코드" },
+  { key: "ITEM_PERMIT_DATE", label: "허가일자" },
+];
+
+const DEVICE_SEARCH_PARAMS: MfdsCol[] = [
+  { key: "PRDLST_NM", label: "품목명" },
+  { key: "MNFT_IPRT_ENTP_NM", label: "제조수입업체명" },
+  { key: "UDIDI_CD", label: "UDI-DI코드" },
+  { key: "MDEQ_CLSF_NO", label: "분류번호" },
+  { key: "CLSF_NO_GRAD_CD", label: "등급" },
+  { key: "PERMIT_NO", label: "품목허가번호" },
+  { key: "FOML_INFO", label: "모델명" },
+];
+
+// ─── Component ──────────────────────────────────────────────────────
+
 export function MfdsSearchPanel({
   mode,
   onSelect,
@@ -79,13 +145,29 @@ export function MfdsSearchPanel({
   const [isPending, startTransition] = useTransition();
   const [addingId, setAddingId] = useState<string | null>(null);
   const [tab, setTab] = useState<MfdsApiSource>("drug");
-  const [filters, setFilters] = useState({ name: "", company: "", code: "" });
+
+  // Search state
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Results state
   const [results, setResults] = useState<Record<string, unknown>[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
   const [hasSearched, setHasSearched] = useState(false);
 
-  const columns = tab === "drug" ? DRUG_COLUMNS : DEVICE_STD_COLUMNS;
+  // Table state
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [columnSizing, setColumnSizing] = useState<Record<string, number>>({});
+
+  // DnD ref for column reordering
+  const dragColumnRef = useRef<string | null>(null);
+
+  const colDefs = tab === "drug" ? DRUG_COLUMNS : DEVICE_STD_COLUMNS;
+  const searchParams = tab === "drug" ? DRUG_SEARCH_PARAMS : DEVICE_SEARCH_PARAMS;
   const pageSize = 25;
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -93,21 +175,108 @@ export function MfdsSearchPanel({
     return ((tab === "drug" ? item.BAR_CODE : item.UDIDI_CD) as string) ?? "";
   }
 
+  // ── TanStack column defs ────────────────────────────────────────
+
+  const columns = useMemo<ColumnDef<Record<string, unknown>>[]>(() => {
+    const actionCol: ColumnDef<Record<string, unknown>> = {
+      id: "_action",
+      header: mode === "browse" ? "추가" : "선택",
+      size: 80,
+      enableResizing: false,
+      enableSorting: false,
+      enableGlobalFilter: false,
+      cell: ({ row }) => {
+        const item = row.original;
+        const code =
+          ((tab === "drug" ? item.BAR_CODE : item.UDIDI_CD) as string) ?? "";
+        const alreadyAdded = existingStandardCodes.includes(code);
+
+        if (alreadyAdded) {
+          return (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <Check className="h-3 w-3" /> 추가됨
+            </span>
+          );
+        }
+        return (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isPending && addingId === code}
+            onClick={() => handleAdd(item)}
+          >
+            {isPending && addingId === code ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Plus className="h-3 w-3" />
+            )}
+          </Button>
+        );
+      },
+    };
+
+    const dataCols: ColumnDef<Record<string, unknown>>[] = colDefs.map(
+      (col) => ({
+        id: col.key,
+        accessorFn: (row: Record<string, unknown>) =>
+          (row[col.key] as string) ?? "",
+        header: col.label,
+        size: 160,
+        minSize: 60,
+        enableResizing: true,
+      }),
+    );
+
+    return [actionCol, ...dataCols];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colDefs, mode, existingStandardCodes, isPending, addingId, tab]);
+
+  // ── Table instance ──────────────────────────────────────────────
+
+  const table = useReactTable({
+    data: results,
+    columns,
+    state: {
+      sorting,
+      columnVisibility,
+      columnOrder,
+      globalFilter,
+      columnSizing,
+    },
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
+    onColumnOrderChange: setColumnOrder,
+    onGlobalFilterChange: setGlobalFilter,
+    onColumnSizingChange: setColumnSizing,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    columnResizeMode: "onChange",
+    enableColumnResizing: true,
+  });
+
+  // ── Handlers ────────────────────────────────────────────────────
+
   function doSearch(targetPage = 1) {
-    if (!filters.name && !filters.company && !filters.code) {
+    const activeFilters = Object.fromEntries(
+      Object.entries(filters).filter(([, v]) => v.trim()),
+    );
+    if (Object.keys(activeFilters).length === 0) {
       toast.error("검색어를 1개 이상 입력해주세요.");
       return;
     }
     startTransition(async () => {
       try {
         const searchFn = tab === "drug" ? searchMfdsDrug : searchMfdsDevice;
-        const result = await searchFn(filters, targetPage);
+        const result = await searchFn(activeFilters, targetPage);
         setResults(result.items as Record<string, unknown>[]);
         setTotalCount(result.totalCount);
         setPage(targetPage);
         setHasSearched(true);
       } catch (err) {
-        toast.error(`검색 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
+        toast.error(
+          `검색 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
+        );
       }
     });
   }
@@ -128,7 +297,9 @@ export function MfdsSearchPanel({
         }
         router.refresh();
       } catch (err) {
-        toast.error(`추가 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
+        toast.error(
+          `추가 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
+        );
       } finally {
         setAddingId(null);
       }
@@ -141,7 +312,45 @@ export function MfdsSearchPanel({
     setTotalCount(0);
     setPage(1);
     setHasSearched(false);
+    setFilters({});
+    setSorting([]);
+    setColumnVisibility({});
+    setColumnOrder([]);
+    setGlobalFilter("");
+    setColumnSizing({});
+    setShowAdvanced(false);
   }
+
+  // ── DnD column reordering ──────────────────────────────────────
+
+  function handleDragStart(columnId: string) {
+    dragColumnRef.current = columnId;
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+  }
+
+  function handleDrop(targetColumnId: string) {
+    const draggedId = dragColumnRef.current;
+    if (!draggedId || draggedId === targetColumnId) return;
+
+    const currentOrder =
+      table.getState().columnOrder.length > 0
+        ? [...table.getState().columnOrder]
+        : table.getAllLeafColumns().map((c) => c.id);
+
+    const fromIndex = currentOrder.indexOf(draggedId);
+    const toIndex = currentOrder.indexOf(targetColumnId);
+    if (fromIndex === -1 || toIndex === -1) return;
+
+    currentOrder.splice(fromIndex, 1);
+    currentOrder.splice(toIndex, 0, draggedId);
+    setColumnOrder(currentOrder);
+    dragColumnRef.current = null;
+  }
+
+  // ── Render ──────────────────────────────────────────────────────
 
   return (
     <div className="space-y-4">
@@ -152,99 +361,240 @@ export function MfdsSearchPanel({
         </TabsList>
 
         <TabsContent value={tab} className="space-y-4">
-          {/* Search Form */}
+          {/* ── Search Form ─────────────────────────────── */}
           <form
-            className="flex items-end gap-2"
-            onSubmit={(e) => { e.preventDefault(); doSearch(1); }}
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              doSearch(1);
+            }}
           >
-            <div className="flex-1 space-y-1">
-              <label className="text-xs text-muted-foreground">품목명</label>
-              <Input
-                placeholder={tab === "drug" ? "의약품명 검색..." : "의료기기명 검색..."}
-                value={filters.name}
-                onChange={(e) => setFilters((f) => ({ ...f, name: e.target.value }))}
-              />
+            {/* Default search fields (first 3) */}
+            <div className="flex items-end gap-2">
+              {searchParams.slice(0, 3).map((param) => (
+                <div key={param.key} className="flex-1 space-y-1">
+                  <label className="text-xs text-muted-foreground">
+                    {param.label}
+                  </label>
+                  <Input
+                    placeholder={`${param.label} 검색...`}
+                    value={filters[param.key] ?? ""}
+                    onChange={(e) =>
+                      setFilters((f) => ({ ...f, [param.key]: e.target.value }))
+                    }
+                  />
+                </div>
+              ))}
+              <Button type="submit" disabled={isPending}>
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+                <span className="ml-1">검색</span>
+              </Button>
             </div>
-            <div className="flex-1 space-y-1">
-              <label className="text-xs text-muted-foreground">업체명</label>
-              <Input
-                placeholder="제조/수입업체..."
-                value={filters.company}
-                onChange={(e) => setFilters((f) => ({ ...f, company: e.target.value }))}
-              />
-            </div>
-            <div className="flex-1 space-y-1">
-              <label className="text-xs text-muted-foreground">
-                {tab === "drug" ? "품목기준코드" : "UDI코드"}
-              </label>
-              <Input
-                placeholder={tab === "drug" ? "ITEM_SEQ..." : "UDIDI_CD..."}
-                value={filters.code}
-                onChange={(e) => setFilters((f) => ({ ...f, code: e.target.value }))}
-              />
-            </div>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              <span className="ml-1">검색</span>
-            </Button>
+
+            {/* Advanced search toggle */}
+            {searchParams.length > 3 && (
+              <>
+                <button
+                  type="button"
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                >
+                  {showAdvanced ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
+                  )}
+                  고급 검색 ({searchParams.length - 3}개 추가 필터)
+                </button>
+                {showAdvanced && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {searchParams.slice(3).map((param) => (
+                      <div key={param.key} className="space-y-1">
+                        <label className="text-xs text-muted-foreground">
+                          {param.label}
+                        </label>
+                        <Input
+                          placeholder={`${param.label}...`}
+                          value={filters[param.key] ?? ""}
+                          onChange={(e) =>
+                            setFilters((f) => ({
+                              ...f,
+                              [param.key]: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </form>
 
-          {/* Results info */}
+          {/* ── Toolbar ─────────────────────────────────── */}
           {hasSearched && (
-            <p className="text-sm text-muted-foreground">
-              총 {totalCount.toLocaleString()}건 (페이지 {page}/{totalPages || 1})
-            </p>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <p className="text-sm text-muted-foreground">
+                총 {totalCount.toLocaleString()}건 (페이지 {page}/
+                {totalPages || 1})
+                {globalFilter && (
+                  <span className="ml-2">
+                    · 필터 적용: {table.getFilteredRowModel().rows.length}건
+                    표시
+                  </span>
+                )}
+              </p>
+              <div className="flex items-center gap-2">
+                {/* Client-side global filter */}
+                <div className="relative">
+                  <Filter className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                  <Input
+                    placeholder="결과 내 검색..."
+                    value={globalFilter}
+                    onChange={(e) => setGlobalFilter(e.target.value)}
+                    className="pl-7 h-8 w-48 text-xs"
+                  />
+                  {globalFilter && (
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2"
+                      onClick={() => setGlobalFilter("")}
+                    >
+                      <X className="h-3 w-3 text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Column visibility */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8">
+                      <Settings2 className="h-3 w-3 mr-1" />
+                      컬럼
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-56 max-h-80 overflow-y-auto"
+                  >
+                    <DropdownMenuLabel>표시할 컬럼</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {table
+                      .getAllLeafColumns()
+                      .filter((col) => col.id !== "_action")
+                      .map((col) => (
+                        <DropdownMenuCheckboxItem
+                          key={col.id}
+                          checked={col.getIsVisible()}
+                          onCheckedChange={(v: boolean) => col.toggleVisibility(v)}
+                        >
+                          {typeof col.columnDef.header === "string"
+                            ? col.columnDef.header
+                            : col.id}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
           )}
 
-          {/* Scrollable Table */}
+          {/* ── Data Table ──────────────────────────────── */}
           {results.length > 0 && (
             <div className="border rounded-md overflow-x-auto">
-              <table className="w-max min-w-full text-sm">
-                <thead className="bg-muted/50 sticky top-0">
-                  <tr>
-                    <th className="px-3 py-2 text-left whitespace-nowrap sticky left-0 bg-muted/50 z-10">
-                      {mode === "browse" ? "추가" : "선택"}
-                    </th>
-                    {columns.map((col) => (
-                      <th key={col.key} className="px-3 py-2 text-left whitespace-nowrap">
-                        {col.label}
-                      </th>
-                    ))}
-                  </tr>
+              <table
+                className="text-sm"
+                style={{ width: table.getCenterTotalSize() }}
+              >
+                <thead className="bg-muted/50">
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <tr key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => {
+                        const isAction = header.id === "_action";
+                        return (
+                          <th
+                            key={header.id}
+                            className={`relative px-3 py-2 text-left whitespace-nowrap select-none ${
+                              isAction
+                                ? "sticky left-0 bg-muted/50 z-10"
+                                : ""
+                            }`}
+                            style={{ width: header.getSize() }}
+                            draggable={!isAction}
+                            onDragStart={() => handleDragStart(header.id)}
+                            onDragOver={handleDragOver}
+                            onDrop={() => handleDrop(header.id)}
+                          >
+                            <div
+                              className={`flex items-center gap-1 ${
+                                header.column.getCanSort()
+                                  ? "cursor-pointer hover:text-foreground"
+                                  : ""
+                              }`}
+                              onClick={header.column.getToggleSortingHandler()}
+                            >
+                              {!isAction && (
+                                <GripVertical className="h-3 w-3 text-muted-foreground/40 flex-shrink-0 cursor-grab" />
+                              )}
+                              {flexRender(
+                                header.column.columnDef.header,
+                                header.getContext(),
+                              )}
+                              {header.column.getIsSorted() === "asc" && (
+                                <ArrowUp className="h-3 w-3 flex-shrink-0" />
+                              )}
+                              {header.column.getIsSorted() === "desc" && (
+                                <ArrowDown className="h-3 w-3 flex-shrink-0" />
+                              )}
+                              {header.column.getCanSort() &&
+                                !header.column.getIsSorted() && (
+                                  <ArrowUpDown className="h-3 w-3 text-muted-foreground/30 flex-shrink-0" />
+                                )}
+                            </div>
+
+                            {/* Resize handle */}
+                            {header.column.getCanResize() && (
+                              <div
+                                onMouseDown={header.getResizeHandler()}
+                                onTouchStart={header.getResizeHandler()}
+                                className={`absolute right-0 top-0 h-full w-1.5 cursor-col-resize select-none touch-none hover:bg-primary/50 ${
+                                  header.column.getIsResizing()
+                                    ? "bg-primary"
+                                    : ""
+                                }`}
+                              />
+                            )}
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  ))}
                 </thead>
                 <tbody className="divide-y">
-                  {results.map((item, idx) => {
-                    const code = getStandardCode(item);
-                    const alreadyAdded = existingStandardCodes.includes(code);
-
-                    return (
-                      <tr key={`${code}-${idx}`} className="hover:bg-muted/30">
-                        <td className="px-3 py-2 sticky left-0 bg-background z-10">
-                          {alreadyAdded ? (
-                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                              <Check className="h-3 w-3" /> 추가됨
-                            </span>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={isPending && addingId === code}
-                              onClick={() => handleAdd(item)}
-                            >
-                              {isPending && addingId === code
-                                ? <Loader2 className="h-3 w-3 animate-spin" />
-                                : <Plus className="h-3 w-3" />}
-                            </Button>
+                  {table.getRowModel().rows.map((row) => (
+                    <tr key={row.id} className="hover:bg-muted/30">
+                      {row.getVisibleCells().map((cell) => (
+                        <td
+                          key={cell.id}
+                          className={`px-3 py-2 whitespace-nowrap max-w-[300px] truncate ${
+                            cell.column.id === "_action"
+                              ? "sticky left-0 bg-background z-10"
+                              : ""
+                          }`}
+                          style={{ width: cell.column.getSize() }}
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
                           )}
                         </td>
-                        {columns.map((col) => (
-                          <td key={col.key} className="px-3 py-2 whitespace-nowrap max-w-[300px] truncate">
-                            {(item[col.key] as string) ?? ""}
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
+                      ))}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -268,7 +618,9 @@ export function MfdsSearchPanel({
               >
                 이전
               </Button>
-              <span className="text-sm">{page} / {totalPages}</span>
+              <span className="text-sm">
+                {page} / {totalPages}
+              </span>
               <Button
                 variant="outline"
                 size="sm"

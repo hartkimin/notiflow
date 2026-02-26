@@ -4,93 +4,185 @@ import type { MfdsApiSource } from "@/lib/types";
 // Types
 // ---------------------------------------------------------------------------
 
-/** A UI chip representing one active search filter */
+export type FilterOperator =
+  | "contains"
+  | "equals"
+  | "startsWith"
+  | "notContains"
+  | "before"
+  | "after"
+  | "between";
+
 export interface FilterChip {
   field: string;
   label: string;
   value: string;
+  /** Secondary value for "between" operator */
+  valueTo?: string;
+  operator: FilterOperator;
 }
 
-/** Result of auto-detecting which API fields to query */
-export interface DetectedSearch {
-  /** Primary search filter (always present) */
-  primary: Record<string, string>;
-  /** Optional fallback filter tried when primary returns no results */
-  fallback: Record<string, string> | null;
+export type ColumnType = "text" | "date" | "status";
+
+export interface SearchableColumn {
+  field: string;
+  label: string;
+  type: ColumnType;
 }
 
 // ---------------------------------------------------------------------------
-// Internal helpers
+// Searchable column definitions per tab (used by search dropdown)
 // ---------------------------------------------------------------------------
 
-/** 4+ consecutive digits */
-const PURE_DIGITS = /^\d{4,}$/;
+const DRUG_SEARCHABLE_COLUMNS: SearchableColumn[] = [
+  { field: "ITEM_NAME", label: "품목명", type: "text" },
+  { field: "ENTP_NAME", label: "업체명", type: "text" },
+  { field: "BAR_CODE", label: "표준코드", type: "text" },
+  { field: "EDI_CODE", label: "보험코드", type: "text" },
+  { field: "ATC_CODE", label: "ATC코드", type: "text" },
+  { field: "ITEM_SEQ", label: "품목기준코드", type: "text" },
+  { field: "PERMIT_KIND_NAME", label: "허가종류", type: "text" },
+  { field: "CANCEL_NAME", label: "상태", type: "status" },
+];
 
-/** Digits separated by hyphens, e.g. 645-01-0123 */
-const DIGITS_WITH_HYPHEN = /^\d[\d-]+\d$/;
+const DEVICE_SEARCHABLE_COLUMNS: SearchableColumn[] = [
+  { field: "PRDLST_NM", label: "품목명", type: "text" },
+  { field: "MNFT_IPRT_ENTP_NM", label: "업체명", type: "text" },
+  { field: "UDIDI_CD", label: "UDI-DI", type: "text" },
+  { field: "PERMIT_NO", label: "품목허가번호", type: "text" },
+  { field: "MDEQ_CLSF_NO", label: "분류번호", type: "text" },
+  { field: "CLSF_NO_GRAD_CD", label: "등급", type: "status" },
+  { field: "FOML_INFO", label: "모델명", type: "text" },
+];
 
-/** Alphanumeric classification code like A01B, C09DA */
-const ALPHA_DIGITS_CODE = /^[A-Za-z]\d{2,}[A-Za-z]?\d*$/;
-
-/** Contains at least one Korean character */
-const HAS_KOREAN = /[\uAC00-\uD7AF\u3130-\u318F]/;
-
-/** Latin letters only (no digits, no special chars) */
-const ALPHA_ONLY = /^[A-Za-z\s]+$/;
+/** Get searchable columns for search field dropdown */
+export function getSearchableColumns(tab: MfdsApiSource): SearchableColumn[] {
+  return tab === "drug" ? DRUG_SEARCHABLE_COLUMNS : DEVICE_SEARCHABLE_COLUMNS;
+}
 
 // ---------------------------------------------------------------------------
-// Main detection function
+// Filterable column definitions per tab (used by filter builder)
 // ---------------------------------------------------------------------------
 
-/**
- * Analyse a free-text query and decide which MFDS API field(s) to search.
- *
- * The function returns a `primary` filter to use first, and optionally a
- * `fallback` filter the caller can try when the primary yields no results.
- */
-export function detectSearchFields(
-  query: string,
-  tab: MfdsApiSource,
-): DetectedSearch {
-  const q = query.trim();
+const DRUG_FILTERABLE_COLUMNS: SearchableColumn[] = [
+  { field: "ITEM_NAME", label: "품목명", type: "text" },
+  { field: "ENTP_NAME", label: "업체명", type: "text" },
+  { field: "BAR_CODE", label: "표준코드", type: "text" },
+  { field: "EDI_CODE", label: "보험코드", type: "text" },
+  { field: "ATC_CODE", label: "ATC코드", type: "text" },
+  { field: "ITEM_SEQ", label: "품목기준코드", type: "text" },
+  { field: "ITEM_ENG_NAME", label: "영문명", type: "text" },
+  { field: "ENTP_NO", label: "업체허가번호", type: "text" },
+  { field: "CNSGN_MANUF", label: "위탁제조업체", type: "text" },
+  { field: "MATERIAL_NAME", label: "성분", type: "text" },
+  { field: "CHART", label: "성상", type: "text" },
+  { field: "STORAGE_METHOD", label: "저장방법", type: "text" },
+  { field: "VALID_TERM", label: "유효기간", type: "text" },
+  { field: "PACK_UNIT", label: "포장단위", type: "text" },
+  { field: "PERMIT_KIND_NAME", label: "허가구분", type: "text" },
+  { field: "ETC_OTC_CODE", label: "전문/일반", type: "status" },
+  { field: "CANCEL_NAME", label: "상태", type: "status" },
+  { field: "RARE_DRUG_YN", label: "희귀의약품", type: "text" },
+  { field: "ITEM_PERMIT_DATE", label: "허가일자", type: "date" },
+  { field: "CANCEL_DATE", label: "취소일자", type: "date" },
+  { field: "CHANGE_DATE", label: "변경일자", type: "date" },
+];
 
-  // --- Pure digits (4+ chars) ---
-  if (PURE_DIGITS.test(q)) {
-    return tab === "drug"
-      ? { primary: { BAR_CODE: q }, fallback: { ITEM_SEQ: q } }
-      : { primary: { UDIDI_CD: q }, fallback: { PERMIT_NO: q } };
+const DEVICE_FILTERABLE_COLUMNS: SearchableColumn[] = [
+  { field: "PRDLST_NM", label: "품목명", type: "text" },
+  { field: "MNFT_IPRT_ENTP_NM", label: "제조수입업체명", type: "text" },
+  { field: "UDIDI_CD", label: "UDI-DI코드", type: "text" },
+  { field: "PERMIT_NO", label: "품목허가번호", type: "text" },
+  { field: "MDEQ_CLSF_NO", label: "분류번호", type: "text" },
+  { field: "FOML_INFO", label: "모델명", type: "text" },
+  { field: "PRDT_NM_INFO", label: "제품명", type: "text" },
+  { field: "USE_PURPS_CONT", label: "사용목적", type: "text" },
+  { field: "STERILIZATION_METHOD_NM", label: "멸균방법", type: "text" },
+  { field: "STRG_CND_INFO", label: "저장조건", type: "text" },
+  { field: "CIRC_CND_INFO", label: "유통취급조건", type: "text" },
+  { field: "CLSF_NO_GRAD_CD", label: "등급", type: "status" },
+  { field: "DSPSBL_MDEQ_YN", label: "일회용여부", type: "status" },
+  { field: "HMBD_TRSPT_MDEQ_YN", label: "인체이식형여부", type: "status" },
+  { field: "TRCK_MNG_TRGT_YN", label: "추적관리대상", type: "status" },
+  { field: "TOTAL_DEV", label: "한벌구성여부", type: "status" },
+  { field: "CMBNMD_YN", label: "조합의료기기", type: "status" },
+  { field: "RCPRSLRY_TRGT_YN", label: "요양급여대상", type: "status" },
+  { field: "USE_BEFORE_STRLZT_NEED_YN", label: "사전멸균필요", type: "status" },
+  { field: "PRMSN_YMD", label: "허가일자", type: "date" },
+];
+
+/** Get filterable columns for filter builder */
+export function getFilterableColumns(tab: MfdsApiSource): SearchableColumn[] {
+  return tab === "drug" ? DRUG_FILTERABLE_COLUMNS : DEVICE_FILTERABLE_COLUMNS;
+}
+
+// ---------------------------------------------------------------------------
+// Operators per column type
+// ---------------------------------------------------------------------------
+
+const OPERATOR_OPTIONS: Record<ColumnType, { value: FilterOperator; label: string }[]> = {
+  text: [
+    { value: "contains", label: "포함" },
+    { value: "equals", label: "일치" },
+    { value: "startsWith", label: "시작" },
+    { value: "notContains", label: "제외" },
+  ],
+  date: [
+    { value: "before", label: "이전" },
+    { value: "after", label: "이후" },
+    { value: "between", label: "범위" },
+  ],
+  status: [
+    { value: "equals", label: "일치" },
+  ],
+};
+
+export function getOperatorsForType(type: ColumnType) {
+  return OPERATOR_OPTIONS[type];
+}
+
+// ---------------------------------------------------------------------------
+// "전체" search fallback sequence
+// ---------------------------------------------------------------------------
+
+const DRUG_FALLBACK_FIELDS = ["ITEM_NAME", "ENTP_NAME", "BAR_CODE"];
+const DEVICE_FALLBACK_FIELDS = ["PRDLST_NM", "MNFT_IPRT_ENTP_NM", "UDIDI_CD"];
+
+/** Get fallback field sequence for "전체" search mode */
+export function getFallbackFields(tab: MfdsApiSource): string[] {
+  return tab === "drug" ? DRUG_FALLBACK_FIELDS : DEVICE_FALLBACK_FIELDS;
+}
+
+// ---------------------------------------------------------------------------
+// Client-side filter matching
+// ---------------------------------------------------------------------------
+
+/** Check if a single row value matches a filter chip (client-side) */
+export function matchesFilter(
+  rowValue: unknown,
+  chip: FilterChip,
+): boolean {
+  const val = String(rowValue ?? "").toLowerCase();
+  const target = chip.value.toLowerCase();
+
+  switch (chip.operator) {
+    case "contains":
+      return val.includes(target);
+    case "equals":
+      return val === target;
+    case "startsWith":
+      return val.startsWith(target);
+    case "notContains":
+      return !val.includes(target);
+    case "before":
+      return val !== "" && val < target;
+    case "after":
+      return val !== "" && val > target;
+    case "between": {
+      const to = (chip.valueTo ?? "").toLowerCase();
+      return val !== "" && val >= target && val <= to;
+    }
+    default:
+      return true;
   }
-
-  // --- Digits with hyphens (e.g. EDI code, permit number) ---
-  if (DIGITS_WITH_HYPHEN.test(q)) {
-    return tab === "drug"
-      ? { primary: { EDI_CODE: q }, fallback: { BAR_CODE: q } }
-      : { primary: { PERMIT_NO: q }, fallback: { MDEQ_CLSF_NO: q } };
-  }
-
-  // --- Alpha + digits classification code (e.g. A01B, C09DA06) ---
-  if (ALPHA_DIGITS_CODE.test(q)) {
-    return tab === "drug"
-      ? { primary: { ATC_CODE: q }, fallback: null }
-      : { primary: { MDEQ_CLSF_NO: q }, fallback: null };
-  }
-
-  // --- Contains Korean characters ---
-  if (HAS_KOREAN.test(q)) {
-    return tab === "drug"
-      ? { primary: { ITEM_NAME: q }, fallback: { ENTP_NAME: q } }
-      : { primary: { PRDLST_NM: q }, fallback: { MNFT_IPRT_ENTP_NM: q } };
-  }
-
-  // --- Alpha only (English text) ---
-  if (ALPHA_ONLY.test(q)) {
-    return tab === "drug"
-      ? { primary: { ITEM_NAME: q }, fallback: null }
-      : { primary: { FOML_INFO: q }, fallback: null };
-  }
-
-  // --- Default ---
-  return tab === "drug"
-    ? { primary: { ITEM_NAME: q }, fallback: null }
-    : { primary: { PRDLST_NM: q }, fallback: null };
 }

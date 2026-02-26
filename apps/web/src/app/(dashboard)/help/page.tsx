@@ -39,6 +39,29 @@ const releases = [
   {
     version: APP_VERSION,
     date: "2026-02-26",
+    title: "품목관리 전면 개편 — 식약처 API 연동 + 동기화",
+    highlights: [
+      {
+        icon: Package,
+        text: "DB 구조 개편 — 의약품(my_drugs) / 의료기기(my_devices) 테이블을 식약처 API 컬럼과 1:1 매칭",
+      },
+      {
+        icon: Search,
+        text: "내 품목 관리 — 검색 페이지와 동일한 UI로 등록된 품목 조회, 필터, 컬럼 설정",
+      },
+      {
+        icon: Zap,
+        text: "개별 동기화 — 품목별 식약처 API 조회 후 변경사항 diff 표시, 선택적 적용",
+      },
+      {
+        icon: Layers,
+        text: "호환성 보장 — products_catalog VIEW로 기존 주문/파싱 시스템과 완벽 호환",
+      },
+    ],
+  },
+  {
+    version: "0.0.0.5",
+    date: "2026-02-26",
     title: "품목 검색 UI/UX 전면 재설계",
     highlights: [
       {

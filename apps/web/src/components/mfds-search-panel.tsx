@@ -58,9 +58,18 @@ export function MfdsSearchPanel({
   const [hasSearched, setHasSearched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Columns hidden by default (toggle-able via column settings)
+  const DRUG_HIDDEN = ["ITEM_SEQ", "ITEM_ENG_NAME", "ENTP_NO", "CNSGN_MANUF", "CHART", "STORAGE_METHOD", "VALID_TERM", "PACK_UNIT", "EE_DOC_ID", "UD_DOC_ID", "NB_DOC_ID", "PERMIT_KIND_NAME", "CANCEL_DATE", "CHANGE_DATE", "ATC_CODE", "RARE_DRUG_YN"];
+  const DEVICE_HIDDEN = ["PRDT_NM_INFO", "MDEQ_CLSF_NO", "USE_PURPS_CONT", "HMBD_TRSPT_MDEQ_YN", "TRCK_MNG_TRGT_YN", "TOTAL_DEV", "CMBNMD_YN", "RCPRSLRY_TRGT_YN", "USE_BEFORE_STRLZT_NEED_YN", "STERILIZATION_METHOD_NM", "STRG_CND_INFO", "CIRC_CND_INFO"];
+
+  function getDefaultVisibility(source: MfdsApiSource): VisibilityState {
+    const hidden = source === "drug" ? DRUG_HIDDEN : DEVICE_HIDDEN;
+    return Object.fromEntries(hidden.map((id) => [id, false]));
+  }
+
   // Table state
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => getDefaultVisibility("drug"));
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnSizing, setColumnSizing] = useState<Record<string, number>>({});
 
@@ -126,26 +135,69 @@ export function MfdsSearchPanel({
       },
     };
 
+    const col = (id: string, header: string, size = 120): ColumnDef<Record<string, unknown>> => ({
+      id,
+      accessorFn: (r) => (r[id] as string) ?? "",
+      header,
+      size,
+      minSize: 60,
+      enableResizing: true,
+    });
+
+    // 의약품: 기본 8개 + 추가 16개 = 전체 24개
     const drugDataCols: ColumnDef<Record<string, unknown>>[] = [
-      { id: "ITEM_NAME", accessorFn: (r) => (r.ITEM_NAME as string) ?? "", header: "품목명", size: 200, minSize: 60, enableResizing: true },
-      { id: "ENTP_NAME", accessorFn: (r) => (r.ENTP_NAME as string) ?? "", header: "업체명", size: 200, minSize: 60, enableResizing: true },
-      { id: "ETC_OTC_CODE", accessorFn: (r) => (r.ETC_OTC_CODE as string) ?? "", header: "전문/일반", size: 120, minSize: 60, enableResizing: true },
-      { id: "BAR_CODE", accessorFn: (r) => (r.BAR_CODE as string) ?? "", header: "표준코드", size: 120, minSize: 60, enableResizing: true },
-      { id: "EDI_CODE", accessorFn: (r) => (r.EDI_CODE as string) ?? "", header: "보험코드", size: 120, minSize: 60, enableResizing: true },
-      { id: "ITEM_PERMIT_DATE", accessorFn: (r) => (r.ITEM_PERMIT_DATE as string) ?? "", header: "허가일자", size: 120, minSize: 60, enableResizing: true },
-      { id: "MATERIAL_NAME", accessorFn: (r) => (r.MATERIAL_NAME as string) ?? "", header: "성분", size: 120, minSize: 60, enableResizing: true },
-      { id: "CANCEL_NAME", accessorFn: (r) => (r.CANCEL_NAME as string) ?? "", header: "상태", size: 120, minSize: 60, enableResizing: true },
+      // ── 기본 노출 ──
+      col("ITEM_NAME", "품목명", 200),
+      col("ENTP_NAME", "업체명", 200),
+      col("ETC_OTC_CODE", "전문/일반"),
+      col("BAR_CODE", "표준코드"),
+      col("EDI_CODE", "보험코드"),
+      col("ITEM_PERMIT_DATE", "허가일자"),
+      col("MATERIAL_NAME", "성분"),
+      col("CANCEL_NAME", "상태"),
+      // ── 기본 숨김 (컬럼설정에서 켤 수 있음) ──
+      col("ITEM_SEQ", "품목기준코드"),
+      col("ITEM_ENG_NAME", "영문명", 200),
+      col("ENTP_NO", "업체허가번호"),
+      col("CNSGN_MANUF", "위탁제조업체", 160),
+      col("CHART", "성상", 160),
+      col("STORAGE_METHOD", "저장방법", 160),
+      col("VALID_TERM", "유효기간"),
+      col("PACK_UNIT", "포장단위"),
+      col("EE_DOC_ID", "효능효과", 200),
+      col("UD_DOC_ID", "용법용량", 200),
+      col("NB_DOC_ID", "주의사항", 200),
+      col("PERMIT_KIND_NAME", "허가구분"),
+      col("CANCEL_DATE", "취소일자"),
+      col("CHANGE_DATE", "변경일자"),
+      col("ATC_CODE", "ATC코드"),
+      col("RARE_DRUG_YN", "희귀의약품"),
     ];
 
+    // 의료기기: 기본 8개 + 추가 12개 = 전체 20개
     const deviceDataCols: ColumnDef<Record<string, unknown>>[] = [
-      { id: "PRDLST_NM", accessorFn: (r) => (r.PRDLST_NM as string) ?? "", header: "품목명", size: 200, minSize: 60, enableResizing: true },
-      { id: "MNFT_IPRT_ENTP_NM", accessorFn: (r) => (r.MNFT_IPRT_ENTP_NM as string) ?? "", header: "제조수입업체명", size: 200, minSize: 60, enableResizing: true },
-      { id: "CLSF_NO_GRAD_CD", accessorFn: (r) => (r.CLSF_NO_GRAD_CD as string) ?? "", header: "등급", size: 120, minSize: 60, enableResizing: true },
-      { id: "UDIDI_CD", accessorFn: (r) => (r.UDIDI_CD as string) ?? "", header: "UDI-DI코드", size: 120, minSize: 60, enableResizing: true },
-      { id: "PERMIT_NO", accessorFn: (r) => (r.PERMIT_NO as string) ?? "", header: "품목허가번호", size: 120, minSize: 60, enableResizing: true },
-      { id: "PRMSN_YMD", accessorFn: (r) => (r.PRMSN_YMD as string) ?? "", header: "허가일자", size: 120, minSize: 60, enableResizing: true },
-      { id: "FOML_INFO", accessorFn: (r) => (r.FOML_INFO as string) ?? "", header: "모델명", size: 120, minSize: 60, enableResizing: true },
-      { id: "DSPSBL_MDEQ_YN", accessorFn: (r) => (r.DSPSBL_MDEQ_YN as string) ?? "", header: "일회용여부", size: 120, minSize: 60, enableResizing: true },
+      // ── 기본 노출 ──
+      col("PRDLST_NM", "품목명", 200),
+      col("MNFT_IPRT_ENTP_NM", "제조수입업체명", 200),
+      col("CLSF_NO_GRAD_CD", "등급"),
+      col("UDIDI_CD", "UDI-DI코드"),
+      col("PERMIT_NO", "품목허가번호"),
+      col("PRMSN_YMD", "허가일자"),
+      col("FOML_INFO", "모델명"),
+      col("DSPSBL_MDEQ_YN", "일회용여부"),
+      // ── 기본 숨김 (컬럼설정에서 켤 수 있음) ──
+      col("PRDT_NM_INFO", "제품명", 200),
+      col("MDEQ_CLSF_NO", "분류번호"),
+      col("USE_PURPS_CONT", "사용목적", 200),
+      col("HMBD_TRSPT_MDEQ_YN", "인체이식형여부"),
+      col("TRCK_MNG_TRGT_YN", "추적관리대상"),
+      col("TOTAL_DEV", "한벌구성여부"),
+      col("CMBNMD_YN", "조합의료기기"),
+      col("RCPRSLRY_TRGT_YN", "요양급여대상"),
+      col("USE_BEFORE_STRLZT_NEED_YN", "사전멸균필요"),
+      col("STERILIZATION_METHOD_NM", "멸균방법", 160),
+      col("STRG_CND_INFO", "저장조건", 160),
+      col("CIRC_CND_INFO", "유통취급조건", 160),
     ];
 
     const dataCols = tab === "drug" ? drugDataCols : deviceDataCols;
@@ -279,7 +331,7 @@ export function MfdsSearchPanel({
     setTotalCount(0);
     setPage(1);
     setSorting([]);
-    setColumnVisibility({});
+    setColumnVisibility(getDefaultVisibility(newTab));
     setGlobalFilter("");
     setColumnSizing({});
     setExpandedRowId(null);

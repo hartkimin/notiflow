@@ -114,7 +114,6 @@ export function MfdsSearchPanel({
   // MFDS sync state (browse mode)
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
-  const syncPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Debounce refs
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -440,106 +439,163 @@ export function MfdsSearchPanel({
     setHasSearched(true);
   }, [mode, tab, myDrugs, myDevices]);
 
-  // ── Sync polling — shared between trigger and page-load resume ───
-  const continuationInFlightRef = useRef(false);
+  // ── NDJSON stream reader — reads streaming sync progress ─────────
+  const readStream = useCallback(
+    async (response: Response) => {
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let lastLogId: number | null = null;
+      let lastSearchRefresh = 0;
 
-  const startSyncPolling = useCallback(
-    (logId: number) => {
-      // Clear any existing polling
-      if (syncPollingRef.current) clearInterval(syncPollingRef.current);
-      continuationInFlightRef.current = false;
+      const { done: streamDone, value: firstChunk } = await reader.read().catch(() => ({ done: true, value: undefined }));
+      if (!streamDone && firstChunk) {
+        buffer += decoder.decode(firstChunk, { stream: true });
+      }
+      // Process first chunk + continue reading
+      const processBuffer = () => {
+        const lines = buffer.split("\n");
+        buffer = lines.pop()!;
+        return lines;
+      };
 
-      setIsSyncing(true);
-      setSyncProgress("동기화 중...");
+      // Re-assemble: process first chunk inline, then loop
+      const allLines = streamDone ? [] : processBuffer();
+      for (const line of allLines) {
+        if (!line.trim()) continue;
+        const event = JSON.parse(line);
+        if (event.type === "start") lastLogId = event.logId;
+      }
 
-      syncPollingRef.current = setInterval(async () => {
-        try {
-          const progress = await getMfdsSyncProgress(logId);
+      if (streamDone) return;
 
-          if (progress.status === "running") {
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop()!;
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const event = JSON.parse(line);
+
+          if (event.type === "start") {
+            lastLogId = event.logId;
+          } else if (event.type === "progress") {
             setSyncProgress(
-              `동기화 중... ${progress.totalFetched.toLocaleString()}건 처리됨`,
+              `동기화 중... ${event.totalFetched.toLocaleString()}건 처리됨`,
             );
-            // Refresh search so newly synced items appear in real-time
-            doSearch(1);
-          } else if (
-            progress.status === "partial" &&
-            progress.nextPage &&
-            progress.sourceType
-          ) {
-            // Time budget exceeded — trigger continuation from client
-            setSyncProgress(
-              `동기화 계속 중... ${progress.totalFetched.toLocaleString()}건 처리됨`,
-            );
-            doSearch(1);
-
-            // Prevent duplicate continuation triggers
-            if (!continuationInFlightRef.current) {
-              continuationInFlightRef.current = true;
-              fetch("/api/sync-mfds", {
+            // Refresh search results at most every 5s
+            if (Date.now() - lastSearchRefresh > 5000) {
+              doSearch(1);
+              lastSearchRefresh = Date.now();
+            }
+          } else if (event.type === "done") {
+            if (event.outcome === "partial" && event.nextPage && lastLogId) {
+              // Auto-continue: start new streaming request
+              setSyncProgress(
+                `동기화 계속 중... ${event.totalFetched.toLocaleString()}건 처리됨`,
+              );
+              const contRes = await fetch("/api/sync-mfds", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  sourceType: progress.sourceType,
-                  logId,
-                  startPage: progress.nextPage,
-                  priorFetched: progress.totalFetched,
-                  priorUpserted: progress.totalUpserted,
+                  sourceType: tab,
+                  logId: lastLogId,
+                  startPage: event.nextPage,
+                  priorFetched: event.totalFetched,
+                  priorUpserted: event.totalUpserted,
                 }),
-              })
-                .then((res) => {
-                  if (!res.ok) {
-                    console.error("Continuation trigger failed:", res.status);
-                  }
-                })
-                .catch((err) => {
-                  console.error("Continuation trigger failed:", err);
-                })
-                .finally(() => {
-                  continuationInFlightRef.current = false;
-                });
+              });
+              if (contRes.ok) {
+                await readStream(contRes);
+                return; // Continuation handles cleanup
+              }
             }
-          } else {
-            // Sync finished (completed or error)
-            if (syncPollingRef.current) clearInterval(syncPollingRef.current);
-            syncPollingRef.current = null;
-            setIsSyncing(false);
-            setSyncProgress(null);
+            // Completed
             doSearch(1);
-
-            if (progress.status === "completed") {
-              toast.success(
-                `동기화 완료: ${progress.totalFetched.toLocaleString()}건 확인, ${progress.totalUpserted.toLocaleString()}건 반영`,
-              );
-            } else if (progress.status === "error") {
-              toast.error(`동기화 실패: ${progress.errorMessage ?? "알 수 없는 오류"}`);
-            }
+            toast.success(
+              `동기화 완료: ${event.totalFetched.toLocaleString()}건 확인, ${event.totalUpserted.toLocaleString()}건 반영`,
+            );
+          } else if (event.type === "error") {
+            toast.error(`동기화 실패: ${event.message}`);
           }
-        } catch {
-          // Polling error — keep trying
         }
-      }, 3000);
+      }
     },
-    [doSearch],
+    [doSearch, tab],
   );
 
-  // ── Resume polling on page load if a sync is already running ────
+  // ── Resume sync status on page load (passive — can't attach to stream) ──
   useEffect(() => {
     if (mode !== "browse") return;
     let cancelled = false;
 
     getActiveSyncLog().then((active) => {
       if (cancelled || !active) return;
-      startSyncPolling(active.logId);
+      setIsSyncing(true);
+      setSyncProgress(
+        `동기화 진행 중 (${active.totalFetched.toLocaleString()}건 처리됨)`,
+      );
+      // Poll once to check if it completed while page was loading
+      const checkInterval = setInterval(async () => {
+        const progress = await getMfdsSyncProgress(active.logId);
+        if (progress.status === "completed") {
+          clearInterval(checkInterval);
+          setIsSyncing(false);
+          setSyncProgress(null);
+          doSearch(1);
+          toast.success(
+            `동기화 완료: ${progress.totalFetched.toLocaleString()}건 확인, ${progress.totalUpserted.toLocaleString()}건 반영`,
+          );
+        } else if (progress.status === "error") {
+          clearInterval(checkInterval);
+          setIsSyncing(false);
+          setSyncProgress(null);
+          toast.error(`동기화 실패: ${progress.errorMessage ?? "알 수 없는 오류"}`);
+        } else if (progress.status === "running") {
+          setSyncProgress(
+            `동기화 진행 중 (${progress.totalFetched.toLocaleString()}건 처리됨)`,
+          );
+        } else if (progress.status === "partial" && progress.nextPage && progress.sourceType) {
+          // Partial sync found on reload — trigger continuation
+          clearInterval(checkInterval);
+          setSyncProgress(
+            `동기화 계속 중... ${progress.totalFetched.toLocaleString()}건 처리됨`,
+          );
+          const contRes = await fetch("/api/sync-mfds", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sourceType: progress.sourceType,
+              logId: active.logId,
+              startPage: progress.nextPage,
+              priorFetched: progress.totalFetched,
+              priorUpserted: progress.totalUpserted,
+            }),
+          });
+          if (contRes.ok) {
+            try {
+              await readStream(contRes);
+            } catch (err) {
+              toast.error(`스트림 오류: ${(err as Error).message}`);
+            } finally {
+              setIsSyncing(false);
+              setSyncProgress(null);
+            }
+          }
+        }
+      }, 3000);
+
+      return () => clearInterval(checkInterval);
     });
 
-    return () => {
-      cancelled = true;
-      if (syncPollingRef.current) clearInterval(syncPollingRef.current);
-    };
-  }, [mode, startSyncPolling]);
+    return () => { cancelled = true; };
+  }, [mode, doSearch, readStream]);
 
-  // ── MFDS sync trigger (browse mode) — fire-and-forget to API route ─
+  // ── MFDS sync trigger (browse mode) — streaming ────────────────
   async function handleMfdsSync() {
     setIsSyncing(true);
     setSyncProgress("동기화 시작...");
@@ -556,14 +612,14 @@ export function MfdsSearchPanel({
         throw new Error(err.error ?? "동기화 시작 실패");
       }
 
-      const { logId } = await res.json();
-      startSyncPolling(logId);
+      await readStream(res);
     } catch (err) {
-      setIsSyncing(false);
-      setSyncProgress(null);
       toast.error(
         `동기화 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
       );
+    } finally {
+      setIsSyncing(false);
+      setSyncProgress(null);
     }
   }
 

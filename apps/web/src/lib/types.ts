@@ -467,3 +467,16 @@ export interface MfdsApiSearchResult {
   totalCount: number;
   page: number;
 }
+
+/** Row from mfds_items table (DB-backed search) */
+export interface MfdsItem {
+  id: number;
+  source_type: MfdsApiSource;
+  source_key: string;
+  item_name: string;
+  manufacturer: string | null;
+  standard_code: string | null;
+  permit_date: string | null;
+  raw_data: Record<string, unknown>;
+  synced_at: string;
+}

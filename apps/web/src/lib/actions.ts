@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { SyncDiffEntry } from "@/lib/types";
+import type { SyncDiffEntry, MfdsApiSource } from "@/lib/types";
+import type { FilterChip } from "@/lib/mfds-search-utils";
 
 // --- Messages (captured_messages soft delete) ---
 
@@ -336,6 +337,263 @@ function parseMfdsApiItems(body: Record<string, unknown>): Record<string, unknow
   if (Array.isArray(item)) return item as Record<string, unknown>[];
   return [item as Record<string, unknown>];
 }
+
+// --- MFDS DB Search (replaces direct API search for browse mode) ---
+
+export async function searchMfdsItems(params: {
+  query: string;
+  sourceType: MfdsApiSource;
+  searchField?: string;
+  page?: number;
+  pageSize?: number;
+  filters?: FilterChip[];
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}): Promise<{
+  items: Record<string, unknown>[];
+  totalCount: number;
+  page: number;
+}> {
+  const {
+    query,
+    sourceType,
+    searchField = "_all",
+    page = 1,
+    pageSize = 25,
+    filters = [],
+    sortBy,
+    sortOrder = "asc",
+  } = params;
+
+  const supabase = await createClient();
+  const q = query.trim();
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  // Build base query
+  let dbQuery = supabase
+    .from("mfds_items")
+    .select("*", { count: "exact" })
+    .eq("source_type", sourceType);
+
+  // Apply text search
+  if (q) {
+    if (searchField === "_all") {
+      dbQuery = dbQuery.or(
+        `item_name.ilike.%${q}%,manufacturer.ilike.%${q}%,standard_code.ilike.%${q}%`,
+      );
+    } else {
+      const fieldMap: Record<string, string> = {
+        ITEM_NAME: "item_name",
+        ENTP_NAME: "manufacturer",
+        BAR_CODE: "standard_code",
+        ITEM_SEQ: "source_key",
+        PRDLST_NM: "item_name",
+        MNFT_IPRT_ENTP_NM: "manufacturer",
+        UDIDI_CD: "standard_code",
+      };
+
+      const dbCol = fieldMap[searchField];
+      if (dbCol) {
+        dbQuery = dbQuery.ilike(dbCol, `%${q}%`);
+      } else {
+        dbQuery = dbQuery.filter(
+          `raw_data->>${searchField}`,
+          "ilike",
+          `%${q}%`,
+        );
+      }
+    }
+  }
+
+  // Apply filter chips (JSONB field-level filters)
+  for (const chip of filters) {
+    const fieldPath = `raw_data->>${chip.field}`;
+    switch (chip.operator) {
+      case "contains":
+        dbQuery = dbQuery.filter(fieldPath, "ilike", `%${chip.value}%`);
+        break;
+      case "equals":
+        dbQuery = dbQuery.filter(fieldPath, "eq", chip.value);
+        break;
+      case "startsWith":
+        dbQuery = dbQuery.filter(fieldPath, "ilike", `${chip.value}%`);
+        break;
+      case "notContains":
+        // Supabase doesn't support NOT on filter directly, use raw
+        dbQuery = dbQuery.not(
+          `raw_data->>${chip.field}` as "id",
+          "ilike",
+          `%${chip.value}%`,
+        );
+        break;
+      case "before":
+        dbQuery = dbQuery.filter(fieldPath, "lt", chip.value);
+        break;
+      case "after":
+        dbQuery = dbQuery.filter(fieldPath, "gt", chip.value);
+        break;
+      case "between":
+        dbQuery = dbQuery.filter(fieldPath, "gte", chip.value);
+        if (chip.valueTo) {
+          dbQuery = dbQuery.filter(fieldPath, "lte", chip.valueTo);
+        }
+        break;
+    }
+  }
+
+  // Sorting
+  if (sortBy) {
+    const fieldMap: Record<string, string> = {
+      ITEM_NAME: "item_name",
+      ENTP_NAME: "manufacturer",
+      PRDLST_NM: "item_name",
+      MNFT_IPRT_ENTP_NM: "manufacturer",
+    };
+    const dbCol = fieldMap[sortBy] ?? "item_name";
+    dbQuery = dbQuery.order(dbCol, { ascending: sortOrder === "asc" });
+  } else {
+    dbQuery = dbQuery.order("item_name", { ascending: true });
+  }
+
+  // Pagination
+  dbQuery = dbQuery.range(from, to);
+
+  const { data, count, error } = await dbQuery;
+
+  if (error) throw new Error(`DB 검색 오류: ${error.message}`);
+
+  // Extract raw_data from each row (this is what the UI expects)
+  const items = (data ?? []).map(
+    (row: { raw_data: Record<string, unknown> }) => row.raw_data,
+  );
+
+  return {
+    items,
+    totalCount: count ?? 0,
+    page,
+  };
+}
+
+export async function triggerMfdsSync(sourceType: MfdsApiSource): Promise<{
+  totalFetched: number;
+  totalUpserted: number;
+}> {
+  const apiKey = await getMfdsApiKey();
+  const supabase = await createClient();
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("인증이 필요합니다.");
+
+  let totalFetched = 0;
+  let totalUpserted = 0;
+  let page = 1;
+  let hasMore = true;
+
+  const startTime = Date.now();
+  const { data: logEntry } = await supabase
+    .from("mfds_sync_logs")
+    .insert({
+      trigger_type: "manual",
+      source_type: sourceType,
+      status: "running",
+    })
+    .select("id")
+    .single();
+
+  try {
+    while (hasMore) {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sync-mfds`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ sourceType, page, apiKey }),
+        },
+      );
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        throw new Error(`동기화 실패: ${errBody}`);
+      }
+
+      const result = await res.json();
+      totalFetched += result.totalFetched ?? 0;
+      totalUpserted += result.totalUpserted ?? 0;
+      hasMore = result.hasMore === true;
+      page = result.nextPage ?? page + 1;
+    }
+
+    if (logEntry?.id) {
+      await supabase
+        .from("mfds_sync_logs")
+        .update({
+          status: "completed",
+          finished_at: new Date().toISOString(),
+          total_fetched: totalFetched,
+          total_upserted: totalUpserted,
+          duration_ms: Date.now() - startTime,
+        })
+        .eq("id", logEntry.id);
+    }
+
+    revalidatePath("/products");
+    return { totalFetched, totalUpserted };
+  } catch (err) {
+    if (logEntry?.id) {
+      await supabase
+        .from("mfds_sync_logs")
+        .update({
+          status: "error",
+          finished_at: new Date().toISOString(),
+          error_message: (err as Error).message,
+          duration_ms: Date.now() - startTime,
+        })
+        .eq("id", logEntry.id);
+    }
+    throw err;
+  }
+}
+
+export async function getMfdsSyncStatus(): Promise<{
+  lastSync: string | null;
+  drugCount: number;
+  deviceCount: number;
+}> {
+  const supabase = await createClient();
+
+  const [lastSyncResult, drugCountResult, deviceCountResult] =
+    await Promise.all([
+      supabase
+        .from("mfds_sync_logs")
+        .select("finished_at")
+        .eq("status", "completed")
+        .order("finished_at", { ascending: false })
+        .limit(1)
+        .single(),
+      supabase
+        .from("mfds_items")
+        .select("id", { count: "exact", head: true })
+        .eq("source_type", "drug"),
+      supabase
+        .from("mfds_items")
+        .select("id", { count: "exact", head: true })
+        .eq("source_type", "device_std"),
+    ]);
+
+  return {
+    lastSync: lastSyncResult.data?.finished_at ?? null,
+    drugCount: drugCountResult.count ?? 0,
+    deviceCount: deviceCountResult.count ?? 0,
+  };
+}
+
+// --- MFDS Direct API Search (kept for manage mode sync) ---
 
 export async function searchMfdsDrug(
   filters: Record<string, string>,

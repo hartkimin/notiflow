@@ -548,9 +548,16 @@ async function fetchMfdsSyncPage(
   };
 }
 
-export async function triggerMfdsSync(sourceType: MfdsApiSource): Promise<{
+export async function triggerMfdsSync(
+  sourceType: MfdsApiSource,
+  startPage = 1,
+  logId?: number,
+): Promise<{
   totalFetched: number;
   totalUpserted: number;
+  hasMore: boolean;
+  nextPage: number | null;
+  logId: number | null;
 }> {
   const apiKey = await getMfdsApiKey();
   const admin = await createAdminClient();
@@ -560,22 +567,28 @@ export async function triggerMfdsSync(sourceType: MfdsApiSource): Promise<{
 
   let totalFetched = 0;
   let totalUpserted = 0;
-  let currentPage = 1;
-  let hasMore = true;
+  let currentPage = startPage;
+  let hasMore = false;
 
   const startTime = Date.now();
-  const { data: logEntry } = await admin
-    .from("mfds_sync_logs")
-    .insert({
-      trigger_type: "manual",
-      source_type: sourceType,
-      status: "running",
-    })
-    .select("id")
-    .single();
+
+  // Reuse existing log entry or create a new one on first chunk
+  let activeLogId = logId ?? null;
+  if (!activeLogId) {
+    const { data: logEntry } = await admin
+      .from("mfds_sync_logs")
+      .insert({
+        trigger_type: "manual",
+        source_type: sourceType,
+        status: "running",
+      })
+      .select("id")
+      .single();
+    activeLogId = logEntry?.id ?? null;
+  }
 
   try {
-    while (hasMore) {
+    for (let i = 0; i < SYNC_MAX_PAGES; i++) {
       const { items, totalCount } = await fetchMfdsSyncPage(config, apiKey, currentPage);
 
       if (items.length === 0) break;
@@ -616,30 +629,39 @@ export async function triggerMfdsSync(sourceType: MfdsApiSource): Promise<{
       const totalPages = Math.ceil(totalCount / SYNC_PAGE_SIZE);
       currentPage++;
 
-      // Limit to SYNC_MAX_PAGES per invocation
-      if (currentPage > totalPages || currentPage > SYNC_MAX_PAGES) {
-        hasMore = currentPage <= totalPages;
-        break;
+      if (currentPage > totalPages) break;
+
+      // If we've hit the per-invocation page limit, signal continuation
+      if (i === SYNC_MAX_PAGES - 1) {
+        hasMore = true;
       }
     }
 
-    if (logEntry?.id) {
+    // Update sync log — mark partial or completed
+    if (activeLogId) {
       await admin
         .from("mfds_sync_logs")
         .update({
-          status: hasMore ? "partial" : "completed",
-          finished_at: new Date().toISOString(),
+          status: hasMore ? "running" : "completed",
+          finished_at: hasMore ? undefined : new Date().toISOString(),
           total_fetched: totalFetched,
           total_upserted: totalUpserted,
           duration_ms: Date.now() - startTime,
         })
-        .eq("id", logEntry.id);
+        .eq("id", activeLogId);
     }
 
-    revalidatePath("/products");
-    return { totalFetched, totalUpserted };
+    if (!hasMore) revalidatePath("/products");
+
+    return {
+      totalFetched,
+      totalUpserted,
+      hasMore,
+      nextPage: hasMore ? currentPage : null,
+      logId: activeLogId,
+    };
   } catch (err) {
-    if (logEntry?.id) {
+    if (activeLogId) {
       await admin
         .from("mfds_sync_logs")
         .update({
@@ -648,7 +670,7 @@ export async function triggerMfdsSync(sourceType: MfdsApiSource): Promise<{
           error_message: (err as Error).message,
           duration_ms: Date.now() - startTime,
         })
-        .eq("id", logEntry.id);
+        .eq("id", activeLogId);
     }
     throw err;
   }

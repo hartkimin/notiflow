@@ -112,6 +112,7 @@ export function MfdsSearchPanel({
 
   // MFDS sync state (browse mode)
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<string | null>(null);
 
   // Debounce refs
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -437,21 +438,45 @@ export function MfdsSearchPanel({
     setHasSearched(true);
   }, [mode, tab, myDrugs, myDevices]);
 
-  // ── MFDS sync handler (browse mode) ─────────────────────────────
+  // ── MFDS sync handler (browse mode) — caller-driven chunking ────
   async function handleMfdsSync() {
     setIsSyncing(true);
+    setSyncProgress("동기화 시작...");
+
+    let grandTotalFetched = 0;
+    let grandTotalUpserted = 0;
+    let nextPage: number | null = 1;
+    let logId: number | undefined;
+
     try {
-      const result = await triggerMfdsSync(tab);
+      while (nextPage !== null) {
+        setSyncProgress(
+          `동기화 중... ${grandTotalFetched.toLocaleString()}건 처리됨`,
+        );
+
+        const result = await triggerMfdsSync(tab, nextPage, logId);
+        grandTotalFetched += result.totalFetched;
+        grandTotalUpserted += result.totalUpserted;
+        logId = result.logId ?? undefined;
+
+        if (result.hasMore && result.nextPage) {
+          nextPage = result.nextPage;
+        } else {
+          nextPage = null;
+        }
+      }
+
       toast.success(
-        `동기화 완료: ${result.totalFetched.toLocaleString()}건 확인, ${result.totalUpserted.toLocaleString()}건 반영`,
+        `동기화 완료: ${grandTotalFetched.toLocaleString()}건 확인, ${grandTotalUpserted.toLocaleString()}건 반영`,
       );
       doSearch(1);
     } catch (err) {
       toast.error(
-        `동기화 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
+        `동기화 실패 (${grandTotalFetched.toLocaleString()}건 처리 후): ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
       );
     } finally {
       setIsSyncing(false);
+      setSyncProgress(null);
     }
   }
 
@@ -648,19 +673,24 @@ export function MfdsSearchPanel({
               <span className="text-amber-600">동기화 필요</span>
             )}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={isSyncing}
-            onClick={handleMfdsSync}
-          >
-            {isSyncing ? (
-              <Loader2 className="h-3 w-3 animate-spin mr-1" />
-            ) : (
-              <RefreshCw className="h-3 w-3 mr-1" />
+          <div className="flex items-center gap-2">
+            {syncProgress && (
+              <span className="text-xs text-muted-foreground">{syncProgress}</span>
             )}
-            동기화
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isSyncing}
+              onClick={handleMfdsSync}
+            >
+              {isSyncing ? (
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              ) : (
+                <RefreshCw className="h-3 w-3 mr-1" />
+              )}
+              동기화
+            </Button>
+          </div>
         </div>
       )}
 

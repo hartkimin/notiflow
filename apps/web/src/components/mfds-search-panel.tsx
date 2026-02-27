@@ -33,7 +33,7 @@ import {
   deleteMyDrug,
   deleteMyDevice,
 } from "@/lib/actions";
-import { detectSearchFields, type FilterChip } from "@/lib/mfds-search-utils";
+import { getFallbackFields, type FilterChip } from "@/lib/mfds-search-utils";
 import { useRecentSearches } from "@/hooks/use-recent-searches";
 import { MfdsSearchBar } from "@/components/mfds/mfds-search-bar";
 import { MfdsResultToolbar } from "@/components/mfds/mfds-result-toolbar";
@@ -68,6 +68,8 @@ export function MfdsSearchPanel({
   const [tab, setTab] = useState<MfdsApiSource>("drug");
   const [query, setQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<FilterChip[]>([]);
+  const [searchField, setSearchField] = useState<string>("_all");
+  const [filterLogic, setFilterLogic] = useState<"and" | "or">("and");
 
   // Results state
   const [results, setResults] = useState<Record<string, unknown>[]>([]);
@@ -284,23 +286,32 @@ export function MfdsSearchPanel({
       startTransition(async () => {
         setIsLoading(true);
         try {
-          // Build chip-based filters
+          // Build chip-based filters (only API-compatible operators: contains/equals)
           const chipFilters: Record<string, string> = {};
           for (const chip of activeFilters) {
-            chipFilters[chip.field] = chip.value;
+            if (chip.operator === "contains" || chip.operator === "equals") {
+              chipFilters[chip.field] = chip.value;
+            }
           }
 
-          // Merge smart detection with chip filters (empty query = list all)
-          const detected = q ? detectSearchFields(q, tab) : { primary: {}, fallback: null };
-          const mergedPrimary = { ...detected.primary, ...chipFilters };
-
           const searchFn = tab === "drug" ? searchMfdsDrug : searchMfdsDevice;
-          let result = await searchFn(mergedPrimary, targetPage);
 
-          // Fallback retry if primary yields 0 results
-          if (result.totalCount === 0 && detected.fallback) {
-            const mergedFallback = { ...detected.fallback, ...chipFilters };
-            result = await searchFn(mergedFallback, targetPage);
+          let result: { items: Record<string, unknown>[]; totalCount: number };
+
+          if (searchField === "_all" && q) {
+            // "전체" mode: try fallback fields sequentially
+            const fallbackFields = getFallbackFields(tab);
+            result = { items: [], totalCount: 0 };
+            for (const field of fallbackFields) {
+              result = await searchFn({ [field]: q, ...chipFilters }, targetPage);
+              if (result.totalCount > 0) break;
+            }
+          } else if (q) {
+            // Specific column selected
+            result = await searchFn({ [searchField]: q, ...chipFilters }, targetPage);
+          } else {
+            // No query text — use only chip filters (list all if empty)
+            result = await searchFn(chipFilters, targetPage);
           }
 
           setResults(result.items as Record<string, unknown>[]);
@@ -309,7 +320,6 @@ export function MfdsSearchPanel({
           setHasSearched(true);
           setExpandedRowId(null);
 
-          // Add to recent searches (only when user typed something)
           if (q) {
             recentSearches.add(q, tab);
           }
@@ -329,7 +339,7 @@ export function MfdsSearchPanel({
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [query, activeFilters, tab],
+    [query, activeFilters, tab, searchField],
   );
 
   // ── Initial load ────────────────────────────────────────────────
@@ -466,6 +476,8 @@ export function MfdsSearchPanel({
     setTab(newTab);
     // Keep query, reset everything else
     setActiveFilters([]);
+    setSearchField("_all");
+    setFilterLogic("and");
     setResults([]);
     setTotalCount(0);
     setPage(1);
@@ -506,8 +518,12 @@ export function MfdsSearchPanel({
         onTabChange={handleTabChange}
         query={query}
         onQueryChange={setQuery}
+        searchField={searchField}
+        onSearchFieldChange={setSearchField}
         activeFilters={activeFilters}
         onFiltersChange={setActiveFilters}
+        filterLogic={filterLogic}
+        onFilterLogicChange={setFilterLogic}
         onSearch={() => {
           if (mode === "manage") {
             setGlobalFilter(query);

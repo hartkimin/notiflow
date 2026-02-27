@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import type { SyncDiffEntry, MfdsApiSource } from "@/lib/types";
 import type { FilterChip } from "@/lib/mfds-search-utils";
 
@@ -476,204 +476,53 @@ export async function searchMfdsItems(params: {
 }
 
 // ---------------------------------------------------------------------------
-// MFDS Sync — direct API fetch + UPSERT (bypasses Edge Function auth issues)
+// MFDS Sync — triggers background API route, polls for status
 // ---------------------------------------------------------------------------
 
-const SYNC_PAGE_SIZE = 100;
-const SYNC_MAX_PAGES = 1; // 100 items per chunk (1 page × 100 items)
-
-interface MfdsSyncApiConfig {
-  url: string;
-  sourceKeyField: string;
-  itemNameField: string;
-  manufacturerField: string;
-  standardCodeField: string;
-  permitDateField: string;
-}
-
-const SYNC_API_CONFIGS: Record<string, MfdsSyncApiConfig> = {
-  drug: {
-    url: "https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService07/getDrugPrdtPrmsnDtlInq06",
-    sourceKeyField: "ITEM_SEQ",
-    itemNameField: "ITEM_NAME",
-    manufacturerField: "ENTP_NAME",
-    standardCodeField: "BAR_CODE",
-    permitDateField: "ITEM_PERMIT_DATE",
-  },
-  device_std: {
-    url: "https://apis.data.go.kr/1471000/MdeqStdCdPrdtInfoService03/getMdeqStdCdPrdtInfoInq03",
-    sourceKeyField: "UDIDI_CD",
-    itemNameField: "PRDLST_NM",
-    manufacturerField: "MNFT_IPRT_ENTP_NM",
-    standardCodeField: "UDIDI_CD",
-    permitDateField: "PRMSN_YMD",
-  },
-};
-
-function parseMfdsSyncItems(
-  body: Record<string, unknown>,
-): Record<string, unknown>[] {
-  if (!body) return [];
-  const items = body.items;
-  if (!items) return [];
-  if (Array.isArray(items)) return items as Record<string, unknown>[];
-  const obj = items as Record<string, unknown>;
-  const item = obj.item;
-  if (!item) return [];
-  if (Array.isArray(item)) return item as Record<string, unknown>[];
-  return [item as Record<string, unknown>];
-}
-
-async function fetchMfdsSyncPage(
-  config: MfdsSyncApiConfig,
-  apiKey: string,
-  page: number,
-): Promise<{ items: Record<string, unknown>[]; totalCount: number }> {
-  const params = new URLSearchParams({
-    serviceKey: apiKey,
-    pageNo: String(page),
-    numOfRows: String(SYNC_PAGE_SIZE),
-    type: "json",
-  });
-
-  const res = await fetch(`${config.url}?${params}`);
-  if (!res.ok) throw new Error(`MFDS API ${res.status}: ${await res.text()}`);
-
-  const json = await res.json();
-  const body = json?.body;
+export async function getMfdsSyncProgress(logId: number): Promise<{
+  status: string;
+  totalFetched: number;
+  totalUpserted: number;
+  errorMessage: string | null;
+}> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("mfds_sync_logs")
+    .select("status, total_fetched, total_upserted, error_message")
+    .eq("id", logId)
+    .single();
 
   return {
-    items: parseMfdsSyncItems(body),
-    totalCount: (body?.totalCount as number) ?? 0,
+    status: data?.status ?? "unknown",
+    totalFetched: data?.total_fetched ?? 0,
+    totalUpserted: data?.total_upserted ?? 0,
+    errorMessage: data?.error_message ?? null,
   };
 }
 
-export async function triggerMfdsSync(
-  sourceType: MfdsApiSource,
-  startPage = 1,
-  logId?: number,
-): Promise<{
+/** Check if there is a currently running sync */
+export async function getActiveSyncLog(): Promise<{
+  logId: number;
+  sourceType: string;
   totalFetched: number;
   totalUpserted: number;
-  hasMore: boolean;
-  nextPage: number | null;
-  logId: number | null;
-}> {
-  const apiKey = await getMfdsApiKey();
-  const admin = await createAdminClient();
+} | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("mfds_sync_logs")
+    .select("id, source_type, total_fetched, total_upserted")
+    .eq("status", "running")
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .single();
 
-  const config = SYNC_API_CONFIGS[sourceType];
-  if (!config) throw new Error(`Unknown source type: ${sourceType}`);
-
-  let totalFetched = 0;
-  let totalUpserted = 0;
-  let currentPage = startPage;
-  let hasMore = false;
-
-  const startTime = Date.now();
-
-  // Reuse existing log entry or create a new one on first chunk
-  let activeLogId = logId ?? null;
-  if (!activeLogId) {
-    const { data: logEntry } = await admin
-      .from("mfds_sync_logs")
-      .insert({
-        trigger_type: "manual",
-        source_type: sourceType,
-        status: "running",
-      })
-      .select("id")
-      .single();
-    activeLogId = logEntry?.id ?? null;
-  }
-
-  try {
-    for (let i = 0; i < SYNC_MAX_PAGES; i++) {
-      const { items, totalCount } = await fetchMfdsSyncPage(config, apiKey, currentPage);
-
-      if (items.length === 0) break;
-      totalFetched += items.length;
-
-      const rows = items
-        .map((item) => {
-          const sourceKey = String(item[config.sourceKeyField] ?? "");
-          if (!sourceKey) return null;
-          return {
-            source_type: sourceType,
-            source_key: sourceKey,
-            item_name: String(item[config.itemNameField] ?? ""),
-            manufacturer: String(item[config.manufacturerField] ?? ""),
-            standard_code: String(item[config.standardCodeField] ?? ""),
-            permit_date: String(item[config.permitDateField] ?? ""),
-            raw_data: item,
-            synced_at: new Date().toISOString(),
-          };
-        })
-        .filter(Boolean);
-
-      if (rows.length > 0) {
-        const { error, count } = await admin
-          .from("mfds_items")
-          .upsert(rows, {
-            onConflict: "source_type,source_key",
-            count: "exact",
-          });
-
-        if (error) {
-          console.error("UPSERT error:", error.message);
-        } else {
-          totalUpserted += count ?? rows.length;
-        }
-      }
-
-      const totalPages = Math.ceil(totalCount / SYNC_PAGE_SIZE);
-      currentPage++;
-
-      if (currentPage > totalPages) break;
-
-      // If we've hit the per-invocation page limit, signal continuation
-      if (i === SYNC_MAX_PAGES - 1) {
-        hasMore = true;
-      }
-    }
-
-    // Update sync log — mark partial or completed
-    if (activeLogId) {
-      await admin
-        .from("mfds_sync_logs")
-        .update({
-          status: hasMore ? "running" : "completed",
-          finished_at: hasMore ? undefined : new Date().toISOString(),
-          total_fetched: totalFetched,
-          total_upserted: totalUpserted,
-          duration_ms: Date.now() - startTime,
-        })
-        .eq("id", activeLogId);
-    }
-
-    if (!hasMore) revalidatePath("/products");
-
-    return {
-      totalFetched,
-      totalUpserted,
-      hasMore,
-      nextPage: hasMore ? currentPage : null,
-      logId: activeLogId,
-    };
-  } catch (err) {
-    if (activeLogId) {
-      await admin
-        .from("mfds_sync_logs")
-        .update({
-          status: "error",
-          finished_at: new Date().toISOString(),
-          error_message: (err as Error).message,
-          duration_ms: Date.now() - startTime,
-        })
-        .eq("id", activeLogId);
-    }
-    throw err;
-  }
+  if (!data) return null;
+  return {
+    logId: data.id,
+    sourceType: data.source_type,
+    totalFetched: data.total_fetched,
+    totalUpserted: data.total_upserted,
+  };
 }
 
 export async function getMfdsSyncStatus(): Promise<{

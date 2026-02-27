@@ -23,7 +23,8 @@ import {
 import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2 } from "lucide-react";
 import {
   searchMfdsItems,
-  triggerMfdsSync,
+  getMfdsSyncProgress,
+  getActiveSyncLog,
   addToMyDrugs,
   addToMyDevices,
   syncMyDrug,
@@ -113,6 +114,7 @@ export function MfdsSearchPanel({
   // MFDS sync state (browse mode)
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
+  const syncPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Debounce refs
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -438,47 +440,90 @@ export function MfdsSearchPanel({
     setHasSearched(true);
   }, [mode, tab, myDrugs, myDevices]);
 
-  // ── MFDS sync handler (browse mode) — caller-driven chunking ────
+  // ── Sync polling — shared between trigger and page-load resume ───
+  const startSyncPolling = useCallback(
+    (logId: number) => {
+      // Clear any existing polling
+      if (syncPollingRef.current) clearInterval(syncPollingRef.current);
+
+      setIsSyncing(true);
+      setSyncProgress("동기화 중...");
+
+      syncPollingRef.current = setInterval(async () => {
+        try {
+          const progress = await getMfdsSyncProgress(logId);
+
+          if (progress.status === "running") {
+            setSyncProgress(
+              `동기화 중... ${progress.totalFetched.toLocaleString()}건 처리됨`,
+            );
+            // Refresh search so newly synced items appear in real-time
+            doSearch(1);
+          } else {
+            // Sync finished (completed or error)
+            if (syncPollingRef.current) clearInterval(syncPollingRef.current);
+            syncPollingRef.current = null;
+            setIsSyncing(false);
+            setSyncProgress(null);
+            doSearch(1);
+
+            if (progress.status === "completed") {
+              toast.success(
+                `동기화 완료: ${progress.totalFetched.toLocaleString()}건 확인, ${progress.totalUpserted.toLocaleString()}건 반영`,
+              );
+            } else if (progress.status === "error") {
+              toast.error(`동기화 실패: ${progress.errorMessage ?? "알 수 없는 오류"}`);
+            }
+          }
+        } catch {
+          // Polling error — keep trying
+        }
+      }, 3000);
+    },
+    [doSearch],
+  );
+
+  // ── Resume polling on page load if a sync is already running ────
+  useEffect(() => {
+    if (mode !== "browse") return;
+    let cancelled = false;
+
+    getActiveSyncLog().then((active) => {
+      if (cancelled || !active) return;
+      startSyncPolling(active.logId);
+    });
+
+    return () => {
+      cancelled = true;
+      if (syncPollingRef.current) clearInterval(syncPollingRef.current);
+    };
+  }, [mode, startSyncPolling]);
+
+  // ── MFDS sync trigger (browse mode) — fire-and-forget to API route ─
   async function handleMfdsSync() {
     setIsSyncing(true);
     setSyncProgress("동기화 시작...");
 
-    let grandTotalFetched = 0;
-    let grandTotalUpserted = 0;
-    let nextPage: number | null = 1;
-    let logId: number | undefined;
-
     try {
-      while (nextPage !== null) {
-        setSyncProgress(
-          `동기화 중... ${grandTotalFetched.toLocaleString()}건 처리됨`,
-        );
+      const res = await fetch("/api/sync-mfds", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceType: tab }),
+      });
 
-        const result = await triggerMfdsSync(tab, nextPage, logId);
-        grandTotalFetched += result.totalFetched;
-        grandTotalUpserted += result.totalUpserted;
-        logId = result.logId ?? undefined;
-
-        // Refresh search results after each chunk so new items appear immediately
-        doSearch(1);
-
-        if (result.hasMore && result.nextPage) {
-          nextPage = result.nextPage;
-        } else {
-          nextPage = null;
-        }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error ?? "동기화 시작 실패");
       }
 
-      toast.success(
-        `동기화 완료: ${grandTotalFetched.toLocaleString()}건 확인, ${grandTotalUpserted.toLocaleString()}건 반영`,
-      );
+      const { logId } = await res.json();
+      startSyncPolling(logId);
     } catch (err) {
-      toast.error(
-        `동기화 실패 (${grandTotalFetched.toLocaleString()}건 처리 후): ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
-      );
-    } finally {
       setIsSyncing(false);
       setSyncProgress(null);
+      toast.error(
+        `동기화 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
+      );
     }
   }
 

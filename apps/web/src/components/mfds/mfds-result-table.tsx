@@ -166,6 +166,31 @@ export function MfdsResultTable({
                             : ""
                         }`}
                         onClick={header.column.getToggleSortingHandler()}
+                        onDoubleClick={
+                          !isUtility
+                            ? (e) => {
+                                e.stopPropagation();
+                                // Auto-fit: measure all visible cells for this column
+                                const colId = header.column.id;
+                                const cells = document.querySelectorAll(
+                                  `td[data-col-id="${colId}"]`,
+                                );
+                                let maxWidth = 100; // minimum
+                                cells.forEach((cell) => {
+                                  const textWidth = cell.scrollWidth;
+                                  if (textWidth > maxWidth) maxWidth = textWidth;
+                                });
+                                // Include header text width
+                                const headerEl = e.currentTarget;
+                                if (headerEl.scrollWidth > maxWidth) {
+                                  maxWidth = headerEl.scrollWidth;
+                                }
+                                header.column.setSize(
+                                  Math.min(Math.max(maxWidth + 16, 100), 500),
+                                );
+                              }
+                            : undefined
+                        }
                       >
                         {flexRender(
                           header.column.columnDef.header,
@@ -230,6 +255,7 @@ export function MfdsResultTable({
                       return (
                         <td
                           key={cell.id}
+                          data-col-id={cell.column.id}
                           className="px-3 py-2 whitespace-nowrap max-w-[300px] truncate"
                           style={{ width: cell.column.getSize() }}
                           onClick={

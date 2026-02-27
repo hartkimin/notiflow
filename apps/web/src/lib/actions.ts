@@ -480,7 +480,7 @@ export async function searchMfdsItems(params: {
 // ---------------------------------------------------------------------------
 
 const SYNC_PAGE_SIZE = 100;
-const SYNC_MAX_PAGES = 20; // 2,000 items per chunk
+const SYNC_MAX_PAGES = 1; // 100 items per chunk (1 page × 100 items)
 
 interface MfdsSyncApiConfig {
   url: string;

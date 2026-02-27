@@ -157,6 +157,17 @@ Deno.serve(async (req) => {
     }
 
     // ------------------------------------------------------------------
+    // 1b. Check caller role (admin can sync all users' devices)
+    // ------------------------------------------------------------------
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    const isAdmin = profile?.role === "admin";
+
+    // ------------------------------------------------------------------
     // 2. Parse request body
     // ------------------------------------------------------------------
     const body = await req.json();
@@ -167,16 +178,21 @@ Deno.serve(async (req) => {
     }
 
     // ------------------------------------------------------------------
-    // 3. Query target devices (ownership check via user_id)
+    // 3. Query target devices
+    //    - admin + "all": sync every active device (matches dashboard view)
+    //    - non-admin: only own devices (ownership check via user_id)
     // ------------------------------------------------------------------
     let query = supabase
       .from("mobile_devices")
-      .select("id, device_name, fcm_token, is_active")
-      .eq("user_id", user.id);
+      .select("id, device_name, fcm_token, is_active");
 
     if (deviceId !== "all") {
+      // Specific device: always check ownership (unless admin)
+      if (!isAdmin) query = query.eq("user_id", user.id);
       query = query.eq("id", deviceId);
     } else {
+      // "all": admin syncs all active devices, non-admin syncs own
+      if (!isAdmin) query = query.eq("user_id", user.id);
       query = query.eq("is_active", true);
     }
 
@@ -186,7 +202,13 @@ Deno.serve(async (req) => {
     }
 
     if (!devices || devices.length === 0) {
-      return errorResponse("No devices found", 404);
+      return jsonResponse({
+        success: true,
+        fcm_sent: 0,
+        fcm_failed: 0,
+        realtime_updated: 0,
+        details: [],
+      });
     }
 
     // ------------------------------------------------------------------

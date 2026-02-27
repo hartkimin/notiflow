@@ -142,18 +142,6 @@ export function getOperatorsForType(type: ColumnType) {
 }
 
 // ---------------------------------------------------------------------------
-// "전체" search fallback sequence
-// ---------------------------------------------------------------------------
-
-const DRUG_FALLBACK_FIELDS = ["ITEM_NAME", "ENTP_NAME", "BAR_CODE"];
-const DEVICE_FALLBACK_FIELDS = ["PRDLST_NM", "MNFT_IPRT_ENTP_NM", "UDIDI_CD"];
-
-/** Get fallback field sequence for "전체" search mode */
-export function getFallbackFields(tab: MfdsApiSource): string[] {
-  return tab === "drug" ? DRUG_FALLBACK_FIELDS : DEVICE_FALLBACK_FIELDS;
-}
-
-// ---------------------------------------------------------------------------
 // Client-side filter matching
 // ---------------------------------------------------------------------------
 

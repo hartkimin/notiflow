@@ -15,8 +15,8 @@ export default async function NotificationsPage({ searchParams }: Props) {
   const source = params.source || "";
 
   const [rooms, availableApps] = await Promise.all([
-    getChatRooms({ query, source }),
-    getAvailableApps(),
+    getChatRooms({ query, source }).catch(() => []),
+    getAvailableApps().catch(() => []),
   ]);
 
   return (

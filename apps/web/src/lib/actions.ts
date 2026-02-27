@@ -460,6 +460,30 @@ export async function deleteMyDevice(id: number) {
   return { success: true };
 }
 
+// --- Price update ---
+
+export async function updateMyDrugPrice(id: number, unitPrice: number | null) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("my_drugs")
+    .update({ unit_price: unitPrice })
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/products/my");
+  return { success: true };
+}
+
+export async function updateMyDevicePrice(id: number, unitPrice: number | null) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("my_devices")
+    .update({ unit_price: unitPrice })
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/products/my");
+  return { success: true };
+}
+
 // --- Sync ---
 
 const DRUG_API_KEYS = [

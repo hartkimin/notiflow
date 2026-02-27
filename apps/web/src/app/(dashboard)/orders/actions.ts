@@ -68,3 +68,63 @@ export async function createOrderCommentAction(orderId: number, content: string)
 export async function deleteOrderCommentAction(commentId: number, orderId: number) {
   await deleteOrderComment(commentId, orderId);
 }
+
+export async function searchMyItemsAction(query: string) {
+  if (!query || query.length < 1) return [];
+  const { searchMyItems } = await import("@/lib/queries/products");
+  return searchMyItems(query);
+}
+
+export async function createOrderAction(data: {
+  hospital_id: number;
+  order_date: string;
+  delivery_date?: string | null;
+  delivered_at?: string | null;
+  notes?: string | null;
+  items: Array<{
+    my_item_id: number;
+    my_item_type: "drug" | "device";
+    quantity: number;
+    unit_price: number | null;
+  }>;
+}) {
+  const { createClient } = await import("@/lib/supabase/server");
+  const supabase = await createClient();
+
+  // Generate order number via DB function
+  const { data: orderNumber, error: rpcErr } = await supabase.rpc("generate_order_number");
+  if (rpcErr) throw rpcErr;
+
+  // Insert order
+  const { data: order, error: orderErr } = await supabase
+    .from("orders")
+    .insert({
+      order_number: orderNumber,
+      order_date: data.order_date,
+      hospital_id: data.hospital_id,
+      delivery_date: data.delivery_date ?? null,
+      delivered_at: data.delivered_at ?? null,
+      notes: data.notes ?? null,
+      status: "draft",
+      total_items: data.items.length,
+    })
+    .select("id")
+    .single();
+  if (orderErr) throw orderErr;
+
+  // Insert order items
+  if (data.items.length > 0) {
+    const orderItems = data.items.map((item) => ({
+      order_id: order.id,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      line_total: item.unit_price ? item.unit_price * item.quantity : null,
+    }));
+    const { error: itemsErr } = await supabase.from("order_items").insert(orderItems);
+    if (itemsErr) throw itemsErr;
+  }
+
+  revalidatePath("/orders");
+  revalidatePath("/dashboard");
+  return { success: true, orderId: order.id, orderNumber };
+}

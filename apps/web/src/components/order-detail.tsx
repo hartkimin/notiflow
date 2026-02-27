@@ -70,28 +70,22 @@ export function OrderDetail({ orderId }: { orderId: number }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>원본텍스트</TableHead>
+              <TableHead>품목</TableHead>
               <TableHead>수량</TableHead>
               <TableHead className="text-right">단가</TableHead>
               <TableHead className="text-right">합계</TableHead>
-              <TableHead>매칭</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {order.items.map((item) => (
               <TableRow key={item.id}>
-                <TableCell className="text-xs">{item.original_text || "-"}</TableCell>
+                <TableCell className="text-xs">제품 #{item.product_id ?? "미지정"}</TableCell>
                 <TableCell>{item.quantity} {item.unit_type}</TableCell>
                 <TableCell className="text-right">
                   {item.unit_price?.toLocaleString("ko-KR") || "-"}
                 </TableCell>
                 <TableCell className="text-right">
                   {item.line_total?.toLocaleString("ko-KR") || "-"}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={item.match_status === "matched" ? "default" : "destructive"} className="text-xs">
-                    {item.match_status}
-                  </Badge>
                 </TableCell>
               </TableRow>
             ))}

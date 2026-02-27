@@ -643,11 +643,6 @@ function OrderAccordionContent({
                     ) : (
                       <>
                         {item.product_name}
-                        {item.match_status !== "matched" && (
-                          <Badge variant="outline" className="text-xs ml-2">
-                            {item.match_status}
-                          </Badge>
-                        )}
                       </>
                     )}
                   </TableCell>

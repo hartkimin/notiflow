@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { PlusCircle, File } from "lucide-react";
+import { File } from "lucide-react";
 
 import { getOrderItems, getOrdersForCalendar } from "@/lib/queries/orders";
 import { getProductsCatalog } from "@/lib/queries/products";
 import { getHospitals } from "@/lib/queries/hospitals";
 import { getSuppliers } from "@/lib/queries/suppliers";
+import { getOrderDisplayColumns } from "@/lib/queries/settings";
+import { OrderInlineForm } from "@/components/order-inline-form";
 import { OrderTable } from "@/components/order-table";
 import type { ProductOption } from "@/components/order-table";
 import { OrderCalendar } from "@/components/order-calendar";
@@ -57,13 +59,14 @@ export default async function OrdersPage({ searchParams }: Props) {
   const toStr = toLocalDateStr(new Date(calYear, calMonth + 1, 1 + 7));
 
   // Fetch both datasets in parallel for instant tab switching
-  const [result, calendarOrders, allProducts, { hospitals: allHospitals }, { suppliers: allSuppliers }] = await Promise.all([
+  const [result, calendarOrders, allProducts, { hospitals: allHospitals }, { suppliers: allSuppliers }, displayColumns] = await Promise.all([
     getOrderItems({ status, from: params.from, to: params.to, limit, offset })
       .catch(() => ({ items: [], total: 0 })),
     getOrdersForCalendar({ from: fromStr, to: toStr }).catch(() => []),
     getProductsCatalog().catch(() => []),
     getHospitals({ limit: 1000 }).catch(() => ({ hospitals: [], total: 0 })),
     getSuppliers({ limit: 1000 }).catch(() => ({ suppliers: [], total: 0 })),
+    getOrderDisplayColumns(),
   ]);
 
   const productOptions: ProductOption[] = allProducts.map((p) => ({
@@ -87,12 +90,10 @@ export default async function OrdersPage({ searchParams }: Props) {
             <File className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">내보내기</span>
           </Button>
-          <Button size="sm" className="h-8 gap-1">
-            <PlusCircle className="h-3.5 w-3.5" />
-            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">주문 추가</span>
-          </Button>
         </div>
       </div>
+
+      <OrderInlineForm hospitals={hospitalOptions} displayColumns={displayColumns} />
 
       <ClientTabs
         initialTab={initialTab}

@@ -32,6 +32,8 @@ import {
   applyDeviceSync,
   deleteMyDrug,
   deleteMyDevice,
+  updateMyDrugPrice,
+  updateMyDevicePrice,
 } from "@/lib/actions";
 import { getFallbackFields, type FilterChip } from "@/lib/mfds-search-utils";
 import { useRecentSearches } from "@/hooks/use-recent-searches";
@@ -101,6 +103,10 @@ export function MfdsSearchPanel({
   const [syncingId, setSyncingId] = useState<number | null>(null);
   const [syncDiff, setSyncDiff] = useState<{ id: number; changes: SyncDiffEntry[] } | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  // Price editing state (manage mode only)
+  const [editingPriceId, setEditingPriceId] = useState<number | null>(null);
+  const [editingPriceValue, setEditingPriceValue] = useState<string>("");
 
   const pageSize = 25;
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -255,10 +261,60 @@ export function MfdsSearchPanel({
       col("CIRC_CND_INFO", "유통취급조건", 160),
     ];
 
+    const priceCol: ColumnDef<Record<string, unknown>> = {
+      id: "_price",
+      header: "가격",
+      size: 100,
+      enableResizing: false,
+      enableSorting: true,
+      enableGlobalFilter: false,
+      accessorFn: (r) => (r.unit_price as number) ?? null,
+      cell: ({ row }) => {
+        const item = row.original;
+        const itemId = item.id as number;
+        const currentPrice = item.unit_price as number | null;
+        const isEditing = editingPriceId === itemId;
+
+        if (isEditing) {
+          return (
+            <input
+              type="number"
+              className="w-20 rounded border px-1.5 py-0.5 text-xs"
+              autoFocus
+              value={editingPriceValue}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setEditingPriceValue(e.target.value)}
+              onBlur={() => handlePriceSave(itemId)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handlePriceSave(itemId);
+                if (e.key === "Escape") setEditingPriceId(null);
+              }}
+            />
+          );
+        }
+
+        return (
+          <span
+            className="cursor-pointer rounded px-1.5 py-0.5 text-xs hover:bg-muted"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditingPriceId(itemId);
+              setEditingPriceValue(currentPrice != null ? String(currentPrice) : "");
+            }}
+          >
+            {currentPrice != null ? currentPrice.toLocaleString() : "-"}
+          </span>
+        );
+      },
+    };
+
     const dataCols = tab === "drug" ? drugDataCols : deviceDataCols;
+    if (mode === "manage") {
+      return [expandCol, ...dataCols, priceCol, actionCol];
+    }
     return [expandCol, ...dataCols, actionCol];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, mode, existingStandardCodes, isPending, addingId, expandedRowId, syncingId, deletingId]);
+  }, [tab, mode, existingStandardCodes, isPending, addingId, expandedRowId, syncingId, deletingId, editingPriceId, editingPriceValue]);
 
   // ── Table instance ────────────────────────────────────────────────
 
@@ -466,6 +522,32 @@ export function MfdsSearchPanel({
         toast.error(`삭제 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
       } finally {
         setDeletingId(null);
+      }
+    });
+  }
+
+  // ── Price save handler (manage mode) ─────────────────────────────
+
+  function handlePriceSave(itemId: number) {
+    const raw = editingPriceValue.trim();
+    const unitPrice = raw === "" ? null : Number(raw);
+    if (unitPrice !== null && isNaN(unitPrice)) {
+      toast.error("유효한 숫자를 입력해주세요.");
+      setEditingPriceId(null);
+      return;
+    }
+    setEditingPriceId(null);
+    startTransition(async () => {
+      try {
+        if (tab === "drug") {
+          await updateMyDrugPrice(itemId, unitPrice);
+        } else {
+          await updateMyDevicePrice(itemId, unitPrice);
+        }
+        toast.success("가격이 저장되었습니다.");
+        router.refresh();
+      } catch (err) {
+        toast.error(`가격 저장 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
       }
     });
   }

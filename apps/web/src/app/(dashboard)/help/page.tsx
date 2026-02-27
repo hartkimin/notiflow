@@ -243,7 +243,7 @@ const releases = [
       },
       {
         icon: Zap,
-        text: "captured_messages → raw_messages 브릿지 트리거로 모바일 캡쳐 자동 연동",
+        text: "captured_messages 브릿지 트리거로 모바일 캡쳐 자동 연동",
       },
       {
         icon: Smartphone,

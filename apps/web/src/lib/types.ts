@@ -35,20 +35,14 @@ export interface OrderItem {
   order_id: number;
   product_id: number | null;
   supplier_id: number | null;
-  original_text: string | null;
   quantity: number;
   unit_type: string;
   unit_price: number | null;
   line_total: number | null;
-  match_status: string;
-  match_confidence: number | null;
 }
 
 export interface OrderDetail extends Order {
   items: OrderItem[];
-  message_content: string | null;
-  message_sender: string | null;
-  message_received_at: string | null;
 }
 
 export interface OrderComment {
@@ -77,15 +71,6 @@ export interface OrderItemFlat {
   kpis_status: string | null;
   kpis_notes: string | null;
   status: string;
-  match_status: string;
-}
-
-export interface DailyStats {
-  date: string;
-  total_messages: number;
-  parse_success: number;
-  orders_created: number;
-  parse_success_rate: number;
 }
 
 export type Delivery = Order;
@@ -186,6 +171,7 @@ export interface MyDrug {
   rare_drug_yn: string | null;
   added_at: string;
   synced_at: string;
+  unit_price: number | null;
 }
 
 export interface MyDevice {
@@ -212,6 +198,7 @@ export interface MyDevice {
   rcprslry_trgt_yn: string | null;
   added_at: string;
   synced_at: string;
+  unit_price: number | null;
 }
 
 export interface SyncDiffEntry {
@@ -229,31 +216,6 @@ export interface ProductCatalogRow {
   is_active: boolean;
   standard_code: string | null;
   source_type: string;
-}
-
-export interface RawMessage {
-  id: number;
-  source_app: string;
-  sender: string | null;
-  content: string;
-  received_at: string;
-  device_id: string | null;
-  device_name: string | null;
-  hospital_id: number | null;
-  parse_status: string;
-  parse_method: string | null;
-  parse_result: Record<string, unknown> | null;
-  order_id: number | null;
-  is_order_message: boolean | null;
-  synced_at: string;
-  forecast_id: number | null;
-}
-
-export interface CalendarDay {
-  date: string;
-  message_count: number;
-  order_count: number;
-  total_amount: number;
 }
 
 export interface DashboardUser {
@@ -297,7 +259,6 @@ export interface ProductStat {
 
 export interface TrendPoint {
   date: string;
-  messages: number;
   orders: number;
   total_amount: number;
 }
@@ -355,41 +316,6 @@ export interface ChatRoom {
   match_count: number;
 }
 
-// --- Inbox Local State (frontend-only, localStorage) ---
-
-export interface StatusStep {
-  id: string;
-  name: string;
-  color: string;
-  orderIndex: number;
-}
-
-export interface StatusChangeItem {
-  id: string;
-  fromStatusId: string | null;
-  fromStatusName: string | null;
-  toStatusId: string;
-  toStatusName: string;
-  changedAt: string;
-}
-
-export interface MessageComment {
-  id: string;
-  text: string;
-  createdAt: string;
-}
-
-export interface MessageLocalData {
-  statusId: string | null;
-  statusHistory: StatusChangeItem[];
-  isPinned: boolean;
-  snoozeAt: string | null;
-  comments: MessageComment[];
-  editedContent: string | null;
-}
-
-export type MessageLocalStateMap = Record<number, MessageLocalData>;
-
 // --- Order Forecasts ---
 
 export type ForecastStatus = 'pending' | 'matched' | 'partial' | 'missed' | 'cancelled';
@@ -403,7 +329,6 @@ export interface OrderForecast {
   status: ForecastStatus;
   source: 'manual' | 'pattern';
   pattern_id: number | null;
-  message_id: number | null;
   matched_at: string | null;
   created_at: string;
   updated_at: string;
@@ -434,11 +359,6 @@ export interface OrderPattern {
   is_active: boolean;
   last_generated: string | null;
 }
-
-/** Discriminated union for calendar items (messages + forecasts) */
-export type MessageCalendarItem =
-  | { kind: 'message'; data: RawMessage }
-  | { kind: 'forecast'; data: OrderForecast };
 
 // --- MFDS Direct API Search ---
 

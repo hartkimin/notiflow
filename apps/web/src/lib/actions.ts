@@ -3,9 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { SyncDiffEntry } from "@/lib/types";
-import { getAISettings } from "@/lib/ai-client";
-import { parseMessageCore, getHospitalAliases, aiParse, resolveHospitalFromSender } from "@/lib/parse-service";
-import { matchProductsBulk, type ProductCatalogEntry } from "@/lib/parser";
 
 // --- Hospitals ---
 
@@ -98,222 +95,6 @@ export async function deleteOrderItem(id: number) {
   const { error } = await supabase.from("order_items").delete().eq("id", id);
   if (error) throw error;
   revalidatePath("/orders");
-  return { success: true };
-}
-
-// --- Messages ---
-
-export async function createMessage(data: {
-  source_app: string;
-  sender?: string;
-  content: string;
-  device_name?: string;
-}) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("raw_messages").insert({
-    source_app: data.source_app,
-    sender: data.sender || null,
-    content: data.content,
-    device_name: data.device_name || null,
-    received_at: new Date().toISOString(),
-    parse_status: "pending",
-  });
-  if (error) throw error;
-  revalidatePath("/messages");
-  revalidatePath("/dashboard");
-  return { success: true };
-}
-
-export async function updateMessage(id: number, data: Record<string, unknown>) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("raw_messages").update(data).eq("id", id);
-  if (error) throw error;
-  revalidatePath("/messages");
-  revalidatePath("/dashboard");
-  return { success: true };
-}
-
-export async function deleteMessage(id: number) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("raw_messages").delete().eq("id", id);
-  if (error) throw error;
-  revalidatePath("/messages");
-  revalidatePath("/dashboard");
-  return { success: true };
-}
-
-// ---------------------------------------------------------------------------
-// Test parse (AI 테스트 — no DB writes, just parse + match)
-// ---------------------------------------------------------------------------
-
-export async function testParseMessage(content: string, hospitalId?: number, sender?: string) {
-  const supabase = await createClient();
-  const settings = await getAISettings();
-
-  let resolvedHospitalId = hospitalId ?? null;
-  let hospitalName: string | null = null;
-  let aliases: { alias: string; product_name: string }[] = [];
-
-  // Auto-resolve hospital from sender if no hospitalId
-  if (!resolvedHospitalId && sender) {
-    const resolved = await resolveHospitalFromSender(supabase, sender);
-    if (resolved) {
-      resolvedHospitalId = resolved.id;
-      console.log(`[testParse] Auto-matched sender "${sender}" → hospital "${resolved.name}" (id=${resolved.id})`);
-    }
-  }
-
-  if (resolvedHospitalId) {
-    const { data: hospital } = await supabase
-      .from("hospitals")
-      .select("name")
-      .eq("id", resolvedHospitalId)
-      .single();
-    hospitalName = hospital?.name ?? null;
-    aliases = await getHospitalAliases(supabase, resolvedHospitalId);
-  }
-
-  const { data: productRows } = await supabase
-    .from("products_catalog")
-    .select("official_name, short_name")
-    .eq("is_active", true);
-
-  const products: ProductCatalogEntry[] = (productRows ?? []).map(
-    (p: { official_name: string; short_name: string | null }) => ({
-      official_name: p.official_name,
-      short_name: p.short_name,
-    }),
-  );
-
-  const parseResult = await aiParse(content, settings, hospitalName, aliases, products);
-
-  const matchedItems = parseResult.items.length > 0
-    ? await matchProductsBulk(supabase, parseResult.items, resolvedHospitalId)
-    : [];
-
-  // Build match_summary counts
-  let matched = 0, review = 0, unmatched = 0;
-  for (const m of matchedItems) {
-    if (m.match.match_status === "matched") matched++;
-    else if (m.match.match_status === "review") review++;
-    else unmatched++;
-  }
-
-  return {
-    method: parseResult.method,
-    ai_provider: parseResult.ai_provider ?? null,
-    ai_model: parseResult.ai_model ?? null,
-    latency_ms: parseResult.latency_ms,
-    token_usage: parseResult.token_usage ?? null,
-    warnings: parseResult.warnings,
-    match_summary: { matched, review, unmatched },
-    items: matchedItems.map((m) => ({
-      original_text: m.parsed.item,
-      product_official_name: m.match.product_name,
-      quantity: m.parsed.qty,
-      unit: m.parsed.unit,
-      product_id: m.match.product_id,
-      match_confidence: m.match.confidence,
-      match_status: m.match.match_status,
-      match_method: m.match.method,
-    })),
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Parse-message (delegates to parse-service.ts)
-// ---------------------------------------------------------------------------
-
-export async function reparseMessage(id: number, hospitalId?: number) {
-  const supabase = await createClient();
-  const settings = await getAISettings();
-
-  // If hospitalId provided, update the message first
-  if (hospitalId) {
-    const { error: updErr } = await supabase
-      .from("raw_messages")
-      .update({ hospital_id: hospitalId })
-      .eq("id", id);
-    if (updErr) throw updErr;
-  }
-
-  const { data: msg, error: fetchErr } = await supabase
-    .from("raw_messages")
-    .select("id, content, hospital_id, sender")
-    .eq("id", id)
-    .single();
-  if (fetchErr || !msg) throw fetchErr ?? new Error("메시지를 찾을 수 없습니다.");
-
-  // Auto-resolve hospital from sender if still no hospital_id
-  let effectiveHospitalId = msg.hospital_id;
-  if (!effectiveHospitalId && msg.sender) {
-    const resolved = await resolveHospitalFromSender(supabase, msg.sender);
-    if (resolved) {
-      effectiveHospitalId = resolved.id;
-      // Persist the resolved hospital_id on the message
-      await supabase
-        .from("raw_messages")
-        .update({ hospital_id: resolved.id })
-        .eq("id", id);
-      console.log(`[reparseMessage] Auto-matched sender "${msg.sender}" → hospital "${resolved.name}" (id=${resolved.id})`);
-    }
-  }
-
-  const result = await parseMessageCore(supabase, settings, msg.id, msg.content, effectiveHospitalId, true);
-  revalidatePath("/messages");
-  revalidatePath("/dashboard");
-  return result;
-}
-
-export async function reparseMessages(ids: number[], hospitalId?: number) {
-  if (ids.length === 0) return { success: true, results: [] };
-  const supabase = await createClient();
-  const settings = await getAISettings();
-
-  // If hospitalId provided, update messages that don't have one
-  if (hospitalId) {
-    const { data: noHospital } = await supabase
-      .from("raw_messages")
-      .select("id")
-      .in("id", ids)
-      .is("hospital_id", null);
-    const noHospitalIds = (noHospital ?? []).map((m) => m.id);
-    if (noHospitalIds.length > 0) {
-      const { error: updErr } = await supabase
-        .from("raw_messages")
-        .update({ hospital_id: hospitalId })
-        .in("id", noHospitalIds);
-      if (updErr) throw updErr;
-    }
-  }
-
-  const { data: msgs, error: fetchErr } = await supabase
-    .from("raw_messages")
-    .select("id, content, hospital_id")
-    .in("id", ids);
-  if (fetchErr) throw fetchErr;
-
-  const results = [];
-  for (const msg of msgs ?? []) {
-    try {
-      const data = await parseMessageCore(supabase, settings, msg.id, msg.content, msg.hospital_id, true);
-      results.push({ id: msg.id, data, error: null });
-    } catch (err) {
-      results.push({ id: msg.id, data: null, error: (err as Error).message });
-    }
-  }
-  revalidatePath("/messages");
-  revalidatePath("/dashboard");
-  return { success: true, results };
-}
-
-export async function deleteMessages(ids: number[]) {
-  if (ids.length === 0) return { success: true };
-  const supabase = await createClient();
-  const { error } = await supabase.from("raw_messages").delete().in("id", ids);
-  if (error) throw error;
-  revalidatePath("/messages");
-  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -674,6 +455,30 @@ export async function deleteMyDrug(id: number) {
 export async function deleteMyDevice(id: number) {
   const supabase = await createClient();
   const { error } = await supabase.from("my_devices").delete().eq("id", id);
+  if (error) throw error;
+  revalidatePath("/products/my");
+  return { success: true };
+}
+
+// --- Price update ---
+
+export async function updateMyDrugPrice(id: number, unitPrice: number | null) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("my_drugs")
+    .update({ unit_price: unitPrice })
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/products/my");
+  return { success: true };
+}
+
+export async function updateMyDevicePrice(id: number, unitPrice: number | null) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("my_devices")
+    .update({ unit_price: unitPrice })
+    .eq("id", id);
   if (error) throw error;
   revalidatePath("/products/my");
   return { success: true };

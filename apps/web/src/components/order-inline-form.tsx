@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -95,19 +96,24 @@ interface SelectedItem {
 
 interface OrderInlineFormProps {
   displayColumns: { drug: string[]; device: string[] };
+  initialNotes?: string;
+  sourceMessageId?: string;
 }
 
 export function OrderInlineForm({
   displayColumns,
+  initialNotes,
+  sourceMessageId,
 }: OrderInlineFormProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(!!initialNotes);
   const [hospitalId, setHospitalId] = useState<number | null>(null);
   const [orderDate, setOrderDate] = useState(
     new Date().toISOString().split("T")[0],
   );
   const [deliveryDate, setDeliveryDate] = useState("");
   const [deliveredAt, setDeliveredAt] = useState("");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(initialNotes ?? "");
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -230,6 +236,7 @@ export function OrderInlineForm({
         delivery_date: deliveryDate || null,
         delivered_at: deliveredAt || null,
         notes: notes || null,
+        source_message_id: sourceMessageId ?? null,
         items: selectedItems.map((item) => ({
           my_item_id: item.id,
           my_item_type: item.type,
@@ -245,6 +252,9 @@ export function OrderInlineForm({
       setNotes("");
       setDeliveryDate("");
       setDeliveredAt("");
+      if (sourceMessageId) {
+        router.replace("/orders");
+      }
     } catch (err) {
       toast.error("주문 생성 실패: " + (err as Error).message);
     } finally {
@@ -261,6 +271,9 @@ export function OrderInlineForm({
     setDeliveredAt("");
     setSearchQuery("");
     setSearchResults([]);
+    if (sourceMessageId) {
+      router.replace("/orders");
+    }
   }
 
   if (!isOpen) {
@@ -285,6 +298,11 @@ export function OrderInlineForm({
         <CardTitle className="text-base flex items-center gap-2">
           <PlusCircle className="h-4 w-4" />
           새 주문 생성
+          {sourceMessageId && (
+            <Badge variant="secondary" className="text-xs font-normal">
+              메시지에서
+            </Badge>
+          )}
           <span className="text-xs text-muted-foreground font-normal ml-2">
             주문번호: 자동생성
           </span>

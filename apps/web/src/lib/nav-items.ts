@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Search,
   BookmarkCheck,
+  MessageSquare,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -29,6 +30,7 @@ export const navGroups: NavGroup[] = [
     label: "메인",
     items: [
       { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
+      { href: "/notifications", label: "수신메시지", icon: MessageSquare },
       { href: "/orders", label: "주문관리", icon: ClipboardList },
     ],
   },

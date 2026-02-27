@@ -94,7 +94,7 @@ export function createAdminSupabase() {
 // ---------------------------------------------------------------------------
 
 /** Max time (ms) to spend in a single invocation before yielding */
-const TIME_BUDGET_MS = 240_000; // 4 minutes (leaves 60s buffer for maxDuration=300)
+const TIME_BUDGET_MS = 200_000; // ~3.3 minutes (leaves 100s buffer for maxDuration=300)
 
 export interface SyncResult {
   totalFetched: number;
@@ -128,10 +128,27 @@ export async function runFullSync(
   try {
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      // Time budget check — stop gracefully before Vercel kills us
+      // Time budget check — update DB IMMEDIATELY and return before Vercel kills us.
+      // Critical: Do NOT break-then-update. The post-loop code may never execute
+      // because Vercel can terminate the after() context at any time.
       if (Date.now() - startTime > TIME_BUDGET_MS) {
-        outcome = "partial";
-        break;
+        await admin
+          .from("mfds_sync_logs")
+          .update({
+            status: "partial",
+            total_fetched: totalFetched,
+            total_upserted: totalUpserted,
+            duration_ms: Date.now() - startTime,
+            next_page: currentPage,
+          })
+          .eq("id", logId);
+
+        return {
+          totalFetched,
+          totalUpserted,
+          outcome: "partial",
+          nextPage: currentPage,
+        };
       }
 
       const { items, totalCount } = await fetchPage(config, apiKey, currentPage);
@@ -186,24 +203,24 @@ export async function runFullSync(
       if (currentPage > totalPages) break;
     }
 
-    // Update log status
+    // All pages completed
     await admin
       .from("mfds_sync_logs")
       .update({
-        status: outcome,
-        finished_at: outcome === "completed" ? new Date().toISOString() : undefined,
+        status: "completed",
+        finished_at: new Date().toISOString(),
         total_fetched: totalFetched,
         total_upserted: totalUpserted,
         duration_ms: Date.now() - startTime,
-        next_page: outcome === "partial" ? currentPage : null,
+        next_page: null,
       })
       .eq("id", logId);
 
     return {
       totalFetched,
       totalUpserted,
-      outcome,
-      nextPage: outcome === "partial" ? currentPage : null,
+      outcome: "completed",
+      nextPage: null,
     };
   } catch (err) {
     await admin

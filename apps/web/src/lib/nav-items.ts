@@ -1,7 +1,6 @@
 import {
   Package2,
   Users,
-  MessageSquare,
   ClipboardList,
   Building2,
   Factory,
@@ -31,7 +30,6 @@ export const navGroups: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
       { href: "/orders", label: "주문관리", icon: ClipboardList },
-      { href: "/messages", label: "수신메시지", icon: MessageSquare },
     ],
   },
   {

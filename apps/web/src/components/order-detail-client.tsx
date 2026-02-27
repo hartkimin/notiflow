@@ -89,7 +89,7 @@ const STATUS_VARIANT: Record<
 };
 
 const DETAIL_COL_DEFAULTS: Record<string, number> = {
-  idx: 40, product: 180, supplier: 120, original: 120, quantity: 80, unit_price: 90, total: 90,
+  idx: 40, product: 180, supplier: 120, quantity: 80, unit_price: 90, total: 90,
 };
 
 interface EditItemState {
@@ -519,7 +519,6 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                 <ResizableTh width={widths.idx} colKey="idx" onResizeStart={onMouseDown} className="pl-6">#</ResizableTh>
                 <ResizableTh width={widths.product} colKey="product" onResizeStart={onMouseDown}>품목</ResizableTh>
                 <ResizableTh width={widths.supplier} colKey="supplier" onResizeStart={onMouseDown}>매입처</ResizableTh>
-                <ResizableTh width={widths.original} colKey="original" onResizeStart={onMouseDown} className="hidden sm:table-cell print:table-cell">원문</ResizableTh>
                 <ResizableTh width={widths.quantity} colKey="quantity" onResizeStart={onMouseDown} className="text-right">수량</ResizableTh>
                 <ResizableTh width={widths.unit_price} colKey="unit_price" onResizeStart={onMouseDown} className="text-right">단가</ResizableTh>
                 <ResizableTh width={widths.total} colKey="total" onResizeStart={onMouseDown} className="text-right pr-6">금액</ResizableTh>
@@ -605,14 +604,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                           </PopoverContent>
                         </Popover>
                       ) : (
-                        <>
-                          <span className="font-medium">{productName}</span>
-                          {item.match_status !== "matched" && (
-                            <Badge variant="outline" className="text-xs ml-2">
-                              {item.match_status}
-                            </Badge>
-                          )}
-                        </>
+                        <span className="font-medium">{productName}</span>
                       )}
                     </TableCell>
                     <TableCell className="text-sm">
@@ -673,9 +665,6 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                           return supplierObj?.name ?? "-";
                         })()
                       )}
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell print:table-cell text-xs text-muted-foreground max-w-[200px] truncate">
-                      {item.original_text || "-"}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {isEditing && !isDeleted ? (

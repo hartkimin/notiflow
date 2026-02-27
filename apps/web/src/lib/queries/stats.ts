@@ -1,5 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
-import type { DailyStats, CalendarDay, HospitalStat, ProductStat, TrendPoint } from "@/lib/types";
+import type { HospitalStat, ProductStat, TrendPoint } from "@/lib/types";
+
+export interface DailyStats {
+  date: string;
+  orders_created: number;
+}
 
 export async function getDailyStats(date?: string): Promise<DailyStats> {
   const supabase = await createClient();
@@ -8,17 +13,6 @@ export async function getDailyStats(date?: string): Promise<DailyStats> {
   });
   if (error) throw error;
   return data as DailyStats;
-}
-
-export async function getCalendarStats(
-  month: string,
-): Promise<{ month: string; days: CalendarDay[] }> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("get_calendar_stats", {
-    target_month: month,
-  });
-  if (error) throw error;
-  return data as { month: string; days: CalendarDay[] };
 }
 
 export async function getHospitalStats(

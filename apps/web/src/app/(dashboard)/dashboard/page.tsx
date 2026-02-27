@@ -2,7 +2,6 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   ClipboardList,
-  CheckCircle,
   Truck,
   Shield,
   Building2,
@@ -48,10 +47,7 @@ export default async function DashboardHome() {
   const [stats, ordersRes, deliveriesRes, kpisRes, trend, hospitals, products] = await Promise.all([
     getDailyStats().catch(() => ({
       date: "",
-      total_messages: 0,
-      parse_success: 0,
       orders_created: 0,
-      parse_success_rate: 0,
     })),
     getOrders({ limit: 5 }).catch(() => ({ orders: [], total: 0 })),
     getTodayDeliveries().catch(() => ({ count: 0, deliveries: [] })),
@@ -63,7 +59,7 @@ export default async function DashboardHome() {
 
   return (
     <>
-      <RealtimeListener tables={["orders", "raw_messages"]} />
+      <RealtimeListener tables={["orders"]} />
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">대시보드</h1>
         <div className="ml-auto flex items-center gap-2">
@@ -76,20 +72,13 @@ export default async function DashboardHome() {
           </Button>
         </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-3">
         <StatCard
           title="오늘 주문"
           value={`${stats.orders_created}건`}
-          description={`메시지 ${stats.total_messages}건 수신`}
+          description="오늘 생성된 주문"
           icon={ClipboardList}
           color="blue"
-        />
-        <StatCard
-          title="파싱 성공률"
-          value={`${stats.parse_success_rate}%`}
-          description={`${stats.parse_success}/${stats.total_messages}건 성공`}
-          icon={CheckCircle}
-          color="green"
         />
         <StatCard
           title="오늘 배송"

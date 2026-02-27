@@ -36,24 +36,6 @@ export function GlobalNotifications() {
           }
         },
       )
-      .on(
-        "postgres_changes" as never,
-        { event: "INSERT", schema: "public", table: "raw_messages" },
-        (payload: unknown) => {
-          try {
-            const { new: msg } = payload as { new?: Record<string, unknown> };
-            if (!msg) return;
-            const preview = ((msg.content as string) || "").slice(0, 50) || "새로운 메시지";
-            showNotification(
-              `메시지 수신: ${(msg.sender as string) || "알 수 없음"}`,
-              preview,
-              "/messages",
-            );
-          } catch {
-            // Malformed payload — ignore silently
-          }
-        },
-      )
       .subscribe();
 
     return () => {

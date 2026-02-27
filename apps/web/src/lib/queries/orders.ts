@@ -53,7 +53,6 @@ export async function getOrderItems(params: {
     "supplier_id",
     "quantity",
     "unit_type",
-    "match_status",
     "box_spec_id",
     "calculated_pieces",
     "orders!inner(order_number, order_date, delivery_date, status, hospital_id, hospitals(name))",
@@ -118,7 +117,6 @@ export async function getOrderItems(params: {
       kpis_status: kpis?.report_status ?? null,
       kpis_notes: kpis?.notes ?? null,
       status: order?.status ?? "",
-      match_status: row.match_status,
     };
   });
 
@@ -130,7 +128,7 @@ export async function getOrder(id: number): Promise<OrderDetail> {
 
   const { data: order, error } = await supabase
     .from("orders")
-    .select("*, hospitals(name), raw_messages!message_id(content, sender, received_at)")
+    .select("*, hospitals(name)")
     .eq("id", id)
     .single();
 
@@ -142,16 +140,10 @@ export async function getOrder(id: number): Promise<OrderDetail> {
     .eq("order_id", id)
     .order("id");
 
-  const msg = order.raw_messages as { content: string; sender: string | null; received_at: string } | null;
-
   return {
     ...order,
     hospital_name: (order.hospitals as { name: string } | null)?.name,
     hospitals: undefined,
-    raw_messages: undefined,
-    message_content: msg?.content ?? null,
-    message_sender: msg?.sender ?? null,
-    message_received_at: msg?.received_at ?? null,
     items: (items ?? []) as OrderItem[],
   };
 }

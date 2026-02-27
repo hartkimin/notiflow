@@ -4,6 +4,31 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { SyncDiffEntry } from "@/lib/types";
 
+// --- Messages (captured_messages soft delete) ---
+
+export async function deleteMessage(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("captured_messages")
+    .update({ is_deleted: true })
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/notifications");
+  return { success: true };
+}
+
+export async function deleteMessages(ids: string[]) {
+  if (ids.length === 0) return { success: true };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("captured_messages")
+    .update({ is_deleted: true })
+    .in("id", ids);
+  if (error) throw error;
+  revalidatePath("/notifications");
+  return { success: true };
+}
+
 // --- Hospitals ---
 
 export async function createHospital(data: {

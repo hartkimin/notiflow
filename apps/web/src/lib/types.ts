@@ -316,6 +316,47 @@ export interface ChatRoom {
   match_count: number;
 }
 
+// --- Message Local State (localStorage-based) ---
+
+export interface StatusStep {
+  id: string;
+  name: string;
+  color: string;
+  orderIndex: number;
+}
+
+export interface StatusChangeItem {
+  id: string;
+  fromStatusId: string | null;
+  fromStatusName: string | null;
+  toStatusId: string;
+  toStatusName: string;
+  changedAt: string;
+}
+
+export interface MessageComment {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface MessageLocalData {
+  statusId: string | null;
+  statusHistory: StatusChangeItem[];
+  isPinned: boolean;
+  snoozeAt: string | null;
+  comments: MessageComment[];
+  editedContent: string | null;
+}
+
+export type MessageLocalStateMap = Record<string, MessageLocalData>;
+
+// --- Message Calendar Union ---
+
+export type MessageCalendarItem =
+  | { kind: "message"; data: CapturedMessage }
+  | { kind: "forecast"; data: OrderForecast };
+
 // --- Order Forecasts ---
 
 export type ForecastStatus = 'pending' | 'matched' | 'partial' | 'missed' | 'cancelled';

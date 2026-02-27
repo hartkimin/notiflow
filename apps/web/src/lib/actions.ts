@@ -730,9 +730,9 @@ export async function syncMyDrug(id: number) {
     .single();
   if (error) throw error;
 
-  if (!drug.bar_code) return { found: false, changes: [] as SyncDiffEntry[] };
+  if (!drug.item_seq) return { found: false, changes: [] as SyncDiffEntry[] };
 
-  const apiResult = await searchMfdsDrug({ BAR_CODE: drug.bar_code ?? "" });
+  const apiResult = await searchMfdsDrug({ ITEM_SEQ: drug.item_seq ?? "" });
   if (apiResult.items.length === 0) {
     return { found: false, changes: [] as SyncDiffEntry[] };
   }

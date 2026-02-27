@@ -67,3 +67,21 @@ export async function getMessagesForCalendar(params: {
   if (error) throw error;
   return (data ?? []) as CapturedMessage[];
 }
+
+/**
+ * Get a single message by ID.
+ */
+export async function getMessageById(id: string): Promise<CapturedMessage | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("captured_messages")
+    .select(
+      "id, app_name, sender, content, received_at, category_id, status_id, is_archived, source, room_name, sender_icon, attached_image",
+    )
+    .eq("id", id)
+    .single();
+
+  if (error) return null;
+  return data as CapturedMessage;
+}

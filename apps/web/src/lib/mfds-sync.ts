@@ -90,27 +90,50 @@ export function createAdminSupabase() {
 }
 
 // ---------------------------------------------------------------------------
-// Full sync for a single source type
+// Full sync for a single source type (time-budget aware, resumable)
 // ---------------------------------------------------------------------------
+
+/** Max time (ms) to spend in a single invocation before yielding */
+const TIME_BUDGET_MS = 240_000; // 4 minutes (leaves 60s buffer for maxDuration=300)
+
+export interface SyncResult {
+  totalFetched: number;
+  totalUpserted: number;
+  /** "completed" if all pages done, "partial" if stopped early due to time budget */
+  outcome: "completed" | "partial";
+  /** Next page to resume from (only set when outcome is "partial") */
+  nextPage: number | null;
+}
 
 export async function runFullSync(
   sourceType: string,
   apiKey: string,
   logId: number,
-): Promise<{ totalFetched: number; totalUpserted: number }> {
+  startPage = 1,
+  /** Cumulative totals from prior invocations (for the same logId) */
+  priorFetched = 0,
+  priorUpserted = 0,
+): Promise<SyncResult> {
   const admin = createAdminSupabase();
 
   const config = MFDS_API_CONFIGS[sourceType];
   if (!config) throw new Error(`Unknown source type: ${sourceType}`);
 
   const startTime = Date.now();
-  let totalFetched = 0;
-  let totalUpserted = 0;
-  let currentPage = 1;
+  let totalFetched = priorFetched;
+  let totalUpserted = priorUpserted;
+  let currentPage = startPage;
+  let outcome: "completed" | "partial" = "completed";
 
   try {
     // eslint-disable-next-line no-constant-condition
     while (true) {
+      // Time budget check — stop gracefully before Vercel kills us
+      if (Date.now() - startTime > TIME_BUDGET_MS) {
+        outcome = "partial";
+        break;
+      }
+
       const { items, totalCount } = await fetchPage(config, apiKey, currentPage);
 
       if (items.length === 0) break;
@@ -163,19 +186,24 @@ export async function runFullSync(
       if (currentPage > totalPages) break;
     }
 
-    // Mark completed
+    // Update log status
     await admin
       .from("mfds_sync_logs")
       .update({
-        status: "completed",
-        finished_at: new Date().toISOString(),
+        status: outcome === "completed" ? "completed" : "running",
+        finished_at: outcome === "completed" ? new Date().toISOString() : undefined,
         total_fetched: totalFetched,
         total_upserted: totalUpserted,
         duration_ms: Date.now() - startTime,
       })
       .eq("id", logId);
 
-    return { totalFetched, totalUpserted };
+    return {
+      totalFetched,
+      totalUpserted,
+      outcome,
+      nextPage: outcome === "partial" ? currentPage : null,
+    };
   } catch (err) {
     await admin
       .from("mfds_sync_logs")

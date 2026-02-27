@@ -28,6 +28,7 @@ export interface Order {
   confirmed_at: string | null;
   created_at: string;
   notes: string | null;
+  source_message_id: string | null;
 }
 
 export interface OrderItem {

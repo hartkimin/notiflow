@@ -171,6 +171,7 @@ export interface MyDrug {
   rare_drug_yn: string | null;
   added_at: string;
   synced_at: string;
+  unit_price: number | null;
 }
 
 export interface MyDevice {
@@ -197,6 +198,7 @@ export interface MyDevice {
   rcprslry_trgt_yn: string | null;
   added_at: string;
   synced_at: string;
+  unit_price: number | null;
 }
 
 export interface SyncDiffEntry {

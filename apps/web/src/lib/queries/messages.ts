@@ -80,6 +80,7 @@ export async function getMessageById(id: string): Promise<CapturedMessage | null
       "id, app_name, sender, content, received_at, category_id, status_id, is_archived, source, room_name, sender_icon, attached_image",
     )
     .eq("id", id)
+    .eq("is_deleted", false)
     .single();
 
   if (error) return null;

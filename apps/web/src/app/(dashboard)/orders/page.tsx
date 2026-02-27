@@ -68,11 +68,16 @@ export default async function OrdersPage({ searchParams }: Props) {
   const fromStr = toLocalDateStr(new Date(calYear, calMonth, 1 - 7));
   const toStr = toLocalDateStr(new Date(calYear, calMonth + 1, 1 + 7));
 
-  const [result, allProducts, displayColumns] = await Promise.all([
+  const messagePromise = params.create_from_message
+    ? getMessageById(params.create_from_message)
+    : Promise.resolve(null);
+
+  const [result, allProducts, displayColumns, sourceMessage] = await Promise.all([
     getOrderItems({ status, from: params.from, to: params.to, limit, offset })
       .catch(() => ({ items: [], total: 0 })),
     getProductsCatalog().catch(() => []),
     getOrderDisplayColumns(),
+    messagePromise,
   ]);
 
   const productOptions: ProductOption[] = allProducts.map((p) => ({
@@ -80,16 +85,8 @@ export default async function OrdersPage({ searchParams }: Props) {
   }));
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
-  // Fetch source message if creating from message
-  let initialMessageContent: string | undefined;
-  let sourceMessageId: string | undefined;
-  if (params.create_from_message) {
-    const msg = await getMessageById(params.create_from_message);
-    if (msg) {
-      initialMessageContent = msg.content;
-      sourceMessageId = msg.id;
-    }
-  }
+  const initialMessageContent = sourceMessage?.content;
+  const sourceMessageId = sourceMessage?.id;
 
   return (
     <>

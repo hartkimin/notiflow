@@ -22,8 +22,8 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2 } from "lucide-react";
 import {
-  searchMfdsDrug,
-  searchMfdsDevice,
+  searchMfdsItems,
+  triggerMfdsSync,
   addToMyDrugs,
   addToMyDevices,
   syncMyDrug,
@@ -35,7 +35,7 @@ import {
   updateMyDrugPrice,
   updateMyDevicePrice,
 } from "@/lib/actions";
-import { getFallbackFields, type FilterChip } from "@/lib/mfds-search-utils";
+import { type FilterChip } from "@/lib/mfds-search-utils";
 import { useRecentSearches } from "@/hooks/use-recent-searches";
 import { MfdsSearchBar } from "@/components/mfds/mfds-search-bar";
 import { MfdsResultToolbar } from "@/components/mfds/mfds-result-toolbar";
@@ -51,6 +51,11 @@ interface MfdsSearchPanelProps {
   existingStandardCodes?: string[];
   myDrugs?: Record<string, unknown>[];
   myDevices?: Record<string, unknown>[];
+  syncStatus?: {
+    lastSync: string | null;
+    drugCount: number;
+    deviceCount: number;
+  };
 }
 
 // ─── Component ──────────────────────────────────────────────────────
@@ -61,6 +66,7 @@ export function MfdsSearchPanel({
   existingStandardCodes = [],
   myDrugs,
   myDevices,
+  syncStatus,
 }: MfdsSearchPanelProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -103,6 +109,13 @@ export function MfdsSearchPanel({
   const [syncingId, setSyncingId] = useState<number | null>(null);
   const [syncDiff, setSyncDiff] = useState<{ id: number; changes: SyncDiffEntry[] } | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  // MFDS sync state (browse mode)
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Debounce refs
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Price editing state (manage mode only)
   const [editingPriceId, setEditingPriceId] = useState<number | null>(null);
@@ -333,53 +346,40 @@ export function MfdsSearchPanel({
     enableColumnResizing: true,
   });
 
-  // ── Search logic (smart detection + fallback retry) ───────────────
+  // ── Search logic (DB-backed with debounce) ────────────────────────
 
   const doSearch = useCallback(
     (targetPage = 1) => {
-      const q = query.trim();
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = new AbortController();
 
       startTransition(async () => {
         setIsLoading(true);
         try {
-          // Build chip-based filters (only API-compatible operators: contains/equals)
-          const chipFilters: Record<string, string> = {};
-          for (const chip of activeFilters) {
-            if (chip.operator === "contains" || chip.operator === "equals") {
-              chipFilters[chip.field] = chip.value;
+          const q = query.trim();
+
+          const result = await searchMfdsItems({
+            query: q,
+            sourceType: tab,
+            searchField,
+            page: targetPage,
+            pageSize,
+            filters: activeFilters,
+          });
+
+          if (!abortControllerRef.current?.signal.aborted) {
+            setResults(result.items as Record<string, unknown>[]);
+            setTotalCount(result.totalCount);
+            setPage(targetPage);
+            setHasSearched(true);
+            setExpandedRowId(null);
+
+            if (q) {
+              recentSearches.add(q, tab);
             }
-          }
-
-          const searchFn = tab === "drug" ? searchMfdsDrug : searchMfdsDevice;
-
-          let result: { items: Record<string, unknown>[]; totalCount: number };
-
-          if (searchField === "_all" && q) {
-            // "전체" mode: try fallback fields sequentially
-            const fallbackFields = getFallbackFields(tab);
-            result = { items: [], totalCount: 0 };
-            for (const field of fallbackFields) {
-              result = await searchFn({ [field]: q, ...chipFilters }, targetPage);
-              if (result.totalCount > 0) break;
-            }
-          } else if (q) {
-            // Specific column selected
-            result = await searchFn({ [searchField]: q, ...chipFilters }, targetPage);
-          } else {
-            // No query text — use only chip filters (list all if empty)
-            result = await searchFn(chipFilters, targetPage);
-          }
-
-          setResults(result.items as Record<string, unknown>[]);
-          setTotalCount(result.totalCount);
-          setPage(targetPage);
-          setHasSearched(true);
-          setExpandedRowId(null);
-
-          if (q) {
-            recentSearches.add(q, tab);
           }
         } catch (err) {
+          if ((err as Error).name === "AbortError") return;
           toast.error(
             `검색 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
             {
@@ -397,6 +397,26 @@ export function MfdsSearchPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [query, activeFilters, tab, searchField],
   );
+
+  // ── Debounced auto-search on query change ─────────────────────────
+  useEffect(() => {
+    if (mode === "manage") return;
+    if (!hasSearched && !query.trim()) return;
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      doSearch(1);
+    }, 300);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, activeFilters]);
 
   // ── Initial load ────────────────────────────────────────────────
   const initialLoaded = useRef(false);
@@ -416,6 +436,24 @@ export function MfdsSearchPanel({
     setTotalCount(data.length);
     setHasSearched(true);
   }, [mode, tab, myDrugs, myDevices]);
+
+  // ── MFDS sync handler (browse mode) ─────────────────────────────
+  async function handleMfdsSync() {
+    setIsSyncing(true);
+    try {
+      const result = await triggerMfdsSync(tab);
+      toast.success(
+        `동기화 완료: ${result.totalFetched.toLocaleString()}건 확인, ${result.totalUpserted.toLocaleString()}건 반영`,
+      );
+      doSearch(1);
+    } catch (err) {
+      toast.error(
+        `동기화 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
+      );
+    } finally {
+      setIsSyncing(false);
+    }
+  }
 
   // ── Add handler ───────────────────────────────────────────────────
 
@@ -594,6 +632,38 @@ export function MfdsSearchPanel({
 
   return (
     <div className="space-y-4">
+      {/* Sync status banner */}
+      {mode === "browse" && syncStatus && (
+        <div className="flex items-center justify-between rounded-lg border bg-muted/50 px-4 py-2 text-sm">
+          <div className="flex items-center gap-4 text-muted-foreground">
+            <span>의약품: {syncStatus.drugCount.toLocaleString()}건</span>
+            <span>의료기기: {syncStatus.deviceCount.toLocaleString()}건</span>
+            {syncStatus.lastSync && (
+              <span>
+                마지막 동기화:{" "}
+                {new Date(syncStatus.lastSync).toLocaleDateString("ko-KR")}
+              </span>
+            )}
+            {!syncStatus.lastSync && (
+              <span className="text-amber-600">동기화 필요</span>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isSyncing}
+            onClick={handleMfdsSync}
+          >
+            {isSyncing ? (
+              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+            ) : (
+              <RefreshCw className="h-3 w-3 mr-1" />
+            )}
+            동기화
+          </Button>
+        </div>
+      )}
+
       {/* Search bar with tabs, query, filter chips, recent searches */}
       <MfdsSearchBar
         tab={tab}
@@ -610,6 +680,9 @@ export function MfdsSearchPanel({
           if (mode === "manage") {
             setGlobalFilter(query);
           } else {
+            if (debounceTimerRef.current) {
+              clearTimeout(debounceTimerRef.current);
+            }
             doSearch(1);
           }
         }}
@@ -619,15 +692,12 @@ export function MfdsSearchPanel({
         hasSearched={hasSearched}
       />
 
-      {/* Result toolbar (summary, global filter, column toggle) */}
+      {/* Result toolbar (summary, column toggle) */}
       {hasSearched && results.length > 0 && (
         <MfdsResultToolbar
           totalCount={totalCount}
           page={page}
           totalPages={totalPages}
-          globalFilter={globalFilter}
-          onGlobalFilterChange={setGlobalFilter}
-          filteredCount={table.getFilteredRowModel().rows.length}
           table={table}
         />
       )}
@@ -646,8 +716,6 @@ export function MfdsSearchPanel({
         isPending={isPending}
         isLoading={isLoading}
         hasSearched={hasSearched}
-        globalFilter={globalFilter}
-        onGlobalFilterReset={() => setGlobalFilter("")}
       />
 
       {/* Pagination */}

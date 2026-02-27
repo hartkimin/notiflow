@@ -1,6 +1,5 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,7 +9,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Filter, Settings2, X } from "lucide-react";
+import { Settings2 } from "lucide-react";
 import type { Table } from "@tanstack/react-table";
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -19,9 +18,6 @@ interface MfdsResultToolbarProps {
   totalCount: number;
   page: number;
   totalPages: number;
-  globalFilter: string;
-  onGlobalFilterChange: (value: string) => void;
-  filteredCount: number;
   table: Table<Record<string, unknown>>;
 }
 
@@ -31,44 +27,18 @@ export function MfdsResultToolbar({
   totalCount,
   page,
   totalPages,
-  globalFilter,
-  onGlobalFilterChange,
-  filteredCount,
   table,
 }: MfdsResultToolbarProps) {
   return (
     <div className="flex items-center justify-between gap-2 flex-wrap">
-      {/* Left side — result summary + global filter */}
+      {/* Left side — result summary */}
       <div className="flex items-center gap-3">
         <p className="text-sm text-muted-foreground whitespace-nowrap">
           총 {totalCount.toLocaleString()}건 (페이지 {page}/{totalPages || 1})
-          {globalFilter && (
-            <span className="ml-2">· 필터 적용: {filteredCount}건 표시</span>
-          )}
         </p>
-
-        {/* Global filter input — repositioned to left side */}
-        <div className="relative">
-          <Filter className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-          <Input
-            placeholder="결과 내 검색..."
-            value={globalFilter}
-            onChange={(e) => onGlobalFilterChange(e.target.value)}
-            className="pl-7 h-8 w-48 text-xs"
-          />
-          {globalFilter && (
-            <button
-              type="button"
-              className="absolute right-2 top-1/2 -translate-y-1/2"
-              onClick={() => onGlobalFilterChange("")}
-            >
-              <X className="h-3 w-3 text-muted-foreground" />
-            </button>
-          )}
-        </div>
       </div>
 
-      {/* Right side — column visibility toggle (renamed) */}
+      {/* Right side — column visibility toggle */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="sm" className="h-8">

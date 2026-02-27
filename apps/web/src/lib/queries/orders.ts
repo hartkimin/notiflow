@@ -167,6 +167,13 @@ export async function updateOrderStatus(id: number, status: string) {
   return { success: true };
 }
 
+export async function generateOrderNumber(): Promise<string> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("generate_order_number");
+  if (error) throw error;
+  return data as string;
+}
+
 /**
  * Get all orders in a date range (no pagination) for calendar view.
  */

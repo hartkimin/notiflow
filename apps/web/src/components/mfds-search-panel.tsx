@@ -441,10 +441,13 @@ export function MfdsSearchPanel({
   }, [mode, tab, myDrugs, myDevices]);
 
   // ── Sync polling — shared between trigger and page-load resume ───
+  const continuationInFlightRef = useRef(false);
+
   const startSyncPolling = useCallback(
     (logId: number) => {
       // Clear any existing polling
       if (syncPollingRef.current) clearInterval(syncPollingRef.current);
+      continuationInFlightRef.current = false;
 
       setIsSyncing(true);
       setSyncProgress("동기화 중...");
@@ -459,6 +462,43 @@ export function MfdsSearchPanel({
             );
             // Refresh search so newly synced items appear in real-time
             doSearch(1);
+          } else if (
+            progress.status === "partial" &&
+            progress.nextPage &&
+            progress.sourceType
+          ) {
+            // Time budget exceeded — trigger continuation from client
+            setSyncProgress(
+              `동기화 계속 중... ${progress.totalFetched.toLocaleString()}건 처리됨`,
+            );
+            doSearch(1);
+
+            // Prevent duplicate continuation triggers
+            if (!continuationInFlightRef.current) {
+              continuationInFlightRef.current = true;
+              fetch("/api/sync-mfds", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  sourceType: progress.sourceType,
+                  logId,
+                  startPage: progress.nextPage,
+                  priorFetched: progress.totalFetched,
+                  priorUpserted: progress.totalUpserted,
+                }),
+              })
+                .then((res) => {
+                  if (!res.ok) {
+                    console.error("Continuation trigger failed:", res.status);
+                  }
+                })
+                .catch((err) => {
+                  console.error("Continuation trigger failed:", err);
+                })
+                .finally(() => {
+                  continuationInFlightRef.current = false;
+                });
+            }
           } else {
             // Sync finished (completed or error)
             if (syncPollingRef.current) clearInterval(syncPollingRef.current);

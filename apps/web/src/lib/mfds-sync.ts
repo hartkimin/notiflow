@@ -190,11 +190,12 @@ export async function runFullSync(
     await admin
       .from("mfds_sync_logs")
       .update({
-        status: outcome === "completed" ? "completed" : "running",
+        status: outcome,
         finished_at: outcome === "completed" ? new Date().toISOString() : undefined,
         total_fetched: totalFetched,
         total_upserted: totalUpserted,
         duration_ms: Date.now() - startTime,
+        next_page: outcome === "partial" ? currentPage : null,
       })
       .eq("id", logId);
 

@@ -7,7 +7,8 @@ import {
 } from "@/lib/mfds-sync";
 
 // Vercel Cron: runs daily at 04:00 KST (19:00 UTC)
-// Syncs drug then device_std sequentially with automatic continuation
+// Syncs each source type sequentially. If a source type hits the time budget,
+// it is marked as "partial" and the continuation cron picks it up.
 
 export const maxDuration = 300;
 
@@ -27,45 +28,17 @@ export async function GET(request: Request) {
     );
   }
 
-  // Create sync logs for each source type
   const sourceTypes = Object.keys(MFDS_API_CONFIGS);
-  const logs: { sourceType: string; logId: number }[] = [];
 
-  for (const sourceType of sourceTypes) {
-    const logId = await createSyncLog("cron", sourceType);
-    logs.push({ sourceType, logId });
-  }
-
-  // Run syncs in background — first source type starts immediately,
-  // if it hits the time budget, the /api/sync-mfds self-continuation handles it.
-  // Second source type is triggered via self-continuation after the first completes.
+  // Run syncs in background — create logs one at a time.
+  // If a source type is partial, stop and let the continuation cron handle it.
   after(async () => {
-    for (const { sourceType, logId } of logs) {
+    for (const sourceType of sourceTypes) {
+      const logId = await createSyncLog("cron", sourceType);
       try {
         const result = await runFullSync(sourceType, apiKey, logId);
-
-        // If partial, trigger continuation via the manual sync route
-        if (result.outcome === "partial" && result.nextPage) {
-          const baseUrl = process.env.VERCEL_URL
-            ? `https://${process.env.VERCEL_URL}`
-            : "http://localhost:3000";
-
-          await fetch(`${baseUrl}/api/sync-mfds`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              sourceType,
-              logId,
-              startPage: result.nextPage,
-              priorFetched: result.totalFetched,
-              priorUpserted: result.totalUpserted,
-              _internalSecret: process.env.CRON_SECRET,
-            }),
-          }).catch((err) => {
-            console.error("Cron continuation trigger failed:", err);
-          });
-          // Stop processing more source types in this invocation
-          // (the continuation chain will handle the rest)
+        if (result.outcome === "partial") {
+          // Stop processing more source types — continuation cron will resume
           break;
         }
       } catch (err) {
@@ -74,8 +47,5 @@ export async function GET(request: Request) {
     }
   });
 
-  return NextResponse.json({
-    ok: true,
-    scheduled: logs.map((l) => ({ sourceType: l.sourceType, logId: l.logId })),
-  });
+  return NextResponse.json({ ok: true, sourceTypes });
 }

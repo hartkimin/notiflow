@@ -484,11 +484,13 @@ export async function getMfdsSyncProgress(logId: number): Promise<{
   totalFetched: number;
   totalUpserted: number;
   errorMessage: string | null;
+  sourceType: string | null;
+  nextPage: number | null;
 }> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("mfds_sync_logs")
-    .select("status, total_fetched, total_upserted, error_message")
+    .select("status, total_fetched, total_upserted, error_message, source_type, next_page")
     .eq("id", logId)
     .single();
 
@@ -497,10 +499,12 @@ export async function getMfdsSyncProgress(logId: number): Promise<{
     totalFetched: data?.total_fetched ?? 0,
     totalUpserted: data?.total_upserted ?? 0,
     errorMessage: data?.error_message ?? null,
+    sourceType: data?.source_type ?? null,
+    nextPage: data?.next_page ?? null,
   };
 }
 
-/** Check if there is a currently running sync */
+/** Check if there is a currently running or partial sync */
 export async function getActiveSyncLog(): Promise<{
   logId: number;
   sourceType: string;
@@ -511,7 +515,7 @@ export async function getActiveSyncLog(): Promise<{
   const { data } = await supabase
     .from("mfds_sync_logs")
     .select("id, source_type, total_fetched, total_upserted")
-    .eq("status", "running")
+    .in("status", ["running", "partial"])
     .order("started_at", { ascending: false })
     .limit(1)
     .single();

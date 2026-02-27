@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/mfds-sync",
       "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/cron/mfds-sync-continue",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

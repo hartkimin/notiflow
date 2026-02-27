@@ -4,6 +4,7 @@ import {
   MFDS_API_CONFIGS,
   runFullSync,
   createSyncLog,
+  createAdminSupabase,
 } from "@/lib/mfds-sync";
 
 export const maxDuration = 300;
@@ -34,7 +35,6 @@ export async function POST(req: Request) {
   }
 
   // Get API key
-  const { createAdminSupabase } = await import("@/lib/mfds-sync");
   const admin = createAdminSupabase();
   const { data: setting } = await admin
     .from("settings")
@@ -51,9 +51,20 @@ export async function POST(req: Request) {
   // Create or reuse sync log
   const logId = continueLogId ?? await createSyncLog("manual", sourceType);
 
-  // Run sync in background with self-continuation
+  // If continuing a partial sync, set status back to "running" immediately
+  // (before after() starts) so the client doesn't trigger another continuation
+  if (continueLogId) {
+    await admin
+      .from("mfds_sync_logs")
+      .update({ status: "running", next_page: null })
+      .eq("id", continueLogId);
+  }
+
+  // Run sync in background — no self-continuation.
+  // If partial, the sync log will be set to "partial" with next_page,
+  // and the client (or continuation cron) will trigger the next chunk.
   after(async () => {
-    const result = await runFullSync(
+    await runFullSync(
       sourceType,
       setting.value,
       logId,
@@ -61,28 +72,6 @@ export async function POST(req: Request) {
       priorFetched,
       priorUpserted,
     );
-
-    // If partial (time budget exceeded), trigger a continuation call
-    if (result.outcome === "partial" && result.nextPage) {
-      const baseUrl = process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000";
-
-      await fetch(`${baseUrl}/api/sync-mfds`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceType,
-          logId,
-          startPage: result.nextPage,
-          priorFetched: result.totalFetched,
-          priorUpserted: result.totalUpserted,
-          _internalSecret: process.env.CRON_SECRET,
-        }),
-      }).catch((err) => {
-        console.error("Continuation trigger failed:", err);
-      });
-    }
   });
 
   return NextResponse.json({ logId, started: true });

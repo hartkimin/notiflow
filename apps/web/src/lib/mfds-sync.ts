@@ -8,7 +8,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 // Config
 // ---------------------------------------------------------------------------
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 500;
 
 interface ApiConfig {
   url: string;
@@ -96,6 +96,13 @@ export function createAdminSupabase() {
 /** Max time (ms) to spend in a single invocation before yielding */
 const TIME_BUDGET_MS = 200_000; // ~3.3 minutes (leaves 100s buffer for maxDuration=300)
 
+export interface SyncProgress {
+  totalFetched: number;
+  totalUpserted: number;
+  currentPage: number;
+  durationMs: number;
+}
+
 export interface SyncResult {
   totalFetched: number;
   totalUpserted: number;
@@ -113,6 +120,7 @@ export async function runFullSync(
   /** Cumulative totals from prior invocations (for the same logId) */
   priorFetched = 0,
   priorUpserted = 0,
+  onProgress?: (progress: SyncProgress) => void,
 ): Promise<SyncResult> {
   const admin = createAdminSupabase();
 
@@ -142,6 +150,13 @@ export async function runFullSync(
             next_page: currentPage,
           })
           .eq("id", logId);
+
+        onProgress?.({
+          totalFetched,
+          totalUpserted,
+          currentPage,
+          durationMs: Date.now() - startTime,
+        });
 
         return {
           totalFetched,
@@ -188,7 +203,7 @@ export async function runFullSync(
         }
       }
 
-      // Update progress so polling can track it
+      // Update progress in DB and notify caller
       await admin
         .from("mfds_sync_logs")
         .update({
@@ -197,6 +212,13 @@ export async function runFullSync(
           duration_ms: Date.now() - startTime,
         })
         .eq("id", logId);
+
+      onProgress?.({
+        totalFetched,
+        totalUpserted,
+        currentPage,
+        durationMs: Date.now() - startTime,
+      });
 
       const totalPages = Math.ceil(totalCount / PAGE_SIZE);
       currentPage++;

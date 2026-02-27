@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import type { SyncDiffEntry, MfdsApiSource } from "@/lib/types";
 import type { FilterChip } from "@/lib/mfds-search-utils";
 
@@ -475,25 +475,96 @@ export async function searchMfdsItems(params: {
   };
 }
 
+// ---------------------------------------------------------------------------
+// MFDS Sync — direct API fetch + UPSERT (bypasses Edge Function auth issues)
+// ---------------------------------------------------------------------------
+
+const SYNC_PAGE_SIZE = 100;
+const SYNC_MAX_PAGES = 20; // 2,000 items per chunk
+
+interface MfdsSyncApiConfig {
+  url: string;
+  sourceKeyField: string;
+  itemNameField: string;
+  manufacturerField: string;
+  standardCodeField: string;
+  permitDateField: string;
+}
+
+const SYNC_API_CONFIGS: Record<string, MfdsSyncApiConfig> = {
+  drug: {
+    url: "https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService07/getDrugPrdtPrmsnDtlInq06",
+    sourceKeyField: "ITEM_SEQ",
+    itemNameField: "ITEM_NAME",
+    manufacturerField: "ENTP_NAME",
+    standardCodeField: "BAR_CODE",
+    permitDateField: "ITEM_PERMIT_DATE",
+  },
+  device_std: {
+    url: "https://apis.data.go.kr/1471000/MdeqStdCdPrdtInfoService03/getMdeqStdCdPrdtInfoInq03",
+    sourceKeyField: "UDIDI_CD",
+    itemNameField: "PRDLST_NM",
+    manufacturerField: "MNFT_IPRT_ENTP_NM",
+    standardCodeField: "UDIDI_CD",
+    permitDateField: "PRMSN_YMD",
+  },
+};
+
+function parseMfdsSyncItems(
+  body: Record<string, unknown>,
+): Record<string, unknown>[] {
+  if (!body) return [];
+  const items = body.items;
+  if (!items) return [];
+  if (Array.isArray(items)) return items as Record<string, unknown>[];
+  const obj = items as Record<string, unknown>;
+  const item = obj.item;
+  if (!item) return [];
+  if (Array.isArray(item)) return item as Record<string, unknown>[];
+  return [item as Record<string, unknown>];
+}
+
+async function fetchMfdsSyncPage(
+  config: MfdsSyncApiConfig,
+  apiKey: string,
+  page: number,
+): Promise<{ items: Record<string, unknown>[]; totalCount: number }> {
+  const params = new URLSearchParams({
+    serviceKey: apiKey,
+    pageNo: String(page),
+    numOfRows: String(SYNC_PAGE_SIZE),
+    type: "json",
+  });
+
+  const res = await fetch(`${config.url}?${params}`);
+  if (!res.ok) throw new Error(`MFDS API ${res.status}: ${await res.text()}`);
+
+  const json = await res.json();
+  const body = json?.body;
+
+  return {
+    items: parseMfdsSyncItems(body),
+    totalCount: (body?.totalCount as number) ?? 0,
+  };
+}
+
 export async function triggerMfdsSync(sourceType: MfdsApiSource): Promise<{
   totalFetched: number;
   totalUpserted: number;
 }> {
   const apiKey = await getMfdsApiKey();
-  const supabase = await createClient();
+  const admin = await createAdminClient();
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error("인증이 필요합니다.");
+  const config = SYNC_API_CONFIGS[sourceType];
+  if (!config) throw new Error(`Unknown source type: ${sourceType}`);
 
   let totalFetched = 0;
   let totalUpserted = 0;
-  let page = 1;
+  let currentPage = 1;
   let hasMore = true;
 
   const startTime = Date.now();
-  const { data: logEntry } = await supabase
+  const { data: logEntry } = await admin
     .from("mfds_sync_logs")
     .insert({
       trigger_type: "manual",
@@ -505,35 +576,58 @@ export async function triggerMfdsSync(sourceType: MfdsApiSource): Promise<{
 
   try {
     while (hasMore) {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sync-mfds`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ sourceType, page, apiKey }),
-        },
-      );
+      const { items, totalCount } = await fetchMfdsSyncPage(config, apiKey, currentPage);
 
-      if (!res.ok) {
-        const errBody = await res.text();
-        throw new Error(`동기화 실패: ${errBody}`);
+      if (items.length === 0) break;
+      totalFetched += items.length;
+
+      const rows = items
+        .map((item) => {
+          const sourceKey = String(item[config.sourceKeyField] ?? "");
+          if (!sourceKey) return null;
+          return {
+            source_type: sourceType,
+            source_key: sourceKey,
+            item_name: String(item[config.itemNameField] ?? ""),
+            manufacturer: String(item[config.manufacturerField] ?? ""),
+            standard_code: String(item[config.standardCodeField] ?? ""),
+            permit_date: String(item[config.permitDateField] ?? ""),
+            raw_data: item,
+            synced_at: new Date().toISOString(),
+          };
+        })
+        .filter(Boolean);
+
+      if (rows.length > 0) {
+        const { error, count } = await admin
+          .from("mfds_items")
+          .upsert(rows, {
+            onConflict: "source_type,source_key",
+            count: "exact",
+          });
+
+        if (error) {
+          console.error("UPSERT error:", error.message);
+        } else {
+          totalUpserted += count ?? rows.length;
+        }
       }
 
-      const result = await res.json();
-      totalFetched += result.totalFetched ?? 0;
-      totalUpserted += result.totalUpserted ?? 0;
-      hasMore = result.hasMore === true;
-      page = result.nextPage ?? page + 1;
+      const totalPages = Math.ceil(totalCount / SYNC_PAGE_SIZE);
+      currentPage++;
+
+      // Limit to SYNC_MAX_PAGES per invocation
+      if (currentPage > totalPages || currentPage > SYNC_MAX_PAGES) {
+        hasMore = currentPage <= totalPages;
+        break;
+      }
     }
 
     if (logEntry?.id) {
-      await supabase
+      await admin
         .from("mfds_sync_logs")
         .update({
-          status: "completed",
+          status: hasMore ? "partial" : "completed",
           finished_at: new Date().toISOString(),
           total_fetched: totalFetched,
           total_upserted: totalUpserted,
@@ -546,7 +640,7 @@ export async function triggerMfdsSync(sourceType: MfdsApiSource): Promise<{
     return { totalFetched, totalUpserted };
   } catch (err) {
     if (logEntry?.id) {
-      await supabase
+      await admin
         .from("mfds_sync_logs")
         .update({
           status: "error",

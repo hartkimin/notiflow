@@ -4,6 +4,7 @@ import { File } from "lucide-react";
 import { getOrderItems } from "@/lib/queries/orders";
 import { getProductsCatalog } from "@/lib/queries/products";
 import { getOrderDisplayColumns } from "@/lib/queries/settings";
+import { getMessageById } from "@/lib/queries/messages";
 import { OrderInlineForm } from "@/components/order-inline-form";
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -39,6 +40,7 @@ interface Props {
     page?: string;
     view?: string;
     month?: string;
+    create_from_message?: string;
   }>;
 }
 
@@ -78,6 +80,17 @@ export default async function OrdersPage({ searchParams }: Props) {
   }));
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
+  // Fetch source message if creating from message
+  let initialMessageContent: string | undefined;
+  let sourceMessageId: string | undefined;
+  if (params.create_from_message) {
+    const msg = await getMessageById(params.create_from_message);
+    if (msg) {
+      initialMessageContent = msg.content;
+      sourceMessageId = msg.id;
+    }
+  }
+
   return (
     <>
       <RealtimeListener tables={["orders", "order_items"]} />
@@ -91,7 +104,11 @@ export default async function OrdersPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <OrderInlineForm displayColumns={displayColumns} />
+      <OrderInlineForm
+        displayColumns={displayColumns}
+        initialNotes={initialMessageContent}
+        sourceMessageId={sourceMessageId}
+      />
 
       <ClientTabs
         initialTab={initialTab}

@@ -10,15 +10,16 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { memo, useMemo } from "react";
 import type { TrendPoint } from "@/lib/types";
 
-export function TrendChart({ data }: { data: TrendPoint[] }) {
+export const TrendChart = memo(function TrendChart({ data }: { data: TrendPoint[] }) {
   if (data.length === 0) return null;
 
-  const formatted = data.map((d) => ({
-    ...d,
-    label: d.date.slice(5), // "MM-DD"
-  }));
+  const formatted = useMemo(
+    () => data.map((d) => ({ ...d, label: d.date.slice(5) })),
+    [data],
+  );
 
   return (
     <ResponsiveContainer width="100%" height={250}>
@@ -81,4 +82,4 @@ export function TrendChart({ data }: { data: TrendPoint[] }) {
       </LineChart>
     </ResponsiveContainer>
   );
-}
+});

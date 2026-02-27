@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { memo, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -233,7 +233,7 @@ export function OrderTable({
   );
 }
 
-function OrderGroupRow({
+const OrderGroupRow = memo(function OrderGroupRow({
   group,
   products,
   isExpanded,
@@ -314,7 +314,7 @@ function OrderGroupRow({
       )}
     </>
   );
-}
+});
 
 interface ItemEdits {
   quantity: number;

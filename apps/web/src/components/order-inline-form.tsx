@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,30 +17,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
   PlusCircle,
   Search,
   X,
-  Check,
-  ChevronsUpDown,
   Loader2,
 } from "lucide-react";
 import {
   searchMyItemsAction,
   createOrderAction,
+  searchHospitalsAction,
 } from "@/app/(dashboard)/orders/actions";
+import { SearchableCombobox } from "@/components/searchable-combobox";
 
 // Column label lookup maps
 const DRUG_LABELS: Record<string, string> = {
@@ -108,12 +94,10 @@ interface SelectedItem {
 }
 
 interface OrderInlineFormProps {
-  hospitals: Array<{ id: number; name: string }>;
   displayColumns: { drug: string[]; device: string[] };
 }
 
 export function OrderInlineForm({
-  hospitals,
   displayColumns,
 }: OrderInlineFormProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -129,7 +113,6 @@ export function OrderInlineForm({
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [hospitalOpen, setHospitalOpen] = useState(false);
 
   // Debounced item search
   useEffect(() => {
@@ -313,50 +296,15 @@ export function OrderInlineForm({
           {/* Hospital combobox */}
           <div className="space-y-1">
             <Label className="text-xs">거래처</Label>
-            <Popover open={hospitalOpen} onOpenChange={setHospitalOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="w-[200px] justify-between"
-                >
-                  {hospitalId
-                    ? hospitals.find((h) => h.id === hospitalId)?.name
-                    : "거래처 선택"}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[200px] p-0">
-                <Command>
-                  <CommandInput placeholder="거래처 검색..." />
-                  <CommandList>
-                    <CommandEmpty>결과 없음</CommandEmpty>
-                    <CommandGroup>
-                      {hospitals.map((h) => (
-                        <CommandItem
-                          key={h.id}
-                          value={h.name}
-                          onSelect={() => {
-                            setHospitalId(h.id);
-                            setHospitalOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              hospitalId === h.id
-                                ? "opacity-100"
-                                : "opacity-0",
-                            )}
-                          />
-                          {h.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            <SearchableCombobox
+              value={hospitalId}
+              placeholder="거래처 선택"
+              searchPlaceholder="거래처 검색..."
+              emptyText="거래처 없음"
+              onSelect={(id) => setHospitalId(id)}
+              searchAction={searchHospitalsAction}
+              className="w-[200px]"
+            />
           </div>
 
           <div className="space-y-1">

@@ -48,12 +48,15 @@ import {
 import {
   confirmOrderAction,
   deleteOrdersAction,
+  searchHospitalsAction,
+  searchSuppliersAction,
   updateDeliveryDateAction,
   updateOrderHospitalAction,
   updateOrderItemAction,
   updateOrderStatusAction,
   upsertKpisReportAction,
 } from "@/app/(dashboard)/orders/actions";
+import { SearchableCombobox } from "@/components/searchable-combobox";
 import {
   Select,
   SelectContent,
@@ -70,16 +73,6 @@ import { toast } from "sonner";
 import type { OrderItemFlat } from "@/lib/types";
 
 export interface ProductOption {
-  id: number;
-  name: string;
-}
-
-export interface HospitalOption {
-  id: number;
-  name: string;
-}
-
-export interface SupplierOption {
   id: number;
   name: string;
 }
@@ -138,13 +131,9 @@ function formatMMDD(dateStr: string | null): string {
 export function OrderTable({
   items,
   products = [],
-  hospitals = [],
-  suppliers = [],
 }: {
   items: OrderItemFlat[];
   products?: ProductOption[];
-  hospitals?: HospitalOption[];
-  suppliers?: SupplierOption[];
 }) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
@@ -221,8 +210,6 @@ export function OrderTable({
                     key={group.order_id}
                     group={group}
                     products={products}
-                    hospitals={hospitals}
-                    suppliers={suppliers}
                     isExpanded={isExpanded}
                     isSelected={rowSelection.selected.has(group.order_id)}
                     onToggle={() => toggleExpand(group.order_id)}
@@ -249,8 +236,6 @@ export function OrderTable({
 function OrderGroupRow({
   group,
   products,
-  hospitals,
-  suppliers,
   isExpanded,
   isSelected,
   onToggle,
@@ -259,8 +244,6 @@ function OrderGroupRow({
 }: {
   group: OrderGroup;
   products: ProductOption[];
-  hospitals: HospitalOption[];
-  suppliers: SupplierOption[];
   isExpanded: boolean;
   isSelected: boolean;
   onToggle: () => void;
@@ -325,7 +308,7 @@ function OrderGroupRow({
       {isExpanded && (
         <TableRow className="bg-muted/30 hover:bg-muted/30">
           <TableCell colSpan={colCount} className="p-0">
-            <OrderAccordionContent group={group} products={products} hospitals={hospitals} suppliers={suppliers} />
+            <OrderAccordionContent group={group} products={products} />
           </TableCell>
         </TableRow>
       )}
@@ -342,22 +325,16 @@ interface ItemEdits {
 function OrderAccordionContent({
   group,
   products,
-  hospitals,
-  suppliers,
 }: {
   group: OrderGroup;
   products: ProductOption[];
-  hospitals: HospitalOption[];
-  suppliers: SupplierOption[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isEditing, setIsEditing] = useState(false);
   const [editItems, setEditItems] = useState<Record<number, ItemEdits>>({});
   const [deliveryDate, setDeliveryDate] = useState(group.delivery_date ?? "");
-  const [hospitalOpen, setHospitalOpen] = useState(false);
   const [productOpenId, setProductOpenId] = useState<number | null>(null);
-  const [supplierOpenId, setSupplierOpenId] = useState<number | null>(null);
   const [kpisEditId, setKpisEditId] = useState<number | null>(null);
   const [kpisNotes, setKpisNotes] = useState("");
 
@@ -445,7 +422,6 @@ function OrderAccordionContent({
   }
 
   function handleHospitalChange(hospitalId: number) {
-    setHospitalOpen(false);
     startTransition(async () => {
       try {
         await updateOrderHospitalAction(group.order_id, hospitalId);
@@ -478,44 +454,15 @@ function OrderAccordionContent({
         </div>
         <div>
           <span className="text-muted-foreground text-xs">거래처</span>
-          <Popover open={hospitalOpen} onOpenChange={setHospitalOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                disabled={isPending}
-                className="h-7 w-full max-w-[180px] justify-between font-normal text-sm mt-0.5 px-2"
-              >
-                <span className="truncate">{group.hospital_name || "선택..."}</span>
-                <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[240px] p-0" align="start">
-              <Command>
-                <CommandInput placeholder="거래처 검색..." />
-                <CommandList>
-                  <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
-                  <CommandGroup>
-                    {hospitals.map((h) => (
-                      <CommandItem
-                        key={h.id}
-                        value={h.name}
-                        onSelect={() => handleHospitalChange(h.id)}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            group.hospital_id === h.id ? "opacity-100" : "opacity-0",
-                          )}
-                        />
-                        {h.name}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          <SearchableCombobox
+            value={group.hospital_id}
+            displayName={group.hospital_name}
+            placeholder="거래처 선택"
+            searchPlaceholder="거래처 검색..."
+            onSelect={(id) => handleHospitalChange(id)}
+            searchAction={searchHospitalsAction}
+            className="w-[180px]"
+          />
         </div>
         <div>
           <span className="text-muted-foreground text-xs">배송예정</span>
@@ -666,53 +613,15 @@ function OrderAccordionContent({
                   </TableCell>
                   <TableCell className="text-sm">
                     {isEditing ? (
-                      <Popover
-                        open={supplierOpenId === item.id}
-                        onOpenChange={(open: boolean) => setSupplierOpenId(open ? item.id : null)}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            className="h-7 w-full max-w-[140px] justify-between font-normal text-xs px-2"
-                          >
-                            <span className="truncate">
-                              {editItems[item.id]?.supplier_id
-                                ? suppliers.find((s) => s.id === editItems[item.id]?.supplier_id)?.name ?? "미지정"
-                                : "매입처 선택..."}
-                            </span>
-                            <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[220px] p-0" align="start">
-                          <Command>
-                            <CommandInput placeholder="매입처 검색..." />
-                            <CommandList>
-                              <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
-                              <CommandGroup>
-                                {suppliers.map((s) => (
-                                  <CommandItem
-                                    key={s.id}
-                                    value={s.name}
-                                    onSelect={() => {
-                                      updateItemField(item.id, "supplier_id", s.id);
-                                      setSupplierOpenId(null);
-                                    }}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-3.5 w-3.5 shrink-0",
-                                        editItems[item.id]?.supplier_id === s.id ? "opacity-100" : "opacity-0",
-                                      )}
-                                    />
-                                    <span className="truncate text-xs">{s.name}</span>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
+                      <SearchableCombobox
+                        value={editItems[item.id]?.supplier_id ?? item.supplier_id}
+                        displayName={item.supplier_name ?? undefined}
+                        placeholder="공급처"
+                        searchPlaceholder="공급처 검색..."
+                        onSelect={(id) => updateItemField(item.id, "supplier_id", id)}
+                        searchAction={searchSuppliersAction}
+                        className="w-[160px]"
+                      />
                     ) : (
                       item.supplier_name ?? "-"
                     )}

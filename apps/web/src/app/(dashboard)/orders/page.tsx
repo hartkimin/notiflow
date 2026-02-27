@@ -3,8 +3,6 @@ import { File } from "lucide-react";
 
 import { getOrderItems, getOrdersForCalendar } from "@/lib/queries/orders";
 import { getProductsCatalog } from "@/lib/queries/products";
-import { getHospitals } from "@/lib/queries/hospitals";
-import { getSuppliers } from "@/lib/queries/suppliers";
 import { getOrderDisplayColumns } from "@/lib/queries/settings";
 import { OrderInlineForm } from "@/components/order-inline-form";
 import dynamic from "next/dynamic";
@@ -69,24 +67,16 @@ export default async function OrdersPage({ searchParams }: Props) {
   const toStr = toLocalDateStr(new Date(calYear, calMonth + 1, 1 + 7));
 
   // Fetch both datasets in parallel for instant tab switching
-  const [result, calendarOrders, allProducts, { hospitals: allHospitals }, { suppliers: allSuppliers }, displayColumns] = await Promise.all([
+  const [result, calendarOrders, allProducts, displayColumns] = await Promise.all([
     getOrderItems({ status, from: params.from, to: params.to, limit, offset })
       .catch(() => ({ items: [], total: 0 })),
     getOrdersForCalendar({ from: fromStr, to: toStr }).catch(() => []),
     getProductsCatalog().catch(() => []),
-    getHospitals({ limit: 1000 }).catch(() => ({ hospitals: [], total: 0 })),
-    getSuppliers({ limit: 1000 }).catch(() => ({ suppliers: [], total: 0 })),
     getOrderDisplayColumns(),
   ]);
 
   const productOptions: ProductOption[] = allProducts.map((p) => ({
     id: p.id, name: p.official_name,
-  }));
-  const hospitalOptions = allHospitals.map((h) => ({
-    id: h.id, name: h.name,
-  }));
-  const supplierOptions = allSuppliers.map((s) => ({
-    id: s.id, name: s.name,
   }));
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
@@ -103,7 +93,7 @@ export default async function OrdersPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <OrderInlineForm hospitals={hospitalOptions} displayColumns={displayColumns} />
+      <OrderInlineForm displayColumns={displayColumns} />
 
       <ClientTabs
         initialTab={initialTab}
@@ -127,7 +117,7 @@ export default async function OrdersPage({ searchParams }: Props) {
                       <CardDescription><OrderFilters /></CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <OrderTable items={result.items} products={productOptions} hospitals={hospitalOptions} suppliers={supplierOptions} />
+                      <OrderTable items={result.items} products={productOptions} />
                     </CardContent>
                     <CardFooter>
                       <Pagination currentPage={page} totalPages={totalPages} totalCount={result.total} />

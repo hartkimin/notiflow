@@ -4,39 +4,31 @@ import { useState, useRef, useCallback, type FormEvent, type KeyboardEvent } fro
 import { Search, Loader2, Plus, X, Clock } from "lucide-react";
 
 import type { MfdsApiSource } from "@/lib/types";
-import type { FilterChip } from "@/lib/mfds-search-utils";
+import {
+  type FilterChip,
+  type FilterOperator,
+  getSearchableColumns,
+  getFilterableColumns,
+  getOperatorsForType,
+} from "@/lib/mfds-search-utils";
 import type { RecentSearch } from "@/hooks/use-recent-searches";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-
-// ---------------------------------------------------------------------------
-// Filter field definitions per tab
-// ---------------------------------------------------------------------------
-
-const DRUG_FILTER_FIELDS: { field: string; label: string }[] = [
-  { field: "ENTP_NAME", label: "업체명" },
-  { field: "BAR_CODE", label: "표준코드" },
-  { field: "EDI_CODE", label: "보험코드" },
-  { field: "ATC_CODE", label: "ATC코드" },
-  { field: "ITEM_PERMIT_DATE", label: "허가일자" },
-];
-
-const DEVICE_FILTER_FIELDS: { field: string; label: string }[] = [
-  { field: "MNFT_IPRT_ENTP_NM", label: "제조수입업체명" },
-  { field: "UDIDI_CD", label: "UDI-DI코드" },
-  { field: "MDEQ_CLSF_NO", label: "분류번호" },
-  { field: "CLSF_NO_GRAD_CD", label: "등급" },
-  { field: "PERMIT_NO", label: "품목허가번호" },
-  { field: "FOML_INFO", label: "모델명" },
-];
 
 // ---------------------------------------------------------------------------
 // Props
@@ -47,8 +39,12 @@ export interface MfdsSearchBarProps {
   onTabChange: (tab: MfdsApiSource) => void;
   query: string;
   onQueryChange: (q: string) => void;
+  searchField: string;
+  onSearchFieldChange: (field: string) => void;
   activeFilters: FilterChip[];
   onFiltersChange: (filters: FilterChip[]) => void;
+  filterLogic: "and" | "or";
+  onFilterLogicChange: (logic: "and" | "or") => void;
   onSearch: () => void;
   isPending: boolean;
   recentSearches: RecentSearch[];
@@ -65,8 +61,12 @@ export function MfdsSearchBar({
   onTabChange,
   query,
   onQueryChange,
+  searchField,
+  onSearchFieldChange,
   activeFilters,
   onFiltersChange,
+  filterLogic,
+  onFilterLogicChange,
   onSearch,
   isPending,
   recentSearches,
@@ -77,16 +77,17 @@ export function MfdsSearchBar({
   const [editingFilter, setEditingFilter] = useState<{
     field: string;
     label: string;
+    type: "text" | "date" | "status";
   } | null>(null);
   const [editingValue, setEditingValue] = useState("");
+  const [editingValueTo, setEditingValueTo] = useState("");
+  const [editingOperator, setEditingOperator] = useState<FilterOperator>("contains");
   const filterInputRef = useRef<HTMLInputElement>(null);
 
-  const filterFields =
-    tab === "drug" ? DRUG_FILTER_FIELDS : DEVICE_FILTER_FIELDS;
-
-  // Exclude already-active filter fields from the dropdown
+  const searchableColumns = getSearchableColumns(tab);
+  const filterableColumns = getFilterableColumns(tab);
   const activeFieldSet = new Set(activeFilters.map((f) => f.field));
-  const availableFilterFields = filterFields.filter(
+  const availableFilterFields = filterableColumns.filter(
     (f) => !activeFieldSet.has(f.field),
   );
 
@@ -113,10 +114,12 @@ export function MfdsSearchBar({
   );
 
   const handleStartAddFilter = useCallback(
-    (filterDef: { field: string; label: string }) => {
+    (filterDef: { field: string; label: string; type: "text" | "date" | "status" }) => {
       setEditingFilter(filterDef);
       setEditingValue("");
-      // Focus the input after render
+      setEditingValueTo("");
+      const defaultOp = getOperatorsForType(filterDef.type)[0].value;
+      setEditingOperator(defaultOp);
       setTimeout(() => filterInputRef.current?.focus(), 0);
     },
     [],
@@ -126,21 +129,28 @@ export function MfdsSearchBar({
     if (!editingFilter || !editingValue.trim()) {
       setEditingFilter(null);
       setEditingValue("");
+      setEditingValueTo("");
       return;
     }
     const newChip: FilterChip = {
       field: editingFilter.field,
       label: editingFilter.label,
       value: editingValue.trim(),
+      ...(editingOperator === "between" && editingValueTo.trim()
+        ? { valueTo: editingValueTo.trim() }
+        : {}),
+      operator: editingOperator,
     };
     onFiltersChange([...activeFilters, newChip]);
     setEditingFilter(null);
     setEditingValue("");
-  }, [editingFilter, editingValue, activeFilters, onFiltersChange]);
+    setEditingValueTo("");
+  }, [editingFilter, editingValue, editingValueTo, editingOperator, activeFilters, onFiltersChange]);
 
   const handleCancelFilter = useCallback(() => {
     setEditingFilter(null);
     setEditingValue("");
+    setEditingValueTo("");
   }, []);
 
   const handleFilterKeyDown = useCallback(
@@ -188,12 +198,25 @@ export function MfdsSearchBar({
 
       {/* 2. Search Form */}
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
+        <Select value={searchField} onValueChange={onSearchFieldChange}>
+          <SelectTrigger className="h-11 w-[140px] shrink-0">
+            <SelectValue placeholder="전체" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_all">전체</SelectItem>
+            {searchableColumns.map((col) => (
+              <SelectItem key={col.field} value={col.field}>
+                {col.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="relative flex-1">
           <Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2" />
           <Input
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="품목명, 업체명, 코드로 검색..."
+            placeholder="검색어를 입력하세요..."
             className="h-11 pl-9 pr-9"
           />
           {query && (
@@ -218,44 +241,112 @@ export function MfdsSearchBar({
 
       {/* 3. Filter Chips Area */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Active filters */}
-        {activeFilters.map((chip) => (
-          <Badge
-            key={chip.field}
-            variant="secondary"
-            className="gap-1 pl-2.5 pr-1.5 py-1"
-          >
-            <span className="text-xs">
-              {chip.label}:{chip.value}
-            </span>
+        {/* AND/OR toggle (show when 2+ filters) */}
+        {activeFilters.length >= 2 && (
+          <div className="bg-muted inline-flex rounded-md p-0.5 text-xs">
             <button
               type="button"
-              onClick={() => handleRemoveFilter(chip.field)}
-              className="text-muted-foreground hover:text-foreground ml-0.5 rounded-full"
+              onClick={() => onFilterLogicChange("and")}
+              className={`rounded px-2 py-0.5 font-medium transition-colors ${
+                filterLogic === "and"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground"
+              }`}
             >
-              <X className="size-3" />
+              AND
             </button>
-          </Badge>
-        ))}
+            <button
+              type="button"
+              onClick={() => onFilterLogicChange("or")}
+              className={`rounded px-2 py-0.5 font-medium transition-colors ${
+                filterLogic === "or"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground"
+              }`}
+            >
+              OR
+            </button>
+          </div>
+        )}
 
-        {/* Inline editing badge for new filter */}
+        {/* Active filters */}
+        {activeFilters.map((chip) => {
+          const operatorLabels: Record<string, string> = {
+            contains: "포함",
+            equals: "=",
+            startsWith: "시작",
+            notContains: "제외",
+            before: "이전",
+            after: "이후",
+            between: "범위",
+          };
+          const opLabel = operatorLabels[chip.operator] ?? chip.operator;
+          return (
+            <Badge
+              key={chip.field}
+              variant="secondary"
+              className="gap-1 pl-2.5 pr-1.5 py-1"
+            >
+              <span className="text-xs">
+                {chip.label} {opLabel} &quot;{chip.value}&quot;
+                {chip.valueTo ? `~"${chip.valueTo}"` : ""}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleRemoveFilter(chip.field)}
+                className="text-muted-foreground hover:text-foreground ml-0.5 rounded-full"
+              >
+                <X className="size-3" />
+              </button>
+            </Badge>
+          );
+        })}
+
+        {/* Inline editing for new filter */}
         {editingFilter && (
           <Badge variant="outline" className="gap-1 py-0.5 pl-2.5 pr-1">
             <span className="text-xs font-medium">{editingFilter.label}:</span>
+            {/* Operator selector (for types with multiple operators) */}
+            {getOperatorsForType(editingFilter.type).length > 1 && (
+              <select
+                value={editingOperator}
+                onChange={(e) => setEditingOperator(e.target.value as FilterOperator)}
+                className="h-5 border-none bg-transparent text-xs outline-none"
+              >
+                {getOperatorsForType(editingFilter.type).map((op) => (
+                  <option key={op.value} value={op.value}>
+                    {op.label}
+                  </option>
+                ))}
+              </select>
+            )}
             <input
               ref={filterInputRef}
-              type="text"
+              type={editingFilter.type === "date" ? "date" : "text"}
               value={editingValue}
               onChange={(e) => setEditingValue(e.target.value)}
               onKeyDown={handleFilterKeyDown}
               onBlur={handleConfirmFilter}
               className="h-5 w-24 border-none bg-transparent text-xs outline-none"
-              placeholder="값 입력..."
+              placeholder={editingFilter.type === "date" ? "YYYY-MM-DD" : "값 입력..."}
             />
+            {editingOperator === "between" && (
+              <>
+                <span className="text-xs">~</span>
+                <input
+                  type={editingFilter.type === "date" ? "date" : "text"}
+                  value={editingValueTo}
+                  onChange={(e) => setEditingValueTo(e.target.value)}
+                  onKeyDown={handleFilterKeyDown}
+                  className="h-5 w-24 border-none bg-transparent text-xs outline-none"
+                  placeholder={editingFilter.type === "date" ? "YYYY-MM-DD" : "값 입력..."}
+                />
+              </>
+            )}
           </Badge>
         )}
 
-        {/* Add filter dropdown */}
+        {/* Add filter dropdown — show all filterable columns */}
         {!editingFilter && availableFilterFields.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -264,7 +355,7 @@ export function MfdsSearchBar({
                 필터 추가
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
+            <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
               {availableFilterFields.map((f) => (
                 <DropdownMenuItem
                   key={f.field}

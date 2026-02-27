@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarPlus, CalendarRange, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ const MessageCalendar = dynamic(
   () => import("@/components/message-calendar").then(m => ({ default: m.MessageCalendar })),
   { loading: () => <Skeleton className="h-[500px] w-full rounded-md" /> },
 );
+import { getCalendarMessagesAction, getCalendarForecastsAction } from "@/app/(dashboard)/notifications/actions";
 import { ForecastDialog } from "@/components/forecast-dialog";
 import { ForecastBatchDialog } from "@/components/forecast-batch-dialog";
 import {
@@ -40,9 +41,11 @@ interface MessagesViewProps {
   currentPage: number;
   totalPages: number;
   totalCount: number;
-  // Calendar data
-  calendarMessages: CapturedMessage[];
-  calendarForecasts: OrderForecast[];
+  // Calendar params (data fetched on tab activation)
+  calendarStartMs: number;
+  calendarEndMs: number;
+  calendarFrom: string;
+  calendarTo: string;
   initialCalView: CalendarView;
   initialCalDate: Date;
 }
@@ -53,7 +56,8 @@ export function MessagesView({
   initialTab,
   messages, hospitals, products,
   currentPage, totalPages, totalCount,
-  calendarMessages, calendarForecasts, initialCalView, initialCalDate,
+  calendarStartMs, calendarEndMs, calendarFrom, calendarTo,
+  initialCalView, initialCalDate,
 }: MessagesViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -61,6 +65,28 @@ export function MessagesView({
   const [tab, setTab] = useState<TabValue>(initialTab);
   const [calView, setCalView] = useState<CalendarView>(initialCalView);
   const [calDate, setCalDate] = useState<Date>(initialCalDate);
+
+  const [calendarMessages, setCalendarMessages] = useState<CapturedMessage[]>([]);
+  const [calendarForecasts, setCalendarForecasts] = useState<OrderForecast[]>([]);
+  const [calLoading, setCalLoading] = useState(false);
+  const calFetchedRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (tab === "calendar" && !calFetchedRef.current) {
+      calFetchedRef.current = true;
+      setCalLoading(true);
+      Promise.all([
+        getCalendarMessagesAction(calendarStartMs, calendarEndMs),
+        getCalendarForecastsAction(calendarFrom, calendarTo),
+      ])
+        .then(([msgs, fcsts]) => {
+          setCalendarMessages(msgs);
+          setCalendarForecasts(fcsts);
+        })
+        .catch(() => {})
+        .finally(() => setCalLoading(false));
+    }
+  }, [tab, calendarStartMs, calendarEndMs, calendarFrom, calendarTo]);
 
   const [forecastDialogOpen, setForecastDialogOpen] = useState(false);
   const [forecastDialogDate, setForecastDialogDate] = useState<string | undefined>();
@@ -225,6 +251,8 @@ export function MessagesView({
           totalPages={totalPages}
           totalCount={totalCount}
         />
+      ) : calLoading ? (
+        <Skeleton className="h-[500px] w-full rounded-md" />
       ) : (
         <MessageCalendar
           messages={calendarMessages}

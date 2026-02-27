@@ -1,7 +1,6 @@
-import { getMessages, getMessagesForCalendar } from "@/lib/queries/messages";
+import { getMessages } from "@/lib/queries/messages";
 import { getHospitals } from "@/lib/queries/hospitals";
 import { getProductsCatalog } from "@/lib/queries/products";
-import { getForecastsForCalendar } from "@/lib/queries/forecasts";
 import { parseCalendarParams, toLocalDateStr } from "@/lib/schedule-utils";
 import { MessagesView } from "@/components/messages-view";
 import { RealtimeListener } from "@/components/realtime-listener";
@@ -41,10 +40,8 @@ export default async function NotificationsPage({ searchParams }: Props) {
 
   const [
     { data: messages, count: totalCount },
-    calendarMessages,
     hospitals,
     products,
-    calendarForecasts,
   ] = await Promise.all([
     getMessages({
       from: params.from,
@@ -53,13 +50,8 @@ export default async function NotificationsPage({ searchParams }: Props) {
       limit: PAGE_SIZE,
       offset,
     }).catch(() => ({ data: [], count: 0 })),
-    getMessagesForCalendar({
-      startMs: calParams.startMs,
-      endMs: calParams.endMs,
-    }).catch(() => []),
     getHospitals({}).then((r) => r.hospitals).catch(() => []),
     getProductsCatalog().catch(() => []),
-    getForecastsForCalendar({ from: calFrom, to: calTo }).catch(() => []),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -75,8 +67,10 @@ export default async function NotificationsPage({ searchParams }: Props) {
         currentPage={page}
         totalPages={totalPages}
         totalCount={totalCount}
-        calendarMessages={calendarMessages}
-        calendarForecasts={calendarForecasts}
+        calendarStartMs={calParams.startMs}
+        calendarEndMs={calParams.endMs}
+        calendarFrom={calFrom}
+        calendarTo={calTo}
         initialCalView={calParams.view}
         initialCalDate={calParams.referenceDate}
       />

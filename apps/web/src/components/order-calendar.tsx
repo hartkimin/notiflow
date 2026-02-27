@@ -1,7 +1,10 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DataCalendar } from "@/components/data-calendar";
+import { getCalendarOrdersAction } from "@/app/(dashboard)/orders/actions";
 import type { CalendarView } from "@/lib/schedule-utils";
 import type { Order } from "@/lib/types";
 
@@ -114,12 +117,26 @@ function DetailContent({ order }: { order: Order }) {
 // --- Main component ---
 
 interface OrderCalendarProps {
-  orders: Order[];
+  calendarFrom: string;
+  calendarTo: string;
   initialView: CalendarView;
   initialDate: Date;
 }
 
-export function OrderCalendar({ orders, initialView, initialDate }: OrderCalendarProps) {
+export function OrderCalendar({ calendarFrom, calendarTo, initialView, initialDate }: OrderCalendarProps) {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    getCalendarOrdersAction(calendarFrom, calendarTo)
+      .then(setOrders)
+      .catch(() => setOrders([]))
+      .finally(() => setLoading(false));
+  }, [calendarFrom, calendarTo]);
+
+  if (loading) return <Skeleton className="h-[500px] w-full rounded-md" />;
+
   return (
     <DataCalendar
       items={orders}

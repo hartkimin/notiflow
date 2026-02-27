@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { File } from "lucide-react";
 
-import { getOrderItems, getOrdersForCalendar } from "@/lib/queries/orders";
+import { getOrderItems } from "@/lib/queries/orders";
 import { getProductsCatalog } from "@/lib/queries/products";
 import { getOrderDisplayColumns } from "@/lib/queries/settings";
 import { OrderInlineForm } from "@/components/order-inline-form";
@@ -66,11 +66,9 @@ export default async function OrdersPage({ searchParams }: Props) {
   const fromStr = toLocalDateStr(new Date(calYear, calMonth, 1 - 7));
   const toStr = toLocalDateStr(new Date(calYear, calMonth + 1, 1 + 7));
 
-  // Fetch both datasets in parallel for instant tab switching
-  const [result, calendarOrders, allProducts, displayColumns] = await Promise.all([
+  const [result, allProducts, displayColumns] = await Promise.all([
     getOrderItems({ status, from: params.from, to: params.to, limit, offset })
       .catch(() => ({ items: [], total: 0 })),
-    getOrdersForCalendar({ from: fromStr, to: toStr }).catch(() => []),
     getProductsCatalog().catch(() => []),
     getOrderDisplayColumns(),
   ]);
@@ -131,7 +129,7 @@ export default async function OrdersPage({ searchParams }: Props) {
             value: "calendar",
             label: "캘린더",
             content: (
-              <OrderCalendar orders={calendarOrders} initialView={calView} initialDate={calRef} />
+              <OrderCalendar calendarFrom={fromStr} calendarTo={toStr} initialView={calView} initialDate={calRef} />
             ),
           },
         ]}

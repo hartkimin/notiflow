@@ -89,6 +89,11 @@ export async function searchSuppliersAction(query: string) {
   return suppliers.map((s) => ({ id: s.id, name: s.name }));
 }
 
+export async function getCalendarOrdersAction(from: string, to: string) {
+  const { getOrdersForCalendar } = await import("@/lib/queries/orders");
+  return getOrdersForCalendar({ from, to });
+}
+
 export async function createOrderAction(data: {
   hospital_id: number;
   order_date: string;

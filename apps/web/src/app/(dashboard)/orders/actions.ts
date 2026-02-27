@@ -75,6 +75,20 @@ export async function searchMyItemsAction(query: string) {
   return searchMyItems(query);
 }
 
+export async function searchHospitalsAction(query: string) {
+  if (!query || query.length < 1) return [];
+  const { getHospitals } = await import("@/lib/queries/hospitals");
+  const { hospitals } = await getHospitals({ search: query, limit: 20 });
+  return hospitals.map((h) => ({ id: h.id, name: h.name }));
+}
+
+export async function searchSuppliersAction(query: string) {
+  if (!query || query.length < 1) return [];
+  const { getSuppliers } = await import("@/lib/queries/suppliers");
+  const { suppliers } = await getSuppliers({ search: query, limit: 20 });
+  return suppliers.map((s) => ({ id: s.id, name: s.name }));
+}
+
 export async function createOrderAction(data: {
   hospital_id: number;
   order_date: string;

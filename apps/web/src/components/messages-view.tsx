@@ -9,7 +9,13 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { MessageInbox } from "@/components/message-inbox";
-import { MessageCalendar } from "@/components/message-calendar";
+import dynamic from "next/dynamic";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const MessageCalendar = dynamic(
+  () => import("@/components/message-calendar").then(m => ({ default: m.MessageCalendar })),
+  { loading: () => <Skeleton className="h-[500px] w-full rounded-md" /> },
+);
 import { ForecastDialog } from "@/components/forecast-dialog";
 import { ForecastBatchDialog } from "@/components/forecast-batch-dialog";
 import {

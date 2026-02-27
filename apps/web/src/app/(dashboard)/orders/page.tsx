@@ -7,9 +7,19 @@ import { getHospitals } from "@/lib/queries/hospitals";
 import { getSuppliers } from "@/lib/queries/suppliers";
 import { getOrderDisplayColumns } from "@/lib/queries/settings";
 import { OrderInlineForm } from "@/components/order-inline-form";
-import { OrderTable } from "@/components/order-table";
+import dynamic from "next/dynamic";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const OrderTable = dynamic(
+  () => import("@/components/order-table").then(m => ({ default: m.OrderTable })),
+  { loading: () => <Skeleton className="h-[400px] w-full rounded-md" /> },
+);
+const OrderCalendar = dynamic(
+  () => import("@/components/order-calendar").then(m => ({ default: m.OrderCalendar })),
+  { loading: () => <Skeleton className="h-[500px] w-full rounded-md" /> },
+);
+
 import type { ProductOption } from "@/components/order-table";
-import { OrderCalendar } from "@/components/order-calendar";
 import { OrderFilters } from "@/components/order-filters";
 import { Pagination } from "@/components/pagination";
 import { ClientTabs } from "@/components/client-tabs";

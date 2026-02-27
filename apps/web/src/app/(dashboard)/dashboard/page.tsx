@@ -29,7 +29,13 @@ import { StatCard } from "@/components/stat-card";
 import { EmptyState } from "@/components/empty-state";
 import { RealtimeListener } from "@/components/realtime-listener";
 import { SyncAllButton } from "@/components/device-list";
-import { TrendChart } from "@/components/trend-chart";
+import dynamic from "next/dynamic";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const TrendChart = dynamic(
+  () => import("@/components/trend-chart").then(m => ({ default: m.TrendChart })),
+  { loading: () => <Skeleton className="h-[250px] w-full rounded-md" /> },
+);
 import { getDailyStats, getTrendStats, getHospitalStats, getProductStats } from "@/lib/queries/stats";
 import { getOrders } from "@/lib/queries/orders";
 import { getTodayDeliveries } from "@/lib/queries/deliveries";

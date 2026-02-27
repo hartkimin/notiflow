@@ -1,4 +1,4 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
   MFDS_API_CONFIGS,
@@ -16,22 +16,16 @@ export async function POST(req: Request) {
   const startPage: number = body.startPage ?? 1;
   const priorFetched: number = body.priorFetched ?? 0;
   const priorUpserted: number = body.priorUpserted ?? 0;
-  const internalSecret: string | undefined = body._internalSecret;
 
   if (!sourceType || !MFDS_API_CONFIGS[sourceType]) {
     return NextResponse.json({ error: "Invalid sourceType" }, { status: 400 });
   }
 
-  // Auth — either user session (manual) or internal continuation secret
-  const isInternalContinuation =
-    internalSecret === process.env.CRON_SECRET && !!continueLogId;
-
-  if (!isInternalContinuation) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
-    }
+  // Auth — user session required
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   }
 
   // Get API key
@@ -51,8 +45,7 @@ export async function POST(req: Request) {
   // Create or reuse sync log
   const logId = continueLogId ?? await createSyncLog("manual", sourceType);
 
-  // If continuing a partial sync, set status back to "running" immediately
-  // (before after() starts) so the client doesn't trigger another continuation
+  // If continuing a partial sync, set status back to "running"
   if (continueLogId) {
     await admin
       .from("mfds_sync_logs")
@@ -60,19 +53,40 @@ export async function POST(req: Request) {
       .eq("id", continueLogId);
   }
 
-  // Run sync in background — no self-continuation.
-  // If partial, the sync log will be set to "partial" with next_page,
-  // and the client (or continuation cron) will trigger the next chunk.
-  after(async () => {
-    await runFullSync(
-      sourceType,
-      setting.value,
-      logId,
-      startPage,
-      priorFetched,
-      priorUpserted,
-    );
+  // Stream NDJSON progress events — keeps function alive for full duration
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (data: Record<string, unknown>) => {
+        controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
+      };
+
+      send({ type: "start", logId });
+
+      try {
+        const result = await runFullSync(
+          sourceType,
+          setting.value,
+          logId,
+          startPage,
+          priorFetched,
+          priorUpserted,
+          (progress) => send({ type: "progress", ...progress }),
+        );
+        send({ type: "done", ...result });
+      } catch (err) {
+        send({ type: "error", message: (err as Error).message });
+      }
+
+      controller.close();
+    },
   });
 
-  return NextResponse.json({ logId, started: true });
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "application/x-ndjson",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    },
+  });
 }

@@ -459,6 +459,9 @@ export function MfdsSearchPanel({
         grandTotalUpserted += result.totalUpserted;
         logId = result.logId ?? undefined;
 
+        // Refresh search results after each chunk so new items appear immediately
+        doSearch(1);
+
         if (result.hasMore && result.nextPage) {
           nextPage = result.nextPage;
         } else {
@@ -469,7 +472,6 @@ export function MfdsSearchPanel({
       toast.success(
         `동기화 완료: ${grandTotalFetched.toLocaleString()}건 확인, ${grandTotalUpserted.toLocaleString()}건 반영`,
       );
-      doSearch(1);
     } catch (err) {
       toast.error(
         `동기화 실패 (${grandTotalFetched.toLocaleString()}건 처리 후): ${err instanceof Error ? err.message : "알 수 없는 오류"}`,

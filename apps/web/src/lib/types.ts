@@ -259,7 +259,6 @@ export interface ProductStat {
 
 export interface TrendPoint {
   date: string;
-  messages: number;
   orders: number;
   total_amount: number;
 }
@@ -330,7 +329,6 @@ export interface OrderForecast {
   status: ForecastStatus;
   source: 'manual' | 'pattern';
   pattern_id: number | null;
-  message_id: number | null;
   matched_at: string | null;
   created_at: string;
   updated_at: string;

@@ -16,7 +16,7 @@ import {
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Trash2, Pin, PinOff, Copy, Pencil, MessageSquare, X,
+  Trash2, Pin, PinOff, Copy, Pencil, MessageSquare, X, ShoppingCart,
 } from "lucide-react";
 import { deleteMessage } from "@/lib/actions";
 import { SOURCE_LABEL, formatDateTime } from "./constants";
@@ -211,6 +211,11 @@ export function MessageDetailPanel({ message, localState }: DetailPanelProps) {
         </Button>
         <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleCopyContent} title="복사">
           <Copy className="h-3.5 w-3.5" />
+        </Button>
+        <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+          onClick={() => router.push(`/orders?create_from_message=${msg.id}`)}
+          title="주문 생성">
+          <ShoppingCart className="h-3.5 w-3.5" />
         </Button>
         <AlertDialog>
           <AlertDialogTrigger asChild>

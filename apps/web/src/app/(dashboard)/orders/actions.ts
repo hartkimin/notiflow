@@ -100,6 +100,7 @@ export async function createOrderAction(data: {
   delivery_date?: string | null;
   delivered_at?: string | null;
   notes?: string | null;
+  source_message_id?: string | null;
   items: Array<{
     my_item_id: number;
     my_item_type: "drug" | "device";
@@ -124,6 +125,7 @@ export async function createOrderAction(data: {
       delivery_date: data.delivery_date ?? null,
       delivered_at: data.delivered_at ?? null,
       notes: data.notes ?? null,
+      source_message_id: data.source_message_id ?? null,
       status: "draft",
       total_items: data.items.length,
     })

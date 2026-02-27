@@ -8,3 +8,9 @@ export async function updateSettingAction(key: string, value: unknown) {
   revalidatePath("/settings");
   return { success: true };
 }
+
+export async function updateOrderDisplayColumnsAction(value: { drug: string[]; device: string[] }) {
+  await updateSetting("order_display_columns", value);
+  revalidatePath("/settings");
+  revalidatePath("/orders");
+}

@@ -69,6 +69,29 @@ export async function getSettings(): Promise<AISettings> {
   };
 }
 
+export interface OrderDisplayColumns {
+  drug: string[];
+  device: string[];
+}
+
+export async function getOrderDisplayColumns(): Promise<OrderDisplayColumns> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "order_display_columns")
+    .single();
+
+  const defaults: OrderDisplayColumns = {
+    drug: ["ITEM_NAME", "BAR_CODE", "ENTP_NAME", "EDI_CODE"],
+    device: ["PRDLST_NM", "UDIDI_CD", "MNFT_IPRT_ENTP_NM", "CLSF_NO_GRAD_CD"],
+  };
+
+  if (!data?.value) return defaults;
+  const val = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+  return { ...defaults, ...val };
+}
+
 export async function updateSetting(key: string, value: unknown) {
   const supabase = await createClient();
   const { error } = await supabase

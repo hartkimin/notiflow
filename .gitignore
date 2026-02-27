@@ -45,6 +45,9 @@ packages/supabase/.temp/
 # Agent Skills (npx skills)
 .agents/
 
+# Worktrees
+.worktrees/
+
 # Temporary
 *.png
 *.tmp

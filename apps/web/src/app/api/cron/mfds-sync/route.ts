@@ -1,4 +1,4 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import {
   MFDS_API_CONFIGS,
   runFullSync,
@@ -61,16 +61,14 @@ export async function GET(request: Request) {
       .update({ status: "running", next_page: null })
       .eq("id", log.id);
 
-    after(async () => {
-      await runFullSync(
-        log.source_type,
-        apiKey,
-        log.id,
-        log.next_page ?? 1,
-        log.total_fetched ?? 0,
-        log.total_upserted ?? 0,
-      );
-    });
+    await runFullSync(
+      log.source_type,
+      apiKey,
+      log.id,
+      log.next_page ?? 1,
+      log.total_fetched ?? 0,
+      log.total_upserted ?? 0,
+    );
 
     return NextResponse.json({ ok: true, continuing: log.id });
   }
@@ -78,20 +76,18 @@ export async function GET(request: Request) {
   // No partial syncs — start fresh sync for each source type
   const sourceTypes = Object.keys(MFDS_API_CONFIGS);
 
-  after(async () => {
-    for (const sourceType of sourceTypes) {
-      const logId = await createSyncLog("cron", sourceType);
-      try {
-        const result = await runFullSync(sourceType, apiKey, logId);
-        if (result.outcome === "partial") {
-          // Stop — next day's cron will continue this partial sync
-          break;
-        }
-      } catch (err) {
-        console.error(`Cron sync failed for ${sourceType}:`, (err as Error).message);
+  for (const sourceType of sourceTypes) {
+    const logId = await createSyncLog("cron", sourceType);
+    try {
+      const result = await runFullSync(sourceType, apiKey, logId);
+      if (result.outcome === "partial") {
+        // Stop — next cron invocation will continue this partial sync
+        break;
       }
+    } catch (err) {
+      console.error(`Cron sync failed for ${sourceType}:`, (err as Error).message);
     }
-  });
+  }
 
   return NextResponse.json({ ok: true, sourceTypes });
 }

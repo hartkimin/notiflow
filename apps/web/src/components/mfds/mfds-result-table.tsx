@@ -185,9 +185,11 @@ export function MfdsResultTable({
                                 if (headerEl.scrollWidth > maxWidth) {
                                   maxWidth = headerEl.scrollWidth;
                                 }
-                                header.column.setSize(
-                                  Math.min(Math.max(maxWidth + 16, 100), 500),
-                                );
+                                const newSize = Math.min(Math.max(maxWidth + 16, 100), 500);
+                                table.setColumnSizing((prev) => ({
+                                  ...prev,
+                                  [colId]: newSize,
+                                }));
                               }
                             : undefined
                         }

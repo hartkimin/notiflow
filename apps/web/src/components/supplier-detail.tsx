@@ -410,7 +410,7 @@ function SupplierItemRow({
       <TableCell className="text-center">
         <Switch
           checked={item.is_primary}
-          onCheckedChange={(checked) => onPrimaryChange(item.id, checked)}
+          onCheckedChange={(checked: boolean) => onPrimaryChange(item.id, checked)}
         />
       </TableCell>
       <TableCell>

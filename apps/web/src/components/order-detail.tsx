@@ -79,8 +79,8 @@ export function OrderDetail({ orderId }: { orderId: number }) {
           <TableBody>
             {order.items.map((item) => (
               <TableRow key={item.id}>
-                <TableCell className="text-xs">제품 #{item.product_id ?? "미지정"}</TableCell>
-                <TableCell>{item.quantity} {item.unit_type}</TableCell>
+                <TableCell className="text-xs">품목 #{item.mfds_item_id ?? "미지정"}</TableCell>
+                <TableCell>{item.quantity}</TableCell>
                 <TableCell className="text-right">
                   {item.unit_price?.toLocaleString("ko-KR") || "-"}
                 </TableCell>

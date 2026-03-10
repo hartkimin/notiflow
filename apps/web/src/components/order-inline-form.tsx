@@ -695,7 +695,7 @@ export function OrderInlineForm({
                           {item.available_suppliers.length > 0 ? (
                             <Select
                               value={item.supplier_id?.toString() ?? ""}
-                              onValueChange={(val) => updateItemSupplier(index, val)}
+                              onValueChange={(val: string) => updateItemSupplier(index, val)}
                             >
                               <SelectTrigger className="h-8 text-xs w-[120px]">
                                 <SelectValue placeholder="공급사" />

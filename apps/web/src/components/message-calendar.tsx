@@ -290,7 +290,7 @@ function ForecastDetailContent({ forecast }: { forecast: OrderForecast }) {
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id} className="border-t">
-                    <td className="px-2 py-1">{item.product_name ?? "-"}</td>
+                    <td className="px-2 py-1">{item.item_name ?? "-"}</td>
                     <td className="px-2 py-1 text-right">{item.quantity ?? "-"}</td>
                     <td className="px-2 py-1">{item.unit_type}</td>
                   </tr>

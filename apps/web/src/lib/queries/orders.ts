@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Order, OrderDetail, OrderItem, OrderItemFlat } from "@/lib/types";
 
 export async function getOrders(params: {
@@ -9,7 +9,7 @@ export async function getOrders(params: {
   limit?: number;
   offset?: number;
 } = {}): Promise<{ orders: Order[]; total: number }> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   let query = supabase
     .from("orders")
@@ -43,22 +43,24 @@ export async function getOrderItems(params: {
   limit?: number;
   offset?: number;
 } = {}): Promise<{ items: OrderItemFlat[]; total: number }> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Supabase PostgREST: select from order_items with nested joins
   const selectStr = [
     "id",
     "order_id",
-    "product_id",
+    "mfds_item_id",
     "supplier_id",
     "quantity",
-    "unit_type",
-    "box_spec_id",
-    "calculated_pieces",
+    "unit_price",
+    "purchase_price",
+    "discount_rate",
+    "final_price",
+    "display_columns",
+    "line_total",
     "orders!inner(order_number, order_date, delivery_date, status, hospital_id, hospitals(name))",
-    "products(official_name, short_name)",
+    "mfds_items(item_name, manufacturer, source_type)",
     "suppliers(name)",
-    "product_box_specs(qty_per_box)",
     "kpis_reports(report_status, notes)",
   ].join(",");
 
@@ -81,21 +83,9 @@ export async function getOrderItems(params: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const items: OrderItemFlat[] = (data ?? []).map((row: any) => {
     const order = row.orders;
-    const product = row.products;
+    const mfdsItem = row.mfds_items;
     const supplier = row.suppliers;
-    const boxSpec = row.product_box_specs;
     const kpis = Array.isArray(row.kpis_reports) ? row.kpis_reports[0] : row.kpis_reports;
-
-    // Calculate box quantity: if box_spec exists use its qty_per_box, else null
-    const qtyPerBox = boxSpec?.qty_per_box ?? null;
-    let boxQuantity: number | null = null;
-    if (qtyPerBox && qtyPerBox > 0) {
-      if (row.unit_type === "box") {
-        boxQuantity = row.quantity;
-      } else {
-        boxQuantity = Math.floor(row.quantity / qtyPerBox);
-      }
-    }
 
     return {
       id: row.id,
@@ -105,13 +95,15 @@ export async function getOrderItems(params: {
       delivery_date: order?.delivery_date ?? null,
       hospital_id: order?.hospital_id ?? null,
       hospital_name: order?.hospitals?.name ?? "",
-      product_id: row.product_id ?? null,
-      product_name: product?.official_name ?? product?.short_name ?? "",
-      quantity: row.unit_type === "box" && qtyPerBox
-        ? row.quantity * qtyPerBox
-        : row.calculated_pieces ?? row.quantity,
-      unit_type: row.unit_type,
-      box_quantity: boxQuantity,
+      mfds_item_id: row.mfds_item_id ?? null,
+      item_name: mfdsItem?.item_name ?? null,
+      quantity: row.quantity,
+      unit_price: row.unit_price ?? null,
+      purchase_price: row.purchase_price ?? null,
+      discount_rate: row.discount_rate ?? 0,
+      final_price: row.final_price ?? null,
+      display_columns: row.display_columns ?? null,
+      line_total: row.line_total ?? null,
       supplier_id: row.supplier_id ?? null,
       supplier_name: supplier?.name ?? null,
       kpis_status: kpis?.report_status ?? null,
@@ -124,7 +116,7 @@ export async function getOrderItems(params: {
 }
 
 export async function getOrder(id: number): Promise<OrderDetail> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: order, error } = await supabase
     .from("orders")
@@ -136,7 +128,7 @@ export async function getOrder(id: number): Promise<OrderDetail> {
 
   const { data: items } = await supabase
     .from("order_items")
-    .select("*, products(name, official_name), suppliers(name)")
+    .select("*, mfds_items(item_name, manufacturer, source_type), suppliers(name)")
     .eq("order_id", id)
     .order("id");
 
@@ -149,7 +141,7 @@ export async function getOrder(id: number): Promise<OrderDetail> {
 }
 
 export async function confirmOrder(id: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from("orders")
     .update({ status: "confirmed", confirmed_at: new Date().toISOString() })
@@ -159,7 +151,7 @@ export async function confirmOrder(id: number) {
 }
 
 export async function updateOrderStatus(id: number, status: string) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const updates: Record<string, unknown> = { status };
   if (status === "delivered") updates.delivered_at = new Date().toISOString();
   const { error } = await supabase.from("orders").update(updates).eq("id", id);
@@ -168,7 +160,7 @@ export async function updateOrderStatus(id: number, status: string) {
 }
 
 export async function generateOrderNumber(): Promise<string> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase.rpc("generate_order_number");
   if (error) throw error;
   return data as string;
@@ -181,7 +173,7 @@ export async function getOrdersForCalendar(params: {
   from: string;  // ISO date string "YYYY-MM-DD"
   to: string;    // ISO date string "YYYY-MM-DD"
 }): Promise<Order[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("orders")
     .select("*, hospitals(name)")

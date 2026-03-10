@@ -1,5 +1,5 @@
 import {
-  Package2,
+  Activity,
   Users,
   ClipboardList,
   Building2,
@@ -54,5 +54,5 @@ export const navGroups: NavGroup[] = [
   },
 ];
 
-/** Re-export Package2 for the sidebar/nav logo */
-export { Package2 };
+/** Re-export Activity for the sidebar/nav logo */
+export { Activity as Package2 };

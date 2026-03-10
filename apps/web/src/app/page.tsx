@@ -1,11 +1,9 @@
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
-  Cpu,
   FileText,
   BarChart2,
-  MessageSquare,
-  Zap,
+  Activity,
   ArrowRight,
   Bot,
   CheckCircle2,
@@ -15,6 +13,11 @@ import {
   Search,
   Stethoscope,
   Pill,
+  Workflow,
+  ScanSearch,
+  Users2,
+  UserCheck,
+  Microscope,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +28,7 @@ export default function LandingPage() {
       <header className="px-4 lg:px-12 h-20 flex items-center bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-zinc-200">
         <Link href="/" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
           <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 shadow-lg shadow-blue-600/20 text-white overflow-hidden">
-            <Zap className="h-5 w-5 fill-current" />
+            <Activity className="h-5 w-5" />
             <div className="absolute inset-0 bg-linear-to-tr from-white/20 to-transparent pointer-events-none" />
           </div>
           <span className="text-xl font-bold tracking-tight text-zinc-900">
@@ -59,9 +62,8 @@ export default function LandingPage() {
       </header>
 
       <main className="flex-1">
-        {/* Hero Section - Light/Clean/Professional */}
+        {/* Hero Section */}
         <section className="relative w-full py-20 lg:py-32 overflow-hidden bg-linear-to-b from-blue-50/50 to-white">
-          {/* Subtle Grid Background */}
           <div className="absolute inset-0 z-0 opacity-40" 
                style={{ backgroundImage: 'radial-gradient(#3b82f6 0.5px, transparent 0.5px)', backgroundSize: '24px 24px' }} />
           
@@ -69,18 +71,18 @@ export default function LandingPage() {
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div className="flex flex-col items-start text-left max-w-2xl animate-in fade-in slide-in-from-left-8 duration-1000">
                 <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700 mb-8">
-                  <Bot className="h-4 w-4" />
-                  <span>AI 기반 의약품·의료기기 자동 주문 플랫폼</span>
+                  <UserCheck className="h-4 w-4" />
+                  <span>1인 기업 및 소규모 유통사에 최적화된 자동화 솔루션</span>
                 </div>
 
                 <h1 className="text-5xl font-black tracking-tight sm:text-6xl md:text-7xl mb-8 leading-[1.1] text-zinc-900">
-                  메시지 하나로<br />
-                  <span className="text-blue-600">주문을 완성하다</span>
+                  혼자서도 거뜬한<br />
+                  <span className="text-blue-600">스마트 주문 관리</span>
                 </h1>
 
                 <p className="text-lg text-zinc-600 md:text-xl leading-relaxed mb-10 font-medium">
-                  카카오톡, 문자로 들어오는 의약품 및 의료기기 주문을 AI가 실시간 파싱합니다. 
-                  복잡한 수동 입력을 자동화로 해결하고 비즈니스에 집중하세요.
+                  수많은 주문 메시지를 일일이 확인하느라 밤새우지 마세요. 
+                  AI가 비정형 주문을 실시간 파싱하여 1인 관리자도 수천 건의 업무를 완벽하게 처리할 수 있습니다.
                 </p>
 
                 <div className="flex flex-col gap-4 w-full sm:w-auto sm:flex-row">
@@ -95,20 +97,20 @@ export default function LandingPage() {
                   </Button>
                 </div>
 
-                <div className="flex items-center gap-8 pt-16">
-                  <div className="flex flex-col">
-                    <span className="text-3xl font-black text-blue-600">99.9%</span>
-                    <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">파싱 정확도</span>
-                  </div>
-                  <div className="h-10 w-px bg-zinc-200" />
-                  <div className="flex flex-col">
-                    <span className="text-3xl font-black text-blue-600">85%</span>
-                    <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">업무 시간 단축</span>
-                  </div>
+                <div className="flex items-center gap-8 pt-16 text-zinc-500">
+                   <div className="flex items-center gap-2">
+                     <Users2 className="h-5 w-5 text-blue-600" />
+                     <span className="text-sm font-bold">소규모 팀 업무 효율 10배 향상</span>
+                   </div>
+                   <div className="w-1.5 h-1.5 rounded-full bg-zinc-200" />
+                   <div className="flex items-center gap-2">
+                     <Workflow className="h-5 w-5 text-blue-600" />
+                     <span className="text-sm font-bold">자동 파이프라인 구축</span>
+                   </div>
                 </div>
               </div>
 
-              {/* Hero Image Group - Prominent Medical focus */}
+              {/* Hero Image Group */}
               <div className="relative animate-in fade-in slide-in-from-right-8 duration-1000 delay-200">
                 <div className="absolute -inset-4 bg-blue-200/30 rounded-[3rem] blur-3xl -z-10" />
                 <div className="grid grid-cols-2 gap-4">
@@ -143,8 +145,8 @@ export default function LandingPage() {
                     </div>
                     <div className="rounded-3xl overflow-hidden shadow-xl border-4 border-white aspect-video bg-blue-600 flex items-center justify-center p-8 text-white">
                        <div className="text-center">
-                          <div className="text-2xl font-black mb-1">Real-time</div>
-                          <div className="text-xs font-bold opacity-80 uppercase tracking-tighter">AI Processing</div>
+                          <div className="text-2xl font-black mb-1">Small Team</div>
+                          <div className="text-xs font-bold opacity-80 uppercase tracking-tighter">Big Impact</div>
                        </div>
                     </div>
                   </div>
@@ -154,55 +156,56 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Features Section - High Contrast */}
+        {/* Features Section */}
         <section id="features" className="w-full py-24 bg-white">
           <div className="container px-4 md:px-6 mx-auto">
             <div className="flex flex-col items-center text-center mb-20">
-              <span className="text-blue-600 font-black tracking-widest uppercase text-xs mb-4 px-3 py-1 bg-blue-50 rounded-full border border-blue-100">Core Tech</span>
+              <span className="text-blue-600 font-black tracking-widest uppercase text-xs mb-4 px-3 py-1 bg-blue-50 rounded-full border border-blue-100">Professional Tools</span>
               <h2 className="text-3xl font-black tracking-tight sm:text-4xl md:text-5xl mb-6 text-zinc-900">
-                의료 비즈니스를 위한 최적의 도구
+                1인 관리자도 전문가처럼
               </h2>
               <p className="max-w-[800px] text-zinc-500 text-lg md:text-xl font-medium">
-                NotiFlow는 의약품 유통업체와 병원 원무과의 실무 환경을 철저히 분석하여 설계되었습니다.
+                작은 팀이 겪는 리소스 부족 문제를 인공지능이 해결해 드립니다.<br className="hidden md:block" />
+                대형 유통사 수준의 시스템을 지금 바로 도입하세요.
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {[
                 {
-                  icon: <MessageSquare className="h-8 w-8" />,
-                  title: "AI 메시지 파싱",
-                  description: "비정형 텍스트 주문을 분석하여 품목명, 수량, 규격을 실시간으로 추출하고 데이터화합니다.",
+                  icon: <ScanSearch className="h-8 w-8" />,
+                  title: "지능형 주문 분석",
+                  description: "비정형 텍스트 주문을 Claude AI가 분석하여 품목명, 수량, 규격을 실시간으로 데이터화합니다.",
                   color: "bg-blue-600 text-white shadow-blue-200"
                 },
                 {
-                  icon: <Stethoscope className="h-8 w-8" />,
-                  title: "의료기기 UDI 매칭",
-                  description: "의료기기 표준코드(UDI)와 연동하여 정확한 제품 사양과 허가 정보를 자동으로 매칭합니다.",
+                  icon: <Workflow className="h-8 w-8" />,
+                  title: "1인 최적화 자동화",
+                  description: "주문 확인부터 발주서 생성까지 모든 과정을 자동화하여, 혼자서도 대규모 물량을 소화할 수 있습니다.",
                   color: "bg-emerald-600 text-white shadow-emerald-200"
                 },
                 {
-                  icon: <Pill className="h-8 w-8" />,
-                  title: "의약품 EDI 연동",
-                  description: "보험코드(EDI) 및 주성분 정보를 기반으로 복잡한 의약품 목록을 스마트하게 관리합니다.",
+                  icon: <Microscope className="h-8 w-8" />,
+                  title: "식약처 전문 데이터 매칭",
+                  description: "의료기기 UDI와 의약품 EDI 코드를 실시간 매칭하여 소규모 업체도 정확한 사양 관리가 가능합니다.",
                   color: "bg-purple-600 text-white shadow-purple-200"
                 },
                 {
                   icon: <Search className="h-8 w-8" />,
-                  title: "식약처 통합 검색",
-                  description: "별도의 사이트 접속 없이 대시보드 내에서 MFDS 공공데이터를 즉시 조회할 수 있습니다.",
+                  title: "정부 보고 자동 준비",
+                  description: "KPIS 및 의료기기 공급내역 보고에 필요한 데이터를 시스템이 미리 정리하여 행정 부담을 줄여줍니다.",
                   color: "bg-amber-600 text-white shadow-amber-200"
                 },
                 {
                   icon: <TrendingUp className="h-8 w-8" />,
-                  title: "재고 및 수요 예측",
-                  description: "과거 주문 패턴을 분석하여 적정 재고 유지와 향후 발주 수요를 인공지능이 예측합니다.",
+                  title: "수요 예측 매니저",
+                  description: "소규모 업체의 과거 거래 데이터를 분석하여 재고 고갈 방지와 적정 발주량을 인공지능이 제안합니다.",
                   color: "bg-rose-600 text-white shadow-rose-200"
                 },
                 {
                   icon: <ShieldCheck className="h-8 w-8" />,
-                  title: "정부 보고 간소화",
-                  description: "KPIS 및 의료기기 공급내역 보고에 필요한 데이터를 자동으로 정리하여 시간을 절약합니다.",
+                  title: "철저한 데이터 보안",
+                  description: "엔터프라이즈급 Supabase 보안 아키텍처를 통해 고객사와 환자 정보를 안전하게 보호합니다.",
                   color: "bg-indigo-600 text-white shadow-indigo-200"
                 }
               ].map((feature, i) => (
@@ -220,7 +223,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* How It Works - High Contrast / Clean */}
+        {/* How It Works */}
         <section id="how-it-works" className="w-full py-24 bg-zinc-50 border-y border-zinc-100">
           <div className="container px-4 md:px-6 mx-auto">
             <div className="grid lg:grid-cols-2 gap-20 items-center">
@@ -241,36 +244,25 @@ export default function LandingPage() {
                     className="w-full aspect-square object-cover"
                   />
                 </div>
-                
-                {/* Floating Stats UI */}
-                <div className="absolute -bottom-8 -right-8 bg-white p-6 rounded-3xl shadow-2xl border border-zinc-100 animate-in zoom-in-90 duration-700 delay-500">
-                   <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600">
-                        <TrendingUp className="h-7 w-7" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-black text-zinc-400 uppercase">Daily Volume</div>
-                        <div className="text-xl font-black text-zinc-900">+124 Orders</div>
-                      </div>
-                   </div>
-                </div>
               </div>
 
               <div className="order-1 lg:order-2 space-y-10">
-                <div className="inline-block rounded-full bg-blue-600 px-5 py-2 text-xs font-black text-white uppercase tracking-wider">Workflow Optimization</div>
+                <div className="inline-block rounded-full bg-blue-600 px-5 py-2 text-xs font-black text-white uppercase tracking-wider">Streamlined Workflow</div>
                 <h2 className="text-4xl font-black tracking-tight sm:text-5xl text-zinc-900 leading-tight">
-                  더 이상 일일이<br />입력할 필요가 없습니다
+                  소규모 팀의 리소스를<br />지켜주는 워크플로우
                 </h2>
                 
                 <div className="space-y-8">
                   {[
-                    { step: "01", title: "주문 메시지 감지", desc: "병원의 카카오톡 또는 문자 알림을 모바일 앱이 실시간으로 캡처합니다." },
-                    { step: "02", title: "AI 지능형 분석", desc: "비정형 주문 내역에서 제품명과 수량을 추출하고 등록된 품목과 매칭합니다." },
-                    { step: "03", title: "클릭 한 번으로 발주", desc: "검증된 데이터를 바탕으로 자동 생성된 주문서를 확인 후 즉시 처리합니다." }
+                    { icon: <Activity className="h-6 w-6" />, title: "실시간 감지", desc: "메시지 도착 즉시 모바일 앱이 감지하여 1인 관리자도 놓치는 주문 없이 즉각 대응합니다." },
+                    { icon: <Bot className="h-6 w-6" />, title: "스마트 추출", desc: "AI가 제품명과 수량을 정확히 추출하여 오타나 착오로 인한 반품 비용을 줄여줍니다." },
+                    { icon: <CheckCircle2 className="h-6 w-6" />, title: "간편 확정", desc: "분석된 내역을 검토 후 클릭 한 번으로 발주 완료. 행정 시간을 수익을 위한 영업 시간으로 돌려드립니다." }
                   ].map((step, i) => (
-                    <div key={i} className="flex gap-8 group items-start">
-                      <div className="text-5xl font-black text-blue-100 group-hover:text-blue-200 transition-colors leading-none shrink-0">{step.step}</div>
-                      <div className="pt-2">
+                    <div key={i} className="flex gap-6 group items-start">
+                      <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                        {step.icon}
+                      </div>
+                      <div className="pt-1">
                         <h4 className="text-2xl font-black mb-2 text-zinc-900">{step.title}</h4>
                         <p className="text-zinc-500 font-medium leading-relaxed">{step.desc}</p>
                       </div>
@@ -279,26 +271,26 @@ export default function LandingPage() {
                 </div>
 
                 <Button asChild size="xl" className="mt-8 bg-zinc-900 hover:bg-black text-white rounded-2xl h-14 px-10 border-none shadow-xl shadow-zinc-200 font-black">
-                  <Link href="/orders">워크플로우 자동화 시작</Link>
+                  <Link href="/orders">자동화 솔루션 도입하기</Link>
                 </Button>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Benefits Section - Visual clarity focus */}
+        {/* Benefits Section */}
         <section id="benefits" className="w-full py-24 bg-white overflow-hidden">
           <div className="container px-4 md:px-6 mx-auto">
             <div className="flex flex-col lg:flex-row gap-20 items-center">
               <div className="flex-1 space-y-10">
                  <h2 className="text-4xl font-black tracking-tight sm:text-5xl text-zinc-900">
-                  NotiFlow가 선사하는<br />업무의 자유
+                  작은 팀을 위한<br />거대한 가능성
                 </h2>
                 <div className="grid gap-4">
                    {[
-                     { title: "누락 없는 정밀한 관리", desc: "수많은 알림 속에서 주문을 놓칠 걱정이 사라집니다." },
-                     { title: "혁신적인 업무 속도", desc: "1시간 걸리던 주문 정리가 단 5분으로 단축됩니다." },
-                     { title: "데이터 기반의 의사결정", desc: "정확한 매출 및 제품 통계로 비즈니스 전략을 수립하세요." }
+                     { title: "인건비 제로, 효율은 극대화", desc: "별도의 관리 직원을 고용하지 않고도 시스템만으로 충분합니다." },
+                     { title: "영업에 더 집중하는 시간", desc: "반복적인 행정 업무에서 해방되어 핵심 비즈니스에 집중하세요." },
+                     { title: "정확한 성장을 돕는 통계", desc: "소규모 업체도 한눈에 파악할 수 있는 매출 데이터로 성장의 기틀을 잡으세요." }
                    ].map((benefit, i) => (
                      <div key={i} className="flex gap-5 p-8 rounded-[2rem] bg-zinc-50 border border-zinc-100 group hover:bg-blue-600 hover:border-blue-600 transition-all duration-300">
                         <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center shrink-0 text-white group-hover:bg-white group-hover:text-blue-600 transition-colors">
@@ -317,22 +309,17 @@ export default function LandingPage() {
                 <div className="aspect-square rounded-[3rem] overflow-hidden shadow-2xl border-8 border-zinc-50">
                   <img 
                     src="https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&q=80&w=1000" 
-                    alt="Professional Medical Environment" 
+                    alt="Small Business Professional" 
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-linear-to-t from-blue-900/40 to-transparent mix-blend-multiply" />
-                </div>
-                {/* Floating Card */}
-                <div className="absolute -top-10 -left-10 bg-white p-6 rounded-3xl shadow-2xl border border-zinc-100 hidden md:block">
-                   <div className="text-3xl font-black text-blue-600 mb-1">800+</div>
-                   <div className="text-xs font-bold text-zinc-400 uppercase tracking-widest leading-none">Registered Clinics</div>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Call to Action - Energetic / High Contrast */}
+        {/* Call to Action */}
         <section className="w-full py-32 bg-blue-600 relative overflow-hidden">
           <div className="absolute inset-0 z-0">
              <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-white opacity-10 rounded-full blur-[120px] -translate-x-1/2 -translate-y-1/2" />
@@ -340,14 +327,14 @@ export default function LandingPage() {
           </div>
           
           <div className="container relative z-10 px-4 md:px-6 mx-auto">
-            <div className="flex flex-col items-center text-center max-w-4xl mx-auto">
-              <h2 className="text-5xl font-black tracking-tight sm:text-7xl mb-10 leading-[1.1] text-white">
-                지금 바로 시작하세요.<br />
-                스마트한 주문 관리의 시작.
+            <div className="flex flex-col items-center text-center max-w-4xl mx-auto text-white">
+              <h2 className="text-5xl font-black tracking-tight sm:text-7xl mb-10 leading-[1.1]">
+                소규모 유통의 혁신,<br />
+                지금 바로 시작하세요.
               </h2>
               <p className="text-xl text-blue-50 font-bold mb-14 opacity-90 max-w-2xl">
-                설치 후 즉시 AI 자동 파싱의 힘을 경험하실 수 있습니다.<br className="hidden md:block" />
-                의료 현장의 디지털 전환, NotiFlow가 함께합니다.
+                1인 관리자도 전문가처럼 일할 수 있는 환경.<br className="hidden md:block" />
+                NotiFlow가 귀하의 성장을 끝까지 지원합니다.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-6">
@@ -361,31 +348,27 @@ export default function LandingPage() {
                    <Link href="/login">관리자 로그인</Link>
                 </Button>
               </div>
-              
-              <p className="mt-12 text-blue-200 text-sm font-bold uppercase tracking-widest">
-                No Credit Card Required · Unlimited Test Access
-              </p>
             </div>
           </div>
         </section>
       </main>
 
-      {/* Footer - Professional / High Contrast */}
+      {/* Footer */}
       <footer className="bg-zinc-950 text-zinc-400 py-20">
         <div className="container px-4 md:px-6 mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-16 mb-20">
             <div className="col-span-1 md:col-span-2 lg:col-span-2">
               <Link href="/" className="flex items-center gap-3 mb-8">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20">
-                  <Zap className="h-6 w-6 fill-current" />
+                  <Activity className="h-6 w-6" />
                 </div>
                 <span className="text-2xl font-black tracking-tight text-white">
                   Noti<span className="text-blue-600">Flow</span>
                 </span>
               </Link>
               <p className="max-w-xs text-base leading-relaxed mb-8 text-zinc-400 font-medium">
-                의약품 및 의료기기 주문 자동화 시스템.<br />
-                AI와 데이터를 통해 의료 유통의 미래를 혁신합니다.
+                1인 기업 및 소규모 의료 유통사를 위한<br />
+                지능형 주문 자동화 시스템, NotiFlow.
               </p>
             </div>
             
@@ -421,7 +404,7 @@ export default function LandingPage() {
           
           <div className="pt-10 border-t border-zinc-900 flex flex-col md:flex-row justify-between items-center gap-6">
             <p className="text-xs font-bold text-zinc-600 uppercase tracking-widest">
-              &copy; 2026 NotiFlow Co., Ltd. All rights reserved. (주)노티플로우
+              &copy; 2026 NotiFlow Co., Ltd. (주)노티플로우
             </p>
             <div className="flex gap-8">
               <Link href="#" className="text-zinc-600 hover:text-white transition-colors"><span className="sr-only">Twitter</span><span className="text-xs font-black">TW</span></Link>

@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SyncDiffEntry, MfdsApiSource } from "@/lib/types";
 import type { FilterChip } from "@/lib/mfds-search-utils";
@@ -9,7 +8,7 @@ import type { FilterChip } from "@/lib/mfds-search-utils";
 // --- Messages (captured_messages soft delete) ---
 
 export async function deleteMessage(id: string) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from("captured_messages")
     .update({ is_deleted: true })
@@ -21,7 +20,7 @@ export async function deleteMessage(id: string) {
 
 export async function deleteMessages(ids: string[]) {
   if (ids.length === 0) return { success: true };
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from("captured_messages")
     .update({ is_deleted: true })
@@ -44,7 +43,7 @@ export async function createHospital(data: {
   payment_terms?: string;
   lead_time_days?: number;
 }) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("hospitals").insert(data);
   if (error) throw error;
   revalidatePath("/hospitals");
@@ -52,7 +51,7 @@ export async function createHospital(data: {
 }
 
 export async function updateHospital(id: number, data: Record<string, unknown>) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("hospitals").update(data).eq("id", id);
   if (error) throw error;
   revalidatePath("/hospitals");
@@ -60,7 +59,7 @@ export async function updateHospital(id: number, data: Record<string, unknown>) 
 }
 
 export async function deleteHospital(id: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("hospitals").delete().eq("id", id);
   if (error) throw error;
   revalidatePath("/hospitals");
@@ -69,7 +68,7 @@ export async function deleteHospital(id: number) {
 
 export async function deleteHospitals(ids: number[]) {
   if (ids.length === 0) return { success: true };
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("hospitals").delete().in("id", ids);
   if (error) throw error;
   revalidatePath("/hospitals");
@@ -79,7 +78,7 @@ export async function deleteHospitals(ids: number[]) {
 // --- Orders ---
 
 export async function deleteOrder(id: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("orders").delete().eq("id", id);
   if (error) throw error;
   revalidatePath("/orders");
@@ -88,7 +87,7 @@ export async function deleteOrder(id: number) {
 }
 
 export async function updateOrder(id: number, data: Record<string, unknown>) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("orders").update(data).eq("id", id);
   if (error) throw error;
   revalidatePath("/orders");
@@ -98,7 +97,7 @@ export async function updateOrder(id: number, data: Record<string, unknown>) {
 
 export async function deleteOrders(ids: number[]) {
   if (ids.length === 0) return { success: true };
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("orders").delete().in("id", ids);
   if (error) throw error;
   revalidatePath("/orders");
@@ -110,7 +109,7 @@ export async function updateOrderItem(
   id: number,
   data: { quantity?: number; unit_price?: number; product_id?: number; supplier_id?: number | null },
 ) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("order_items").update(data).eq("id", id);
   if (error) throw error;
   revalidatePath("/orders");
@@ -118,7 +117,7 @@ export async function updateOrderItem(
 }
 
 export async function deleteOrderItem(id: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("order_items").delete().eq("id", id);
   if (error) throw error;
   revalidatePath("/orders");
@@ -140,7 +139,7 @@ export async function createSupplier(data: {
   business_category?: string;
   notes?: string;
 }) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("suppliers").insert(data);
   if (error) throw error;
   revalidatePath("/suppliers");
@@ -148,7 +147,7 @@ export async function createSupplier(data: {
 }
 
 export async function updateSupplier(id: number, data: Record<string, unknown>) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("suppliers").update(data).eq("id", id);
   if (error) throw error;
   revalidatePath("/suppliers");
@@ -156,7 +155,7 @@ export async function updateSupplier(id: number, data: Record<string, unknown>) 
 }
 
 export async function deleteSupplier(id: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("suppliers").delete().eq("id", id);
   if (error) throw error;
   revalidatePath("/suppliers");
@@ -165,47 +164,131 @@ export async function deleteSupplier(id: number) {
 
 export async function deleteSuppliers(ids: number[]) {
   if (ids.length === 0) return { success: true };
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("suppliers").delete().in("id", ids);
   if (error) throw error;
   revalidatePath("/suppliers");
   return { success: true };
 }
 
+// --- Supplier Items (junction: supplier_items) ---
+
+export async function addSupplierItems(supplierId: number, mfdsItemIds: number[]) {
+  if (mfdsItemIds.length === 0) return { success: true };
+  const supabase = createAdminClient();
+  const rows = mfdsItemIds.map((mfdsItemId) => ({
+    supplier_id: supplierId,
+    mfds_item_id: mfdsItemId,
+  }));
+  const { error } = await supabase
+    .from("supplier_items")
+    .upsert(rows, { onConflict: "supplier_id,mfds_item_id" });
+  if (error) throw error;
+  revalidatePath(`/suppliers/${supplierId}`);
+  revalidatePath("/suppliers");
+  return { success: true };
+}
+
+export async function updateSupplierItem(
+  id: number,
+  data: { purchase_price?: number | null; is_primary?: boolean },
+) {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("supplier_items")
+    .update(data)
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/suppliers");
+  return { success: true };
+}
+
+export async function removeSupplierItem(id: number) {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("supplier_items").delete().eq("id", id);
+  if (error) throw error;
+  revalidatePath("/suppliers");
+  return { success: true };
+}
+
+export async function searchFavoriteItems(query: string): Promise<
+  Array<{
+    id: number;
+    source_type: string;
+    item_name: string;
+    manufacturer: string | null;
+    standard_code: string | null;
+  }>
+> {
+  const supabase = createAdminClient();
+  const q = `%${query}%`;
+
+  const { data, error } = await supabase
+    .from("mfds_items")
+    .select("id, source_type, item_name, manufacturer, standard_code")
+    .eq("is_favorite", true)
+    .or(`item_name.ilike.${q},manufacturer.ilike.${q},standard_code.ilike.${q}`)
+    .limit(50);
+
+  if (error) throw error;
+  return (data ?? []).map((d) => ({
+    id: d.id as number,
+    source_type: (d.source_type as string) ?? "",
+    item_name: (d.item_name as string) ?? "",
+    manufacturer: d.manufacturer as string | null,
+    standard_code: d.standard_code as string | null,
+  }));
+}
+
 // --- Mobile Devices ---
 
 export async function updateDevice(id: string, data: Record<string, unknown>) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("mobile_devices").update(data).eq("id", id);
+  const admin = createAdminClient();
+  const { error } = await admin.from("mobile_devices").update(data).eq("id", id);
   if (error) throw error;
   revalidatePath("/devices");
   return { success: true };
 }
 
 export async function requestDeviceSync(id: string) {
-  const supabase = await createClient();
-  const { data, error } = await supabase.functions.invoke("trigger-sync", {
-    body: { device_id: id },
-  });
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+  const { error } = await admin
+    .from("mobile_devices")
+    .update({ sync_requested_at: now })
+    .eq("id", id);
   if (error) {
-    return { success: false, error: data?.error ?? error.message ?? "동기화 요청 실패", fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
+    return { success: false, error: error.message, fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
   }
   revalidatePath("/devices");
   revalidatePath("/dashboard");
-  return data as { success: boolean; fcm_sent: number; fcm_failed: number; realtime_updated: number };
+  return { success: true, fcm_sent: 0, fcm_failed: 0, realtime_updated: 1 };
 }
 
 export async function requestAllDevicesSync() {
-  const supabase = await createClient();
-  const { data, error } = await supabase.functions.invoke("trigger-sync", {
-    body: { device_id: "all" },
-  });
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+  const { data: devices, error: queryError } = await admin
+    .from("mobile_devices")
+    .select("id")
+    .eq("is_active", true);
+  if (queryError) {
+    return { success: false, error: queryError.message, fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
+  }
+  const ids = (devices ?? []).map((d) => d.id);
+  if (ids.length === 0) {
+    return { success: true, fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
+  }
+  const { error } = await admin
+    .from("mobile_devices")
+    .update({ sync_requested_at: now })
+    .in("id", ids);
   if (error) {
-    return { success: false, error: data?.error ?? error.message ?? "동기화 요청 실패", fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
+    return { success: false, error: error.message, fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
   }
   revalidatePath("/devices");
   revalidatePath("/dashboard");
-  return data as { success: boolean; fcm_sent: number; fcm_failed: number; realtime_updated: number };
+  return { success: true, fcm_sent: 0, fcm_failed: 0, realtime_updated: ids.length };
 }
 
 // --- Users (via manage-users Edge Function) ---
@@ -301,7 +384,7 @@ export async function upsertKpisReport(
   orderItemId: number,
   data: { report_status?: string; notes?: string },
 ) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   // Check existing
   const { data: existing } = await supabase
     .from("kpis_reports")
@@ -327,7 +410,7 @@ export async function upsertKpisReport(
 // --- Order Comments ---
 
 export async function createOrderComment(orderId: number, content: string) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
   const { error } = await supabase.from("order_comments").insert({
     order_id: orderId,
@@ -340,7 +423,7 @@ export async function createOrderComment(orderId: number, content: string) {
 }
 
 export async function deleteOrderComment(commentId: number, orderId: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("order_comments").delete().eq("id", commentId);
   if (error) throw error;
   revalidatePath(`/orders/${orderId}`);
@@ -348,7 +431,7 @@ export async function deleteOrderComment(commentId: number, orderId: number) {
 }
 
 export async function getOrderComments(orderId: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("order_comments")
     .select("*")
@@ -361,7 +444,7 @@ export async function getOrderComments(orderId: number) {
 // --- MFDS Direct API Search ---
 
 async function getMfdsApiKey(): Promise<string> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data } = await supabase
     .from("settings")
     .select("value")
@@ -412,7 +495,7 @@ export async function searchMfdsItems(params: {
     favoritesOnly = false,
   } = params;
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const q = query.trim();
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
@@ -544,7 +627,7 @@ export async function getMfdsSyncProgress(logId: number): Promise<{
   sourceType: string | null;
   nextPage: number | null;
 }> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data } = await supabase
     .from("mfds_sync_logs")
     .select("status, total_fetched, total_upserted, error_message, source_type, next_page")
@@ -568,7 +651,7 @@ export async function getActiveSyncLog(): Promise<{
   totalFetched: number;
   totalUpserted: number;
 } | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data } = await supabase
     .from("mfds_sync_logs")
     .select("id, source_type, total_fetched, total_upserted")
@@ -679,7 +762,7 @@ export async function getMfdsSyncStatus(): Promise<{
   drugApiTotal: number;
   deviceApiTotal: number;
 }> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const [lastSyncResult, drugCountResult, deviceCountResult, lastDrugSyncResult, lastDeviceSyncResult, favDrugResult, favDeviceResult, checkpointResult] =
     await Promise.all([
@@ -811,7 +894,7 @@ export async function searchMfdsDevice(
 // --- Favorites (mfds_items.is_favorite) ---
 
 export async function addToMyDrugs(item: Record<string, unknown>) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const itemId = item.id as number | undefined;
   const itemSeq = (item.ITEM_SEQ as string) ?? null;
   const barCode = (item.BAR_CODE as string) ?? null;
@@ -844,7 +927,7 @@ export async function addToMyDrugs(item: Record<string, unknown>) {
 }
 
 export async function addToMyDevices(item: Record<string, unknown>) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const itemId = item.id as number | undefined;
   const udidiCd = (item.UDIDI_CD as string) ?? null;
 
@@ -873,7 +956,7 @@ export async function addToMyDevices(item: Record<string, unknown>) {
 }
 
 export async function deleteMyDrug(id: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from("mfds_items")
     .update({ is_favorite: false, favorited_at: null, unit_price: null })
@@ -885,7 +968,7 @@ export async function deleteMyDrug(id: number) {
 }
 
 export async function deleteMyDevice(id: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from("mfds_items")
     .update({ is_favorite: false, favorited_at: null, unit_price: null })
@@ -899,7 +982,7 @@ export async function deleteMyDevice(id: number) {
 // --- Price update ---
 
 export async function updateMyDrugPrice(id: number, unitPrice: number | null) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from("mfds_items")
     .update({ unit_price: unitPrice })
@@ -910,7 +993,7 @@ export async function updateMyDrugPrice(id: number, unitPrice: number | null) {
 }
 
 export async function updateMyDevicePrice(id: number, unitPrice: number | null) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from("mfds_items")
     .update({ unit_price: unitPrice })
@@ -962,7 +1045,7 @@ const DEVICE_LABELS: Record<string, string> = {
 };
 
 export async function syncMyDrug(id: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: item, error } = await supabase
     .from("mfds_items")
@@ -1005,7 +1088,7 @@ export async function syncMyDrug(id: number) {
 }
 
 export async function syncMyDevice(id: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: item, error } = await supabase
     .from("mfds_items")
@@ -1048,7 +1131,7 @@ export async function syncMyDevice(id: number) {
 }
 
 export async function applyDrugSync(id: number, updates: Record<string, string>) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: item } = await supabase
     .from("mfds_items")
@@ -1078,7 +1161,7 @@ export async function applyDrugSync(id: number, updates: Record<string, string>)
 }
 
 export async function applyDeviceSync(id: number, updates: Record<string, string>) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: item } = await supabase
     .from("mfds_items")

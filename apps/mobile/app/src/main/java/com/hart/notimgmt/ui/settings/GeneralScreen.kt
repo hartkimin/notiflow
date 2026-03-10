@@ -81,10 +81,10 @@ import com.hart.notimgmt.data.model.ThemeMode
 import com.hart.notimgmt.ui.components.ConfirmDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import com.hart.notimgmt.ui.onboarding.checkBatteryOptimization
-import com.hart.notimgmt.ui.onboarding.checkNotificationListener
-import com.hart.notimgmt.ui.onboarding.checkPostNotifPermission
-import com.hart.notimgmt.ui.onboarding.checkSmsPermission
+import com.hart.notimgmt.util.checkBatteryOptimization
+import com.hart.notimgmt.util.checkNotificationListener
+import com.hart.notimgmt.util.checkPostNotifPermission
+import com.hart.notimgmt.util.checkSmsPermission
 import com.hart.notimgmt.data.backup.DataSummary
 import com.hart.notimgmt.data.sync.SyncStatus
 import com.hart.notimgmt.data.sync.TableSyncInfo

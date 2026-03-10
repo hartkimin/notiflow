@@ -171,6 +171,58 @@ export async function deleteSuppliers(ids: number[]) {
   return { success: true };
 }
 
+// --- Hospital Items (junction: hospital_items) ---
+
+export async function addHospitalItems(hospitalId: number, mfdsItemIds: number[]) {
+  if (mfdsItemIds.length === 0) return { success: true };
+  const supabase = createAdminClient();
+  const rows = mfdsItemIds.map((mfdsItemId) => ({
+    hospital_id: hospitalId,
+    mfds_item_id: mfdsItemId,
+  }));
+  const { error } = await supabase
+    .from("hospital_items")
+    .upsert(rows, { onConflict: "hospital_id,mfds_item_id" });
+  if (error) throw error;
+  revalidatePath(`/hospitals/${hospitalId}`);
+  revalidatePath("/hospitals");
+  return { success: true };
+}
+
+export async function updateHospitalItem(
+  id: number,
+  data: { delivery_price?: number | null },
+) {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("hospital_items")
+    .update(data)
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/hospitals");
+  return { success: true };
+}
+
+export async function removeHospitalItem(id: number) {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("hospital_items").delete().eq("id", id);
+  if (error) throw error;
+  revalidatePath("/hospitals");
+  return { success: true };
+}
+
+export async function updateHospitalMarginRate(hospitalId: number, rate: number) {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("hospitals")
+    .update({ default_margin_rate: rate })
+    .eq("id", hospitalId);
+  if (error) throw error;
+  revalidatePath(`/hospitals/${hospitalId}`);
+  revalidatePath("/hospitals");
+  return { success: true };
+}
+
 // --- Supplier Items (junction: supplier_items) ---
 
 export async function addSupplierItems(supplierId: number, mfdsItemIds: number[]) {

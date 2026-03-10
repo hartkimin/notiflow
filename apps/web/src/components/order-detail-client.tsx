@@ -67,7 +67,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { MessageSquareText } from "lucide-react";
 import { toast } from "sonner";
 import { MfdsSearchPanel } from "@/components/mfds-search-panel";
-import type { OrderDetail, OrderComment, Product, Supplier } from "@/lib/types";
+import type { OrderDetail, OrderComment } from "@/lib/types";
+
+interface Product {
+  id: number;
+  name: string;
+  official_name?: string;
+  short_name?: string | null;
+  manufacturer?: string | null;
+  category?: string | null;
+  unit_price?: number | null;
+}
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "임시",
@@ -95,7 +105,7 @@ const DETAIL_COL_DEFAULTS: Record<string, number> = {
 interface EditItemState {
   quantity: number;
   unit_price: number;
-  product_id: number | null;
+  mfds_item_id: number | null;
   supplier_id: number | null;
 }
 
@@ -171,7 +181,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
       initial[item.id] = {
         quantity: item.quantity,
         unit_price: item.unit_price ?? 0,
-        product_id: item.product_id,
+        mfds_item_id: item.mfds_item_id,
         supplier_id: item.supplier_id,
       };
     }
@@ -195,7 +205,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
 
   function handleProductChange(itemId: number, productIdStr: string) {
     const pid = Number(productIdStr);
-    updateEditItem(itemId, "product_id", pid);
+    updateEditItem(itemId, "mfds_item_id", pid);
     // Auto-fill unit_price from product
     const product = products.find((p) => p.id === pid);
     if (product?.unit_price) {
@@ -231,11 +241,11 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
           const edit = editItems[item.id];
           if (!edit) continue;
 
-          const changes: { quantity?: number; unit_price?: number; product_id?: number; supplier_id?: number | null } = {};
+          const changes: { quantity?: number; unit_price?: number; mfds_item_id?: number; supplier_id?: number | null } = {};
           if (edit.quantity !== item.quantity) changes.quantity = edit.quantity;
           if (edit.unit_price !== (item.unit_price ?? 0)) changes.unit_price = edit.unit_price;
-          if (edit.product_id !== item.product_id && edit.product_id !== null) {
-            changes.product_id = edit.product_id;
+          if (edit.mfds_item_id !== item.mfds_item_id && edit.mfds_item_id !== null) {
+            changes.mfds_item_id = edit.mfds_item_id;
           }
           if (edit.supplier_id !== item.supplier_id) {
             changes.supplier_id = edit.supplier_id;
@@ -529,9 +539,9 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
               {order.items.map((item, idx) => {
                 const isDeleted = deletedIds.has(item.id);
                 const itemAny = item as unknown as Record<string, unknown>;
-                const productName = itemAny.products
-                  ? (itemAny.products as { name: string }).name
-                  : `제품 #${item.product_id ?? "미매칭"}`;
+                const productName = itemAny.mfds_items
+                  ? (itemAny.mfds_items as { item_name: string }).item_name
+                  : `품목 #${item.mfds_item_id ?? "미매칭"}`;
 
                 const edit = editItems[item.id];
                 const qty = edit ? edit.quantity : item.quantity;
@@ -561,7 +571,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                             >
                               <span className="truncate">
                                 {(() => {
-                                  const pid = edit?.product_id ?? item.product_id;
+                                  const pid = edit?.mfds_item_id ?? item.mfds_item_id;
                                   const found = products.find((p) => p.id === pid);
                                   return found ? found.name : "품목 검색...";
                                 })()}
@@ -587,7 +597,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                                       <Check
                                         className={cn(
                                           "mr-2 h-3 w-3 shrink-0",
-                                          (edit?.product_id ?? item.product_id) === p.id ? "opacity-100" : "opacity-0",
+                                          (edit?.mfds_item_id ?? item.mfds_item_id) === p.id ? "opacity-100" : "opacity-0",
                                         )}
                                       />
                                       <div className="flex flex-col min-w-0">

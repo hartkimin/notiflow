@@ -5,6 +5,7 @@ import {
   createSyncLog,
   createAdminSupabase,
   getMfdsApiKeyFromDb,
+  calculateStartPage,
 } from "@/lib/mfds-sync";
 
 // Vercel Cron: runs daily at 04:00 KST (19:00 UTC)
@@ -73,16 +74,23 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, continuing: log.id });
   }
 
-  // No partial syncs — start fresh sync for each source type
+  // No partial syncs — incremental sync for each source type
   const sourceTypes = Object.keys(MFDS_API_CONFIGS);
 
   for (const sourceType of sourceTypes) {
+    const calc = await calculateStartPage(sourceType, apiKey, "auto");
+    if (calc.syncMode === "skip") {
+      console.log(`Cron: ${sourceType} is up to date, skipping`);
+      continue;
+    }
+
     const logId = await createSyncLog("cron", sourceType);
     try {
-      const result = await runFullSync(sourceType, apiKey, logId);
+      const result = await runFullSync(
+        sourceType, apiKey, logId, calc.startPage, 0, 0, undefined, calc.apiTotal,
+      );
       if (result.outcome === "partial") {
-        // Stop — next cron invocation will continue this partial sync
-        break;
+        break; // next cron invocation will continue
       }
     } catch (err) {
       console.error(`Cron sync failed for ${sourceType}:`, (err as Error).message);

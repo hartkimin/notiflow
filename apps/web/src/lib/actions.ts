@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { SyncDiffEntry, MfdsApiSource } from "@/lib/types";
 import type { FilterChip } from "@/lib/mfds-search-utils";
 
@@ -215,39 +216,83 @@ export async function createUser(data: {
   name: string;
   role?: string;
 }) {
-  const supabase = await createClient();
-  const { data: result, error } = await supabase.functions.invoke("manage-users", {
-    body: { _action: "create", ...data },
-  });
-  if (error) {
-    return { error: result?.error ?? error.message ?? "사용자 생성 실패" };
+  const admin = createAdminClient();
+  const { email, password, name, role = "viewer" } = data;
+
+  const validRoles = ["admin", "manager", "viewer"];
+  if (!validRoles.includes(role)) {
+    return { error: `Invalid role. Must be one of: ${validRoles.join(", ")}` };
   }
+
+  const { data: newUser, error: createError } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+
+  if (createError) {
+    return { error: `사용자 생성 실패: ${createError.message}` };
+  }
+
+  const { error: profileError } = await admin
+    .from("user_profiles")
+    .insert({ id: newUser.user.id, name, role, is_active: true });
+
+  if (profileError) {
+    await admin.auth.admin.deleteUser(newUser.user.id);
+    return { error: `프로필 생성 실패: ${profileError.message}` };
+  }
+
   revalidatePath("/users");
-  return result;
+  return {
+    user: {
+      id: newUser.user.id,
+      email: newUser.user.email,
+      name,
+      role,
+      is_active: true,
+    },
+  };
 }
 
 export async function updateUser(id: string, data: Record<string, unknown>) {
-  const supabase = await createClient();
-  const { data: result, error } = await supabase.functions.invoke("manage-users", {
-    body: { _action: "update", id, ...data },
-  });
-  if (error) {
-    return { error: result?.error ?? error.message ?? "사용자 수정 실패" };
+  const admin = createAdminClient();
+
+  const profileUpdate: Record<string, unknown> = {};
+  if (data.name !== undefined) profileUpdate.name = data.name;
+  if (data.role !== undefined) profileUpdate.role = data.role;
+  if (data.is_active !== undefined) profileUpdate.is_active = data.is_active;
+
+  if (Object.keys(profileUpdate).length > 0) {
+    const { error } = await admin
+      .from("user_profiles")
+      .upsert({ id, ...profileUpdate }, { onConflict: "id" });
+    if (error) return { error: `사용자 수정 실패: ${error.message}` };
   }
+
+  if (data.password) {
+    const { error } = await admin.auth.admin.updateUserById(id, {
+      password: data.password as string,
+    });
+    if (error) return { error: `비밀번호 변경 실패: ${error.message}` };
+  }
+
   revalidatePath("/users");
-  return result;
+  return { success: true };
 }
 
 export async function deleteUser(id: string) {
-  const supabase = await createClient();
-  const { data: result, error } = await supabase.functions.invoke("manage-users", {
-    body: { _action: "delete", id },
-  });
-  if (error) {
-    return { error: result?.error ?? error.message ?? "사용자 비활성화 실패" };
-  }
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("user_profiles")
+    .update({ is_active: false })
+    .eq("id", id);
+
+  if (error) return { error: `사용자 비활성화 실패: ${error.message}` };
+
   revalidatePath("/users");
-  return result;
+  return { success: true, id };
 }
 
 // --- KPIS Reports ---
@@ -349,6 +394,7 @@ export async function searchMfdsItems(params: {
   filters?: FilterChip[];
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  favoritesOnly?: boolean;
 }): Promise<{
   items: Record<string, unknown>[];
   totalCount: number;
@@ -363,6 +409,7 @@ export async function searchMfdsItems(params: {
     filters = [],
     sortBy,
     sortOrder = "asc",
+    favoritesOnly = false,
   } = params;
 
   const supabase = await createClient();
@@ -375,6 +422,10 @@ export async function searchMfdsItems(params: {
     .from("mfds_items")
     .select("*", { count: "exact" })
     .eq("source_type", sourceType);
+
+  if (favoritesOnly) {
+    dbQuery = dbQuery.eq("is_favorite", true);
+  }
 
   // Apply text search
   if (q) {
@@ -463,9 +514,15 @@ export async function searchMfdsItems(params: {
 
   if (error) throw new Error(`DB 검색 오류: ${error.message}`);
 
-  // Extract raw_data from each row (this is what the UI expects)
+  // Merge raw_data with row metadata (id, synced_at, unit_price, is_favorite)
   const items = (data ?? []).map(
-    (row: { raw_data: Record<string, unknown> }) => row.raw_data,
+    (row: { id: number; raw_data: Record<string, unknown>; synced_at: string; unit_price: number | null; is_favorite: boolean }) => ({
+      ...(row.raw_data as Record<string, unknown>),
+      id: row.id,
+      synced_at: row.synced_at,
+      unit_price: row.unit_price,
+      is_favorite: row.is_favorite,
+    }),
   );
 
   return {
@@ -529,14 +586,102 @@ export async function getActiveSyncLog(): Promise<{
   };
 }
 
+/**
+ * Find a resumable sync log for the given source type.
+ * - "partial" logs → resume from next_page
+ * - Stale "running" logs (started > 5 min ago) → calculate next_page, mark as partial
+ * - Stale "running" with 0 progress → mark as error and skip
+ */
+const SYNC_PAGE_SIZE = 500; // Must match mfds-sync.ts PAGE_SIZE
+const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
+export async function getResumableSyncLog(sourceType: string): Promise<{
+  logId: number;
+  nextPage: number;
+  totalFetched: number;
+  totalUpserted: number;
+} | null> {
+  const admin = createAdminClient();
+
+  // 1. Check for partial sync (has next_page set)
+  const { data: partial } = await admin
+    .from("mfds_sync_logs")
+    .select("id, next_page, total_fetched, total_upserted")
+    .eq("source_type", sourceType)
+    .eq("status", "partial")
+    .not("next_page", "is", null)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (partial) {
+    return {
+      logId: partial.id,
+      nextPage: partial.next_page,
+      totalFetched: partial.total_fetched,
+      totalUpserted: partial.total_upserted,
+    };
+  }
+
+  // 2. Check for stale "running" sync (started > 5 min ago, server likely dead)
+  const staleThreshold = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
+  const { data: stale } = await admin
+    .from("mfds_sync_logs")
+    .select("id, total_fetched, total_upserted, started_at, duration_ms")
+    .eq("source_type", sourceType)
+    .eq("status", "running")
+    .lt("started_at", staleThreshold)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (stale && stale.total_fetched > 0) {
+    // Calculate next page from total_fetched (UPSERT is idempotent, so overlap is safe)
+    const nextPage = Math.floor(stale.total_fetched / SYNC_PAGE_SIZE) + 1;
+
+    // Mark as partial so it can be resumed
+    await admin
+      .from("mfds_sync_logs")
+      .update({ status: "partial", next_page: nextPage })
+      .eq("id", stale.id);
+
+    return {
+      logId: stale.id,
+      nextPage,
+      totalFetched: stale.total_fetched,
+      totalUpserted: stale.total_upserted,
+    };
+  }
+
+  // 3. Clean up stale running logs with no progress
+  if (stale && stale.total_fetched === 0) {
+    await admin
+      .from("mfds_sync_logs")
+      .update({
+        status: "error",
+        error_message: "동기화 프로세스 중단 (진행 없음)",
+        finished_at: new Date().toISOString(),
+      })
+      .eq("id", stale.id);
+  }
+
+  return null;
+}
+
 export async function getMfdsSyncStatus(): Promise<{
   lastSync: string | null;
   drugCount: number;
   deviceCount: number;
+  lastDrugSync: string | null;
+  lastDeviceSync: string | null;
+  favDrugCount: number;
+  favDeviceCount: number;
+  drugApiTotal: number;
+  deviceApiTotal: number;
 }> {
   const supabase = await createClient();
 
-  const [lastSyncResult, drugCountResult, deviceCountResult] =
+  const [lastSyncResult, drugCountResult, deviceCountResult, lastDrugSyncResult, lastDeviceSyncResult, favDrugResult, favDeviceResult, checkpointResult] =
     await Promise.all([
       supabase
         .from("mfds_sync_logs")
@@ -553,12 +698,53 @@ export async function getMfdsSyncStatus(): Promise<{
         .from("mfds_items")
         .select("id", { count: "exact", head: true })
         .eq("source_type", "device_std"),
+      supabase
+        .from("mfds_sync_logs")
+        .select("finished_at")
+        .eq("status", "completed")
+        .eq("source_type", "drug")
+        .order("finished_at", { ascending: false })
+        .limit(1)
+        .single(),
+      supabase
+        .from("mfds_sync_logs")
+        .select("finished_at")
+        .eq("status", "completed")
+        .eq("source_type", "device_std")
+        .order("finished_at", { ascending: false })
+        .limit(1)
+        .single(),
+      supabase
+        .from("mfds_items")
+        .select("id", { count: "exact", head: true })
+        .eq("source_type", "drug")
+        .eq("is_favorite", true),
+      supabase
+        .from("mfds_items")
+        .select("id", { count: "exact", head: true })
+        .eq("source_type", "device_std")
+        .eq("is_favorite", true),
+      supabase
+        .from("mfds_sync_checkpoints")
+        .select("source_type, api_total")
+        .in("source_type", ["drug", "device_std"]),
     ]);
+
+  const checkpointMap: Record<string, number> = {};
+  for (const row of checkpointResult.data ?? []) {
+    checkpointMap[row.source_type] = row.api_total;
+  }
 
   return {
     lastSync: lastSyncResult.data?.finished_at ?? null,
     drugCount: drugCountResult.count ?? 0,
     deviceCount: deviceCountResult.count ?? 0,
+    lastDrugSync: lastDrugSyncResult.data?.finished_at ?? null,
+    lastDeviceSync: lastDeviceSyncResult.data?.finished_at ?? null,
+    favDrugCount: favDrugResult.count ?? 0,
+    favDeviceCount: favDeviceResult.count ?? 0,
+    drugApiTotal: checkpointMap["drug"] ?? 0,
+    deviceApiTotal: checkpointMap["device_std"] ?? 0,
   };
 }
 
@@ -622,93 +808,91 @@ export async function searchMfdsDevice(
   };
 }
 
-// --- My Drugs / My Devices ---
+// --- Favorites (mfds_items.is_favorite) ---
 
 export async function addToMyDrugs(item: Record<string, unknown>) {
   const supabase = await createClient();
+  const itemId = item.id as number | undefined;
+  const itemSeq = (item.ITEM_SEQ as string) ?? null;
   const barCode = (item.BAR_CODE as string) ?? null;
 
-  if (barCode) {
-    const { data: existing } = await supabase
-      .from("my_drugs")
-      .select("id")
-      .eq("bar_code", barCode)
-      .maybeSingle();
-    if (existing) return { success: true, id: existing.id, alreadyExists: true };
+  // Find the existing mfds_items row
+  let query = supabase.from("mfds_items").select("id, is_favorite").eq("source_type", "drug");
+  if (itemId) {
+    query = query.eq("id", itemId);
+  } else if (itemSeq) {
+    query = query.eq("source_key", itemSeq);
+  } else if (barCode) {
+    query = query.eq("standard_code", barCode);
+  } else {
+    throw new Error("품목 식별 정보가 없습니다.");
   }
 
-  const row: Record<string, unknown> = {};
-  const drugKeys = [
-    "ITEM_SEQ", "ITEM_NAME", "ITEM_ENG_NAME", "ENTP_NAME", "ENTP_NO",
-    "ITEM_PERMIT_DATE", "CNSGN_MANUF", "ETC_OTC_CODE", "CHART", "BAR_CODE",
-    "MATERIAL_NAME", "EE_DOC_ID", "UD_DOC_ID", "NB_DOC_ID", "STORAGE_METHOD",
-    "VALID_TERM", "PACK_UNIT", "EDI_CODE", "PERMIT_KIND_NAME", "CANCEL_DATE",
-    "CANCEL_NAME", "CHANGE_DATE", "ATC_CODE", "RARE_DRUG_YN",
-  ];
-  for (const key of drugKeys) {
-    row[key.toLowerCase()] = (item[key] as string) ?? null;
-  }
+  const { data: existing } = await query.maybeSingle();
+  if (!existing) throw new Error("검색 데이터베이스에서 해당 품목을 찾을 수 없습니다.");
+  if (existing.is_favorite) return { success: true, id: existing.id, alreadyExists: true };
 
-  const { data, error } = await supabase
-    .from("my_drugs")
-    .insert(row)
-    .select("id")
-    .single();
+  const { error } = await supabase
+    .from("mfds_items")
+    .update({ is_favorite: true, favorited_at: new Date().toISOString() })
+    .eq("id", existing.id);
   if (error) throw error;
 
   revalidatePath("/products");
-  return { success: true, id: data.id, alreadyExists: false };
+  revalidatePath("/products/my");
+  return { success: true, id: existing.id, alreadyExists: false };
 }
 
 export async function addToMyDevices(item: Record<string, unknown>) {
   const supabase = await createClient();
+  const itemId = item.id as number | undefined;
   const udidiCd = (item.UDIDI_CD as string) ?? null;
 
-  if (udidiCd) {
-    const { data: existing } = await supabase
-      .from("my_devices")
-      .select("id")
-      .eq("udidi_cd", udidiCd)
-      .maybeSingle();
-    if (existing) return { success: true, id: existing.id, alreadyExists: true };
+  let query = supabase.from("mfds_items").select("id, is_favorite").eq("source_type", "device_std");
+  if (itemId) {
+    query = query.eq("id", itemId);
+  } else if (udidiCd) {
+    query = query.or(`source_key.eq.${udidiCd},standard_code.eq.${udidiCd}`);
+  } else {
+    throw new Error("품목 식별 정보가 없습니다.");
   }
 
-  const row: Record<string, unknown> = {};
-  const deviceKeys = [
-    "UDIDI_CD", "PRDLST_NM", "MNFT_IPRT_ENTP_NM", "MDEQ_CLSF_NO",
-    "CLSF_NO_GRAD_CD", "PERMIT_NO", "PRMSN_YMD", "FOML_INFO", "PRDT_NM_INFO",
-    "HMBD_TRSPT_MDEQ_YN", "DSPSBL_MDEQ_YN", "TRCK_MNG_TRGT_YN", "TOTAL_DEV",
-    "CMBNMD_YN", "USE_BEFORE_STRLZT_NEED_YN", "STERILIZATION_METHOD_NM",
-    "USE_PURPS_CONT", "STRG_CND_INFO", "CIRC_CND_INFO", "RCPRSLRY_TRGT_YN",
-  ];
-  for (const key of deviceKeys) {
-    row[key.toLowerCase()] = (item[key] as string) ?? null;
-  }
+  const { data: existing } = await query.maybeSingle();
+  if (!existing) throw new Error("검색 데이터베이스에서 해당 품목을 찾을 수 없습니다.");
+  if (existing.is_favorite) return { success: true, id: existing.id, alreadyExists: true };
 
-  const { data, error } = await supabase
-    .from("my_devices")
-    .insert(row)
-    .select("id")
-    .single();
+  const { error } = await supabase
+    .from("mfds_items")
+    .update({ is_favorite: true, favorited_at: new Date().toISOString() })
+    .eq("id", existing.id);
   if (error) throw error;
 
   revalidatePath("/products");
-  return { success: true, id: data.id, alreadyExists: false };
+  revalidatePath("/products/my");
+  return { success: true, id: existing.id, alreadyExists: false };
 }
 
 export async function deleteMyDrug(id: number) {
   const supabase = await createClient();
-  const { error } = await supabase.from("my_drugs").delete().eq("id", id);
+  const { error } = await supabase
+    .from("mfds_items")
+    .update({ is_favorite: false, favorited_at: null, unit_price: null })
+    .eq("id", id);
   if (error) throw error;
   revalidatePath("/products/my");
+  revalidatePath("/products");
   return { success: true };
 }
 
 export async function deleteMyDevice(id: number) {
   const supabase = await createClient();
-  const { error } = await supabase.from("my_devices").delete().eq("id", id);
+  const { error } = await supabase
+    .from("mfds_items")
+    .update({ is_favorite: false, favorited_at: null, unit_price: null })
+    .eq("id", id);
   if (error) throw error;
   revalidatePath("/products/my");
+  revalidatePath("/products");
   return { success: true };
 }
 
@@ -717,7 +901,7 @@ export async function deleteMyDevice(id: number) {
 export async function updateMyDrugPrice(id: number, unitPrice: number | null) {
   const supabase = await createClient();
   const { error } = await supabase
-    .from("my_drugs")
+    .from("mfds_items")
     .update({ unit_price: unitPrice })
     .eq("id", id);
   if (error) throw error;
@@ -728,7 +912,7 @@ export async function updateMyDrugPrice(id: number, unitPrice: number | null) {
 export async function updateMyDevicePrice(id: number, unitPrice: number | null) {
   const supabase = await createClient();
   const { error } = await supabase
-    .from("my_devices")
+    .from("mfds_items")
     .update({ unit_price: unitPrice })
     .eq("id", id);
   if (error) throw error;
@@ -780,16 +964,19 @@ const DEVICE_LABELS: Record<string, string> = {
 export async function syncMyDrug(id: number) {
   const supabase = await createClient();
 
-  const { data: drug, error } = await supabase
-    .from("my_drugs")
-    .select("*")
+  const { data: item, error } = await supabase
+    .from("mfds_items")
+    .select("source_key, raw_data")
     .eq("id", id)
     .single();
   if (error) throw error;
 
-  if (!drug.item_seq) return { found: false, changes: [] as SyncDiffEntry[] };
+  const rawData = item.raw_data as Record<string, unknown>;
+  const itemSeq = item.source_key ?? "";
+  if (!itemSeq) return { found: false, changes: [] as SyncDiffEntry[] };
 
-  const apiResult = await searchMfdsDrug({ ITEM_SEQ: drug.item_seq ?? "" });
+  // 품목기준코드(item_seq)로 식약처 API 검색
+  const apiResult = await searchMfdsDrug({ item_seq: itemSeq });
   if (apiResult.items.length === 0) {
     return { found: false, changes: [] as SyncDiffEntry[] };
   }
@@ -798,20 +985,21 @@ export async function syncMyDrug(id: number) {
   const changes: SyncDiffEntry[] = [];
 
   for (const apiKey of DRUG_API_KEYS) {
-    const dbKey = apiKey.toLowerCase();
-    const oldVal = (drug[dbKey] as string) ?? "";
-    const newVal = ((apiItem[apiKey] as string) ?? "");
+    const oldVal = (rawData[apiKey] as string) ?? "";
+    const newVal = (apiItem[apiKey] as string) ?? "";
     if (oldVal !== newVal) {
       changes.push({
-        column: dbKey,
-        label: DRUG_LABELS[dbKey] ?? dbKey,
+        column: apiKey,
+        label: DRUG_LABELS[apiKey.toLowerCase()] ?? apiKey,
         oldValue: oldVal,
         newValue: newVal,
       });
     }
   }
 
-  await supabase.from("my_drugs").update({ synced_at: new Date().toISOString() }).eq("id", id);
+  await supabase.from("mfds_items")
+    .update({ synced_at: new Date().toISOString() })
+    .eq("id", id);
 
   return { found: true, changes };
 }
@@ -819,16 +1007,19 @@ export async function syncMyDrug(id: number) {
 export async function syncMyDevice(id: number) {
   const supabase = await createClient();
 
-  const { data: device, error } = await supabase
-    .from("my_devices")
-    .select("*")
+  const { data: item, error } = await supabase
+    .from("mfds_items")
+    .select("source_key, raw_data")
     .eq("id", id)
     .single();
   if (error) throw error;
 
-  if (!device.udidi_cd) return { found: false, changes: [] as SyncDiffEntry[] };
+  const rawData = item.raw_data as Record<string, unknown>;
+  const udidiCd = item.source_key ?? "";
+  if (!udidiCd) return { found: false, changes: [] as SyncDiffEntry[] };
 
-  const apiResult = await searchMfdsDevice({ UDIDI_CD: device.udidi_cd ?? "" });
+  // UDI-DI코드로 식약처 API 검색
+  const apiResult = await searchMfdsDevice({ UDIDI_CD: udidiCd });
   if (apiResult.items.length === 0) {
     return { found: false, changes: [] as SyncDiffEntry[] };
   }
@@ -837,35 +1028,50 @@ export async function syncMyDevice(id: number) {
   const changes: SyncDiffEntry[] = [];
 
   for (const apiKey of DEVICE_API_KEYS) {
-    const dbKey = apiKey.toLowerCase();
-    const oldVal = (device[dbKey] as string) ?? "";
-    const newVal = ((apiItem[apiKey] as string) ?? "");
+    const oldVal = (rawData[apiKey] as string) ?? "";
+    const newVal = (apiItem[apiKey] as string) ?? "";
     if (oldVal !== newVal) {
       changes.push({
-        column: dbKey,
-        label: DEVICE_LABELS[dbKey] ?? dbKey,
+        column: apiKey,
+        label: DEVICE_LABELS[apiKey.toLowerCase()] ?? apiKey,
         oldValue: oldVal,
         newValue: newVal,
       });
     }
   }
 
-  await supabase.from("my_devices").update({ synced_at: new Date().toISOString() }).eq("id", id);
+  await supabase.from("mfds_items")
+    .update({ synced_at: new Date().toISOString() })
+    .eq("id", id);
 
   return { found: true, changes };
 }
 
 export async function applyDrugSync(id: number, updates: Record<string, string>) {
   const supabase = await createClient();
-  const allowed = new Set(DRUG_API_KEYS.map(k => k.toLowerCase()));
-  const filtered: Record<string, string> = {};
+
+  const { data: item } = await supabase
+    .from("mfds_items")
+    .select("raw_data, item_name, manufacturer, standard_code")
+    .eq("id", id)
+    .single();
+  if (!item) throw new Error("Item not found");
+
+  const rawData = { ...(item.raw_data as Record<string, unknown>) };
+  const allowed = new Set(DRUG_API_KEYS);
   for (const [key, val] of Object.entries(updates)) {
-    if (allowed.has(key)) filtered[key] = val;
+    if (allowed.has(key)) rawData[key] = val;
   }
-  const { error } = await supabase
-    .from("my_drugs")
-    .update({ ...filtered, synced_at: new Date().toISOString() })
-    .eq("id", id);
+
+  const updatePayload: Record<string, unknown> = {
+    raw_data: rawData,
+    synced_at: new Date().toISOString(),
+  };
+  if (rawData.ITEM_NAME) updatePayload.item_name = rawData.ITEM_NAME;
+  if (rawData.ENTP_NAME) updatePayload.manufacturer = rawData.ENTP_NAME;
+  if (rawData.BAR_CODE) updatePayload.standard_code = rawData.BAR_CODE;
+
+  const { error } = await supabase.from("mfds_items").update(updatePayload).eq("id", id);
   if (error) throw error;
   revalidatePath("/products/my");
   return { success: true };
@@ -873,15 +1079,29 @@ export async function applyDrugSync(id: number, updates: Record<string, string>)
 
 export async function applyDeviceSync(id: number, updates: Record<string, string>) {
   const supabase = await createClient();
-  const allowed = new Set(DEVICE_API_KEYS.map(k => k.toLowerCase()));
-  const filtered: Record<string, string> = {};
+
+  const { data: item } = await supabase
+    .from("mfds_items")
+    .select("raw_data, item_name, manufacturer, standard_code")
+    .eq("id", id)
+    .single();
+  if (!item) throw new Error("Item not found");
+
+  const rawData = { ...(item.raw_data as Record<string, unknown>) };
+  const allowed = new Set(DEVICE_API_KEYS);
   for (const [key, val] of Object.entries(updates)) {
-    if (allowed.has(key)) filtered[key] = val;
+    if (allowed.has(key)) rawData[key] = val;
   }
-  const { error } = await supabase
-    .from("my_devices")
-    .update({ ...filtered, synced_at: new Date().toISOString() })
-    .eq("id", id);
+
+  const updatePayload: Record<string, unknown> = {
+    raw_data: rawData,
+    synced_at: new Date().toISOString(),
+  };
+  if (rawData.PRDLST_NM) updatePayload.item_name = rawData.PRDLST_NM;
+  if (rawData.MNFT_IPRT_ENTP_NM) updatePayload.manufacturer = rawData.MNFT_IPRT_ENTP_NM;
+  if (rawData.UDIDI_CD) updatePayload.standard_code = rawData.UDIDI_CD;
+
+  const { error } = await supabase.from("mfds_items").update(updatePayload).eq("id", id);
   if (error) throw error;
   revalidatePath("/products/my");
   return { success: true };

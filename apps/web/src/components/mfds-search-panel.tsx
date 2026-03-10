@@ -20,7 +20,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2, Clock, Star } from "lucide-react";
 import {
   searchMfdsItems,
   getMfdsSyncProgress,
@@ -50,12 +50,16 @@ interface MfdsSearchPanelProps {
   mode: "browse" | "pick" | "manage";
   onSelect?: (productId: number) => void;
   existingStandardCodes?: string[];
-  myDrugs?: Record<string, unknown>[];
-  myDevices?: Record<string, unknown>[];
   syncStatus?: {
-    lastSync: string | null;
+    lastSync?: string | null;
     drugCount: number;
     deviceCount: number;
+    lastDrugSync?: string | null;
+    lastDeviceSync?: string | null;
+    favDrugCount?: number;
+    favDeviceCount?: number;
+    drugApiTotal?: number;
+    deviceApiTotal?: number;
   };
 }
 
@@ -65,8 +69,6 @@ export function MfdsSearchPanel({
   mode,
   onSelect,
   existingStandardCodes = [],
-  myDrugs,
-  myDevices,
   syncStatus,
 }: MfdsSearchPanelProps) {
   const router = useRouter();
@@ -126,6 +128,21 @@ export function MfdsSearchPanel({
   const pageSize = 25;
   const totalPages = Math.ceil(totalCount / pageSize);
 
+  // ── Relative time helper ──────────────────────────────────────────
+
+  function formatRelativeTime(dateStr: string | null | undefined): string {
+    if (!dateStr) return "-";
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "방금 전";
+    if (mins < 60) return `${mins}분 전`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}시간 전`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}일 전`;
+    return new Date(dateStr).toLocaleDateString("ko-KR");
+  }
+
   // ── Column definitions ────────────────────────────────────────────
 
   const columns = useMemo<ColumnDef<Record<string, unknown>>[]>(() => {
@@ -146,7 +163,7 @@ export function MfdsSearchPanel({
 
     const actionCol: ColumnDef<Record<string, unknown>> = {
       id: "_action",
-      header: mode === "manage" ? "동기화" : mode === "browse" ? "추가" : "선택",
+      header: mode === "manage" ? "관리" : mode === "browse" ? "추가" : "선택",
       size: mode === "manage" ? 110 : 70,
       enableResizing: false,
       enableSorting: false,
@@ -184,13 +201,15 @@ export function MfdsSearchPanel({
           );
         }
 
+        // Browse/pick mode: show add button or "추가됨"
         const code = ((tab === "drug" ? item.BAR_CODE : item.UDIDI_CD) as string) ?? "";
-        const alreadyAdded = existingStandardCodes.includes(code);
+        const isFavorite = item.is_favorite === true;
+        const alreadyAdded = isFavorite || existingStandardCodes.includes(code);
 
         if (alreadyAdded) {
           return (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <Check className="h-3 w-3" /> 추가됨
+              <Star className="h-3 w-3 fill-current" />
             </span>
           );
         }
@@ -222,7 +241,6 @@ export function MfdsSearchPanel({
 
     // 의약품: 기본 8개 + 추가 16개 = 전체 24개
     const drugDataCols: ColumnDef<Record<string, unknown>>[] = [
-      // ── 기본 노출 ──
       col("ITEM_NAME", "품목명", 200),
       col("ENTP_NAME", "업체명", 200),
       col("ETC_OTC_CODE", "전문/일반"),
@@ -231,7 +249,6 @@ export function MfdsSearchPanel({
       col("ITEM_PERMIT_DATE", "허가일자"),
       col("MATERIAL_NAME", "성분"),
       col("CANCEL_NAME", "상태"),
-      // ── 기본 숨김 (컬럼설정에서 켤 수 있음) ──
       col("ITEM_SEQ", "품목기준코드"),
       col("ITEM_ENG_NAME", "영문명", 200),
       col("ENTP_NO", "업체허가번호"),
@@ -252,7 +269,6 @@ export function MfdsSearchPanel({
 
     // 의료기기: 기본 8개 + 추가 12개 = 전체 20개
     const deviceDataCols: ColumnDef<Record<string, unknown>>[] = [
-      // ── 기본 노출 ──
       col("PRDLST_NM", "품목명", 200),
       col("MNFT_IPRT_ENTP_NM", "제조수입업체명", 200),
       col("CLSF_NO_GRAD_CD", "등급"),
@@ -261,7 +277,6 @@ export function MfdsSearchPanel({
       col("PRMSN_YMD", "허가일자"),
       col("FOML_INFO", "모델명"),
       col("DSPSBL_MDEQ_YN", "일회용여부"),
-      // ── 기본 숨김 (컬럼설정에서 켤 수 있음) ──
       col("PRDT_NM_INFO", "제품명", 200),
       col("MDEQ_CLSF_NO", "분류번호"),
       col("USE_PURPS_CONT", "사용목적", 200),
@@ -323,9 +338,28 @@ export function MfdsSearchPanel({
       },
     };
 
+    const syncedAtCol: ColumnDef<Record<string, unknown>> = {
+      id: "_synced_at",
+      header: "동기화",
+      size: 90,
+      enableResizing: false,
+      enableSorting: true,
+      enableGlobalFilter: false,
+      accessorFn: (r) => (r.synced_at as string) ?? "",
+      cell: ({ row }) => {
+        const syncedAt = row.original.synced_at as string | null;
+        return (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground" title={syncedAt ?? ""}>
+            <Clock className="h-3 w-3 flex-shrink-0" />
+            {formatRelativeTime(syncedAt)}
+          </span>
+        );
+      },
+    };
+
     const dataCols = tab === "drug" ? drugDataCols : deviceDataCols;
     if (mode === "manage") {
-      return [expandCol, ...dataCols, priceCol, actionCol];
+      return [expandCol, ...dataCols, syncedAtCol, priceCol, actionCol];
     }
     return [expandCol, ...dataCols, actionCol];
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -336,7 +370,12 @@ export function MfdsSearchPanel({
   const table = useReactTable({
     data: results,
     columns,
-    state: { sorting, columnVisibility, globalFilter, columnSizing },
+    state: {
+      sorting,
+      columnVisibility,
+      globalFilter,
+      columnSizing,
+    },
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: setGlobalFilter,
@@ -348,7 +387,7 @@ export function MfdsSearchPanel({
     enableColumnResizing: true,
   });
 
-  // ── Search logic (DB-backed with debounce) ────────────────────────
+  // ── Search logic (unified: server-side for both browse & manage) ──
 
   const doSearch = useCallback(
     (targetPage = 1) => {
@@ -367,6 +406,7 @@ export function MfdsSearchPanel({
             page: targetPage,
             pageSize,
             filters: activeFilters,
+            favoritesOnly: mode === "manage",
           });
 
           if (!abortControllerRef.current?.signal.aborted) {
@@ -397,12 +437,11 @@ export function MfdsSearchPanel({
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [query, activeFilters, tab, searchField],
+    [query, activeFilters, tab, searchField, mode],
   );
 
   // ── Debounced auto-search on query change ─────────────────────────
   useEffect(() => {
-    if (mode === "manage") return;
     if (!hasSearched && !query.trim()) return;
 
     if (debounceTimerRef.current) {
@@ -423,21 +462,11 @@ export function MfdsSearchPanel({
   // ── Initial load ────────────────────────────────────────────────
   const initialLoaded = useRef(false);
   useEffect(() => {
-    if (mode === "manage") return;
     if (!initialLoaded.current) {
       initialLoaded.current = true;
       doSearch(1);
     }
-  }, [doSearch, mode]);
-
-  // ── Manage mode: load data from DB props ──────────────────────────
-  useEffect(() => {
-    if (mode !== "manage") return;
-    const data = tab === "drug" ? (myDrugs ?? []) : (myDevices ?? []);
-    setResults(data);
-    setTotalCount(data.length);
-    setHasSearched(true);
-  }, [mode, tab, myDrugs, myDevices]);
+  }, [doSearch]);
 
   // ── NDJSON stream reader — reads streaming sync progress ─────────
   const readStream = useCallback(
@@ -452,14 +481,12 @@ export function MfdsSearchPanel({
       if (!streamDone && firstChunk) {
         buffer += decoder.decode(firstChunk, { stream: true });
       }
-      // Process first chunk + continue reading
       const processBuffer = () => {
         const lines = buffer.split("\n");
         buffer = lines.pop()!;
         return lines;
       };
 
-      // Re-assemble: process first chunk inline, then loop
       const allLines = streamDone ? [] : processBuffer();
       for (const line of allLines) {
         if (!line.trim()) continue;
@@ -483,18 +510,32 @@ export function MfdsSearchPanel({
 
           if (event.type === "start") {
             lastLogId = event.logId;
+            if (event.syncMode === "incremental") {
+              setSyncProgress(
+                `증분 동기화 시작 (${event.startPage}페이지부터)...`,
+              );
+            } else if (event.syncMode === "resume") {
+              setSyncProgress(
+                `이전 동기화 이어서 진행 (${event.startPage}페이지부터)...`,
+              );
+            }
           } else if (event.type === "progress") {
+            const pct = event.apiTotal
+              ? ` (${Math.round((event.totalFetched / event.apiTotal) * 100)}%)`
+              : "";
+            const modeLabel = event.syncMode === "incremental" ? "증분 " : "";
             setSyncProgress(
-              `동기화 중... ${event.totalFetched.toLocaleString()}건 처리됨`,
+              `${modeLabel}동기화 중... ${event.totalFetched.toLocaleString()}건 처리됨${pct}`,
             );
-            // Refresh search results at most every 5s
             if (Date.now() - lastSearchRefresh > 5000) {
               doSearch(1);
               lastSearchRefresh = Date.now();
             }
           } else if (event.type === "done") {
-            if (event.outcome === "partial" && event.nextPage && lastLogId) {
-              // Auto-continue: start new streaming request
+            if (event.outcome === "skip" || event.syncMode === "skip") {
+              toast.success("최신 상태입니다. 새로운 데이터가 없습니다.");
+              doSearch(1);
+            } else if (event.outcome === "partial" && event.nextPage && lastLogId) {
               setSyncProgress(
                 `동기화 계속 중... ${event.totalFetched.toLocaleString()}건 처리됨`,
               );
@@ -511,10 +552,9 @@ export function MfdsSearchPanel({
               });
               if (contRes.ok) {
                 await readStream(contRes);
-                return; // Continuation handles cleanup
+                return;
               }
             }
-            // Completed
             doSearch(1);
             toast.success(
               `동기화 완료: ${event.totalFetched.toLocaleString()}건 확인, ${event.totalUpserted.toLocaleString()}건 반영`,
@@ -528,7 +568,7 @@ export function MfdsSearchPanel({
     [doSearch, tab],
   );
 
-  // ── Resume sync status on page load (passive — can't attach to stream) ──
+  // ── Resume sync status on page load ──
   useEffect(() => {
     if (mode !== "browse") return;
     let cancelled = false;
@@ -539,9 +579,11 @@ export function MfdsSearchPanel({
       setSyncProgress(
         `동기화 진행 중 (${active.totalFetched.toLocaleString()}건 처리됨)`,
       );
-      // Poll once to check if it completed while page was loading
+
       const checkInterval = setInterval(async () => {
+        if (cancelled) { clearInterval(checkInterval); return; }
         const progress = await getMfdsSyncProgress(active.logId);
+
         if (progress.status === "completed") {
           clearInterval(checkInterval);
           setIsSyncing(false);
@@ -560,7 +602,6 @@ export function MfdsSearchPanel({
             `동기화 진행 중 (${progress.totalFetched.toLocaleString()}건 처리됨)`,
           );
         } else if (progress.status === "partial" && progress.nextPage && progress.sourceType) {
-          // Partial sync found on reload — trigger continuation
           clearInterval(checkInterval);
           setSyncProgress(
             `동기화 계속 중... ${progress.totalFetched.toLocaleString()}건 처리됨`,
@@ -586,6 +627,11 @@ export function MfdsSearchPanel({
               setSyncProgress(null);
             }
           }
+        } else {
+          // Stale or unknown — stop polling, user can click sync to auto-resume
+          clearInterval(checkInterval);
+          setIsSyncing(false);
+          setSyncProgress(null);
         }
       }, 3000);
 
@@ -595,16 +641,45 @@ export function MfdsSearchPanel({
     return () => { cancelled = true; };
   }, [mode, doSearch, readStream]);
 
-  // ── MFDS sync trigger (browse mode) — streaming ────────────────
+  // ── MFDS sync trigger (browse mode) — auto mode (incremental/resume) ────
   async function handleMfdsSync() {
     setIsSyncing(true);
-    setSyncProgress("동기화 시작...");
+    setSyncProgress("동기화 확인 중...");
 
     try {
       const res = await fetch("/api/sync-mfds", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceType: tab }),
+        body: JSON.stringify({ sourceType: tab, mode: "auto" }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error ?? "동기화 시작 실패");
+      }
+
+      await readStream(res);
+    } catch (err) {
+      toast.error(
+        `동기화 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
+      );
+    } finally {
+      setIsSyncing(false);
+      setSyncProgress(null);
+    }
+  }
+
+  // ── Full refresh (browse mode) ────
+  async function handleFullSync() {
+    if (!confirm("전체 새로고침은 1페이지부터 모든 데이터를 다시 동기화합니다. 계속하시겠습니까?")) return;
+    setIsSyncing(true);
+    setSyncProgress("전체 새로고침 시작...");
+
+    try {
+      const res = await fetch("/api/sync-mfds", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceType: tab, mode: "full" }),
       });
 
       if (!res.ok) {
@@ -634,11 +709,11 @@ export function MfdsSearchPanel({
           ? await addToMyDrugs(item)
           : await addToMyDevices(item);
         if (result.alreadyExists) {
-          toast.info("이미 내 품목에 등록된 항목입니다.");
+          toast.info("이미 즐겨찾는 품목에 등록된 항목입니다.");
         } else {
-          toast.success("내 품목에 추가되었습니다.", {
+          toast.success("즐겨찾는 품목에 추가되었습니다.", {
             action: {
-              label: "내 품목 보기 →",
+              label: "즐겨찾는 품목 보기 →",
               onClick: () => router.push("/products/my"),
             },
           });
@@ -646,6 +721,8 @@ export function MfdsSearchPanel({
         if (mode === "pick" && onSelect) {
           onSelect(result.id);
         }
+        // Refresh to update is_favorite in search results
+        doSearch(page);
         router.refresh();
       } catch (err) {
         toast.error(`추가 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
@@ -699,6 +776,7 @@ export function MfdsSearchPanel({
         }
         toast.success("변경사항이 적용되었습니다.");
         setSyncDiff(null);
+        doSearch(page);
         router.refresh();
       } catch (err) {
         toast.error(`적용 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
@@ -709,10 +787,10 @@ export function MfdsSearchPanel({
   function handleDelete(item: Record<string, unknown>) {
     const itemId = item.id as number;
     const name = tab === "drug"
-      ? (item.ITEM_NAME as string) ?? (item.item_name as string) ?? ""
-      : (item.PRDLST_NM as string) ?? (item.prdlst_nm as string) ?? "";
+      ? (item.ITEM_NAME as string) ?? ""
+      : (item.PRDLST_NM as string) ?? "";
 
-    if (!confirm(`"${name}" 항목을 삭제하시겠습니까?`)) return;
+    if (!confirm(`"${name}" 항목을 즐겨찾기에서 제거하시겠습니까?`)) return;
 
     setDeletingId(itemId);
     startTransition(async () => {
@@ -722,10 +800,11 @@ export function MfdsSearchPanel({
         } else {
           await deleteMyDevice(itemId);
         }
-        toast.success("삭제되었습니다.");
+        toast.success("즐겨찾기에서 제거되었습니다.");
+        doSearch(page);
         router.refresh();
       } catch (err) {
-        toast.error(`삭제 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
+        toast.error(`제거 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
       } finally {
         setDeletingId(null);
       }
@@ -762,7 +841,6 @@ export function MfdsSearchPanel({
 
   function handleTabChange(newTab: MfdsApiSource) {
     setTab(newTab);
-    // Keep query, reset everything else
     setActiveFilters([]);
     setSearchField("_all");
     setFilterLogic("and");
@@ -776,7 +854,7 @@ export function MfdsSearchPanel({
     setExpandedRowId(null);
   }
 
-  // Re-fetch when tab changes (doSearch picks up the new tab via dependency)
+  // Re-fetch when tab changes
   const prevTab = useRef(tab);
   useEffect(() => {
     if (prevTab.current !== tab) {
@@ -792,52 +870,108 @@ export function MfdsSearchPanel({
     if (item.tab !== tab) {
       handleTabChange(item.tab as MfdsApiSource);
     }
-    // Trigger search after state update via setTimeout
     setTimeout(() => doSearch(1), 0);
   }
 
   // ── Render ────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-4">
-      {/* Sync status banner */}
+    <div className="space-y-4 min-w-0 overflow-hidden">
+      {/* Sync status banner — manage mode (favorites) */}
+      {mode === "manage" && syncStatus && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-lg border bg-muted/50 px-4 py-2.5 text-sm">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground">
+            <span>의약품 <strong className="text-foreground">{syncStatus.favDrugCount ?? 0}</strong>건</span>
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {syncStatus.lastDrugSync
+                ? formatRelativeTime(syncStatus.lastDrugSync)
+                : <span className="text-amber-600">미동기화</span>}
+            </span>
+            <span className="text-border">|</span>
+            <span>의료기기 <strong className="text-foreground">{syncStatus.favDeviceCount ?? 0}</strong>건</span>
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {syncStatus.lastDeviceSync
+                ? formatRelativeTime(syncStatus.lastDeviceSync)
+                : <span className="text-amber-600">미동기화</span>}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Sync status banner — browse mode */}
       {mode === "browse" && syncStatus && (
-        <div className="flex items-center justify-between rounded-lg border bg-muted/50 px-4 py-2 text-sm">
-          <div className="flex items-center gap-4 text-muted-foreground">
-            <span>의약품: {syncStatus.drugCount.toLocaleString()}건</span>
-            <span>의료기기: {syncStatus.deviceCount.toLocaleString()}건</span>
-            {syncStatus.lastSync && (
-              <span>
-                마지막 동기화:{" "}
-                {new Date(syncStatus.lastSync).toLocaleDateString("ko-KR")}
-              </span>
-            )}
-            {!syncStatus.lastSync && (
-              <span className="text-amber-600">동기화 필요</span>
-            )}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-lg border bg-muted/50 px-4 py-2.5 text-sm">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground">
+            <span>
+              의약품 <strong className="text-foreground">{syncStatus.drugCount.toLocaleString()}</strong>
+              {syncStatus.drugApiTotal ? (
+                <> / {syncStatus.drugApiTotal.toLocaleString()}건
+                  <span className="ml-1 text-xs">
+                    ({Math.round((syncStatus.drugCount / syncStatus.drugApiTotal) * 100)}%)
+                  </span>
+                </>
+              ) : <>건</>}
+            </span>
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {syncStatus.lastDrugSync
+                ? formatRelativeTime(syncStatus.lastDrugSync)
+                : <span className="text-amber-600">미동기화</span>}
+            </span>
+            <span className="text-border">|</span>
+            <span>
+              의료기기 <strong className="text-foreground">{syncStatus.deviceCount.toLocaleString()}</strong>
+              {syncStatus.deviceApiTotal ? (
+                <> / {syncStatus.deviceApiTotal.toLocaleString()}건
+                  <span className="ml-1 text-xs">
+                    ({Math.round((syncStatus.deviceCount / syncStatus.deviceApiTotal) * 100)}%)
+                  </span>
+                </>
+              ) : <>건</>}
+            </span>
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {syncStatus.lastDeviceSync
+                ? formatRelativeTime(syncStatus.lastDeviceSync)
+                : <span className="text-amber-600">미동기화</span>}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             {syncProgress && (
               <span className="text-xs text-muted-foreground">{syncProgress}</span>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isSyncing}
-              onClick={handleMfdsSync}
-            >
-              {isSyncing ? (
-                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-              ) : (
-                <RefreshCw className="h-3 w-3 mr-1" />
-              )}
-              동기화
-            </Button>
+            <div className="flex items-center">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-r-none"
+                disabled={isSyncing}
+                onClick={handleMfdsSync}
+              >
+                {isSyncing ? (
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                ) : (
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                )}
+                동기화
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-l-none border-l-0 px-1.5"
+                disabled={isSyncing}
+                onClick={handleFullSync}
+              >
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Search bar with tabs, query, filter chips, recent searches */}
+      {/* Search bar */}
       <MfdsSearchBar
         tab={tab}
         onTabChange={handleTabChange}
@@ -850,14 +984,10 @@ export function MfdsSearchPanel({
         filterLogic={filterLogic}
         onFilterLogicChange={setFilterLogic}
         onSearch={() => {
-          if (mode === "manage") {
-            setGlobalFilter(query);
-          } else {
-            if (debounceTimerRef.current) {
-              clearTimeout(debounceTimerRef.current);
-            }
-            doSearch(1);
+          if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
           }
+          doSearch(1);
         }}
         isPending={isPending}
         recentSearches={recentSearches.items}
@@ -865,7 +995,7 @@ export function MfdsSearchPanel({
         hasSearched={hasSearched}
       />
 
-      {/* Result toolbar (summary, column toggle) */}
+      {/* Result toolbar */}
       {hasSearched && results.length > 0 && (
         <MfdsResultToolbar
           totalCount={totalCount}
@@ -875,7 +1005,7 @@ export function MfdsSearchPanel({
         />
       )}
 
-      {/* Result table with accordion expand + action buttons */}
+      {/* Result table */}
       <MfdsResultTable
         table={table}
         tab={tab}
@@ -891,16 +1021,14 @@ export function MfdsSearchPanel({
         hasSearched={hasSearched}
       />
 
-      {/* Pagination */}
-      {mode !== "manage" && (
-        <MfdsPagination
-          page={page}
-          totalPages={totalPages}
-          totalCount={totalCount}
-          isPending={isPending}
-          onPageChange={(p) => doSearch(p)}
-        />
-      )}
+      {/* Pagination — server-side for all modes */}
+      <MfdsPagination
+        page={page}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        isPending={isPending}
+        onPageChange={(p) => doSearch(p)}
+      />
 
       {/* Sync diff dialog */}
       {syncDiff && (

@@ -23,6 +23,9 @@ apps/mobile/local.properties
 # Firebase
 **/google-services.json
 
+# Claude Code
+.claude/
+
 # IDE
 .idea/
 .vscode/
@@ -38,6 +41,7 @@ firebase-debug.log
 
 # Supabase
 packages/supabase/.temp/
+apps/web/supabase/.temp/
 
 # Playwright
 .playwright-mcp/

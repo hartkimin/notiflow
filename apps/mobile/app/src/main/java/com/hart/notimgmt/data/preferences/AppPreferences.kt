@@ -171,11 +171,11 @@ class AppPreferences @Inject constructor(
 
     var themeMode: ThemeMode
         get() {
-            val value = prefs.getString("theme_mode", ThemeMode.SYSTEM.name)
+            val value = prefs.getString("theme_mode", ThemeMode.LIGHT.name)
             return try {
-                ThemeMode.valueOf(value ?: ThemeMode.SYSTEM.name)
+                ThemeMode.valueOf(value ?: ThemeMode.LIGHT.name)
             } catch (e: Exception) {
-                ThemeMode.SYSTEM
+                ThemeMode.LIGHT
             }
         }
         set(value) {

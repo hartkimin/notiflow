@@ -3,62 +3,62 @@ package com.hart.notimgmt.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // ============================================
-// NotiFlow Indigo Glassmorphism Theme Colors
+// NotiFlow Anime Kawaii Theme Colors
 // ============================================
 
-// NotiFlow Signature Colors
-val NotiFlowIndigo = Color(0xFF6366F1)
-val NotiFlowIndigoLight = Color(0xFF818CF8)
-val NotiFlowIndigoDark = Color(0xFF4F46E5)
-val NotiFlowViolet = Color(0xFF8B5CF6)
-val NotiFlowVioletLight = Color(0xFFA78BFA)
+// NotiFlow Signature Colors — Sakura Pink palette
+val NotiFlowIndigo = Color(0xFFE8729D)        // Sakura Pink (primary)
+val NotiFlowIndigoLight = Color(0xFFF4A7C1)   // Light Sakura
+val NotiFlowIndigoDark = Color(0xFFD4567C)    // Deep Rose
+val NotiFlowViolet = Color(0xFFB39DDB)        // Soft Lavender
+val NotiFlowVioletLight = Color(0xFFCE93D8)   // Light Lavender
 val NotiFlowWhite = Color(0xFFFFFFFF)
-val NotiFlowCream = Color(0xFFFAFAFE)
+val NotiFlowCream = Color(0xFFFFF8F3)         // Warm Cream
 
-// Light Mode Colors
-val NotiFlowLightBackground = Color(0xFFFAFAFE)
+// Light Mode Colors — Warm pastel tones
+val NotiFlowLightBackground = Color(0xFFFFF8F3)   // Warm Cream
 val NotiFlowLightSurface = Color(0xFFFFFFFF)
-val NotiFlowLightSurfaceGlass = Color(0xB3FFFFFF) // 70% white
-val NotiFlowLightSurfaceVariant = Color(0xFFF1F0FB)
-val NotiFlowLightBorder = Color(0x406366F1) // 25% indigo
-val NotiFlowLightTextPrimary = Color(0xFF1E1B4B)
-val NotiFlowLightTextSecondary = Color(0xFF6B7280)
-val NotiFlowLightTextTertiary = Color(0xFF9CA3AF)
+val NotiFlowLightSurfaceGlass = Color(0xB3FFFFFF)
+val NotiFlowLightSurfaceVariant = Color(0xFFFFF0F5) // Lavender Blush
+val NotiFlowLightBorder = Color(0x40E8729D)         // 25% sakura
+val NotiFlowLightTextPrimary = Color(0xFF2D1B33)    // Warm Dark
+val NotiFlowLightTextSecondary = Color(0xFF7B6B80)  // Muted Purple-Gray
+val NotiFlowLightTextTertiary = Color(0xFFAA9EAF)
 
-// Dark Mode Colors
-val NotiFlowDarkBackground = Color(0xFF0F0D1A)
-val NotiFlowDarkSurface = Color(0xFF1C1A2E)
-val NotiFlowDarkSurfaceGlass = Color(0x991C1A2E) // 60% dark indigo
-val NotiFlowDarkSurfaceVariant = Color(0xFF2D2B42)
-val NotiFlowDarkBorder = Color(0x33818CF8) // 20% indigo light
+// Dark Mode Colors — Deep anime night
+val NotiFlowDarkBackground = Color(0xFF1A0F1E)
+val NotiFlowDarkSurface = Color(0xFF2A1F30)
+val NotiFlowDarkSurfaceGlass = Color(0x992A1F30)
+val NotiFlowDarkSurfaceVariant = Color(0xFF3D2E45)
+val NotiFlowDarkBorder = Color(0x33F4A7C1)
 val NotiFlowDarkTextPrimary = Color(0xFFFFFFFF)
-val NotiFlowDarkTextSecondary = Color(0xFFA5B4FC)
-val NotiFlowDarkTextTertiary = Color(0xFF6B7280)
+val NotiFlowDarkTextSecondary = Color(0xFFF4A7C1)
+val NotiFlowDarkTextTertiary = Color(0xFF7B6B80)
 
 // Semantic Colors
 val NotiFlowError = Color(0xFFE74C3C)
 val NotiFlowErrorLight = Color(0xFFFDEDED)
-val NotiFlowSuccess = Color(0xFF2ECC71)
-val NotiFlowSuccessLight = Color(0xFFE8F8F0)
-val NotiFlowWarning = Color(0xFFF39C12)
-val NotiFlowWarningLight = Color(0xFFFEF5E7)
+val NotiFlowSuccess = Color(0xFF66BB6A)
+val NotiFlowSuccessLight = Color(0xFFE8F5E9)
+val NotiFlowWarning = Color(0xFFFFB74D)
+val NotiFlowWarningLight = Color(0xFFFFF3E0)
 
-// Gradient Colors (Indigo Aurora)
-val NotiFlowGradientStart = Color(0xFF818CF8)   // Indigo Light
-val NotiFlowGradientMiddle = Color(0xFFA78BFA)  // Violet Light
-val NotiFlowGradientEnd = Color(0xFFC4B5FD)     // Soft Lavender
+// Gradient Colors (Sakura Aurora)
+val NotiFlowGradientStart = Color(0xFFF4A7C1)   // Light Sakura
+val NotiFlowGradientMiddle = Color(0xFFCE93D8)  // Light Lavender
+val NotiFlowGradientEnd = Color(0xFFB39DDB)     // Soft Lavender
 
 // Glass Effect Colors
-val NotiFlowGlassWhite = Color(0xB3FFFFFF) // 70%
-val NotiFlowGlassWhiteLight = Color(0x80FFFFFF) // 50%
-val NotiFlowGlassDark = Color(0xB31C1A2E) // 70% deep indigo dark
-val NotiFlowGlassDarkLight = Color(0x802D2B42) // 50%
-val NotiFlowGlassBorderLight = Color(0x66FFFFFF) // 40% white
-val NotiFlowGlassBorderDark = Color(0x4D818CF8) // 30% indigo light glow
+val NotiFlowGlassWhite = Color(0xB3FFFFFF)
+val NotiFlowGlassWhiteLight = Color(0x80FFFFFF)
+val NotiFlowGlassDark = Color(0xB32A1F30)
+val NotiFlowGlassDarkLight = Color(0x803D2E45)
+val NotiFlowGlassBorderLight = Color(0x66FFFFFF)
+val NotiFlowGlassBorderDark = Color(0x4DF4A7C1)
 
 // Shadow Colors
-val NotiFlowShadowLight = Color(0x33818CF8) // 20% indigo light
-val NotiFlowShadowDark = Color(0x4D000000) // 30% dark
+val NotiFlowShadowLight = Color(0x33E8729D)
+val NotiFlowShadowDark = Color(0x4D000000)
 
 // Tag/Category Colors (vibrant — unchanged)
 val NotiFlowRed = Color(0xFFE74C3C)
@@ -72,7 +72,7 @@ val NotiFlowTeal = Color(0xFF1ABC9C)
 val NotiFlowGray = Color(0xFF95A5A6)
 val NotiFlowCoral = Color(0xFFFF6B6B)
 
-const val DEFAULT_CATEGORY_COLOR = 0xFF6366F1.toInt() // NotiFlow Indigo
+const val DEFAULT_CATEGORY_COLOR = 0xFFE8729D.toInt() // Sakura Pink
 
 // ── Chat Bubble Colors (per-app themes) ──
 

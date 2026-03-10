@@ -133,7 +133,8 @@ fun MessageListScreen(
     val selectionMode by viewModel.selectionMode.collectAsState()
     val selectedIds by viewModel.selectedIds.collectAsState()
     val selectedCategoryIds by viewModel.selectedCategoryIds.collectAsState()
-    val showCategoryFilter by viewModel.showCategoryFilter.collectAsState()
+    val selectedStatusIds by viewModel.selectedStatusIds.collectAsState()
+    val showFilterPanel by viewModel.showFilterPanel.collectAsState()
     val deletedCount by viewModel.deletedCount.collectAsState()
     val snackbarHostState = LocalSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
@@ -163,8 +164,10 @@ fun MessageListScreen(
 
     val listState = rememberLazyListState()
 
-    val filterCount = selectedCategoryIds?.size ?: 0
-    val isFiltered = selectedCategoryIds != null
+    val categoryFilterCount = selectedCategoryIds?.size ?: 0
+    val statusFilterCount = selectedStatusIds?.size ?: 0
+    val totalFilterCount = categoryFilterCount + statusFilterCount
+    val isFiltered = selectedCategoryIds != null || selectedStatusIds != null
 
     var searchQuery by remember { mutableStateOf("") }
     var isSearchExpanded by remember { mutableStateOf(false) }
@@ -303,11 +306,11 @@ fun MessageListScreen(
                             else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    IconButton(onClick = { viewModel.toggleCategoryFilter() }) {
+                    IconButton(onClick = { viewModel.toggleFilterPanel() }) {
                         Box {
                             Icon(
                                 Icons.Default.FilterList,
-                                contentDescription = "카테고리 필터",
+                                contentDescription = "필터",
                                 tint = if (isFiltered) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -321,7 +324,7 @@ fun MessageListScreen(
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Text(
-                                            text = "$filterCount",
+                                            text = "$totalFilterCount",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onPrimary
                                         )
@@ -434,9 +437,9 @@ fun MessageListScreen(
                 )
             }
 
-            // 카테고리 필터 (접이식)
+            // 필터 패널 (접이식 - 카테고리 + 상태)
             AnimatedVisibility(
-                visible = showCategoryFilter,
+                visible = showFilterPanel,
                 enter = expandVertically(),
                 exit = shrinkVertically()
             ) {
@@ -446,24 +449,25 @@ fun MessageListScreen(
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
+                    // ── 카테고리 필터 ──
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "카테고리 필터",
+                            text = "카테고리",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (isFiltered) {
+                        if (selectedCategoryIds != null) {
                             Surface(
                                 onClick = { viewModel.selectAllCategories() },
                                 shape = RoundedCornerShape(12.dp),
                                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                             ) {
                                 Text(
-                                    text = "전체 선택",
+                                    text = "전체",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -487,6 +491,55 @@ fun MessageListScreen(
                                 isSelected = viewModel.isCategorySelected(category.id),
                                 onClick = { viewModel.toggleCategorySelection(category.id) }
                             )
+                        }
+                    }
+
+                    // ── 상태 필터 ──
+                    if (allStatusSteps.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "상태",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (selectedStatusIds != null) {
+                                Surface(
+                                    onClick = { viewModel.selectAllStatuses() },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                ) {
+                                    Text(
+                                        text = "전체",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            allStatusSteps.forEach { step ->
+                                MessageCategoryFilterChip(
+                                    label = step.name,
+                                    color = Color(step.color),
+                                    isSelected = viewModel.isStatusSelected(step.id),
+                                    onClick = { viewModel.toggleStatusSelection(step.id) }
+                                )
+                            }
                         }
                     }
                 }

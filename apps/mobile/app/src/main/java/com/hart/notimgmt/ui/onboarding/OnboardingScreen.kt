@@ -10,6 +10,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -20,10 +21,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Insights
-import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.ViewKanban
@@ -31,28 +31,40 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import com.hart.notimgmt.ui.theme.NotiFlowIndigo
+import com.hart.notimgmt.ui.theme.NotiFlowIndigoLight
+import com.hart.notimgmt.ui.theme.NotiFlowViolet
+import com.hart.notimgmt.ui.theme.NotiFlowVioletLight
 import kotlinx.coroutines.launch
+import kotlin.math.cos
+import kotlin.math.sin
 
-// Color tokens based on Stitch Design
-private val BrandBlue = Color(0xFF2B2BEE)
-private val BrandPurple = Color(0xFF8B5CF6)
-private val SurfaceGray = Color(0xFFF9FAFB)
-private val TextDark = Color(0xFF111827)
-private val TextMuted = Color(0xFF6B7280)
-private val GradientBrush = Brush.horizontalGradient(listOf(BrandBlue, BrandPurple))
+// Anime Kawaii color tokens
+private val Sakura = NotiFlowIndigo
+private val SakuraLight = NotiFlowIndigoLight
+private val Lavender = NotiFlowViolet
+private val LavenderLight = NotiFlowVioletLight
+private val BgCream = Color(0xFFFFF8F3)
+private val SurfacePink = Color(0xFFFFF0F5)
+private val TextDark = Color(0xFF2D1B33)
+private val TextMuted = Color(0xFF7B6B80)
+private val GradientBrush = Brush.horizontalGradient(listOf(Sakura, Lavender))
 
 @Composable
 fun OnboardingScreen(onComplete: () -> Unit) {
@@ -72,12 +84,39 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(BgCream)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Top Section (Skip Button)
+        // Subtle sparkle background
+        Canvas(modifier = Modifier.fillMaxSize().alpha(0.5f)) {
+            val w = size.width
+            val h = size.height
+            // Soft glow orbs
+            drawCircle(
+                brush = Brush.radialGradient(
+                    listOf(SakuraLight.copy(alpha = 0.12f), Color.Transparent),
+                    center = Offset(w * 0.1f, h * 0.15f), radius = w * 0.3f
+                )
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    listOf(LavenderLight.copy(alpha = 0.1f), Color.Transparent),
+                    center = Offset(w * 0.9f, h * 0.85f), radius = w * 0.35f
+                )
+            )
+            // Mini sparkle stars
+            val sparkles = listOf(
+                Triple(0.9f, 0.08f, 5f), Triple(0.05f, 0.45f, 4f),
+                Triple(0.85f, 0.5f, 3f), Triple(0.15f, 0.88f, 5f),
+                Triple(0.7f, 0.92f, 4f)
+            )
+            sparkles.forEachIndexed { i, (fx, fy, r) ->
+                val color = if (i % 2 == 0) SakuraLight else LavenderLight
+                drawStar(Offset(w * fx, h * fy), r * (w / 400f), color.copy(alpha = 0.4f))
+            }
+        }
+
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Top Section (Skip)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -88,7 +127,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                     TextButton(onClick = {
                         coroutineScope.launch { pagerState.animateScrollToPage(2) }
                     }) {
-                        Text("Skip", color = TextMuted)
+                        Text("건너뛰기", color = TextMuted)
                     }
                 } else {
                     Spacer(modifier = Modifier.height(48.dp))
@@ -115,14 +154,14 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                     .padding(horizontal = 24.dp, vertical = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Indicators
+                // Dot indicators
                 Row(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     repeat(3) { index ->
                         val color by animateColorAsState(
-                            targetValue = if (index == pagerState.currentPage) BrandBlue else Color(0xFFE5E7EB),
+                            targetValue = if (index == pagerState.currentPage) Sakura else Color(0xFFE8D5E0),
                             label = "dot"
                         )
                         Box(
@@ -155,7 +194,8 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                         .fillMaxWidth()
                         .height(56.dp)
                         .background(
-                            brush = if (canProceed) GradientBrush else Brush.horizontalGradient(listOf(Color.LightGray, Color.LightGray)),
+                            brush = if (canProceed) GradientBrush
+                            else Brush.horizontalGradient(listOf(Color(0xFFD4C4CC), Color(0xFFD4C4CC))),
                             shape = RoundedCornerShape(16.dp)
                         ),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
@@ -163,9 +203,9 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                 ) {
                     Text(
                         text = when {
-                            isLastPage && !canProceed -> "Grant Permissions"
-                            isLastPage && canProceed -> "Start"
-                            else -> "Next"
+                            isLastPage && !canProceed -> "권한을 허용해 주세요"
+                            isLastPage && canProceed -> "시작하기!"
+                            else -> "다음"
                         },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
@@ -186,32 +226,40 @@ private fun WelcomePage() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Abstract illustration representation
+        // Kawaii icon with soft glow
         Box(
             modifier = Modifier
                 .size(160.dp)
-                .background(Brush.radialGradient(listOf(BrandPurple.copy(0.15f), Color.Transparent))),
+                .background(
+                    Brush.radialGradient(listOf(SakuraLight.copy(0.2f), Color.Transparent)),
+                    shape = CircleShape
+                ),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.AllInclusive,
-                contentDescription = null,
-                modifier = Modifier.size(80.dp),
-                tint = BrandBlue
-            )
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .background(
+                        Brush.linearGradient(listOf(SakuraLight.copy(0.3f), LavenderLight.copy(0.2f))),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("N", style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.ExtraBold), color = Sakura)
+            }
         }
 
         Spacer(modifier = Modifier.height(48.dp))
 
         Text(
-            text = "Welcome to NotiFlow",
+            text = "NotiFlow\uc5d0 \uc624\uc2e0 \uac83\uc744 \ud658\uc601\ud574\uc694!",
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
             color = TextDark,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Manage your flow seamlessly.",
+            text = "\uc54c\ub9bc\uc744 \uae54\ub054\ud558\uac8c \uc815\ub9ac\ud558\uace0\n\ud558\ub8e8\ub97c \uac00\ubccd\uac8c \uc2dc\uc791\ud574 \ubcf4\uc138\uc694",
             style = MaterialTheme.typography.bodyLarge,
             color = TextMuted,
             textAlign = TextAlign.Center
@@ -229,18 +277,18 @@ private fun FeaturesPage() {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Smart Organization",
+            text = "\ub611\ub611\ud55c \uae30\ub2a5\ub4e4",
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
             color = TextDark,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(40.dp))
 
-        FeatureMinimalRow(Icons.Default.AutoAwesome, "AI Filtering", "Automatically categorize important alerts")
+        FeatureMinimalRow(Icons.Default.AutoAwesome, "AI \uc790\ub3d9 \ubd84\ub958", "\uc911\uc694\ud55c \uc54c\ub9bc\uc744 \uc790\ub3d9\uc73c\ub85c \uce74\ud14c\uace0\ub9ac \ubd84\ub958")
         Spacer(modifier = Modifier.height(32.dp))
-        FeatureMinimalRow(Icons.Default.ViewKanban, "Kanban Boards", "Turn notifications into actionable tasks")
+        FeatureMinimalRow(Icons.Default.ViewKanban, "\uce78\ubc18 \ubcf4\ub4dc", "\uc54c\ub9bc\uc744 \uc791\uc5c5 \uce74\ub4dc\ub85c \ubcc0\ud658\ud574 \uad00\ub9ac")
         Spacer(modifier = Modifier.height(32.dp))
-        FeatureMinimalRow(Icons.Default.Insights, "Daily Summaries", "Catch up on what you missed concisely")
+        FeatureMinimalRow(Icons.Default.Insights, "\ud558\ub8e8 \uc694\uc57d", "\ub193\uce5c \uc54c\ub9bc\ub3c4 \ud55c\ub208\uc5d0 \ud655\uc778")
     }
 }
 
@@ -253,10 +301,10 @@ private fun FeatureMinimalRow(icon: ImageVector, title: String, desc: String) {
         Box(
             modifier = Modifier
                 .size(48.dp)
-                .background(SurfaceGray, shape = CircleShape),
+                .background(SurfacePink, shape = CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(imageVector = icon, contentDescription = null, tint = BrandBlue, modifier = Modifier.size(24.dp))
+            Icon(imageVector = icon, contentDescription = null, tint = Sakura, modifier = Modifier.size(24.dp))
         }
         Spacer(modifier = Modifier.width(20.dp))
         Column {
@@ -292,24 +340,27 @@ private fun PermissionPage() {
         Box(
             modifier = Modifier
                 .size(100.dp)
-                .background(SurfaceGray, shape = CircleShape),
+                .background(SurfacePink, shape = CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Shield, contentDescription = null, tint = BrandPurple, modifier = Modifier.size(50.dp))
+            Icon(Icons.Default.Shield, contentDescription = null, tint = Lavender, modifier = Modifier.size(50.dp))
         }
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        Text("Permissions Required", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold), color = TextDark)
+        Text("\uad8c\ud55c \uc124\uc815", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold), color = TextDark)
         Spacer(modifier = Modifier.height(12.dp))
-        Text("NotiFlow needs to access your notifications to organize them for you.", style = MaterialTheme.typography.bodyMedium, color = TextMuted, textAlign = TextAlign.Center)
+        Text(
+            "\uc54c\ub9bc\uc744 \uc815\ub9ac\ud558\ub824\uba74 \uc544\ub798 \uad8c\ud55c\uc774 \ud544\uc694\ud574\uc694",
+            style = MaterialTheme.typography.bodyMedium, color = TextMuted, textAlign = TextAlign.Center
+        )
 
         Spacer(modifier = Modifier.height(40.dp))
 
         PermissionMinimalCard(
             icon = Icons.Default.NotificationsActive,
-            title = "Notification Access",
-            desc = "Required to read incoming alerts (Required)",
+            title = "\uc54c\ub9bc \uc811\uadfc \uad8c\ud55c",
+            desc = "\uc218\uc2e0\ub418\ub294 \uc54c\ub9bc\uc744 \uc77d\uae30 \uc704\ud574 \ud544\uc218",
             isGranted = isNotifListenerEnabled,
             onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
         )
@@ -318,8 +369,8 @@ private fun PermissionPage() {
 
         PermissionMinimalCard(
             icon = Icons.Default.BatteryFull,
-            title = "Battery Optimization",
-            desc = "Ensure background app reliability (Optional)",
+            title = "\ubc30\ud130\ub9ac \ucd5c\uc801\ud654 \ud574\uc81c",
+            desc = "\ubc31\uadf8\ub77c\uc6b4\ub4dc \uc2e4\ud589 \uc548\uc815\uc131 \ud655\ubcf4 (\uc120\ud0dd)",
             isGranted = isBatterOptDisabled,
             onClick = {
                 val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
@@ -336,8 +387,8 @@ private fun PermissionMinimalCard(icon: ImageVector, title: String, desc: String
     Surface(
         onClick = { if (!isGranted) onClick() },
         shape = RoundedCornerShape(16.dp),
-        color = if (isGranted) BrandBlue.copy(alpha = 0.05f) else SurfaceGray,
-        border = BorderStroke(1.dp, if (isGranted) BrandBlue.copy(alpha = 0.3f) else Color(0xFFE5E7EB)),
+        color = if (isGranted) Sakura.copy(alpha = 0.06f) else SurfacePink,
+        border = BorderStroke(1.dp, if (isGranted) Sakura.copy(alpha = 0.3f) else Color(0xFFE8D5E0)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -347,17 +398,39 @@ private fun PermissionMinimalCard(icon: ImageVector, title: String, desc: String
             Icon(
                 imageVector = if (isGranted) Icons.Default.CheckCircle else icon,
                 contentDescription = null,
-                tint = if (isGranted) BrandBlue else TextMuted,
+                tint = if (isGranted) Sakura else TextMuted,
                 modifier = Modifier.size(28.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = if (isGranted) BrandBlue else TextDark)
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = if (isGranted) Sakura else TextDark
+                )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(text = desc, style = MaterialTheme.typography.bodySmall, color = TextMuted)
             }
         }
     }
+}
+
+/** Draw a 4-pointed sparkle star */
+private fun DrawScope.drawStar(center: Offset, radius: Float, color: Color) {
+    val path = Path().apply {
+        for (i in 0 until 4) {
+            val angle = Math.toRadians((i * 90.0) - 90.0)
+            val x = center.x + radius * cos(angle).toFloat()
+            val y = center.y + radius * sin(angle).toFloat()
+            if (i == 0) moveTo(x, y) else lineTo(x, y)
+            val midAngle = Math.toRadians((i * 90.0 + 45.0) - 90.0)
+            val mx = center.x + radius * 0.35f * cos(midAngle).toFloat()
+            val my = center.y + radius * 0.35f * sin(midAngle).toFloat()
+            lineTo(mx, my)
+        }
+        close()
+    }
+    drawPath(path, color)
 }
 
 // ========== Permission Check Functions ==========

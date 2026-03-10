@@ -1109,7 +1109,7 @@ fun GeneralScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "버전 3.6.0",
+                        text = "버전 ${com.hart.notimgmt.BuildConfig.VERSION_NAME}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )

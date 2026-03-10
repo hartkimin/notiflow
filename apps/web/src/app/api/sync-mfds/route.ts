@@ -5,6 +5,7 @@ import {
   runFullSync,
   createSyncLog,
   createAdminSupabase,
+  calculateStartPage,
 } from "@/lib/mfds-sync";
 
 export const maxDuration = 300;
@@ -12,8 +13,9 @@ export const maxDuration = 300;
 export async function POST(req: Request) {
   const body = await req.json();
   const sourceType: string = body.sourceType;
+  const mode: "auto" | "full" = body.mode ?? "auto";
   const continueLogId: number | undefined = body.logId;
-  const startPage: number = body.startPage ?? 1;
+  const explicitStartPage: number | undefined = body.startPage;
   const priorFetched: number = body.priorFetched ?? 0;
   const priorUpserted: number = body.priorUpserted ?? 0;
 
@@ -42,6 +44,24 @@ export async function POST(req: Request) {
     );
   }
 
+  // Determine start page — legacy continuation takes priority, then auto-calculate
+  let startPage = explicitStartPage ?? 1;
+  let calcApiTotal = 0;
+  let syncMode: string = mode;
+
+  if (!continueLogId && !explicitStartPage) {
+    const calc = await calculateStartPage(sourceType, setting.value, mode);
+    if (calc.syncMode === "skip") {
+      return new Response(
+        JSON.stringify({ type: "done", outcome: "skip", totalFetched: 0, totalUpserted: 0, syncMode: "skip" }) + "\n",
+        { headers: { "Content-Type": "application/x-ndjson" } },
+      );
+    }
+    startPage = calc.startPage;
+    calcApiTotal = calc.apiTotal;
+    syncMode = calc.syncMode;
+  }
+
   // Create or reuse sync log
   const logId = continueLogId ?? await createSyncLog("manual", sourceType);
 
@@ -61,7 +81,7 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
       };
 
-      send({ type: "start", logId });
+      send({ type: "start", logId, startPage, apiTotal: calcApiTotal, syncMode });
 
       try {
         const result = await runFullSync(
@@ -71,9 +91,10 @@ export async function POST(req: Request) {
           startPage,
           priorFetched,
           priorUpserted,
-          (progress) => send({ type: "progress", ...progress }),
+          (progress) => send({ type: "progress", ...progress, apiTotal: calcApiTotal, syncMode }),
+          calcApiTotal,
         );
-        send({ type: "done", ...result });
+        send({ type: "done", ...result, apiTotal: calcApiTotal, syncMode });
       } catch (err) {
         send({ type: "error", message: (err as Error).message });
       }

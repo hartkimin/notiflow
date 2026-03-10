@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -203,7 +204,9 @@ export function HospitalTable({ hospitals }: { hospitals: Hospital[] }) {
                     />
                   </TableCell>
                   <TableCell className="font-mono text-xs overflow-hidden text-ellipsis">{h.id}</TableCell>
-                  <TableCell className="font-medium overflow-hidden text-ellipsis">{h.name}</TableCell>
+                  <TableCell className="font-medium overflow-hidden text-ellipsis">
+                    <Link href={`/hospitals/${h.id}`} className="hover:underline text-primary">{h.name}</Link>
+                  </TableCell>
                   <TableCell className="text-muted-foreground text-sm overflow-hidden text-ellipsis">{h.short_name || "-"}</TableCell>
                   <TableCell className="overflow-hidden text-ellipsis">
                     <Badge variant="outline">{TYPE_LABEL[h.hospital_type] || h.hospital_type}</Badge>
@@ -240,7 +243,9 @@ export function HospitalTable({ hospitals }: { hospitals: Hospital[] }) {
             <Card key={h.id}>
               <CardContent className="p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-medium">{h.name}</h3>
+                  <Link href={`/hospitals/${h.id}`} className="hover:underline text-primary">
+                    <h3 className="font-medium">{h.name}</h3>
+                  </Link>
                   <div className="flex items-center gap-1">
                     <Badge variant="outline">{TYPE_LABEL[h.hospital_type] || h.hospital_type}</Badge>
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditItem(h)}>

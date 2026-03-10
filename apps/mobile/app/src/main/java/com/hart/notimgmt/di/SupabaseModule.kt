@@ -1,5 +1,6 @@
 package com.hart.notimgmt.di
 
+import com.hart.notimgmt.BuildConfig
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,15 +19,12 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object SupabaseModule {
 
-    private const val SUPABASE_URL = "https://ssjrenmztyzyonojwfxx.supabase.co"
-    private const val SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzanJlbm16dHl6eW9ub2p3Znh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyODk0MzMsImV4cCI6MjA4NTg2NTQzM30.Ot1NFQGv5Dz_9LInSlSjCZ6PscJngVKk39-rsiJOd6c"
-
     @Provides
     @Singleton
     fun provideSupabaseClient(): SupabaseClient {
         return createSupabaseClient(
-            supabaseUrl = SUPABASE_URL,
-            supabaseKey = SUPABASE_KEY
+            supabaseUrl = BuildConfig.SUPABASE_URL,
+            supabaseKey = BuildConfig.SUPABASE_KEY
         ) {
             install(Auth)
             install(Postgrest)

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { OrderForecast, OrderForecastDetail, ForecastItem } from "@/lib/types";
 
 /**
@@ -9,7 +9,7 @@ export async function getForecastsForCalendar(params: {
   from: string;
   to: string;
 }): Promise<OrderForecast[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("order_forecasts")
     .select("*, hospitals(name)")
@@ -28,7 +28,7 @@ export async function getForecastsForCalendar(params: {
  * Get a single forecast with its items.
  */
 export async function getForecast(id: number): Promise<OrderForecastDetail | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: forecast, error } = await supabase
     .from("order_forecasts")
     .select("*, hospitals(name)")
@@ -38,15 +38,24 @@ export async function getForecast(id: number): Promise<OrderForecastDetail | nul
 
   const { data: items } = await supabase
     .from("forecast_items")
-    .select("*")
+    .select("*, mfds_items(item_name)")
     .eq("forecast_id", id)
     .order("id");
+
+  const mappedItems: ForecastItem[] = (items ?? []).map((row: Record<string, unknown>) => {
+    const mfdsItem = row.mfds_items as { item_name: string } | null;
+    return {
+      ...row,
+      item_name: mfdsItem?.item_name ?? (row.item_name as string | null),
+      mfds_items: undefined,
+    } as unknown as ForecastItem;
+  });
 
   const result = {
     ...forecast,
     hospital_name: (forecast.hospitals as { name: string } | null)?.name ?? undefined,
     hospitals: undefined,
-    items: (items ?? []) as ForecastItem[],
+    items: mappedItems,
   };
   return result as OrderForecastDetail;
 }
@@ -61,7 +70,7 @@ export async function findMatchingForecasts(params: {
 }): Promise<OrderForecast[]> {
   if (!params.hospitalId) return [];
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const msgDate = new Date(params.receivedAt);
   const dayBefore = new Date(msgDate);
   dayBefore.setDate(dayBefore.getDate() - 1);

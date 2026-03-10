@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, LogOut } from "lucide-react";
 import { navGroups, Package2 } from "@/lib/nav-items";
 import { APP_VERSION } from "@/lib/version";
 import { NotificationToggle } from "./notification-toggle";
+import { createClient } from "@/lib/supabase/client";
 import {
   Tooltip,
   TooltipContent,
@@ -22,6 +23,13 @@ interface AppSidebarProps {
 
 export function AppSidebar({ userName, collapsed = false, onToggle }: AppSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   return (
     <TooltipProvider>
@@ -143,23 +151,17 @@ export function AppSidebar({ userName, collapsed = false, onToggle }: AppSidebar
           </div>
 
           {/* Footer */}
-          <div className="border-t">
-            {/* User info */}
-            {userName && (
-              <div className={cn("px-4 py-3", collapsed ? "flex justify-center px-2" : "lg:px-6")}>
-                <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-2")}>
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                    {userName.charAt(0).toUpperCase()}
-                  </div>
-                  {!collapsed && (
-                    <span className="text-sm text-muted-foreground truncate">
-                      {userName}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-
+          <div className="border-t p-2">
+            <button
+              onClick={handleSignOut}
+              className={cn(
+                "group flex w-full items-center rounded-md text-sm font-medium text-muted-foreground transition-all duration-150 ease-out hover:bg-destructive/10 hover:text-destructive active:scale-[0.98]",
+                collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2"
+              )}
+            >
+              <LogOut className="h-4 w-4 shrink-0" />
+              {!collapsed && <span>로그아웃</span>}
+            </button>
           </div>
         </div>
       </div>

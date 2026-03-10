@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -181,7 +182,11 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
                     />
                   </TableCell>
                   <TableCell className="font-mono text-xs overflow-hidden text-ellipsis">{s.id}</TableCell>
-                  <TableCell className="font-medium overflow-hidden text-ellipsis">{s.name}</TableCell>
+                  <TableCell className="font-medium overflow-hidden text-ellipsis">
+                    <Link href={`/suppliers/${s.id}`} className="hover:underline text-primary">
+                      {s.name}
+                    </Link>
+                  </TableCell>
                   <TableCell className="text-muted-foreground text-sm overflow-hidden text-ellipsis">{s.short_name || "-"}</TableCell>
                   <TableCell className="text-sm overflow-hidden text-ellipsis">{s.ceo_name || "-"}</TableCell>
                   <TableCell className="text-sm overflow-hidden text-ellipsis">{s.phone || "-"}</TableCell>
@@ -217,7 +222,9 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
             <Card key={s.id}>
               <CardContent className="p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-medium">{s.name}</h3>
+                  <Link href={`/suppliers/${s.id}`} className="hover:underline text-primary">
+                    <h3 className="font-medium">{s.name}</h3>
+                  </Link>
                   <div className="flex items-center gap-1">
                     <Badge variant={s.is_active ? "default" : "secondary"}>
                       {s.is_active ? "활성" : "비활성"}

@@ -8,7 +8,8 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 // Config
 // ---------------------------------------------------------------------------
 
-const PAGE_SIZE = 500;
+export const PAGE_SIZE = 500;
+const OVERLAP_PAGES = 5;
 
 interface ApiConfig {
   url: string;
@@ -78,6 +79,23 @@ async function fetchPage(
   };
 }
 
+/** Lightweight call: fetch only totalCount without downloading items */
+async function fetchApiTotalCount(
+  config: ApiConfig,
+  apiKey: string,
+): Promise<number> {
+  const params = new URLSearchParams({
+    serviceKey: apiKey,
+    pageNo: "1",
+    numOfRows: "1",
+    type: "json",
+  });
+  const res = await fetch(`${config.url}?${params}`);
+  if (!res.ok) throw new Error(`MFDS API ${res.status}`);
+  const json = await res.json();
+  return (json?.body?.totalCount as number) ?? 0;
+}
+
 // ---------------------------------------------------------------------------
 // Admin Supabase client (service_role, no cookies)
 // ---------------------------------------------------------------------------
@@ -87,6 +105,72 @@ export function createAdminSupabase() {
     process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
+}
+
+// ---------------------------------------------------------------------------
+// Calculate start page for incremental sync
+// ---------------------------------------------------------------------------
+
+export interface StartPageResult {
+  startPage: number;
+  apiTotal: number;
+  dbCount: number;
+  syncMode: "incremental" | "resume" | "full" | "skip";
+}
+
+export async function calculateStartPage(
+  sourceType: string,
+  apiKey: string,
+  mode: "auto" | "full",
+): Promise<StartPageResult> {
+  const admin = createAdminSupabase();
+  const config = MFDS_API_CONFIGS[sourceType];
+  if (!config) throw new Error(`Unknown source type: ${sourceType}`);
+
+  if (mode === "full") {
+    await admin
+      .from("mfds_sync_checkpoints")
+      .upsert({
+        source_type: sourceType,
+        db_count: 0,
+        api_total: 0,
+        last_page: 0,
+        status: "idle",
+        updated_at: new Date().toISOString(),
+      });
+    return { startPage: 1, apiTotal: 0, dbCount: 0, syncMode: "full" };
+  }
+
+  // Read checkpoint
+  const { data: cp } = await admin
+    .from("mfds_sync_checkpoints")
+    .select("*")
+    .eq("source_type", sourceType)
+    .single();
+
+  // If currently syncing (interrupted), resume from last_page + 1
+  if (cp?.status === "syncing") {
+    const apiTotal = await fetchApiTotalCount(config, apiKey);
+    return {
+      startPage: (cp.last_page ?? 0) + 1,
+      apiTotal,
+      dbCount: cp.db_count ?? 0,
+      syncMode: "resume",
+    };
+  }
+
+  // Fetch API totalCount (single lightweight call)
+  const apiTotal = await fetchApiTotalCount(config, apiKey);
+  const dbCount = cp?.db_count ?? 0;
+
+  // Nothing new
+  if (apiTotal === (cp?.api_total ?? 0) && apiTotal <= dbCount) {
+    return { startPage: 0, apiTotal, dbCount, syncMode: "skip" };
+  }
+
+  // Incremental: start from where DB left off, minus overlap for safety
+  const startPage = Math.max(1, Math.floor(dbCount / PAGE_SIZE) + 1 - OVERLAP_PAGES);
+  return { startPage, apiTotal, dbCount, syncMode: "incremental" };
 }
 
 // ---------------------------------------------------------------------------
@@ -121,6 +205,7 @@ export async function runFullSync(
   priorFetched = 0,
   priorUpserted = 0,
   onProgress?: (progress: SyncProgress) => void,
+  apiTotal = 0,
 ): Promise<SyncResult> {
   const admin = createAdminSupabase();
 
@@ -131,6 +216,7 @@ export async function runFullSync(
   let totalFetched = priorFetched;
   let totalUpserted = priorUpserted;
   let currentPage = startPage;
+  let lastTotalCount = apiTotal; // track latest API totalCount
   let outcome: "completed" | "partial" = "completed";
 
   try {
@@ -151,6 +237,18 @@ export async function runFullSync(
           })
           .eq("id", logId);
 
+        // Update checkpoint for resume
+        await admin
+          .from("mfds_sync_checkpoints")
+          .upsert({
+            source_type: sourceType,
+            last_page: currentPage - 1,
+            db_count: totalFetched,
+            api_total: lastTotalCount,
+            status: "syncing",
+            updated_at: new Date().toISOString(),
+          });
+
         onProgress?.({
           totalFetched,
           totalUpserted,
@@ -167,6 +265,7 @@ export async function runFullSync(
       }
 
       const { items, totalCount } = await fetchPage(config, apiKey, currentPage);
+      if (totalCount > 0) lastTotalCount = totalCount;
 
       if (items.length === 0) break;
       totalFetched += items.length;
@@ -213,6 +312,18 @@ export async function runFullSync(
         })
         .eq("id", logId);
 
+      // Update checkpoint
+      await admin
+        .from("mfds_sync_checkpoints")
+        .upsert({
+          source_type: sourceType,
+          last_page: currentPage,
+          db_count: totalFetched,
+          api_total: lastTotalCount,
+          status: "syncing",
+          updated_at: new Date().toISOString(),
+        });
+
       onProgress?.({
         totalFetched,
         totalUpserted,
@@ -237,6 +348,23 @@ export async function runFullSync(
         next_page: null,
       })
       .eq("id", logId);
+
+    // Finalize checkpoint
+    const { count: finalCount } = await admin
+      .from("mfds_items")
+      .select("id", { count: "exact", head: true })
+      .eq("source_type", sourceType);
+
+    await admin
+      .from("mfds_sync_checkpoints")
+      .upsert({
+        source_type: sourceType,
+        last_page: currentPage - 1,
+        db_count: finalCount ?? totalFetched,
+        api_total: lastTotalCount,
+        status: "completed",
+        updated_at: new Date().toISOString(),
+      });
 
     return {
       totalFetched,

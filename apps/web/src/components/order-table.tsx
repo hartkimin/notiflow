@@ -318,7 +318,7 @@ const OrderGroupRow = memo(function OrderGroupRow({
 
 interface ItemEdits {
   quantity: number;
-  product_id: number | null;
+  mfds_item_id: number | null;
   supplier_id: number | null;
 }
 
@@ -361,7 +361,7 @@ function OrderAccordionContent({
     for (const item of group.items) {
       initial[item.id] = {
         quantity: item.quantity,
-        product_id: item.product_id,
+        mfds_item_id: item.mfds_item_id,
         supplier_id: item.supplier_id ?? null,
       };
     }
@@ -381,10 +381,10 @@ function OrderAccordionContent({
         for (const item of group.items) {
           const edits = editItems[item.id];
           if (!edits) continue;
-          const changes: { quantity?: number; product_id?: number; supplier_id?: number | null } = {};
+          const changes: { quantity?: number; mfds_item_id?: number; supplier_id?: number | null } = {};
           if (edits.quantity !== item.quantity) changes.quantity = edits.quantity;
-          if (edits.product_id !== item.product_id && edits.product_id != null) {
-            changes.product_id = edits.product_id;
+          if (edits.mfds_item_id !== item.mfds_item_id && edits.mfds_item_id != null) {
+            changes.mfds_item_id = edits.mfds_item_id;
           }
           if (edits.supplier_id !== (item.supplier_id ?? null)) {
             changes.supplier_id = edits.supplier_id;
@@ -527,8 +527,9 @@ function OrderAccordionContent({
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs">품목</TableHead>
-                <TableHead className="text-xs text-right w-[70px]">수량/개</TableHead>
-                <TableHead className="text-xs text-right w-[70px]">수량/박스</TableHead>
+                <TableHead className="text-xs text-right w-[70px]">수량</TableHead>
+                <TableHead className="text-xs text-right w-[70px]">할인율</TableHead>
+                <TableHead className="text-xs text-right w-[80px]">최종가</TableHead>
                 <TableHead className="text-xs w-[80px]">매입처</TableHead>
                 <TableHead className="text-xs w-[80px]">KPIS</TableHead>
               </TableRow>
@@ -550,8 +551,8 @@ function OrderAccordionContent({
                               className="h-7 w-full max-w-[220px] justify-between font-normal text-sm px-2"
                             >
                               <span className="truncate">
-                                {editItems[item.id]?.product_id
-                                  ? products.find((p) => p.id === editItems[item.id]?.product_id)?.name ?? "미매칭"
+                                {editItems[item.id]?.mfds_item_id
+                                  ? products.find((p) => p.id === editItems[item.id]?.mfds_item_id)?.name ?? "미매칭"
                                   : "품목 검색..."}
                               </span>
                               <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
@@ -568,14 +569,14 @@ function OrderAccordionContent({
                                       key={p.id}
                                       value={p.name}
                                       onSelect={() => {
-                                        updateItemField(item.id, "product_id", p.id);
+                                        updateItemField(item.id, "mfds_item_id", p.id);
                                         setProductOpenId(null);
                                       }}
                                     >
                                       <Check
                                         className={cn(
                                           "mr-2 h-4 w-4 shrink-0",
-                                          editItems[item.id]?.product_id === p.id ? "opacity-100" : "opacity-0",
+                                          editItems[item.id]?.mfds_item_id === p.id ? "opacity-100" : "opacity-0",
                                         )}
                                       />
                                       <span className="truncate">{p.name}</span>
@@ -589,7 +590,7 @@ function OrderAccordionContent({
                       </div>
                     ) : (
                       <>
-                        {item.product_name}
+                        {item.item_name}
                       </>
                     )}
                   </TableCell>
@@ -609,7 +610,10 @@ function OrderAccordionContent({
                     )}
                   </TableCell>
                   <TableCell className="text-right text-sm tabular-nums">
-                    {item.box_quantity != null ? item.box_quantity.toLocaleString() : "-"}
+                    {item.discount_rate ? `${item.discount_rate}%` : "-"}
+                  </TableCell>
+                  <TableCell className="text-right text-sm tabular-nums">
+                    {item.final_price != null ? item.final_price.toLocaleString() : "-"}
                   </TableCell>
                   <TableCell className="text-sm">
                     {isEditing ? (

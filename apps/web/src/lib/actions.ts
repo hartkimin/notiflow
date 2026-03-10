@@ -1,14 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { SyncDiffEntry, MfdsApiSource } from "@/lib/types";
 import type { FilterChip } from "@/lib/mfds-search-utils";
 
 // --- Messages (captured_messages soft delete) ---
 
 export async function deleteMessage(id: string) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from("captured_messages")
     .update({ is_deleted: true })
@@ -20,7 +20,7 @@ export async function deleteMessage(id: string) {
 
 export async function deleteMessages(ids: string[]) {
   if (ids.length === 0) return { success: true };
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from("captured_messages")
     .update({ is_deleted: true })
@@ -43,7 +43,7 @@ export async function createHospital(data: {
   payment_terms?: string;
   lead_time_days?: number;
 }) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("hospitals").insert(data);
   if (error) throw error;
   revalidatePath("/hospitals");
@@ -51,7 +51,7 @@ export async function createHospital(data: {
 }
 
 export async function updateHospital(id: number, data: Record<string, unknown>) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("hospitals").update(data).eq("id", id);
   if (error) throw error;
   revalidatePath("/hospitals");
@@ -59,7 +59,7 @@ export async function updateHospital(id: number, data: Record<string, unknown>) 
 }
 
 export async function deleteHospital(id: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("hospitals").delete().eq("id", id);
   if (error) throw error;
   revalidatePath("/hospitals");
@@ -68,7 +68,7 @@ export async function deleteHospital(id: number) {
 
 export async function deleteHospitals(ids: number[]) {
   if (ids.length === 0) return { success: true };
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("hospitals").delete().in("id", ids);
   if (error) throw error;
   revalidatePath("/hospitals");
@@ -78,7 +78,7 @@ export async function deleteHospitals(ids: number[]) {
 // --- Orders ---
 
 export async function deleteOrder(id: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("orders").delete().eq("id", id);
   if (error) throw error;
   revalidatePath("/orders");
@@ -87,7 +87,7 @@ export async function deleteOrder(id: number) {
 }
 
 export async function updateOrder(id: number, data: Record<string, unknown>) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("orders").update(data).eq("id", id);
   if (error) throw error;
   revalidatePath("/orders");
@@ -97,7 +97,7 @@ export async function updateOrder(id: number, data: Record<string, unknown>) {
 
 export async function deleteOrders(ids: number[]) {
   if (ids.length === 0) return { success: true };
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("orders").delete().in("id", ids);
   if (error) throw error;
   revalidatePath("/orders");
@@ -107,9 +107,17 @@ export async function deleteOrders(ids: number[]) {
 
 export async function updateOrderItem(
   id: number,
-  data: { quantity?: number; unit_price?: number; product_id?: number; supplier_id?: number | null },
+  data: {
+    quantity?: number;
+    unit_price?: number;
+    mfds_item_id?: number;
+    supplier_id?: number | null;
+    purchase_price?: number | null;
+    discount_rate?: number;
+    final_price?: number | null;
+  },
 ) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("order_items").update(data).eq("id", id);
   if (error) throw error;
   revalidatePath("/orders");
@@ -117,7 +125,7 @@ export async function updateOrderItem(
 }
 
 export async function deleteOrderItem(id: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("order_items").delete().eq("id", id);
   if (error) throw error;
   revalidatePath("/orders");
@@ -139,7 +147,7 @@ export async function createSupplier(data: {
   business_category?: string;
   notes?: string;
 }) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("suppliers").insert(data);
   if (error) throw error;
   revalidatePath("/suppliers");
@@ -147,7 +155,7 @@ export async function createSupplier(data: {
 }
 
 export async function updateSupplier(id: number, data: Record<string, unknown>) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("suppliers").update(data).eq("id", id);
   if (error) throw error;
   revalidatePath("/suppliers");
@@ -155,7 +163,7 @@ export async function updateSupplier(id: number, data: Record<string, unknown>) 
 }
 
 export async function deleteSupplier(id: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("suppliers").delete().eq("id", id);
   if (error) throw error;
   revalidatePath("/suppliers");
@@ -164,47 +172,183 @@ export async function deleteSupplier(id: number) {
 
 export async function deleteSuppliers(ids: number[]) {
   if (ids.length === 0) return { success: true };
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("suppliers").delete().in("id", ids);
   if (error) throw error;
   revalidatePath("/suppliers");
   return { success: true };
 }
 
+// --- Hospital Items (junction: hospital_items) ---
+
+export async function addHospitalItems(hospitalId: number, mfdsItemIds: number[]) {
+  if (mfdsItemIds.length === 0) return { success: true };
+  const supabase = createAdminClient();
+  const rows = mfdsItemIds.map((mfdsItemId) => ({
+    hospital_id: hospitalId,
+    mfds_item_id: mfdsItemId,
+  }));
+  const { error } = await supabase
+    .from("hospital_items")
+    .upsert(rows, { onConflict: "hospital_id,mfds_item_id" });
+  if (error) throw error;
+  revalidatePath(`/hospitals/${hospitalId}`);
+  revalidatePath("/hospitals");
+  return { success: true };
+}
+
+export async function updateHospitalItem(
+  id: number,
+  data: { delivery_price?: number | null },
+) {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("hospital_items")
+    .update(data)
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/hospitals");
+  return { success: true };
+}
+
+export async function removeHospitalItem(id: number) {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("hospital_items").delete().eq("id", id);
+  if (error) throw error;
+  revalidatePath("/hospitals");
+  return { success: true };
+}
+
+export async function updateHospitalMarginRate(hospitalId: number, rate: number) {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("hospitals")
+    .update({ default_margin_rate: rate })
+    .eq("id", hospitalId);
+  if (error) throw error;
+  revalidatePath(`/hospitals/${hospitalId}`);
+  revalidatePath("/hospitals");
+  return { success: true };
+}
+
+// --- Supplier Items (junction: supplier_items) ---
+
+export async function addSupplierItems(supplierId: number, mfdsItemIds: number[]) {
+  if (mfdsItemIds.length === 0) return { success: true };
+  const supabase = createAdminClient();
+  const rows = mfdsItemIds.map((mfdsItemId) => ({
+    supplier_id: supplierId,
+    mfds_item_id: mfdsItemId,
+  }));
+  const { error } = await supabase
+    .from("supplier_items")
+    .upsert(rows, { onConflict: "supplier_id,mfds_item_id" });
+  if (error) throw error;
+  revalidatePath(`/suppliers/${supplierId}`);
+  revalidatePath("/suppliers");
+  return { success: true };
+}
+
+export async function updateSupplierItem(
+  id: number,
+  data: { purchase_price?: number | null; is_primary?: boolean },
+) {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("supplier_items")
+    .update(data)
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/suppliers");
+  return { success: true };
+}
+
+export async function removeSupplierItem(id: number) {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("supplier_items").delete().eq("id", id);
+  if (error) throw error;
+  revalidatePath("/suppliers");
+  return { success: true };
+}
+
+export async function searchFavoriteItems(query: string): Promise<
+  Array<{
+    id: number;
+    source_type: string;
+    item_name: string;
+    manufacturer: string | null;
+    standard_code: string | null;
+  }>
+> {
+  const supabase = createAdminClient();
+  const q = `%${query}%`;
+
+  const { data, error } = await supabase
+    .from("mfds_items")
+    .select("id, source_type, item_name, manufacturer, standard_code")
+    .eq("is_favorite", true)
+    .or(`item_name.ilike.${q},manufacturer.ilike.${q},standard_code.ilike.${q}`)
+    .limit(50);
+
+  if (error) throw error;
+  return (data ?? []).map((d) => ({
+    id: d.id as number,
+    source_type: (d.source_type as string) ?? "",
+    item_name: (d.item_name as string) ?? "",
+    manufacturer: d.manufacturer as string | null,
+    standard_code: d.standard_code as string | null,
+  }));
+}
+
 // --- Mobile Devices ---
 
 export async function updateDevice(id: string, data: Record<string, unknown>) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("mobile_devices").update(data).eq("id", id);
+  const admin = createAdminClient();
+  const { error } = await admin.from("mobile_devices").update(data).eq("id", id);
   if (error) throw error;
   revalidatePath("/devices");
   return { success: true };
 }
 
 export async function requestDeviceSync(id: string) {
-  const supabase = await createClient();
-  const { data, error } = await supabase.functions.invoke("trigger-sync", {
-    body: { device_id: id },
-  });
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+  const { error } = await admin
+    .from("mobile_devices")
+    .update({ sync_requested_at: now })
+    .eq("id", id);
   if (error) {
-    return { success: false, error: data?.error ?? error.message ?? "동기화 요청 실패", fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
+    return { success: false, error: error.message, fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
   }
   revalidatePath("/devices");
   revalidatePath("/dashboard");
-  return data as { success: boolean; fcm_sent: number; fcm_failed: number; realtime_updated: number };
+  return { success: true, fcm_sent: 0, fcm_failed: 0, realtime_updated: 1 };
 }
 
 export async function requestAllDevicesSync() {
-  const supabase = await createClient();
-  const { data, error } = await supabase.functions.invoke("trigger-sync", {
-    body: { device_id: "all" },
-  });
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+  const { data: devices, error: queryError } = await admin
+    .from("mobile_devices")
+    .select("id")
+    .eq("is_active", true);
+  if (queryError) {
+    return { success: false, error: queryError.message, fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
+  }
+  const ids = (devices ?? []).map((d) => d.id);
+  if (ids.length === 0) {
+    return { success: true, fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
+  }
+  const { error } = await admin
+    .from("mobile_devices")
+    .update({ sync_requested_at: now })
+    .in("id", ids);
   if (error) {
-    return { success: false, error: data?.error ?? error.message ?? "동기화 요청 실패", fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
+    return { success: false, error: error.message, fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
   }
   revalidatePath("/devices");
   revalidatePath("/dashboard");
-  return data as { success: boolean; fcm_sent: number; fcm_failed: number; realtime_updated: number };
+  return { success: true, fcm_sent: 0, fcm_failed: 0, realtime_updated: ids.length };
 }
 
 // --- Users (via manage-users Edge Function) ---
@@ -215,39 +359,83 @@ export async function createUser(data: {
   name: string;
   role?: string;
 }) {
-  const supabase = await createClient();
-  const { data: result, error } = await supabase.functions.invoke("manage-users", {
-    body: { _action: "create", ...data },
-  });
-  if (error) {
-    return { error: result?.error ?? error.message ?? "사용자 생성 실패" };
+  const admin = createAdminClient();
+  const { email, password, name, role = "viewer" } = data;
+
+  const validRoles = ["admin", "manager", "viewer"];
+  if (!validRoles.includes(role)) {
+    return { error: `Invalid role. Must be one of: ${validRoles.join(", ")}` };
   }
+
+  const { data: newUser, error: createError } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+
+  if (createError) {
+    return { error: `사용자 생성 실패: ${createError.message}` };
+  }
+
+  const { error: profileError } = await admin
+    .from("user_profiles")
+    .insert({ id: newUser.user.id, name, role, is_active: true });
+
+  if (profileError) {
+    await admin.auth.admin.deleteUser(newUser.user.id);
+    return { error: `프로필 생성 실패: ${profileError.message}` };
+  }
+
   revalidatePath("/users");
-  return result;
+  return {
+    user: {
+      id: newUser.user.id,
+      email: newUser.user.email,
+      name,
+      role,
+      is_active: true,
+    },
+  };
 }
 
 export async function updateUser(id: string, data: Record<string, unknown>) {
-  const supabase = await createClient();
-  const { data: result, error } = await supabase.functions.invoke("manage-users", {
-    body: { _action: "update", id, ...data },
-  });
-  if (error) {
-    return { error: result?.error ?? error.message ?? "사용자 수정 실패" };
+  const admin = createAdminClient();
+
+  const profileUpdate: Record<string, unknown> = {};
+  if (data.name !== undefined) profileUpdate.name = data.name;
+  if (data.role !== undefined) profileUpdate.role = data.role;
+  if (data.is_active !== undefined) profileUpdate.is_active = data.is_active;
+
+  if (Object.keys(profileUpdate).length > 0) {
+    const { error } = await admin
+      .from("user_profiles")
+      .upsert({ id, ...profileUpdate }, { onConflict: "id" });
+    if (error) return { error: `사용자 수정 실패: ${error.message}` };
   }
+
+  if (data.password) {
+    const { error } = await admin.auth.admin.updateUserById(id, {
+      password: data.password as string,
+    });
+    if (error) return { error: `비밀번호 변경 실패: ${error.message}` };
+  }
+
   revalidatePath("/users");
-  return result;
+  return { success: true };
 }
 
 export async function deleteUser(id: string) {
-  const supabase = await createClient();
-  const { data: result, error } = await supabase.functions.invoke("manage-users", {
-    body: { _action: "delete", id },
-  });
-  if (error) {
-    return { error: result?.error ?? error.message ?? "사용자 비활성화 실패" };
-  }
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("user_profiles")
+    .update({ is_active: false })
+    .eq("id", id);
+
+  if (error) return { error: `사용자 비활성화 실패: ${error.message}` };
+
   revalidatePath("/users");
-  return result;
+  return { success: true, id };
 }
 
 // --- KPIS Reports ---
@@ -256,7 +444,7 @@ export async function upsertKpisReport(
   orderItemId: number,
   data: { report_status?: string; notes?: string },
 ) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   // Check existing
   const { data: existing } = await supabase
     .from("kpis_reports")
@@ -282,7 +470,7 @@ export async function upsertKpisReport(
 // --- Order Comments ---
 
 export async function createOrderComment(orderId: number, content: string) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
   const { error } = await supabase.from("order_comments").insert({
     order_id: orderId,
@@ -295,7 +483,7 @@ export async function createOrderComment(orderId: number, content: string) {
 }
 
 export async function deleteOrderComment(commentId: number, orderId: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("order_comments").delete().eq("id", commentId);
   if (error) throw error;
   revalidatePath(`/orders/${orderId}`);
@@ -303,7 +491,7 @@ export async function deleteOrderComment(commentId: number, orderId: number) {
 }
 
 export async function getOrderComments(orderId: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("order_comments")
     .select("*")
@@ -316,7 +504,7 @@ export async function getOrderComments(orderId: number) {
 // --- MFDS Direct API Search ---
 
 async function getMfdsApiKey(): Promise<string> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data } = await supabase
     .from("settings")
     .select("value")
@@ -349,6 +537,7 @@ export async function searchMfdsItems(params: {
   filters?: FilterChip[];
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  favoritesOnly?: boolean;
 }): Promise<{
   items: Record<string, unknown>[];
   totalCount: number;
@@ -363,9 +552,10 @@ export async function searchMfdsItems(params: {
     filters = [],
     sortBy,
     sortOrder = "asc",
+    favoritesOnly = false,
   } = params;
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const q = query.trim();
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
@@ -375,6 +565,10 @@ export async function searchMfdsItems(params: {
     .from("mfds_items")
     .select("*", { count: "exact" })
     .eq("source_type", sourceType);
+
+  if (favoritesOnly) {
+    dbQuery = dbQuery.eq("is_favorite", true);
+  }
 
   // Apply text search
   if (q) {
@@ -463,9 +657,15 @@ export async function searchMfdsItems(params: {
 
   if (error) throw new Error(`DB 검색 오류: ${error.message}`);
 
-  // Extract raw_data from each row (this is what the UI expects)
+  // Merge raw_data with row metadata (id, synced_at, unit_price, is_favorite)
   const items = (data ?? []).map(
-    (row: { raw_data: Record<string, unknown> }) => row.raw_data,
+    (row: { id: number; raw_data: Record<string, unknown>; synced_at: string; unit_price: number | null; is_favorite: boolean }) => ({
+      ...(row.raw_data as Record<string, unknown>),
+      id: row.id,
+      synced_at: row.synced_at,
+      unit_price: row.unit_price,
+      is_favorite: row.is_favorite,
+    }),
   );
 
   return {
@@ -487,7 +687,7 @@ export async function getMfdsSyncProgress(logId: number): Promise<{
   sourceType: string | null;
   nextPage: number | null;
 }> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data } = await supabase
     .from("mfds_sync_logs")
     .select("status, total_fetched, total_upserted, error_message, source_type, next_page")
@@ -511,7 +711,7 @@ export async function getActiveSyncLog(): Promise<{
   totalFetched: number;
   totalUpserted: number;
 } | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data } = await supabase
     .from("mfds_sync_logs")
     .select("id, source_type, total_fetched, total_upserted")
@@ -529,14 +729,102 @@ export async function getActiveSyncLog(): Promise<{
   };
 }
 
+/**
+ * Find a resumable sync log for the given source type.
+ * - "partial" logs → resume from next_page
+ * - Stale "running" logs (started > 5 min ago) → calculate next_page, mark as partial
+ * - Stale "running" with 0 progress → mark as error and skip
+ */
+const SYNC_PAGE_SIZE = 500; // Must match mfds-sync.ts PAGE_SIZE
+const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
+export async function getResumableSyncLog(sourceType: string): Promise<{
+  logId: number;
+  nextPage: number;
+  totalFetched: number;
+  totalUpserted: number;
+} | null> {
+  const admin = createAdminClient();
+
+  // 1. Check for partial sync (has next_page set)
+  const { data: partial } = await admin
+    .from("mfds_sync_logs")
+    .select("id, next_page, total_fetched, total_upserted")
+    .eq("source_type", sourceType)
+    .eq("status", "partial")
+    .not("next_page", "is", null)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (partial) {
+    return {
+      logId: partial.id,
+      nextPage: partial.next_page,
+      totalFetched: partial.total_fetched,
+      totalUpserted: partial.total_upserted,
+    };
+  }
+
+  // 2. Check for stale "running" sync (started > 5 min ago, server likely dead)
+  const staleThreshold = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
+  const { data: stale } = await admin
+    .from("mfds_sync_logs")
+    .select("id, total_fetched, total_upserted, started_at, duration_ms")
+    .eq("source_type", sourceType)
+    .eq("status", "running")
+    .lt("started_at", staleThreshold)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (stale && stale.total_fetched > 0) {
+    // Calculate next page from total_fetched (UPSERT is idempotent, so overlap is safe)
+    const nextPage = Math.floor(stale.total_fetched / SYNC_PAGE_SIZE) + 1;
+
+    // Mark as partial so it can be resumed
+    await admin
+      .from("mfds_sync_logs")
+      .update({ status: "partial", next_page: nextPage })
+      .eq("id", stale.id);
+
+    return {
+      logId: stale.id,
+      nextPage,
+      totalFetched: stale.total_fetched,
+      totalUpserted: stale.total_upserted,
+    };
+  }
+
+  // 3. Clean up stale running logs with no progress
+  if (stale && stale.total_fetched === 0) {
+    await admin
+      .from("mfds_sync_logs")
+      .update({
+        status: "error",
+        error_message: "동기화 프로세스 중단 (진행 없음)",
+        finished_at: new Date().toISOString(),
+      })
+      .eq("id", stale.id);
+  }
+
+  return null;
+}
+
 export async function getMfdsSyncStatus(): Promise<{
   lastSync: string | null;
   drugCount: number;
   deviceCount: number;
+  lastDrugSync: string | null;
+  lastDeviceSync: string | null;
+  favDrugCount: number;
+  favDeviceCount: number;
+  drugApiTotal: number;
+  deviceApiTotal: number;
 }> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
-  const [lastSyncResult, drugCountResult, deviceCountResult] =
+  const [lastSyncResult, drugCountResult, deviceCountResult, lastDrugSyncResult, lastDeviceSyncResult, favDrugResult, favDeviceResult, checkpointResult] =
     await Promise.all([
       supabase
         .from("mfds_sync_logs")
@@ -553,12 +841,53 @@ export async function getMfdsSyncStatus(): Promise<{
         .from("mfds_items")
         .select("id", { count: "exact", head: true })
         .eq("source_type", "device_std"),
+      supabase
+        .from("mfds_sync_logs")
+        .select("finished_at")
+        .eq("status", "completed")
+        .eq("source_type", "drug")
+        .order("finished_at", { ascending: false })
+        .limit(1)
+        .single(),
+      supabase
+        .from("mfds_sync_logs")
+        .select("finished_at")
+        .eq("status", "completed")
+        .eq("source_type", "device_std")
+        .order("finished_at", { ascending: false })
+        .limit(1)
+        .single(),
+      supabase
+        .from("mfds_items")
+        .select("id", { count: "exact", head: true })
+        .eq("source_type", "drug")
+        .eq("is_favorite", true),
+      supabase
+        .from("mfds_items")
+        .select("id", { count: "exact", head: true })
+        .eq("source_type", "device_std")
+        .eq("is_favorite", true),
+      supabase
+        .from("mfds_sync_checkpoints")
+        .select("source_type, api_total")
+        .in("source_type", ["drug", "device_std"]),
     ]);
+
+  const checkpointMap: Record<string, number> = {};
+  for (const row of checkpointResult.data ?? []) {
+    checkpointMap[row.source_type] = row.api_total;
+  }
 
   return {
     lastSync: lastSyncResult.data?.finished_at ?? null,
     drugCount: drugCountResult.count ?? 0,
     deviceCount: deviceCountResult.count ?? 0,
+    lastDrugSync: lastDrugSyncResult.data?.finished_at ?? null,
+    lastDeviceSync: lastDeviceSyncResult.data?.finished_at ?? null,
+    favDrugCount: favDrugResult.count ?? 0,
+    favDeviceCount: favDeviceResult.count ?? 0,
+    drugApiTotal: checkpointMap["drug"] ?? 0,
+    deviceApiTotal: checkpointMap["device_std"] ?? 0,
   };
 }
 
@@ -622,102 +951,100 @@ export async function searchMfdsDevice(
   };
 }
 
-// --- My Drugs / My Devices ---
+// --- Favorites (mfds_items.is_favorite) ---
 
 export async function addToMyDrugs(item: Record<string, unknown>) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
+  const itemId = item.id as number | undefined;
+  const itemSeq = (item.ITEM_SEQ as string) ?? null;
   const barCode = (item.BAR_CODE as string) ?? null;
 
-  if (barCode) {
-    const { data: existing } = await supabase
-      .from("my_drugs")
-      .select("id")
-      .eq("bar_code", barCode)
-      .maybeSingle();
-    if (existing) return { success: true, id: existing.id, alreadyExists: true };
+  // Find the existing mfds_items row
+  let query = supabase.from("mfds_items").select("id, is_favorite").eq("source_type", "drug");
+  if (itemId) {
+    query = query.eq("id", itemId);
+  } else if (itemSeq) {
+    query = query.eq("source_key", itemSeq);
+  } else if (barCode) {
+    query = query.eq("standard_code", barCode);
+  } else {
+    throw new Error("품목 식별 정보가 없습니다.");
   }
 
-  const row: Record<string, unknown> = {};
-  const drugKeys = [
-    "ITEM_SEQ", "ITEM_NAME", "ITEM_ENG_NAME", "ENTP_NAME", "ENTP_NO",
-    "ITEM_PERMIT_DATE", "CNSGN_MANUF", "ETC_OTC_CODE", "CHART", "BAR_CODE",
-    "MATERIAL_NAME", "EE_DOC_ID", "UD_DOC_ID", "NB_DOC_ID", "STORAGE_METHOD",
-    "VALID_TERM", "PACK_UNIT", "EDI_CODE", "PERMIT_KIND_NAME", "CANCEL_DATE",
-    "CANCEL_NAME", "CHANGE_DATE", "ATC_CODE", "RARE_DRUG_YN",
-  ];
-  for (const key of drugKeys) {
-    row[key.toLowerCase()] = (item[key] as string) ?? null;
-  }
+  const { data: existing } = await query.maybeSingle();
+  if (!existing) throw new Error("검색 데이터베이스에서 해당 품목을 찾을 수 없습니다.");
+  if (existing.is_favorite) return { success: true, id: existing.id, alreadyExists: true };
 
-  const { data, error } = await supabase
-    .from("my_drugs")
-    .insert(row)
-    .select("id")
-    .single();
+  const { error } = await supabase
+    .from("mfds_items")
+    .update({ is_favorite: true, favorited_at: new Date().toISOString() })
+    .eq("id", existing.id);
   if (error) throw error;
 
   revalidatePath("/products");
-  return { success: true, id: data.id, alreadyExists: false };
+  revalidatePath("/products/my");
+  return { success: true, id: existing.id, alreadyExists: false };
 }
 
 export async function addToMyDevices(item: Record<string, unknown>) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
+  const itemId = item.id as number | undefined;
   const udidiCd = (item.UDIDI_CD as string) ?? null;
 
-  if (udidiCd) {
-    const { data: existing } = await supabase
-      .from("my_devices")
-      .select("id")
-      .eq("udidi_cd", udidiCd)
-      .maybeSingle();
-    if (existing) return { success: true, id: existing.id, alreadyExists: true };
+  let query = supabase.from("mfds_items").select("id, is_favorite").eq("source_type", "device_std");
+  if (itemId) {
+    query = query.eq("id", itemId);
+  } else if (udidiCd) {
+    query = query.or(`source_key.eq.${udidiCd},standard_code.eq.${udidiCd}`);
+  } else {
+    throw new Error("품목 식별 정보가 없습니다.");
   }
 
-  const row: Record<string, unknown> = {};
-  const deviceKeys = [
-    "UDIDI_CD", "PRDLST_NM", "MNFT_IPRT_ENTP_NM", "MDEQ_CLSF_NO",
-    "CLSF_NO_GRAD_CD", "PERMIT_NO", "PRMSN_YMD", "FOML_INFO", "PRDT_NM_INFO",
-    "HMBD_TRSPT_MDEQ_YN", "DSPSBL_MDEQ_YN", "TRCK_MNG_TRGT_YN", "TOTAL_DEV",
-    "CMBNMD_YN", "USE_BEFORE_STRLZT_NEED_YN", "STERILIZATION_METHOD_NM",
-    "USE_PURPS_CONT", "STRG_CND_INFO", "CIRC_CND_INFO", "RCPRSLRY_TRGT_YN",
-  ];
-  for (const key of deviceKeys) {
-    row[key.toLowerCase()] = (item[key] as string) ?? null;
-  }
+  const { data: existing } = await query.maybeSingle();
+  if (!existing) throw new Error("검색 데이터베이스에서 해당 품목을 찾을 수 없습니다.");
+  if (existing.is_favorite) return { success: true, id: existing.id, alreadyExists: true };
 
-  const { data, error } = await supabase
-    .from("my_devices")
-    .insert(row)
-    .select("id")
-    .single();
+  const { error } = await supabase
+    .from("mfds_items")
+    .update({ is_favorite: true, favorited_at: new Date().toISOString() })
+    .eq("id", existing.id);
   if (error) throw error;
 
   revalidatePath("/products");
-  return { success: true, id: data.id, alreadyExists: false };
+  revalidatePath("/products/my");
+  return { success: true, id: existing.id, alreadyExists: false };
 }
 
 export async function deleteMyDrug(id: number) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("my_drugs").delete().eq("id", id);
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("mfds_items")
+    .update({ is_favorite: false, favorited_at: null, unit_price: null })
+    .eq("id", id);
   if (error) throw error;
   revalidatePath("/products/my");
+  revalidatePath("/products");
   return { success: true };
 }
 
 export async function deleteMyDevice(id: number) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("my_devices").delete().eq("id", id);
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("mfds_items")
+    .update({ is_favorite: false, favorited_at: null, unit_price: null })
+    .eq("id", id);
   if (error) throw error;
   revalidatePath("/products/my");
+  revalidatePath("/products");
   return { success: true };
 }
 
 // --- Price update ---
 
 export async function updateMyDrugPrice(id: number, unitPrice: number | null) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
-    .from("my_drugs")
+    .from("mfds_items")
     .update({ unit_price: unitPrice })
     .eq("id", id);
   if (error) throw error;
@@ -726,9 +1053,9 @@ export async function updateMyDrugPrice(id: number, unitPrice: number | null) {
 }
 
 export async function updateMyDevicePrice(id: number, unitPrice: number | null) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
-    .from("my_devices")
+    .from("mfds_items")
     .update({ unit_price: unitPrice })
     .eq("id", id);
   if (error) throw error;
@@ -778,18 +1105,21 @@ const DEVICE_LABELS: Record<string, string> = {
 };
 
 export async function syncMyDrug(id: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
-  const { data: drug, error } = await supabase
-    .from("my_drugs")
-    .select("*")
+  const { data: item, error } = await supabase
+    .from("mfds_items")
+    .select("source_key, raw_data")
     .eq("id", id)
     .single();
   if (error) throw error;
 
-  if (!drug.item_seq) return { found: false, changes: [] as SyncDiffEntry[] };
+  const rawData = item.raw_data as Record<string, unknown>;
+  const itemSeq = item.source_key ?? "";
+  if (!itemSeq) return { found: false, changes: [] as SyncDiffEntry[] };
 
-  const apiResult = await searchMfdsDrug({ ITEM_SEQ: drug.item_seq ?? "" });
+  // 품목기준코드(item_seq)로 식약처 API 검색
+  const apiResult = await searchMfdsDrug({ item_seq: itemSeq });
   if (apiResult.items.length === 0) {
     return { found: false, changes: [] as SyncDiffEntry[] };
   }
@@ -798,37 +1128,41 @@ export async function syncMyDrug(id: number) {
   const changes: SyncDiffEntry[] = [];
 
   for (const apiKey of DRUG_API_KEYS) {
-    const dbKey = apiKey.toLowerCase();
-    const oldVal = (drug[dbKey] as string) ?? "";
-    const newVal = ((apiItem[apiKey] as string) ?? "");
+    const oldVal = (rawData[apiKey] as string) ?? "";
+    const newVal = (apiItem[apiKey] as string) ?? "";
     if (oldVal !== newVal) {
       changes.push({
-        column: dbKey,
-        label: DRUG_LABELS[dbKey] ?? dbKey,
+        column: apiKey,
+        label: DRUG_LABELS[apiKey.toLowerCase()] ?? apiKey,
         oldValue: oldVal,
         newValue: newVal,
       });
     }
   }
 
-  await supabase.from("my_drugs").update({ synced_at: new Date().toISOString() }).eq("id", id);
+  await supabase.from("mfds_items")
+    .update({ synced_at: new Date().toISOString() })
+    .eq("id", id);
 
   return { found: true, changes };
 }
 
 export async function syncMyDevice(id: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
-  const { data: device, error } = await supabase
-    .from("my_devices")
-    .select("*")
+  const { data: item, error } = await supabase
+    .from("mfds_items")
+    .select("source_key, raw_data")
     .eq("id", id)
     .single();
   if (error) throw error;
 
-  if (!device.udidi_cd) return { found: false, changes: [] as SyncDiffEntry[] };
+  const rawData = item.raw_data as Record<string, unknown>;
+  const udidiCd = item.source_key ?? "";
+  if (!udidiCd) return { found: false, changes: [] as SyncDiffEntry[] };
 
-  const apiResult = await searchMfdsDevice({ UDIDI_CD: device.udidi_cd ?? "" });
+  // UDI-DI코드로 식약처 API 검색
+  const apiResult = await searchMfdsDevice({ UDIDI_CD: udidiCd });
   if (apiResult.items.length === 0) {
     return { found: false, changes: [] as SyncDiffEntry[] };
   }
@@ -837,51 +1171,80 @@ export async function syncMyDevice(id: number) {
   const changes: SyncDiffEntry[] = [];
 
   for (const apiKey of DEVICE_API_KEYS) {
-    const dbKey = apiKey.toLowerCase();
-    const oldVal = (device[dbKey] as string) ?? "";
-    const newVal = ((apiItem[apiKey] as string) ?? "");
+    const oldVal = (rawData[apiKey] as string) ?? "";
+    const newVal = (apiItem[apiKey] as string) ?? "";
     if (oldVal !== newVal) {
       changes.push({
-        column: dbKey,
-        label: DEVICE_LABELS[dbKey] ?? dbKey,
+        column: apiKey,
+        label: DEVICE_LABELS[apiKey.toLowerCase()] ?? apiKey,
         oldValue: oldVal,
         newValue: newVal,
       });
     }
   }
 
-  await supabase.from("my_devices").update({ synced_at: new Date().toISOString() }).eq("id", id);
+  await supabase.from("mfds_items")
+    .update({ synced_at: new Date().toISOString() })
+    .eq("id", id);
 
   return { found: true, changes };
 }
 
 export async function applyDrugSync(id: number, updates: Record<string, string>) {
-  const supabase = await createClient();
-  const allowed = new Set(DRUG_API_KEYS.map(k => k.toLowerCase()));
-  const filtered: Record<string, string> = {};
+  const supabase = createAdminClient();
+
+  const { data: item } = await supabase
+    .from("mfds_items")
+    .select("raw_data, item_name, manufacturer, standard_code")
+    .eq("id", id)
+    .single();
+  if (!item) throw new Error("Item not found");
+
+  const rawData = { ...(item.raw_data as Record<string, unknown>) };
+  const allowed = new Set(DRUG_API_KEYS);
   for (const [key, val] of Object.entries(updates)) {
-    if (allowed.has(key)) filtered[key] = val;
+    if (allowed.has(key)) rawData[key] = val;
   }
-  const { error } = await supabase
-    .from("my_drugs")
-    .update({ ...filtered, synced_at: new Date().toISOString() })
-    .eq("id", id);
+
+  const updatePayload: Record<string, unknown> = {
+    raw_data: rawData,
+    synced_at: new Date().toISOString(),
+  };
+  if (rawData.ITEM_NAME) updatePayload.item_name = rawData.ITEM_NAME;
+  if (rawData.ENTP_NAME) updatePayload.manufacturer = rawData.ENTP_NAME;
+  if (rawData.BAR_CODE) updatePayload.standard_code = rawData.BAR_CODE;
+
+  const { error } = await supabase.from("mfds_items").update(updatePayload).eq("id", id);
   if (error) throw error;
   revalidatePath("/products/my");
   return { success: true };
 }
 
 export async function applyDeviceSync(id: number, updates: Record<string, string>) {
-  const supabase = await createClient();
-  const allowed = new Set(DEVICE_API_KEYS.map(k => k.toLowerCase()));
-  const filtered: Record<string, string> = {};
+  const supabase = createAdminClient();
+
+  const { data: item } = await supabase
+    .from("mfds_items")
+    .select("raw_data, item_name, manufacturer, standard_code")
+    .eq("id", id)
+    .single();
+  if (!item) throw new Error("Item not found");
+
+  const rawData = { ...(item.raw_data as Record<string, unknown>) };
+  const allowed = new Set(DEVICE_API_KEYS);
   for (const [key, val] of Object.entries(updates)) {
-    if (allowed.has(key)) filtered[key] = val;
+    if (allowed.has(key)) rawData[key] = val;
   }
-  const { error } = await supabase
-    .from("my_devices")
-    .update({ ...filtered, synced_at: new Date().toISOString() })
-    .eq("id", id);
+
+  const updatePayload: Record<string, unknown> = {
+    raw_data: rawData,
+    synced_at: new Date().toISOString(),
+  };
+  if (rawData.PRDLST_NM) updatePayload.item_name = rawData.PRDLST_NM;
+  if (rawData.MNFT_IPRT_ENTP_NM) updatePayload.manufacturer = rawData.MNFT_IPRT_ENTP_NM;
+  if (rawData.UDIDI_CD) updatePayload.standard_code = rawData.UDIDI_CD;
+
+  const { error } = await supabase.from("mfds_items").update(updatePayload).eq("id", id);
   if (error) throw error;
   revalidatePath("/products/my");
   return { success: true };

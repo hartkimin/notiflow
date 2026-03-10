@@ -1,5 +1,5 @@
 import {
-  Package2,
+  Activity,
   Users,
   ClipboardList,
   Building2,
@@ -7,8 +7,9 @@ import {
   Smartphone,
   LayoutDashboard,
   Search,
-  BookmarkCheck,
+  Star,
   MessageSquare,
+  Settings,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -39,18 +40,19 @@ export const navGroups: NavGroup[] = [
     items: [
       { href: "/hospitals", label: "거래처", icon: Building2 },
       { href: "/products", label: "품목 검색", icon: Search, exact: true },
-      { href: "/products/my", label: "내 품목", icon: BookmarkCheck },
+      { href: "/products/my", label: "즐겨찾는 품목", icon: Star },
       { href: "/suppliers", label: "공급사", icon: Factory },
     ],
   },
   {
-    label: "시스템",
+    label: "설정",
     items: [
-      { href: "/users", label: "사용자", icon: Users },
+      { href: "/settings", label: "시스템 설정", icon: Settings },
+      { href: "/users", label: "사용자 관리", icon: Users },
       { href: "/devices", label: "모바일 기기", icon: Smartphone },
     ],
   },
 ];
 
-/** Re-export Package2 for the sidebar/nav logo */
-export { Package2 };
+/** Re-export Activity for the sidebar/nav logo */
+export { Activity as Package2 };

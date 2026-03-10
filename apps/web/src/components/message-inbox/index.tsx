@@ -3,7 +3,7 @@
 import { useState, useMemo, useTransition, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Trash2, X } from "lucide-react";
+import { ShoppingCart, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -112,6 +112,17 @@ export function MessageInbox({
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isPending}
+            onClick={() => {
+              const ids = Array.from(selectedIds).join(",");
+              router.push(`/orders?source_messages=${encodeURIComponent(ids)}`);
+            }}
+          >
+            <ShoppingCart className="h-4 w-4 mr-1" />주문 생성
+          </Button>
           <Button size="sm" variant="ghost" onClick={clearSelection} className="h-8 w-8 p-0">
             <X className="h-4 w-4" />
           </Button>

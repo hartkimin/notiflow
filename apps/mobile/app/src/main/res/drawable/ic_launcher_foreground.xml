@@ -1,37 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="512"
-    android:viewportHeight="512">
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Anime-style hand-drawn feel with thick outlines -->
     <group
-        android:pivotX="256"
-        android:pivotY="256"
-        android:scaleX="0.82"
-        android:scaleY="0.82">
-        <group android:translateX="4" android:translateY="12">
-            <path
-                android:pathData="M 160 352 L 160 160 A 48 48 0 0 1 256 160 L 256 352 A 48 48 0 0 0 352 352 L 352 160"
-                android:strokeWidth="60"
-                android:strokeLineCap="round"
-                android:strokeColor="#1E000033" />
-        </group>
+        android:translateX="12"
+        android:translateY="12">
+        
+        <!-- Main Envelope Body (White with thick pink outline) -->
         <path
-            android:pathData="M 160 352 L 160 160 A 48 48 0 0 1 256 160 L 256 352 A 48 48 0 0 0 352 352 L 352 160"
-            android:strokeWidth="60"
-            android:strokeLineCap="round">
-            <aapt:attr name="android:strokeColor">
-                <gradient 
-                    android:startX="160" 
-                    android:startY="112" 
-                    android:endX="352" 
-                    android:endY="400" 
-                    android:type="linear">
-                    <item android:offset="0" android:color="#4B4DFF" />
-                    <item android:offset="1" android:color="#934DFF" />
-                </gradient>
-            </aapt:attr>
-        </path>
+            android:pathData="M15,30h54c6,0 10,4 10,10v34c0,6 -4,10 -10,10h-54c-6,0 -10,-4 -10,-10v-34c0,-6 4,-10 10,-10z"
+            android:fillColor="#FFFFFF"
+            android:strokeWidth="4.5"
+            android:strokeColor="#FF8DA1"
+            android:strokeLineJoin="round" />
+            
+        <!-- Cute Anime Face -->
+        <!-- Eyes (Shiny Black Dots) -->
+        <path
+            android:pathData="M32,58a3,3 0,1 0,6 0a3,3 0,1 0,-6 0"
+            android:fillColor="#424242" />
+        <path
+            android:pathData="M52,58a3,3 0,1 0,6 0a3,3 0,1 0,-6 0"
+            android:fillColor="#424242" />
+        <!-- Blushes -->
+        <path
+            android:pathData="M25,65a5,3 0,1 0,10 0a5,3 0,1 0,-10 0"
+            android:fillColor="#40FFCDD2" />
+        <path
+            android:pathData="M55,65a5,3 0,1 0,10 0a5,3 0,1 0,-10 0"
+            android:fillColor="#40FFCDD2" />
+        <!-- Smile (Cat-style) -->
+        <path
+            android:pathData="M40,64q4,5 8,0"
+            android:strokeWidth="2.5"
+            android:strokeColor="#424242"
+            android:strokeLineCap="round" />
+
+        <!-- Iconic Anime Star Badge -->
+        <group
+            android:translateX="68"
+            android:translateY="25">
+            <!-- Badge Glow -->
+            <path
+                android:pathData="M0,0m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0"
+                android:fillColor="#20FF8DA1" />
+            <!-- Star Base -->
+            <path
+                android:pathData="M0,0m-16,0a16,16 0,1 1,32 0a16,16 0,1 1,-32 0"
+                android:fillColor="#FF8DA1" />
+            <!-- White Star with slight tilt -->
+            <group android:rotation="15">
+                <path
+                    android:pathData="M0,-9l2.5,6.5l6.5,1l-5,4.5l1.5,6.5l-5.5,-3.5l-5.5,3.5l1.5,-6.5l-5,-4.5l6.5,-1z"
+                    android:fillColor="#FFFFFF" />
+            </group>
+        </group>
+
+        <!-- Small Sparkle Decorations -->
+        <path
+            android:pathData="M15,20l1,3l3,1l-3,1l-1,3l-1,-3l-3,-1l3,-1z"
+            android:fillColor="#FFD54F" />
+        <path
+            android:pathData="M80,75l0.8,2.2l2.2,0.8l-2.2,0.8l-0.8,2.2l-0.8,-2.2l-2.2,-0.8l2.2,-0.8z"
+            android:fillColor="#64B5F6" />
+            
     </group>
 </vector>

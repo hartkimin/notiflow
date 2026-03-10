@@ -29,16 +29,20 @@ export interface Order {
   created_at: string;
   notes: string | null;
   source_message_id: string | null;
+  discount_rate: number;
 }
 
 export interface OrderItem {
   id: number;
   order_id: number;
-  product_id: number | null;
+  mfds_item_id: number | null;
   supplier_id: number | null;
   quantity: number;
-  unit_type: string;
   unit_price: number | null;
+  purchase_price: number | null;
+  discount_rate: number;
+  final_price: number | null;
+  display_columns: Record<string, string> | null;
   line_total: number | null;
 }
 
@@ -62,11 +66,15 @@ export interface OrderItemFlat {
   delivery_date: string | null;
   hospital_id: number | null;
   hospital_name: string;
-  product_id: number | null;
-  product_name: string;
+  mfds_item_id: number | null;
+  item_name: string | null;
   quantity: number;
-  unit_type: string;
-  box_quantity: number | null;
+  unit_price: number | null;
+  purchase_price: number | null;
+  discount_rate: number;
+  final_price: number | null;
+  display_columns: Record<string, string> | null;
+  line_total: number | null;
   supplier_id: number | null;
   supplier_name: string | null;
   kpis_status: string | null;
@@ -100,23 +108,6 @@ export interface SalesRow {
   tax_amount: number;
 }
 
-export interface Product {
-  id: number;
-  name: string;
-  official_name: string;
-  short_name: string | null;
-  category: string;
-  manufacturer: string | null;
-  ingredient: string | null;
-  efficacy: string | null;
-  standard_code: string | null;
-  unit: string | null;
-  unit_price: number | null;
-  is_active: boolean;
-  mfds_raw: Record<string, unknown> | null;
-  mfds_source_type: string | null;
-}
-
 export interface Supplier {
   id: number;
   name: string;
@@ -134,72 +125,55 @@ export interface Supplier {
   is_active: boolean;
 }
 
-export interface ProductSupplier {
+// --- Supplier/Hospital Item Junction ---
+
+export interface SupplierItem {
   id: number;
-  product_id: number;
   supplier_id: number;
+  mfds_item_id: number;
   purchase_price: number | null;
   is_primary: boolean;
+  notes: string | null;
+  created_at: string;
+  item_name?: string;
+  manufacturer?: string;
+  source_type?: string;
+  standard_code?: string;
 }
 
-// --- My Products (MFDS-aligned) ---
-
-export interface MyDrug {
+export interface HospitalItem {
   id: number;
-  item_seq: string | null;
-  item_name: string | null;
-  item_eng_name: string | null;
-  entp_name: string | null;
-  entp_no: string | null;
-  item_permit_date: string | null;
-  cnsgn_manuf: string | null;
-  etc_otc_code: string | null;
-  chart: string | null;
-  bar_code: string | null;
-  material_name: string | null;
-  ee_doc_id: string | null;
-  ud_doc_id: string | null;
-  nb_doc_id: string | null;
-  storage_method: string | null;
-  valid_term: string | null;
-  pack_unit: string | null;
-  edi_code: string | null;
-  permit_kind_name: string | null;
-  cancel_date: string | null;
-  cancel_name: string | null;
-  change_date: string | null;
-  atc_code: string | null;
-  rare_drug_yn: string | null;
-  added_at: string;
-  synced_at: string;
-  unit_price: number | null;
+  hospital_id: number;
+  mfds_item_id: number;
+  delivery_price: number | null;
+  notes: string | null;
+  created_at: string;
+  item_name?: string;
+  manufacturer?: string;
+  source_type?: string;
+  standard_code?: string;
+  primary_purchase_price?: number | null;
 }
 
-export interface MyDevice {
+export interface HospitalItemWithPricing extends HospitalItem {
+  default_margin_rate: number;
+  computed_delivery_price: number | null;
+}
+
+// --- My Products (unified via mfds_items.is_favorite) ---
+
+export interface MfdsItem {
   id: number;
-  udidi_cd: string | null;
-  prdlst_nm: string | null;
-  mnft_iprt_entp_nm: string | null;
-  mdeq_clsf_no: string | null;
-  clsf_no_grad_cd: string | null;
-  permit_no: string | null;
-  prmsn_ymd: string | null;
-  foml_info: string | null;
-  prdt_nm_info: string | null;
-  hmbd_trspt_mdeq_yn: string | null;
-  dspsbl_mdeq_yn: string | null;
-  trck_mng_trgt_yn: string | null;
-  total_dev: string | null;
-  cmbnmd_yn: string | null;
-  use_before_strlzt_need_yn: string | null;
-  sterilization_method_nm: string | null;
-  use_purps_cont: string | null;
-  strg_cnd_info: string | null;
-  circ_cnd_info: string | null;
-  rcprslry_trgt_yn: string | null;
-  added_at: string;
+  source_type: string;
+  source_key: string;
+  item_name: string;
+  manufacturer: string | null;
+  standard_code: string | null;
+  raw_data: Record<string, unknown>;
   synced_at: string;
+  is_favorite: boolean;
   unit_price: number | null;
+  favorited_at: string | null;
 }
 
 export interface SyncDiffEntry {
@@ -379,8 +353,8 @@ export interface OrderForecast {
 export interface ForecastItem {
   id: number;
   forecast_id: number;
-  product_id: number | null;
-  product_name: string | null;
+  mfds_item_id: number | null;
+  item_name: string | null;
   quantity: number | null;
   unit_type: string;
   notes: string | null;
@@ -468,15 +442,4 @@ export interface MfdsApiSearchResult {
   page: number;
 }
 
-/** Row from mfds_items table (DB-backed search) */
-export interface MfdsItem {
-  id: number;
-  source_type: MfdsApiSource;
-  source_key: string;
-  item_name: string;
-  manufacturer: string | null;
-  standard_code: string | null;
-  permit_date: string | null;
-  raw_data: Record<string, unknown>;
-  synced_at: string;
-}
+/** Row from mfds_items table (DB-backed search) — see MfdsItem above */

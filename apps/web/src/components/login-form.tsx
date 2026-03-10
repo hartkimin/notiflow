@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertCircle, Loader2 } from "lucide-react";
 
 export function LoginForm() {
   const router = useRouter();
@@ -42,27 +42,57 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl">NotiFlow</CardTitle>
-        <p className="text-sm text-muted-foreground">주문관리 대시보드</p>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">이메일</Label>
-            <Input id="email" name="email" type="email" required autoFocus />
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="email" className="text-sm font-semibold tracking-tight">이메일 주소</Label>
+          <Input 
+            id="email" 
+            name="email" 
+            type="email" 
+            placeholder="name@hospital.com"
+            required 
+            autoFocus 
+            className="h-12 px-4 rounded-xl border-border/50 focus:ring-primary/20 transition-all"
+          />
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password" className="text-sm font-semibold tracking-tight">비밀번호</Label>
+            <a href="#" className="text-xs font-medium text-primary hover:underline">비밀번호 찾기</a>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">비밀번호</Label>
-            <Input id="password" name="password" type="password" required />
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "로그인 중..." : "로그인"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+          <Input 
+            id="password" 
+            name="password" 
+            type="password" 
+            placeholder="••••••••"
+            required 
+            className="h-12 px-4 rounded-xl border-border/50 focus:ring-primary/20 transition-all"
+          />
+        </div>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-medium animate-in fade-in zoom-in-95 duration-300">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <p>{error}</p>
+        </div>
+      )}
+
+      <Button 
+        type="submit" 
+        className="w-full h-12 rounded-xl text-base font-bold shadow-lg shadow-primary/20 transition-all hover:shadow-primary/30" 
+        disabled={loading}
+      >
+        {loading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            로그인 중...
+          </>
+        ) : (
+          "로그인"
+        )}
+      </Button>
+    </form>
   );
 }

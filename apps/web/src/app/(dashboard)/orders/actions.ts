@@ -22,7 +22,15 @@ export async function deleteOrdersAction(ids: number[]) {
 
 export async function updateOrderItemAction(
   itemId: number,
-  data: { quantity?: number; unit_price?: number; product_id?: number; supplier_id?: number | null },
+  data: {
+    quantity?: number;
+    unit_price?: number;
+    mfds_item_id?: number;
+    supplier_id?: number | null;
+    purchase_price?: number | null;
+    discount_rate?: number;
+    final_price?: number | null;
+  },
 ) {
   await updateOrderItem(itemId, data);
 }
@@ -100,16 +108,21 @@ export async function createOrderAction(data: {
   delivery_date?: string | null;
   delivered_at?: string | null;
   notes?: string | null;
+  discount_rate?: number;
   source_message_id?: string | null;
   items: Array<{
-    my_item_id: number;
-    my_item_type: "drug" | "device";
+    mfds_item_id: number;
+    supplier_id?: number | null;
     quantity: number;
-    unit_price: number | null;
+    unit_price?: number | null;
+    purchase_price?: number | null;
+    discount_rate?: number;
+    final_price?: number | null;
+    display_columns?: Record<string, string> | null;
   }>;
 }) {
-  const { createClient } = await import("@/lib/supabase/server");
-  const supabase = await createClient();
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
 
   // Generate order number via DB function
   const { data: orderNumber, error: rpcErr } = await supabase.rpc("generate_order_number");
@@ -125,6 +138,7 @@ export async function createOrderAction(data: {
       delivery_date: data.delivery_date ?? null,
       delivered_at: data.delivered_at ?? null,
       notes: data.notes ?? null,
+      discount_rate: data.discount_rate ?? 0,
       source_message_id: data.source_message_id ?? null,
       status: "draft",
       total_items: data.items.length,
@@ -137,9 +151,15 @@ export async function createOrderAction(data: {
   if (data.items.length > 0) {
     const orderItems = data.items.map((item) => ({
       order_id: order.id,
+      mfds_item_id: item.mfds_item_id,
+      supplier_id: item.supplier_id ?? null,
       quantity: item.quantity,
-      unit_price: item.unit_price,
-      line_total: item.unit_price ? item.unit_price * item.quantity : null,
+      unit_price: item.unit_price ?? null,
+      purchase_price: item.purchase_price ?? null,
+      discount_rate: item.discount_rate ?? 0,
+      final_price: item.final_price ?? null,
+      display_columns: item.display_columns ?? null,
+      line_total: item.final_price ? item.final_price * item.quantity : null,
     }));
     const { error: itemsErr } = await supabase.from("order_items").insert(orderItems);
     if (itemsErr) throw itemsErr;
@@ -148,4 +168,30 @@ export async function createOrderAction(data: {
   revalidatePath("/orders");
   revalidatePath("/dashboard");
   return { success: true, orderId: order.id, orderNumber };
+}
+
+export async function getHospitalItemsForOrderAction(hospitalId: number) {
+  const { getHospitalItems } = await import("@/lib/queries/hospital-items");
+  return getHospitalItems(hospitalId);
+}
+
+export async function getSupplierItemsForProductAction(mfdsItemId: number) {
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("supplier_items")
+    .select("supplier_id, purchase_price, is_primary, suppliers(name)")
+    .eq("mfds_item_id", mfdsItemId);
+  return (data ?? []).map((d: Record<string, unknown>) => ({
+    supplier_id: d.supplier_id as number,
+    supplier_name: ((d.suppliers as Record<string, unknown>)?.name as string) ?? "",
+    purchase_price: d.purchase_price as number | null,
+    is_primary: d.is_primary as boolean,
+  }));
+}
+
+export async function searchFavoriteItemsAction(query: string) {
+  if (!query || query.length < 1) return [];
+  const { searchFavoriteItems } = await import("@/lib/actions");
+  return searchFavoriteItems(query);
 }

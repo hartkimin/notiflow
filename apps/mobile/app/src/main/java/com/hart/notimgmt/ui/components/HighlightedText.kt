@@ -1,6 +1,5 @@
 package com.hart.notimgmt.ui.components
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -11,8 +10,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import com.hart.notimgmt.ui.theme.NotiFlowWarning
-import com.hart.notimgmt.ui.theme.NotiFlowYellow
+import com.hart.notimgmt.ui.theme.LocalIsDarkTheme
+import com.hart.notimgmt.ui.theme.NotiRouteWarning
+import com.hart.notimgmt.ui.theme.NotiRouteYellow
 
 @Composable
 fun HighlightedText(
@@ -22,15 +22,15 @@ fun HighlightedText(
     style: TextStyle = LocalTextStyle.current,
     color: Color = Color.Unspecified,
     fontWeight: FontWeight? = null,
-    highlightColor: Color = if (isSystemInDarkTheme()) {
-        NotiFlowWarning.copy(alpha = 0.3f)
+    highlightColor: Color = if (LocalIsDarkTheme.current) {
+        NotiRouteWarning.copy(alpha = 0.3f)
     } else {
-        NotiFlowYellow.copy(alpha = 0.4f)
+        NotiRouteYellow.copy(alpha = 0.4f)
     },
-    activeHighlightColor: Color = if (isSystemInDarkTheme()) {
-        NotiFlowWarning.copy(alpha = 0.6f)
+    activeHighlightColor: Color = if (LocalIsDarkTheme.current) {
+        NotiRouteWarning.copy(alpha = 0.6f)
     } else {
-        NotiFlowWarning.copy(alpha = 0.7f)
+        NotiRouteWarning.copy(alpha = 0.7f)
     },
     activeMatchIndex: Int = -1,
     maxLines: Int = Int.MAX_VALUE,
@@ -88,3 +88,4 @@ fun HighlightedText(
         overflow = overflow
     )
 }
+

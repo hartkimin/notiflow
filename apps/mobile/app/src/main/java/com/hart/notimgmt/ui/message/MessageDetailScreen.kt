@@ -77,7 +77,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hart.notimgmt.service.notification.DeepLinkCache
-import com.hart.notimgmt.ui.theme.NotiFlowWarning
+import com.hart.notimgmt.ui.theme.NotiRouteWarning
 import com.hart.notimgmt.viewmodel.MessageViewModel
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -249,7 +249,7 @@ fun MessageDetailScreen(
                         Icon(
                             imageVector = if (hasActiveSnooze) Icons.Default.AlarmOff else Icons.Default.Alarm,
                             contentDescription = if (hasActiveSnooze) "스누즈 취소" else "스누즈",
-                            tint = if (hasActiveSnooze) NotiFlowWarning
+                            tint = if (hasActiveSnooze) NotiRouteWarning
                             else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -1352,3 +1352,4 @@ private fun formatCommentTime(timestamp: Long): String {
     val format = java.text.SimpleDateFormat("yyyy/MM/dd HH:mm", java.util.Locale.KOREAN)
     return format.format(java.util.Date(timestamp))
 }
+

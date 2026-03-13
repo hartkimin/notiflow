@@ -1,6 +1,5 @@
 package com.hart.notimgmt.ui.chat
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -33,130 +32,131 @@ data class AppChatStyle(
 
         // ── KakaoTalk ── (min corner 8dp)
         private val kakaoTalkLight = AppChatStyle(
-            bubbleBackground = NotiFlowChatKakaoBackground,
-            bubbleOnBackground = NotiFlowChatKakaoOnBackground,
-            bubbleBorderColor = NotiFlowChatKakaoBorder,
+            bubbleBackground = NotiRouteChatKakaoBackground,
+            bubbleOnBackground = NotiRouteChatKakaoOnBackground,
+            bubbleBorderColor = NotiRouteChatKakaoBorder,
             bubbleShape = RoundedCornerShape(topStart = 8.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 16.dp),
-            accentColor = NotiFlowChatKakaoAccent,
-            senderNameColor = NotiFlowChatKakaoSender,
-            dateHeaderColor = NotiFlowChatKakaoDate,
-            timelineLineColor = NotiFlowChatKakaoTimeline,
-            timelineDotColor = NotiFlowChatKakaoTimelineDot
+            accentColor = NotiRouteChatKakaoAccent,
+            senderNameColor = NotiRouteChatKakaoSender,
+            dateHeaderColor = NotiRouteChatKakaoDate,
+            timelineLineColor = NotiRouteChatKakaoTimeline,
+            timelineDotColor = NotiRouteChatKakaoTimelineDot
         )
         private val kakaoTalkDark = AppChatStyle(
-            bubbleBackground = NotiFlowChatKakaoDarkBackground,
-            bubbleOnBackground = NotiFlowChatKakaoDarkOnBackground,
-            bubbleBorderColor = NotiFlowChatKakaoDarkBorder,
+            bubbleBackground = NotiRouteChatKakaoDarkBackground,
+            bubbleOnBackground = NotiRouteChatKakaoDarkOnBackground,
+            bubbleBorderColor = NotiRouteChatKakaoDarkBorder,
             bubbleShape = RoundedCornerShape(topStart = 8.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 16.dp),
-            accentColor = NotiFlowChatKakaoDarkAccent,
-            senderNameColor = NotiFlowChatKakaoDarkSender,
-            dateHeaderColor = NotiFlowChatKakaoDarkDate,
-            timelineLineColor = NotiFlowChatKakaoDarkTimeline,
-            timelineDotColor = NotiFlowChatKakaoDarkTimelineDot
+            accentColor = NotiRouteChatKakaoDarkAccent,
+            senderNameColor = NotiRouteChatKakaoDarkSender,
+            dateHeaderColor = NotiRouteChatKakaoDarkDate,
+            timelineLineColor = NotiRouteChatKakaoDarkTimeline,
+            timelineDotColor = NotiRouteChatKakaoDarkTimelineDot
         )
 
         // ── Telegram ──
         private val telegramLight = AppChatStyle(
-            bubbleBackground = NotiFlowChatTelegramBackground,
-            bubbleOnBackground = NotiFlowChatTelegramOnBackground,
-            bubbleBorderColor = NotiFlowChatTelegramBorder,
+            bubbleBackground = NotiRouteChatTelegramBackground,
+            bubbleOnBackground = NotiRouteChatTelegramOnBackground,
+            bubbleBorderColor = NotiRouteChatTelegramBorder,
             bubbleShape = RoundedCornerShape(16.dp),
-            accentColor = NotiFlowChatTelegramAccent,
-            senderNameColor = NotiFlowChatTelegramSender,
-            dateHeaderColor = NotiFlowChatTelegramDate,
-            timelineLineColor = NotiFlowChatTelegramTimeline,
-            timelineDotColor = NotiFlowChatTelegramTimelineDot
+            accentColor = NotiRouteChatTelegramAccent,
+            senderNameColor = NotiRouteChatTelegramSender,
+            dateHeaderColor = NotiRouteChatTelegramDate,
+            timelineLineColor = NotiRouteChatTelegramTimeline,
+            timelineDotColor = NotiRouteChatTelegramTimelineDot
         )
         private val telegramDark = AppChatStyle(
-            bubbleBackground = NotiFlowChatTelegramDarkBackground,
-            bubbleOnBackground = NotiFlowChatTelegramDarkOnBackground,
-            bubbleBorderColor = NotiFlowChatTelegramDarkBorder,
+            bubbleBackground = NotiRouteChatTelegramDarkBackground,
+            bubbleOnBackground = NotiRouteChatTelegramDarkOnBackground,
+            bubbleBorderColor = NotiRouteChatTelegramDarkBorder,
             bubbleShape = RoundedCornerShape(16.dp),
-            accentColor = NotiFlowChatTelegramDarkAccent,
-            senderNameColor = NotiFlowChatTelegramDarkSender,
-            dateHeaderColor = NotiFlowChatTelegramDarkDate,
-            timelineLineColor = NotiFlowChatTelegramDarkTimeline,
-            timelineDotColor = NotiFlowChatTelegramDarkTimelineDot
+            accentColor = NotiRouteChatTelegramDarkAccent,
+            senderNameColor = NotiRouteChatTelegramDarkSender,
+            dateHeaderColor = NotiRouteChatTelegramDarkDate,
+            timelineLineColor = NotiRouteChatTelegramDarkTimeline,
+            timelineDotColor = NotiRouteChatTelegramDarkTimelineDot
         )
 
         // ── SMS ── (min corner 8dp)
         private val smsLight = AppChatStyle(
-            bubbleBackground = NotiFlowChatSmsBackground,
-            bubbleOnBackground = NotiFlowChatSmsOnBackground,
-            bubbleBorderColor = NotiFlowChatSmsBorder,
+            bubbleBackground = NotiRouteChatSmsBackground,
+            bubbleOnBackground = NotiRouteChatSmsOnBackground,
+            bubbleBorderColor = NotiRouteChatSmsBorder,
             bubbleShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 8.dp),
-            accentColor = NotiFlowChatSmsAccent,
-            senderNameColor = NotiFlowChatSmsSender,
-            dateHeaderColor = NotiFlowChatSmsDate,
-            timelineLineColor = NotiFlowChatSmsTimeline,
-            timelineDotColor = NotiFlowChatSmsTimelineDot
+            accentColor = NotiRouteChatSmsAccent,
+            senderNameColor = NotiRouteChatSmsSender,
+            dateHeaderColor = NotiRouteChatSmsDate,
+            timelineLineColor = NotiRouteChatSmsTimeline,
+            timelineDotColor = NotiRouteChatSmsTimelineDot
         )
         private val smsDark = AppChatStyle(
-            bubbleBackground = NotiFlowChatSmsDarkBackground,
-            bubbleOnBackground = NotiFlowChatSmsDarkOnBackground,
-            bubbleBorderColor = NotiFlowChatSmsDarkBorder,
+            bubbleBackground = NotiRouteChatSmsDarkBackground,
+            bubbleOnBackground = NotiRouteChatSmsDarkOnBackground,
+            bubbleBorderColor = NotiRouteChatSmsDarkBorder,
             bubbleShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 8.dp),
-            accentColor = NotiFlowChatSmsDarkAccent,
-            senderNameColor = NotiFlowChatSmsDarkSender,
-            dateHeaderColor = NotiFlowChatSmsDarkDate,
-            timelineLineColor = NotiFlowChatSmsDarkTimeline,
-            timelineDotColor = NotiFlowChatSmsDarkTimelineDot
+            accentColor = NotiRouteChatSmsDarkAccent,
+            senderNameColor = NotiRouteChatSmsDarkSender,
+            dateHeaderColor = NotiRouteChatSmsDarkDate,
+            timelineLineColor = NotiRouteChatSmsDarkTimeline,
+            timelineDotColor = NotiRouteChatSmsDarkTimelineDot
         )
 
         // ── WhatsApp ── (min corner 8dp)
         private val whatsAppLight = AppChatStyle(
-            bubbleBackground = NotiFlowChatWhatsAppBackground,
-            bubbleOnBackground = NotiFlowChatWhatsAppOnBackground,
-            bubbleBorderColor = NotiFlowChatWhatsAppBorder,
+            bubbleBackground = NotiRouteChatWhatsAppBackground,
+            bubbleOnBackground = NotiRouteChatWhatsAppOnBackground,
+            bubbleBorderColor = NotiRouteChatWhatsAppBorder,
             bubbleShape = RoundedCornerShape(topStart = 16.dp, topEnd = 8.dp, bottomEnd = 16.dp, bottomStart = 16.dp),
-            accentColor = NotiFlowChatWhatsAppAccent,
-            senderNameColor = NotiFlowChatWhatsAppSender,
-            dateHeaderColor = NotiFlowChatWhatsAppDate,
-            timelineLineColor = NotiFlowChatWhatsAppTimeline,
-            timelineDotColor = NotiFlowChatWhatsAppTimelineDot
+            accentColor = NotiRouteChatWhatsAppAccent,
+            senderNameColor = NotiRouteChatWhatsAppSender,
+            dateHeaderColor = NotiRouteChatWhatsAppDate,
+            timelineLineColor = NotiRouteChatWhatsAppTimeline,
+            timelineDotColor = NotiRouteChatWhatsAppTimelineDot
         )
         private val whatsAppDark = AppChatStyle(
-            bubbleBackground = NotiFlowChatWhatsAppDarkBackground,
-            bubbleOnBackground = NotiFlowChatWhatsAppDarkOnBackground,
-            bubbleBorderColor = NotiFlowChatWhatsAppDarkBorder,
+            bubbleBackground = NotiRouteChatWhatsAppDarkBackground,
+            bubbleOnBackground = NotiRouteChatWhatsAppDarkOnBackground,
+            bubbleBorderColor = NotiRouteChatWhatsAppDarkBorder,
             bubbleShape = RoundedCornerShape(topStart = 16.dp, topEnd = 8.dp, bottomEnd = 16.dp, bottomStart = 16.dp),
-            accentColor = NotiFlowChatWhatsAppDarkAccent,
-            senderNameColor = NotiFlowChatWhatsAppDarkSender,
-            dateHeaderColor = NotiFlowChatWhatsAppDarkDate,
-            timelineLineColor = NotiFlowChatWhatsAppDarkTimeline,
-            timelineDotColor = NotiFlowChatWhatsAppDarkTimelineDot
+            accentColor = NotiRouteChatWhatsAppDarkAccent,
+            senderNameColor = NotiRouteChatWhatsAppDarkSender,
+            dateHeaderColor = NotiRouteChatWhatsAppDarkDate,
+            timelineLineColor = NotiRouteChatWhatsAppDarkTimeline,
+            timelineDotColor = NotiRouteChatWhatsAppDarkTimelineDot
         )
 
-        // ── Default (NotiFlow Indigo) ──
+        // ── Default (NotiRoute Indigo) ──
         private val defaultLight = AppChatStyle(
-            bubbleBackground = NotiFlowChatDefaultBackground,
-            bubbleOnBackground = NotiFlowChatDefaultOnBackground,
-            bubbleBorderColor = NotiFlowChatDefaultBorder,
+            bubbleBackground = NotiRouteChatDefaultBackground,
+            bubbleOnBackground = NotiRouteChatDefaultOnBackground,
+            bubbleBorderColor = NotiRouteChatDefaultBorder,
             bubbleShape = RoundedCornerShape(12.dp),
-            accentColor = NotiFlowChatDefaultAccent,
-            senderNameColor = NotiFlowChatDefaultSender,
-            dateHeaderColor = NotiFlowChatDefaultDate,
-            timelineLineColor = NotiFlowChatDefaultTimeline,
-            timelineDotColor = NotiFlowChatDefaultTimelineDot
+            accentColor = NotiRouteChatDefaultAccent,
+            senderNameColor = NotiRouteChatDefaultSender,
+            dateHeaderColor = NotiRouteChatDefaultDate,
+            timelineLineColor = NotiRouteChatDefaultTimeline,
+            timelineDotColor = NotiRouteChatDefaultTimelineDot
         )
         private val defaultDark = AppChatStyle(
-            bubbleBackground = NotiFlowChatDefaultDarkBackground,
-            bubbleOnBackground = NotiFlowChatDefaultDarkOnBackground,
-            bubbleBorderColor = NotiFlowChatDefaultDarkBorder,
+            bubbleBackground = NotiRouteChatDefaultDarkBackground,
+            bubbleOnBackground = NotiRouteChatDefaultDarkOnBackground,
+            bubbleBorderColor = NotiRouteChatDefaultDarkBorder,
             bubbleShape = RoundedCornerShape(12.dp),
-            accentColor = NotiFlowChatDefaultDarkAccent,
-            senderNameColor = NotiFlowChatDefaultDarkSender,
-            dateHeaderColor = NotiFlowChatDefaultDarkDate,
-            timelineLineColor = NotiFlowChatDefaultDarkTimeline,
-            timelineDotColor = NotiFlowChatDefaultDarkTimelineDot
+            accentColor = NotiRouteChatDefaultDarkAccent,
+            senderNameColor = NotiRouteChatDefaultDarkSender,
+            dateHeaderColor = NotiRouteChatDefaultDarkDate,
+            timelineLineColor = NotiRouteChatDefaultDarkTimeline,
+            timelineDotColor = NotiRouteChatDefaultDarkTimelineDot
         )
     }
 }
 
 @Composable
 fun rememberAppChatStyle(source: String): AppChatStyle {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     return remember(source, isDark) {
         AppChatStyle.fromSource(source, isDark)
     }
 }
+

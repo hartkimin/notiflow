@@ -5,7 +5,7 @@
     android:viewportWidth="360"
     android:viewportHeight="800">
 
-    <!-- NotiFlow Splash Background: Deep Navy → Sky Blue → Mint -->
+    <!-- NotiRoute Splash Background: Deep Navy → Sky Blue → Mint -->
 
     <!-- Base: deep navy -->
     <path
@@ -70,3 +70,4 @@
         android:fillAlpha="0.08"
         android:pathData="M310,680 a18,18 0 1,1 36,0 a18,18 0 1,1 -36,0" />
 </vector>
+

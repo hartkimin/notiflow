@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -12,6 +14,12 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+configurations.all {
+    resolutionStrategy {
+        force("androidx.browser:browser:1.8.0")
+    }
+}
+
 android {
     namespace = "com.hart.notimgmt"
     compileSdk = 35
@@ -20,16 +28,35 @@ android {
         applicationId = "com.hart.notiflow"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "3.5.0"
+        versionCode = 12
+        versionName = "0.0.4.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        val localProps = Properties().apply {
+            val file = rootProject.file("local.properties")
+            if (file.exists()) file.inputStream().use { load(it) }
+        }
+        buildConfigField(
+            "String",
+            "HUGGING_FACE_TOKEN",
+            "\"${localProps.getProperty("huggingface.token", "")}\""
+        )
+        buildConfigField(
+            "String",
+            "SUPABASE_URL",
+            "\"${localProps.getProperty("supabase.url", "https://YOUR_NGROK_URL.ngrok-free.app")}\""
+        )
+        buildConfigField(
+            "String",
+            "SUPABASE_KEY",
+            "\"${localProps.getProperty("supabase.key", "YOUR_LOCAL_ANON_KEY")}\""
+        )
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -47,19 +74,19 @@ android {
         compose = true
         buildConfig = true
     }
-testOptions {
+    testOptions {
         unitTests.isReturnDefaultValues = true
     }
 }
 
 dependencies {
     // Supabase
-    implementation("io.github.jan-tennert.supabase:postgrest-kt:3.1.1")
-    implementation("io.github.jan-tennert.supabase:auth-kt:3.1.1")
-    implementation("io.github.jan-tennert.supabase:realtime-kt:3.1.1")
+    implementation(libs.supabase.postgrest)
+    implementation(libs.supabase.auth)
+    implementation(libs.supabase.realtime)
 
     // Ktor client for Supabase (OkHttp supports WebSocket for Realtime)
-    implementation("io.ktor:ktor-client-okhttp:3.0.3")
+    implementation(libs.ktor.client.okhttp)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -117,16 +144,16 @@ dependencies {
     implementation(libs.firebase.messaging)
 
     // Coil for image loading
-    implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation(libs.coil.compose)
 
     // Reorderable LazyColumn (drag & drop)
-    implementation("sh.calvin.reorderable:reorderable:2.4.0")
+    implementation(libs.reorderable)
 
     // EncryptedSharedPreferences
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation(libs.security.crypto)
 
     // Lottie for animations
-    implementation("com.airbnb.android:lottie-compose:6.6.2")
+    implementation(libs.lottie.compose)
 }
 
 apply(plugin = "com.google.gms.google-services")

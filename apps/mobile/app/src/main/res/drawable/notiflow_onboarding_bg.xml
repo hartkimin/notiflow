@@ -5,7 +5,7 @@
     android:viewportWidth="360"
     android:viewportHeight="800">
 
-    <!-- NotiFlow Onboarding Background: Vibrant Sky Blue → Mint gradient -->
+    <!-- NotiRoute Onboarding Background: Vibrant Sky Blue → Mint gradient -->
 
     <!-- Base: deep indigo-blue -->
     <path
@@ -70,3 +70,4 @@
         android:fillAlpha="0.05"
         android:pathData="M30,650 a12,12 0 1,1 24,0 a12,12 0 1,1 -24,0" />
 </vector>
+

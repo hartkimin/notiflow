@@ -83,7 +83,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.hart.notimgmt.data.db.entity.AppFilterEntity
 import com.hart.notimgmt.data.db.entity.CategoryEntity
 import com.hart.notimgmt.data.db.entity.FilterRuleEntity
-import com.hart.notimgmt.ui.theme.NotiFlowDesign
+import com.hart.notimgmt.ui.theme.NotiRouteDesign
 import com.hart.notimgmt.viewmodel.FilterViewModel
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -622,7 +622,7 @@ private fun CategoryRulesDialog(
     onToggleRule: (FilterRuleEntity, Boolean) -> Unit
 ) {
     val catColor = Color(category.color)
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -763,7 +763,7 @@ private fun DialogRuleItem(
     onDelete: () -> Unit,
     onToggleActive: (Boolean) -> Unit
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -883,7 +883,7 @@ private fun CategoryItem(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val catColor = Color(category.color)
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
     val isActive = category.isActive
 
     Surface(
@@ -1106,3 +1106,4 @@ private fun getChosung(char: Char): String {
     if (char.isLetter()) return char.uppercaseChar().toString()
     return "#"
 }
+

@@ -60,7 +60,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.hart.notimgmt.data.db.entity.CapturedMessageEntity
 import com.hart.notimgmt.data.db.entity.StatusStepEntity
 import com.hart.notimgmt.data.preferences.AppPreferences.Companion.UNCATEGORIZED_ID
-import com.hart.notimgmt.ui.components.NotiFlowScreenWrapper
+import com.hart.notimgmt.ui.components.NotiRouteScreenWrapper
 import com.hart.notimgmt.ui.theme.DEFAULT_CATEGORY_COLOR
 import com.hart.notimgmt.viewmodel.CalendarViewModel
 import java.text.SimpleDateFormat
@@ -110,7 +110,7 @@ fun CalendarScreen(
         result.mapValues { it.value.toList() }
     }
 
-    NotiFlowScreenWrapper(
+    NotiRouteScreenWrapper(
         title = "캘린더",
         expandedHeight = if (showCategoryFilter) 100.dp else 56.dp,
         actions = {
@@ -337,7 +337,7 @@ fun CalendarScreen(
             }
         }
     }
-    } // end NotiFlowScreenWrapper
+    } // end NotiRouteScreenWrapper
 }
 
 // 캘린더 타임라인 메시지 아이템
@@ -652,3 +652,4 @@ private fun formatTimeShort(timestamp: Long): String {
     val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
     return sdf.format(Date(timestamp))
 }
+

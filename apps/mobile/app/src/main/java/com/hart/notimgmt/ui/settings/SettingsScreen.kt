@@ -15,11 +15,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.hart.notimgmt.ui.components.NotiFlowScreenWrapper
+import com.hart.notimgmt.ui.components.NotiRouteScreenWrapper
 import com.hart.notimgmt.ui.filter.AppFilterScreen
 import com.hart.notimgmt.ui.filter.FilterScreen
 import com.hart.notimgmt.ui.status.StatusScreen
-import com.hart.notimgmt.ui.theme.NotiFlowDesign
+import com.hart.notimgmt.ui.theme.NotiRouteDesign
 import kotlinx.coroutines.launch
 
 @Composable
@@ -30,11 +30,11 @@ fun SettingsScreen(
 ) {
     val pagerState = rememberPagerState(pageCount = { 4 })
     val coroutineScope = rememberCoroutineScope()
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     val tabTitles = listOf("키워드", "상태", "앱", "설정")
 
-    NotiFlowScreenWrapper(
+    NotiRouteScreenWrapper(
         title = "설정",
         expandedHeight = 56.dp
     ) {
@@ -89,3 +89,4 @@ fun SettingsScreen(
         }
     }
 }
+

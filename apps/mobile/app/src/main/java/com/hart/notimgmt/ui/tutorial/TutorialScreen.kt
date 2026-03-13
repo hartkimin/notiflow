@@ -24,7 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.hart.notimgmt.ui.theme.NotiFlowDesign
+import com.hart.notimgmt.ui.theme.NotiRouteDesign
 import kotlinx.coroutines.launch
 
 @Composable
@@ -389,3 +389,4 @@ private fun MockSettingsScreen() {
         }
     }
 }
+

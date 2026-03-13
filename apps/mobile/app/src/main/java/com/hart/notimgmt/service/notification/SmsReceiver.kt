@@ -11,7 +11,7 @@ import com.hart.notimgmt.data.repository.CategoryRepository
 import com.hart.notimgmt.data.repository.FilterRuleRepository
 import com.hart.notimgmt.data.repository.MessageRepository
 import com.hart.notimgmt.data.repository.StatusStepRepository
-import com.hart.notimgmt.widget.NotiFlowWidgetProvider
+import com.hart.notimgmt.widget.NotiRouteWidgetProvider
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -78,7 +78,7 @@ class SmsReceiver : BroadcastReceiver() {
                         )
 
                         // 위젯 업데이트
-                        context?.let { NotiFlowWidgetProvider.updateWidgets(it) }
+                        context?.let { NotiRouteWidgetProvider.updateWidgets(it) }
 
                         captureNotificationHelper.showCaptureNotification(
                             messageId = insertedId,
@@ -97,3 +97,4 @@ class SmsReceiver : BroadcastReceiver() {
         }
     }
 }
+

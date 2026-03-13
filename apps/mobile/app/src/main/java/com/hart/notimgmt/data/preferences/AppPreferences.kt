@@ -75,7 +75,7 @@ class AppPreferences @Inject constructor(
         encryptedPrefs.edit()
             .putString("saved_email", email)
             .putString("saved_password", password)
-            .apply()
+            .commit()
         saveCredentials = true
     }
 
@@ -156,7 +156,7 @@ class AppPreferences @Inject constructor(
             }
         }
         set(value) {
-            prefs.edit().putString("app_mode", value.name).apply()
+            prefs.edit().putString("app_mode", value.name).commit()
         }
 
     val isCloudMode: Boolean
@@ -166,16 +166,16 @@ class AppPreferences @Inject constructor(
     var isModeSelected: Boolean
         get() = prefs.getBoolean("mode_selected", true)
         set(value) {
-            prefs.edit().putBoolean("mode_selected", value).apply()
+            prefs.edit().putBoolean("mode_selected", value).commit()
         }
 
     var themeMode: ThemeMode
         get() {
-            val value = prefs.getString("theme_mode", ThemeMode.SYSTEM.name)
+            val value = prefs.getString("theme_mode", ThemeMode.LIGHT.name)
             return try {
-                ThemeMode.valueOf(value ?: ThemeMode.SYSTEM.name)
+                ThemeMode.valueOf(value ?: ThemeMode.LIGHT.name)
             } catch (e: Exception) {
-                ThemeMode.SYSTEM
+                ThemeMode.LIGHT
             }
         }
         set(value) {
@@ -237,6 +237,13 @@ class AppPreferences @Inject constructor(
             prefs.edit().putLong("last_sync_at", value).apply()
         }
 
+    // Supabase URL (runtime-configurable, defaults to BuildConfig)
+    var supabaseUrl: String
+        get() = prefs.getString("supabase_url", com.hart.notimgmt.BuildConfig.SUPABASE_URL) ?: com.hart.notimgmt.BuildConfig.SUPABASE_URL
+        set(value) {
+            prefs.edit().putString("supabase_url", value).commit()
+        }
+
     // FCM token
     var fcmToken: String?
         get() = prefs.getString("fcm_token", null)
@@ -244,27 +251,27 @@ class AppPreferences @Inject constructor(
             prefs.edit().putString("fcm_token", value).apply()
         }
 
-    // NotiFlow API Gateway settings
+    // NotiRoute API Gateway settings
     private val _notiFlowEnabledFlow = MutableStateFlow(notiFlowEnabled)
     val notiFlowEnabledFlow: StateFlow<Boolean> = _notiFlowEnabledFlow
 
     var notiFlowEnabled: Boolean
-        get() = prefs.getBoolean("notiflow_enabled", true)
+        get() = prefs.getBoolean("notiroute_enabled", true)
         set(value) {
-            prefs.edit().putBoolean("notiflow_enabled", value).apply()
+            prefs.edit().putBoolean("notiroute_enabled", value).apply()
             _notiFlowEnabledFlow.value = value
         }
 
     var notiFlowApiUrl: String
-        get() = prefs.getString("notiflow_api_url", "https://notiflow.life") ?: "https://notiflow.life"
+        get() = prefs.getString("notiroute_api_url", "https://notiroute.life") ?: "https://notiroute.life"
         set(value) {
-            prefs.edit().putString("notiflow_api_url", value).apply()
+            prefs.edit().putString("notiroute_api_url", value).apply()
         }
 
     var notiFlowApiKey: String
-        get() = encryptedPrefs.getString("notiflow_api_key", "wkdgns2!@#") ?: ""
+        get() = encryptedPrefs.getString("notiroute_api_key", "wkdgns2!@#") ?: ""
         set(value) {
-            encryptedPrefs.edit().putString("notiflow_api_key", value).apply()
+            encryptedPrefs.edit().putString("notiroute_api_key", value).apply()
         }
 
     // HuggingFace OAuth token storage (encrypted)
@@ -314,3 +321,4 @@ class AppPreferences @Inject constructor(
         return !encryptedPrefs.getString("hf_access_token", null).isNullOrBlank()
     }
 }
+

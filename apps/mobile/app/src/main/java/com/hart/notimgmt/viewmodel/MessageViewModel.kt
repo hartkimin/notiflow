@@ -87,12 +87,16 @@ class MessageViewModel @Inject constructor(
     private val _selectedCategoryIds = MutableStateFlow<Set<String>?>(null)
     val selectedCategoryIds: StateFlow<Set<String>?> = _selectedCategoryIds
 
-    // 필터 패널 표시 여부
-    private val _showCategoryFilter = MutableStateFlow(false)
-    val showCategoryFilter: StateFlow<Boolean> = _showCategoryFilter
+    // 상태 필터 (null = 전체, Set = 선택된 상태들)
+    private val _selectedStatusIds = MutableStateFlow<Set<String>?>(null)
+    val selectedStatusIds: StateFlow<Set<String>?> = _selectedStatusIds
 
-    fun toggleCategoryFilter() {
-        _showCategoryFilter.value = !_showCategoryFilter.value
+    // 필터 패널 표시 여부
+    private val _showFilterPanel = MutableStateFlow(false)
+    val showFilterPanel: StateFlow<Boolean> = _showFilterPanel
+
+    fun toggleFilterPanel() {
+        _showFilterPanel.value = !_showFilterPanel.value
     }
 
     fun toggleCategorySelection(categoryId: String) {
@@ -116,6 +120,27 @@ class MessageViewModel @Inject constructor(
         return selected == null || selected.contains(categoryId)
     }
 
+    fun toggleStatusSelection(statusId: String) {
+        val current = _selectedStatusIds.value
+        if (current == null) {
+            _selectedStatusIds.value = setOf(statusId)
+        } else if (current.contains(statusId)) {
+            val newSet = current - statusId
+            _selectedStatusIds.value = if (newSet.isEmpty()) null else newSet
+        } else {
+            _selectedStatusIds.value = current + statusId
+        }
+    }
+
+    fun selectAllStatuses() {
+        _selectedStatusIds.value = null
+    }
+
+    fun isStatusSelected(statusId: String): Boolean {
+        val selected = _selectedStatusIds.value
+        return selected == null || selected.contains(statusId)
+    }
+
     // 오늘 시작 시간 (오늘 완료 필터용)
     private val todayStart: Long
         get() = Calendar.getInstance().apply {
@@ -126,8 +151,9 @@ class MessageViewModel @Inject constructor(
         }.timeInMillis
 
     val messages: StateFlow<List<CapturedMessageEntity>> = combine(
-        _selectedCategoryIds, _filterStatusId, hiddenCategoryIds, _filterCompletedToday
-    ) { _, _, _, _ -> Unit }
+        _selectedCategoryIds, _filterStatusId, hiddenCategoryIds, _filterCompletedToday,
+        _selectedStatusIds
+    ) { _, _, _, _, _ -> Unit }
         .flatMapLatest {
             messageRepository.getAll()
         }
@@ -145,6 +171,11 @@ class MessageViewModel @Inject constructor(
                 msgs.filter { msg ->
                     msg.categoryId != null && selected.contains(msg.categoryId)
                 }
+            } else msgs
+        }
+        .combine(_selectedStatusIds) { msgs, selectedStatuses ->
+            if (selectedStatuses != null) {
+                msgs.filter { it.statusId != null && selectedStatuses.contains(it.statusId) }
             } else msgs
         }
         .combine(_filterStatusId) { msgs, statusId ->
@@ -246,6 +277,7 @@ class MessageViewModel @Inject constructor(
     fun clearFilters() {
         _filterStatusId.value = null
         _filterCompletedToday.value = false
+        _selectedStatusIds.value = null
     }
     fun setSortOrder(order: SortOrder) { _sortOrder.value = order }
 

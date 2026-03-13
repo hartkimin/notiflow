@@ -47,8 +47,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hart.notimgmt.data.db.entity.CapturedMessageEntity
 import com.hart.notimgmt.data.db.entity.StatusStepEntity
-import com.hart.notimgmt.ui.theme.NotiFlowDesign
-import com.hart.notimgmt.ui.theme.NotiFlowWarning
+import com.hart.notimgmt.ui.theme.NotiRouteDesign
+import com.hart.notimgmt.ui.theme.NotiRouteWarning
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -66,7 +66,7 @@ fun MessageCard(
     isSelected: Boolean = false
 ) {
     val catColor = Color(categoryColor)
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
     val borderColor = when {
         isSelected -> MaterialTheme.colorScheme.primary
         message.isPinned -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
@@ -304,13 +304,13 @@ fun MessageCard(
                         imageVector = Icons.Default.Alarm,
                         contentDescription = "스누즈",
                         modifier = Modifier.size(12.dp),
-                        tint = NotiFlowWarning
+                        tint = NotiRouteWarning
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = formatSnoozeTime(message.snoozeAt),
                         style = MaterialTheme.typography.labelSmall,
-                        color = NotiFlowWarning
+                        color = NotiRouteWarning
                     )
                 }
             }
@@ -406,3 +406,4 @@ fun formatSnoozeTime(snoozeAt: Long): String {
         else -> "${minutes}분 후 알림"
     }
 }
+

@@ -1,5 +1,7 @@
 package com.hart.notimgmt.ui.login
 
+import android.app.Activity
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,6 +21,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Visibility
@@ -51,9 +54,18 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.hart.notimgmt.BuildConfig
 import com.hart.notimgmt.data.auth.AuthManager
+import com.hart.notimgmt.data.model.AppMode
 import com.hart.notimgmt.data.preferences.AppPreferences
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.serializer.KotlinXSerializer
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.launch
+import kotlin.system.exitProcess
 
 private enum class LoginMode {
     SIGN_IN,        // 로그인
@@ -74,6 +86,7 @@ fun LoginScreen(
     var isLoading by remember { mutableStateOf(false) }
     var loginMode by remember { mutableStateOf(LoginMode.SIGN_IN) }
     var rememberLogin by remember { mutableStateOf(appPreferences.saveCredentials) }
+    var serverUrl by remember { mutableStateOf(appPreferences.supabaseUrl) }
     var email by remember { mutableStateOf(appPreferences.savedEmail ?: "") }
     var password by remember { mutableStateOf(appPreferences.savedPassword ?: "") }
     var confirmPassword by remember { mutableStateOf("") }
@@ -111,7 +124,7 @@ fun LoginScreen(
 
         // 앱 이름
         Text(
-            text = "NotiFlow",
+            text = "NotiRoute",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground
@@ -131,6 +144,31 @@ fun LoginScreen(
         )
 
         Spacer(modifier = Modifier.weight(1f))
+
+        // 서버 주소 입력
+        OutlinedTextField(
+            value = serverUrl,
+            onValueChange = { serverUrl = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("서버 주소") },
+            placeholder = { Text("https://your-server.supabase.co") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Language,
+                    contentDescription = null
+                )
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Uri,
+                imeAction = ImeAction.Next
+            ),
+            keyboardActions = KeyboardActions(
+                onNext = { focusManager.moveFocus(FocusDirection.Down) }
+            )
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         // 이메일 입력
         OutlinedTextField(
@@ -299,24 +337,81 @@ fun LoginScreen(
                         }
 
                         isLoading = true
-                        coroutineScope.launch {
-                            val result = authManager.signInWithEmail(email, password)
-                            isLoading = false
+                        val urlToUse = serverUrl.ifBlank { BuildConfig.SUPABASE_URL }
+                        val urlChanged = urlToUse != appPreferences.supabaseUrl
+                        val enteredEmail = email
+                        val enteredPassword = password
 
-                            result.fold(
-                                onSuccess = {
+                        coroutineScope.launch {
+                            try {
+                                if (urlChanged) {
+                                    // URL 변경 시 임시 클라이언트로 인증 검증 후 앱 재시작
+                                    val tempClient = createSupabaseClient(
+                                        supabaseUrl = urlToUse,
+                                        supabaseKey = BuildConfig.SUPABASE_KEY
+                                    ) {
+                                        defaultSerializer = KotlinXSerializer(Json {
+                                            ignoreUnknownKeys = true
+                                            encodeDefaults = true
+                                        })
+                                        install(Auth)
+                                    }
+
+                                    tempClient.auth.signInWith(Email) {
+                                        this.email = enteredEmail
+                                        this.password = enteredPassword
+                                    }
+
+                                    // 인증 성공 — URL 및 자격증명 저장 후 앱 재시작
+                                    appPreferences.supabaseUrl = serverUrl
+                                    appPreferences.appMode = AppMode.CLOUD
                                     if (rememberLogin) {
                                         appPreferences.saveLoginCredentials(email, password)
                                     } else {
                                         appPreferences.clearLoginCredentials()
                                     }
-                                    Toast.makeText(context, "로그인 성공", Toast.LENGTH_SHORT).show()
-                                    onLoginSuccess()
-                                },
-                                onFailure = { e ->
-                                    Toast.makeText(context, e.message, Toast.LENGTH_LONG).show()
+
+                                    Toast.makeText(context, "서버 연결 성공. 앱을 재시작합니다.", Toast.LENGTH_SHORT).show()
+
+                                    val activity = context as Activity
+                                    val intent = context.packageManager
+                                        .getLaunchIntentForPackage(context.packageName)!!
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                    context.startActivity(intent)
+                                    activity.finishAffinity()
+                                    exitProcess(0)
+                                } else {
+                                    // URL 동일 — 기존 싱글턴 AuthManager 사용
+                                    val result = authManager.signInWithEmail(email, password)
+                                    isLoading = false
+
+                                    result.fold(
+                                        onSuccess = {
+                                            appPreferences.supabaseUrl = serverUrl
+                                            if (rememberLogin) {
+                                                appPreferences.saveLoginCredentials(email, password)
+                                            } else {
+                                                appPreferences.clearLoginCredentials()
+                                            }
+                                            Toast.makeText(context, "로그인 성공", Toast.LENGTH_SHORT).show()
+                                            onLoginSuccess()
+                                        },
+                                        onFailure = { e ->
+                                            Toast.makeText(context, e.message, Toast.LENGTH_LONG).show()
+                                        }
+                                    )
                                 }
-                            )
+                            } catch (e: Exception) {
+                                isLoading = false
+                                val message = when {
+                                    e.message?.contains("Unable to resolve host") == true ->
+                                        "서버에 연결할 수 없습니다. 주소를 확인하세요."
+                                    e.message?.contains("Invalid login credentials") == true ->
+                                        "이메일 또는 비밀번호가 올바르지 않습니다"
+                                    else -> e.message ?: "로그인에 실패했습니다"
+                                }
+                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
 
@@ -331,24 +426,75 @@ fun LoginScreen(
                         }
 
                         isLoading = true
-                        coroutineScope.launch {
-                            val result = authManager.signUpWithEmail(email, password)
-                            isLoading = false
+                        val urlToUse = serverUrl.ifBlank { BuildConfig.SUPABASE_URL }
+                        val urlChanged = urlToUse != appPreferences.supabaseUrl
+                        val enteredEmail = email
+                        val enteredPassword = password
 
-                            result.fold(
-                                onSuccess = {
+                        coroutineScope.launch {
+                            try {
+                                if (urlChanged) {
+                                    val tempClient = createSupabaseClient(
+                                        supabaseUrl = urlToUse,
+                                        supabaseKey = BuildConfig.SUPABASE_KEY
+                                    ) {
+                                        defaultSerializer = KotlinXSerializer(Json {
+                                            ignoreUnknownKeys = true
+                                            encodeDefaults = true
+                                        })
+                                        install(Auth)
+                                    }
+                                    tempClient.auth.signUpWith(Email) {
+                                        this.email = enteredEmail
+                                        this.password = enteredPassword
+                                    }
+
+                                    appPreferences.supabaseUrl = serverUrl
+                                    appPreferences.appMode = AppMode.CLOUD
                                     if (rememberLogin) {
                                         appPreferences.saveLoginCredentials(email, password)
                                     } else {
                                         appPreferences.clearLoginCredentials()
                                     }
-                                    Toast.makeText(context, "회원가입 성공", Toast.LENGTH_SHORT).show()
-                                    onLoginSuccess()
-                                },
-                                onFailure = { e ->
-                                    Toast.makeText(context, e.message, Toast.LENGTH_LONG).show()
+
+                                    Toast.makeText(context, "회원가입 성공. 앱을 재시작합니다.", Toast.LENGTH_SHORT).show()
+
+                                    val activity = context as Activity
+                                    val intent = context.packageManager
+                                        .getLaunchIntentForPackage(context.packageName)!!
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                    context.startActivity(intent)
+                                    activity.finishAffinity()
+                                    exitProcess(0)
+                                } else {
+                                    val result = authManager.signUpWithEmail(email, password)
+                                    isLoading = false
+
+                                    result.fold(
+                                        onSuccess = {
+                                            appPreferences.supabaseUrl = serverUrl
+                                            if (rememberLogin) {
+                                                appPreferences.saveLoginCredentials(email, password)
+                                            } else {
+                                                appPreferences.clearLoginCredentials()
+                                            }
+                                            Toast.makeText(context, "회원가입 성공", Toast.LENGTH_SHORT).show()
+                                            onLoginSuccess()
+                                        },
+                                        onFailure = { e ->
+                                            Toast.makeText(context, e.message, Toast.LENGTH_LONG).show()
+                                        }
+                                    )
                                 }
-                            )
+                            } catch (e: Exception) {
+                                isLoading = false
+                                val message = when {
+                                    e.message?.contains("Unable to resolve host") == true ->
+                                        "서버에 연결할 수 없습니다. 주소를 확인하세요."
+                                    else -> e.message ?: "회원가입에 실패했습니다"
+                                }
+                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
 
@@ -459,3 +605,4 @@ private fun ActionButton(
         }
     }
 }
+

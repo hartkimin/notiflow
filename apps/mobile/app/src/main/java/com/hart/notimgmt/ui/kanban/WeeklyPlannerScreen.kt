@@ -72,8 +72,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.hart.notimgmt.data.db.entity.CapturedMessageEntity
 import com.hart.notimgmt.data.db.entity.CategoryEntity
 import com.hart.notimgmt.data.db.entity.PlanEntity
-import com.hart.notimgmt.ui.components.NotiFlowScreenWrapper
-import com.hart.notimgmt.ui.theme.NotiFlowDesign
+import com.hart.notimgmt.ui.components.NotiRouteScreenWrapper
+import com.hart.notimgmt.ui.theme.NotiRouteDesign
 import com.hart.notimgmt.viewmodel.WeeklyPlannerViewModel
 import com.hart.notimgmt.viewmodel.WeeklyPlannerViewModel.Companion.toEpochMillis
 import kotlinx.coroutines.launch
@@ -117,7 +117,7 @@ fun WeeklyPlannerScreen(
     var showWeekPicker by remember { mutableStateOf(false) }
     var showFillAllCategoriesDialog by remember { mutableStateOf(false) }
 
-    NotiFlowScreenWrapper(
+    NotiRouteScreenWrapper(
         title = "스케쥴",
         expandedHeight = 56.dp,
         actions = {
@@ -316,7 +316,7 @@ private fun WeekIndicatorBar(
     onPreviousWeek: () -> Unit = {},
     onNextWeek: () -> Unit = {}
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -574,7 +574,7 @@ private fun CategoryPlanSection(
     onCopyPreviousDay: () -> Unit = {},
     onRemoveCategory: () -> Unit = {}
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
     val catColor = Color(category.color)
     var isAdding by remember { mutableStateOf(false) }
     var showMessagePopup by remember { mutableStateOf(false) }
@@ -1498,3 +1498,4 @@ private fun CategoryPickerDialog(
         }
     )
 }
+

@@ -45,7 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hart.notimgmt.ui.components.HighlightedText
-import com.hart.notimgmt.ui.components.NotiFlowScreenWrapper
+import com.hart.notimgmt.ui.components.NotiRouteScreenWrapper
 import com.hart.notimgmt.viewmodel.AppInfo
 import com.hart.notimgmt.viewmodel.ChatRoomItem
 import com.hart.notimgmt.viewmodel.DashboardViewModel
@@ -114,8 +114,8 @@ fun DashboardScreen(
         )
     }
 
-    NotiFlowScreenWrapper(
-        title = "NotiFlow",
+    NotiRouteScreenWrapper(
+        title = "NotiRoute",
         expandedHeight = expandedHeight,
         actions = {
             IconButton(onClick = {
@@ -618,3 +618,4 @@ private fun formatChatTime(timestamp: Long): String {
         else -> SimpleDateFormat("yy/M/d HH:mm", Locale.getDefault()).format(Date(timestamp))
     }
 }
+

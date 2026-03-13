@@ -20,12 +20,12 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * NotiFlow 홈 화면 위젯
+ * NotiRoute 홈 화면 위젯
  */
-class NotiFlowWidgetProvider : AppWidgetProvider() {
+class NotiRouteWidgetProvider : AppWidgetProvider() {
 
     companion object {
-        private const val TAG = "NotiFlowWidget"
+        private const val TAG = "NotiRouteWidget"
         private const val ACTION_REFRESH = "com.hart.notimgmt.widget.ACTION_REFRESH"
 
         /**
@@ -35,10 +35,10 @@ class NotiFlowWidgetProvider : AppWidgetProvider() {
             try {
                 val appWidgetManager = AppWidgetManager.getInstance(context)
                 val widgetIds = appWidgetManager.getAppWidgetIds(
-                    ComponentName(context, NotiFlowWidgetProvider::class.java)
+                    ComponentName(context, NotiRouteWidgetProvider::class.java)
                 )
                 if (widgetIds.isNotEmpty()) {
-                    val intent = Intent(context, NotiFlowWidgetProvider::class.java).apply {
+                    val intent = Intent(context, NotiRouteWidgetProvider::class.java).apply {
                         action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
                         putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, widgetIds)
                     }
@@ -70,7 +70,7 @@ class NotiFlowWidgetProvider : AppWidgetProvider() {
                 Log.d(TAG, "Refresh action received")
                 val appWidgetManager = AppWidgetManager.getInstance(context)
                 val appWidgetIds = appWidgetManager.getAppWidgetIds(
-                    ComponentName(context, NotiFlowWidgetProvider::class.java)
+                    ComponentName(context, NotiRouteWidgetProvider::class.java)
                 )
                 for (appWidgetId in appWidgetIds) {
                     updateWidgetAsync(context, appWidgetManager, appWidgetId)
@@ -179,7 +179,7 @@ class NotiFlowWidgetProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_container, openAppPendingIntent)
 
         // 새로고침 버튼 클릭
-        val refreshIntent = Intent(context, NotiFlowWidgetProvider::class.java).apply {
+        val refreshIntent = Intent(context, NotiRouteWidgetProvider::class.java).apply {
             action = ACTION_REFRESH
         }
         val refreshPendingIntent = PendingIntent.getBroadcast(
@@ -203,3 +203,4 @@ class NotiFlowWidgetProvider : AppWidgetProvider() {
         Log.d(TAG, "Widgets deleted: ${appWidgetIds.toList()}")
     }
 }
+

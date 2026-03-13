@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.hart.notimgmt.ui.theme.*
 
 // ============================================
-// NotiFlow iOS Glassmorphism Components
+// NotiRoute iOS Glassmorphism Components
 // ============================================
 
 /**
@@ -36,7 +36,7 @@ fun GlassCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     Surface(
         modifier = modifier
@@ -71,7 +71,7 @@ fun GlassSurface(
     onClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     Surface(
         modifier = modifier
@@ -111,10 +111,10 @@ fun GlassButton(
         enabled = enabled,
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = NotiFlowIndigo,
-            contentColor = NotiFlowWhite,
-            disabledContainerColor = NotiFlowIndigo.copy(alpha = 0.5f),
-            disabledContentColor = NotiFlowWhite.copy(alpha = 0.7f)
+            containerColor = NotiRouteIndigo,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            disabledContainerColor = NotiRouteIndigo.copy(alpha = 0.5f),
+            disabledContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
         ),
         elevation = ButtonDefaults.buttonElevation(
             defaultElevation = 4.dp,
@@ -134,7 +134,7 @@ fun GlassOutlinedButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     OutlinedButton(
         onClick = onClick,
@@ -165,7 +165,7 @@ fun GlassFab(
     modifier: Modifier = Modifier,
     contentDescription: String? = null
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     Box(
         modifier = modifier
@@ -186,7 +186,7 @@ fun GlassFab(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = NotiFlowWhite,
+            tint = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.size(24.dp)
         )
     }
@@ -240,7 +240,7 @@ fun GlassTextField(
     leadingIcon: @Composable (() -> Unit)? = null,
     trailingIcon: @Composable (() -> Unit)? = null
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     OutlinedTextField(
         value = value,
@@ -276,9 +276,9 @@ fun GlassChip(
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
     val backgroundColor = if (selected) MaterialTheme.colorScheme.primary else glassColors.surfaceLight
-    val contentColor = if (selected) NotiFlowWhite else MaterialTheme.colorScheme.onSurface
+    val contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
 
     Surface(
         modifier = modifier
@@ -307,7 +307,7 @@ fun GlassChip(
 fun GlassDivider(
     modifier: Modifier = Modifier
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     Box(
         modifier = modifier
@@ -325,3 +325,4 @@ fun GlassDivider(
             )
     )
 }
+

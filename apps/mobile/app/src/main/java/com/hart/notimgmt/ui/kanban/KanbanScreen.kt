@@ -67,8 +67,8 @@ import com.hart.notimgmt.data.db.entity.CategoryEntity
 import com.hart.notimgmt.data.db.entity.StatusStepEntity
 import com.hart.notimgmt.data.preferences.AppPreferences.Companion.UNCATEGORIZED_ID
 import com.hart.notimgmt.ui.components.HighlightedText
-import com.hart.notimgmt.ui.components.NotiFlowScreenWrapper
-import com.hart.notimgmt.ui.theme.NotiFlowDesign
+import com.hart.notimgmt.ui.components.NotiRouteScreenWrapper
+import com.hart.notimgmt.ui.theme.NotiRouteDesign
 import com.hart.notimgmt.viewmodel.KanbanViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -130,7 +130,7 @@ fun KanbanScreen(
         }
     }
 
-    NotiFlowScreenWrapper(
+    NotiRouteScreenWrapper(
         title = "보드",
         expandedHeight = if (showCategoryFilter) 100.dp else 56.dp,
         actions = {
@@ -304,7 +304,7 @@ private fun KanbanSearchBar(
     query: String,
     onQueryChange: (String) -> Unit
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     Surface(
         modifier = Modifier
@@ -418,7 +418,7 @@ private fun KanbanColumn(
     onMessageClick: (String) -> Unit,
     searchQuery: String = ""
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     Surface(
         modifier = Modifier
@@ -657,7 +657,7 @@ private fun KanbanMessageCard(
     onClick: () -> Unit,
     searchQuery: String = ""
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
     val currentIndex = steps.indexOfFirst { it.id == currentStepId }
     val currentStep = steps.find { it.id == currentStepId }
     val nextStep = if (currentIndex >= 0 && currentIndex < steps.lastIndex) {
@@ -849,3 +849,4 @@ private fun formatTimeShort(timestamp: Long): String {
     val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
     return sdf.format(Date(timestamp))
 }
+

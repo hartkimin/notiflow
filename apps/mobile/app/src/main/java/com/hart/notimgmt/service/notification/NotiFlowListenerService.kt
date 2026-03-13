@@ -5,6 +5,8 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.os.Build
+import android.os.Parcelable
+import androidx.core.os.BundleCompat
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Base64
@@ -18,7 +20,7 @@ import com.hart.notimgmt.data.repository.CategoryRepository
 import com.hart.notimgmt.data.repository.FilterRuleRepository
 import com.hart.notimgmt.data.repository.MessageRepository
 import com.hart.notimgmt.data.repository.StatusStepRepository
-import com.hart.notimgmt.widget.NotiFlowWidgetProvider
+import com.hart.notimgmt.widget.NotiRouteWidgetProvider
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -30,7 +32,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class NotiFlowListenerService : NotificationListenerService() {
+class NotiRouteListenerService : NotificationListenerService() {
 
     @Inject lateinit var filterRuleRepository: FilterRuleRepository
     @Inject lateinit var messageRepository: MessageRepository
@@ -41,7 +43,7 @@ class NotiFlowListenerService : NotificationListenerService() {
     @Inject lateinit var captureNotificationHelper: CaptureNotificationHelper
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
-        Log.e("NotiFlowListener", "Coroutine error", throwable)
+        Log.e("NotiRouteListener", "Coroutine error", throwable)
     }
     private var scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + exceptionHandler)
     private val filterEngine = MessageFilterEngine()
@@ -61,7 +63,7 @@ class NotiFlowListenerService : NotificationListenerService() {
                     messageRepository.softDeleteOlderThan(cutoff)
                 }
             } catch (e: Exception) {
-                Log.e("NotiFlowListener", "Auto-delete failed", e)
+                Log.e("NotiRouteListener", "Auto-delete failed", e)
             }
         }
         // 활성 알림의 PendingIntent를 발신자 단위로 프리캐싱
@@ -78,7 +80,7 @@ class NotiFlowListenerService : NotificationListenerService() {
                     DeepLinkCache.storeBySender(pkg, sender, pi)
                 }
             } catch (e: Exception) {
-                Log.e("NotiFlowListener", "Deep link pre-cache failed", e)
+                Log.e("NotiRouteListener", "Deep link pre-cache failed", e)
             }
         }
     }
@@ -112,11 +114,11 @@ class NotiFlowListenerService : NotificationListenerService() {
                     val appName = resolveAppName(packageName)
                     processMessage(packageName, appName, sender, content, roomName, senderIconBase64, attachedImageBase64, contentIntent)
                 } catch (e: Exception) {
-                    Log.e("NotiFlowListener", "Failed to process message from $packageName", e)
+                    Log.e("NotiRouteListener", "Failed to process message from $packageName", e)
                 }
             }
         } catch (e: Exception) {
-            Log.e("NotiFlowListener", "Error reading notification", e)
+            Log.e("NotiRouteListener", "Error reading notification", e)
         }
     }
 
@@ -170,7 +172,7 @@ class NotiFlowListenerService : NotificationListenerService() {
             bitmap.recycle()
             Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
         } catch (e: Exception) {
-            Log.e("NotiFlowListener", "Failed to extract large icon", e)
+            Log.e("NotiRouteListener", "Failed to extract large icon", e)
             null
         }
     }
@@ -181,7 +183,7 @@ class NotiFlowListenerService : NotificationListenerService() {
             var picture: Bitmap? = null
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val icon = extras.getParcelable<android.graphics.drawable.Icon>(android.app.Notification.EXTRA_PICTURE_ICON)
+                val icon = BundleCompat.getParcelable(extras, android.app.Notification.EXTRA_PICTURE_ICON, Icon::class.java)
                 if (icon != null) {
                     val drawable = icon.loadDrawable(applicationContext)
                     if (drawable != null) {
@@ -194,8 +196,7 @@ class NotiFlowListenerService : NotificationListenerService() {
             }
             
             if (picture == null) {
-                @Suppress("DEPRECATION")
-                picture = extras.getParcelable<Bitmap>(android.app.Notification.EXTRA_PICTURE)
+                picture = BundleCompat.getParcelable(extras, android.app.Notification.EXTRA_PICTURE, Bitmap::class.java)
             }
 
             if (picture == null) return null
@@ -209,7 +210,7 @@ class NotiFlowListenerService : NotificationListenerService() {
             
             Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
         } catch (e: Exception) {
-            Log.e("NotiFlowListener", "Failed to extract attached image", e)
+            Log.e("NotiRouteListener", "Failed to extract attached image", e)
             null
         }
     }
@@ -228,7 +229,7 @@ class NotiFlowListenerService : NotificationListenerService() {
         val oneMinuteAgo = System.currentTimeMillis() - 60_000
         val duplicate = messageRepository.findDuplicate(packageName, sender, content, oneMinuteAgo)
         if (duplicate != null) {
-            Log.d("NotiFlowListener", "Ignoring duplicate message from $packageName ($sender)")
+            Log.d("NotiRouteListener", "Ignoring duplicate message from $packageName ($sender)")
             return
         }
 
@@ -269,7 +270,7 @@ class NotiFlowListenerService : NotificationListenerService() {
         DeepLinkCache.store(message.id, packageName, sender, contentIntent)
 
         // 위젯 업데이트
-        NotiFlowWidgetProvider.updateWidgets(applicationContext)
+        NotiRouteWidgetProvider.updateWidgets(applicationContext)
 
         captureNotificationHelper.showCaptureNotification(
             messageId = insertedId,
@@ -309,3 +310,4 @@ class NotiFlowListenerService : NotificationListenerService() {
         scope.cancel()
     }
 }
+

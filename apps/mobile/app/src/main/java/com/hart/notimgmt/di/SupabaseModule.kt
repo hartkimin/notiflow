@@ -1,5 +1,7 @@
 package com.hart.notimgmt.di
 
+import com.hart.notimgmt.BuildConfig
+import com.hart.notimgmt.data.preferences.AppPreferences
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -12,22 +14,26 @@ import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.realtime.Realtime
 import io.github.jan.supabase.realtime.realtime
+import io.github.jan.supabase.serializer.KotlinXSerializer
+import kotlinx.serialization.json.Json
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
 object SupabaseModule {
 
-    private const val SUPABASE_URL = "https://ssjrenmztyzyonojwfxx.supabase.co"
-    private const val SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzanJlbm16dHl6eW9ub2p3Znh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyODk0MzMsImV4cCI6MjA4NTg2NTQzM30.Ot1NFQGv5Dz_9LInSlSjCZ6PscJngVKk39-rsiJOd6c"
-
     @Provides
     @Singleton
-    fun provideSupabaseClient(): SupabaseClient {
+    fun provideSupabaseClient(appPreferences: AppPreferences): SupabaseClient {
+        val url = appPreferences.supabaseUrl.ifBlank { BuildConfig.SUPABASE_URL }
         return createSupabaseClient(
-            supabaseUrl = SUPABASE_URL,
-            supabaseKey = SUPABASE_KEY
+            supabaseUrl = url,
+            supabaseKey = BuildConfig.SUPABASE_KEY
         ) {
+            defaultSerializer = KotlinXSerializer(Json {
+                ignoreUnknownKeys = true
+                encodeDefaults = true
+            })
             install(Auth)
             install(Postgrest)
             install(Realtime)

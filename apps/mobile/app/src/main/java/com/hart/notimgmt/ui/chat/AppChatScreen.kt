@@ -474,7 +474,7 @@ private fun TimelineMessageRow(
             Text(
                 text = formatChatDetailTime(message.receivedAt),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                color = style.dateHeaderColor,
                 maxLines = 1
             )
 

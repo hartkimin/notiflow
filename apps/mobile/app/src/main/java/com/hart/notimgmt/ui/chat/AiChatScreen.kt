@@ -116,7 +116,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hart.notimgmt.ai.GemmaModelSize
 import com.hart.notimgmt.ui.filter.SegmentedSelector
-import com.hart.notimgmt.ui.theme.NotiFlowDesign
+import com.hart.notimgmt.ui.theme.NotiRouteDesign
 import com.hart.notimgmt.ui.message.formatRelativeTime
 import com.hart.notimgmt.viewmodel.AiChatViewModel
 import com.hart.notimgmt.viewmodel.AttachedMessage
@@ -150,7 +150,7 @@ fun AiChatScreen(
     val presets by viewModel.presets.collectAsState()
     val selectedPresetId by viewModel.selectedPresetId.collectAsState()
 
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var inputText by rememberSaveable { mutableStateOf("") }
@@ -1686,8 +1686,8 @@ private fun MessagePickerScreen(
             Column(modifier = Modifier.fillMaxSize()) {
             // Top bar
             Surface(
-                color = NotiFlowDesign.glassColors.surface,
-                border = BorderStroke(0.5.dp, NotiFlowDesign.glassColors.border)
+                color = NotiRouteDesign.glassColors.surface,
+                border = BorderStroke(0.5.dp, NotiRouteDesign.glassColors.border)
             ) {
                 Row(
                     modifier = Modifier
@@ -1998,4 +1998,5 @@ private fun loadBitmapFromUri(context: Context, uri: Uri): Bitmap? {
         null
     }
 }
+
 

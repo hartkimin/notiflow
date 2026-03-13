@@ -34,17 +34,17 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.hart.notimgmt.ui.theme.NotiFlowDesign
+import com.hart.notimgmt.ui.theme.NotiRouteDesign
 
 // ============================================
-// NotiFlow Collapsing Header System
+// NotiRoute Collapsing Header System
 // ============================================
 
 /**
  * 헤더 확장/축소 상태 관리
  */
 @Stable
-class NotiFlowHeaderState(
+class NotiRouteHeaderState(
     val expandedHeightPx: Float,
     val collapsedHeightPx: Float,
     initialProgress: Float = 0f
@@ -76,31 +76,31 @@ class NotiFlowHeaderState(
     }
 
     companion object {
-        val Saver = Saver<NotiFlowHeaderState, List<Float>>(
+        val Saver = Saver<NotiRouteHeaderState, List<Float>>(
             save = { listOf(it.expandedHeightPx, it.collapsedHeightPx, it.progress) },
-            restore = { NotiFlowHeaderState(it[0], it[1], it[2]) }
+            restore = { NotiRouteHeaderState(it[0], it[1], it[2]) }
         )
     }
 }
 
 @Composable
-fun rememberNotiFlowHeaderState(
+fun rememberNotiRouteHeaderState(
     expandedHeight: Dp,
     collapsedHeight: Dp = 56.dp
-): NotiFlowHeaderState {
+): NotiRouteHeaderState {
     val density = LocalDensity.current
     val expandedPx = with(density) { expandedHeight.toPx() }
     val collapsedPx = with(density) { collapsedHeight.toPx() }
-    return rememberSaveable(expandedPx, collapsedPx, saver = NotiFlowHeaderState.Saver) {
-        NotiFlowHeaderState(expandedPx, collapsedPx)
+    return rememberSaveable(expandedPx, collapsedPx, saver = NotiRouteHeaderState.Saver) {
+        NotiRouteHeaderState(expandedPx, collapsedPx)
     }
 }
 
 /**
  * NestedScrollConnection: 스크롤 이벤트를 가로채 헤더 축소/확장
  */
-class NotiFlowHeaderNestedScrollConnection(
-    private val state: NotiFlowHeaderState
+class NotiRouteHeaderNestedScrollConnection(
+    private val state: NotiRouteHeaderState
 ) : NestedScrollConnection {
 
     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -127,7 +127,7 @@ class NotiFlowHeaderNestedScrollConnection(
 }
 
 /**
- * NotiFlow 그라데이션 헤더 Composable
+ * NotiRoute 그라데이션 헤더 Composable
  *
  * @param title 화면 제목 (항상 표시)
  * @param state 헤더 확장/축소 상태
@@ -135,14 +135,14 @@ class NotiFlowHeaderNestedScrollConnection(
  * @param expandedContent 확장 영역 슬롯 (progress에 따라 fade out)
  */
 @Composable
-fun NotiFlowHeader(
+fun NotiRouteHeader(
     title: String,
-    state: NotiFlowHeaderState,
+    state: NotiRouteHeaderState,
     modifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {},
     expandedContent: @Composable () -> Unit = {}
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
     val density = LocalDensity.current
     val currentHeight = with(density) { state.currentHeightPx.toDp() }
 
@@ -199,12 +199,12 @@ fun NotiFlowHeader(
 }
 
 /**
- * NotiFlowScreenWrapper — NotiFlowLegacyScreenWrapper 대체
+ * NotiRouteScreenWrapper — NotiRouteLegacyScreenWrapper 대체
  *
  * 그라데이션 헤더 + nestedScroll connection + 콘텐츠 슬롯
  */
 @Composable
-fun NotiFlowScreenWrapper(
+fun NotiRouteScreenWrapper(
     title: String,
     modifier: Modifier = Modifier,
     expandedHeight: Dp = 140.dp,
@@ -212,10 +212,10 @@ fun NotiFlowScreenWrapper(
     expandedContent: @Composable () -> Unit = {},
     content: @Composable BoxScope.() -> Unit
 ) {
-    val headerState = rememberNotiFlowHeaderState(
+    val headerState = rememberNotiRouteHeaderState(
         expandedHeight = expandedHeight
     )
-    val nestedScrollConnection = NotiFlowHeaderNestedScrollConnection(headerState)
+    val nestedScrollConnection = NotiRouteHeaderNestedScrollConnection(headerState)
 
     Box(
         modifier = modifier
@@ -227,7 +227,7 @@ fun NotiFlowScreenWrapper(
                 .fillMaxSize()
                 .nestedScroll(nestedScrollConnection)
         ) {
-            NotiFlowHeader(
+            NotiRouteHeader(
                 title = title,
                 state = headerState,
                 actions = actions,
@@ -244,3 +244,4 @@ fun NotiFlowScreenWrapper(
         }
     }
 }
+

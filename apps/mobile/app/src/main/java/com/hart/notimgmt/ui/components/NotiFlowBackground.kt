@@ -16,30 +16,30 @@ import com.hart.notimgmt.R
 import com.hart.notimgmt.ui.theme.*
 
 // ============================================
-// NotiFlow Background Components
+// NotiRoute Background Components
 // ============================================
 
 /**
- * NotiFlow이미지 리소스 상수
+ * NotiRoute이미지 리소스 상수
  */
-object NotiFlowImages {
-    val SPLASH = R.drawable.notiflow_splash_bg          // 스플래시 배경 (NotiFlow 브랜드)
-    val BACKGROUND = R.drawable.notiflow_onboarding_bg  // 온보딩 배경 (NotiFlow 브랜드)
-    val HEADER = R.drawable.notiflow_onboarding_bg      // 헤더 배경 (NotiFlow 브랜드)
+object NotiRouteImages {
+    val SPLASH = R.drawable.notiflow_splash_bg          // 스플래시 배경 (NotiRoute 브랜드)
+    val BACKGROUND = R.drawable.notiflow_onboarding_bg  // 온보딩 배경 (NotiRoute 브랜드)
+    val HEADER = R.drawable.notiflow_onboarding_bg      // 헤더 배경 (NotiRoute 브랜드)
     val ALBUM_ART = R.drawable.notiflow_splash_bg       // (미사용 — 호환용)
     val MEMBERS = R.drawable.notiflow_onboarding_bg     // (미사용 — 호환용)
 }
 
 /**
- * NotiFlow그라데이션 배경 (이미지 없을 때 기본 배경)
+ * NotiRoute그라데이션 배경 (이미지 없을 때 기본 배경)
  */
 @Composable
-fun NotiFlowGradientBackground(
+fun NotiRouteGradientBackground(
     modifier: Modifier = Modifier,
     style: GradientStyle = GradientStyle.DIAGONAL,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     val gradientBrush = when (style) {
         GradientStyle.DIAGONAL -> Brush.linearGradient(
@@ -86,11 +86,11 @@ enum class GradientStyle {
 }
 
 /**
- * NotiFlow이미지 배경 (사용자가 이미지 추가 시 사용)
+ * NotiRoute이미지 배경 (사용자가 이미지 추가 시 사용)
  * 이미지 위에 블러 + 그라데이션 오버레이
  */
 @Composable
-fun NotiFlowImageBackground(
+fun NotiRouteImageBackground(
     imageResId: Int? = null,
     imageUrl: String? = null,
     modifier: Modifier = Modifier,
@@ -98,7 +98,7 @@ fun NotiFlowImageBackground(
     overlayAlpha: Float = 0.5f,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     Box(modifier = modifier.fillMaxSize()) {
         // Background Image
@@ -137,15 +137,15 @@ fun NotiFlowImageBackground(
 }
 
 /**
- * NotiFlow스플래시 배경
+ * NotiRoute스플래시 배경
  */
 @Composable
-fun NotiFlowSplashBackground(
-    imageResId: Int? = NotiFlowImages.SPLASH,
+fun NotiRouteSplashBackground(
+    imageResId: Int? = NotiRouteImages.SPLASH,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     Box(modifier = modifier.fillMaxSize()) {
         if (imageResId != null) {
@@ -191,16 +191,16 @@ fun NotiFlowSplashBackground(
 }
 
 /**
- * NotiFlow상단 헤더 배경 (페이드아웃)
+ * NotiRoute상단 헤더 배경 (페이드아웃)
  */
-@Deprecated("Use NotiFlowHeader instead — provides collapsing behavior and integrated gradient")
+@Deprecated("Use NotiRouteHeader instead — provides collapsing behavior and integrated gradient")
 @Composable
-fun NotiFlowHeaderBackground(
-    imageResId: Int? = NotiFlowImages.HEADER,
+fun NotiRouteHeaderBackground(
+    imageResId: Int? = NotiRouteImages.HEADER,
     height: Int = 200,
     modifier: Modifier = Modifier
 ) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     Box(
         modifier = modifier
@@ -227,8 +227,8 @@ fun NotiFlowHeaderBackground(
                     .background(
                         brush = Brush.verticalGradient(
                             colors = listOf(
-                                NotiFlowIndigo.copy(alpha = 0.3f),
-                                NotiFlowIndigo.copy(alpha = 0.1f),
+                                NotiRouteIndigo.copy(alpha = 0.3f),
+                                NotiRouteIndigo.copy(alpha = 0.1f),
                                 Color.Transparent
                             )
                         )
@@ -269,13 +269,13 @@ fun NotiFlowHeaderBackground(
 /**
  * 글래스 효과가 있는 스크린 래퍼
  */
-@Deprecated("Use NotiFlowScreenWrapper instead — provides collapsing header and better space usage")
+@Deprecated("Use NotiRouteScreenWrapper instead — provides collapsing header and better space usage")
 @Suppress("DEPRECATION")
 @Composable
-fun NotiFlowLegacyScreenWrapper(
+fun NotiRouteLegacyScreenWrapper(
     modifier: Modifier = Modifier,
     showHeader: Boolean = true,
-    headerImageResId: Int? = NotiFlowImages.HEADER,
+    headerImageResId: Int? = NotiRouteImages.HEADER,
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(
@@ -285,7 +285,7 @@ fun NotiFlowLegacyScreenWrapper(
     ) {
         // Optional header background
         if (showHeader) {
-            NotiFlowHeaderBackground(
+            NotiRouteHeaderBackground(
                 imageResId = headerImageResId,
                 height = 180
             )
@@ -295,3 +295,4 @@ fun NotiFlowLegacyScreenWrapper(
         content()
     }
 }
+

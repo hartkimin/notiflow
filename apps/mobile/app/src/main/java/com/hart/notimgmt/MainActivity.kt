@@ -11,7 +11,7 @@ import com.hart.notimgmt.data.auth.AuthManager
 import com.hart.notimgmt.data.model.ThemeMode
 import com.hart.notimgmt.data.preferences.AppPreferences
 import com.hart.notimgmt.ui.navigation.AppNavigation
-import com.hart.notimgmt.ui.theme.NotiFlowTheme
+import com.hart.notimgmt.ui.theme.NotiRouteTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
             }
-            NotiFlowTheme(darkTheme = darkTheme) {
+            NotiRouteTheme(darkTheme = darkTheme) {
                 AppNavigation(
                     appPreferences = appPreferences,
                     authManager = authManager
@@ -44,3 +44,4 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+

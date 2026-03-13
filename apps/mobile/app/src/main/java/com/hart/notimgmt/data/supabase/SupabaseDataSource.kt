@@ -35,14 +35,15 @@ class SupabaseDataSource @Inject constructor(
 
     private val json = Json { prettyPrint = true }
 
-    private val userId: String
-        get() = auth.currentUserOrNull()?.id ?: throw IllegalStateException("User not logged in")
+    private val userId: String?
+        get() = auth.currentUserOrNull()?.id
 
     // ========== Messages ==========
 
-    suspend fun upsertMessage(message: CapturedMessageEntity) {
+    suspend fun upsertMessage(message: CapturedMessageEntity, deviceId: String? = null) {
+        val currentUserId = userId ?: return
         try {
-            val dto = message.toSupabaseDto(userId)
+            val dto = message.toSupabaseDto(currentUserId, deviceId)
             Log.d(TAG, "Upserting message: ${json.encodeToString(dto)}")
             postgrest.from(MESSAGES_TABLE).upsert(dto) {
                 onConflict = "id"
@@ -58,10 +59,11 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun getMessages(): List<MessageDto> {
+        val currentUserId = userId ?: return emptyList()
         return try {
-            Log.d(TAG, "Getting messages for user: $userId")
+            Log.d(TAG, "Getting messages for user: $currentUserId")
             val result = postgrest.from(MESSAGES_TABLE)
-                .select { filter { eq("user_id", userId) } }
+                .select { filter { eq("user_id", currentUserId) } }
                 .decodeList<MessageDto>()
             Log.d(TAG, "Got ${result.size} messages from Supabase")
             result
@@ -75,12 +77,13 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun deleteMessages(ids: List<String>) {
+        val currentUserId = userId ?: return
         try {
             Log.d(TAG, "Deleting messages from Supabase: $ids")
             postgrest.from(MESSAGES_TABLE).delete {
                 filter {
                     isIn("id", ids)
-                    eq("user_id", userId)
+                    eq("user_id", currentUserId)
                 }
             }
             Log.d(TAG, "Messages deleted from Supabase: ${ids.size} items")
@@ -95,9 +98,12 @@ class SupabaseDataSource @Inject constructor(
 
     // ========== Categories ==========
 
+    // ========== Categories ==========
+
     suspend fun upsertCategory(category: CategoryEntity) {
+        val currentUserId = userId ?: return
         try {
-            val dto = category.toSupabaseDto(userId)
+            val dto = category.toSupabaseDto(currentUserId)
             Log.d(TAG, "Upserting category: ${json.encodeToString(dto)}")
             postgrest.from(CATEGORIES_TABLE).upsert(dto) {
                 onConflict = "id"
@@ -113,10 +119,11 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun getCategories(): List<CategoryDto> {
+        val currentUserId = userId ?: return emptyList()
         return try {
-            Log.d(TAG, "Getting categories for user: $userId")
+            Log.d(TAG, "Getting categories for user: $currentUserId")
             val result = postgrest.from(CATEGORIES_TABLE)
-                .select { filter { eq("user_id", userId) } }
+                .select { filter { eq("user_id", currentUserId) } }
                 .decodeList<CategoryDto>()
             Log.d(TAG, "Got ${result.size} categories from Supabase")
             result
@@ -132,8 +139,9 @@ class SupabaseDataSource @Inject constructor(
     // ========== Filter Rules ==========
 
     suspend fun upsertFilterRule(rule: FilterRuleEntity) {
+        val currentUserId = userId ?: return
         try {
-            val dto = rule.toSupabaseDto(userId)
+            val dto = rule.toSupabaseDto(currentUserId)
             Log.d(TAG, "Upserting filter rule: ${json.encodeToString(dto)}")
             postgrest.from(FILTER_RULES_TABLE).upsert(dto) {
                 onConflict = "id"
@@ -149,10 +157,11 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun getFilterRules(): List<FilterRuleDto> {
+        val currentUserId = userId ?: return emptyList()
         return try {
-            Log.d(TAG, "Getting filter rules for user: $userId")
+            Log.d(TAG, "Getting filter rules for user: $currentUserId")
             val result = postgrest.from(FILTER_RULES_TABLE)
-                .select { filter { eq("user_id", userId) } }
+                .select { filter { eq("user_id", currentUserId) } }
                 .decodeList<FilterRuleDto>()
             Log.d(TAG, "Got ${result.size} filter rules from Supabase")
             result
@@ -168,8 +177,9 @@ class SupabaseDataSource @Inject constructor(
     // ========== Status Steps ==========
 
     suspend fun upsertStatusStep(step: StatusStepEntity) {
+        val currentUserId = userId ?: return
         try {
-            val dto = step.toSupabaseDto(userId)
+            val dto = step.toSupabaseDto(currentUserId)
             Log.d(TAG, "Upserting status step: ${json.encodeToString(dto)}")
             postgrest.from(STATUS_STEPS_TABLE).upsert(dto) {
                 onConflict = "id"
@@ -185,10 +195,11 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun getStatusSteps(): List<StatusStepDto> {
+        val currentUserId = userId ?: return emptyList()
         return try {
-            Log.d(TAG, "Getting status steps for user: $userId")
+            Log.d(TAG, "Getting status steps for user: $currentUserId")
             val result = postgrest.from(STATUS_STEPS_TABLE)
-                .select { filter { eq("user_id", userId) } }
+                .select { filter { eq("user_id", currentUserId) } }
                 .decodeList<StatusStepDto>()
             Log.d(TAG, "Got ${result.size} status steps from Supabase")
             result
@@ -204,8 +215,9 @@ class SupabaseDataSource @Inject constructor(
     // ========== App Filters ==========
 
     suspend fun upsertAppFilter(filter: AppFilterEntity) {
+        val currentUserId = userId ?: return
         try {
-            val dto = filter.toSupabaseDto(userId)
+            val dto = filter.toSupabaseDto(currentUserId)
             Log.d(TAG, "Upserting app filter: ${json.encodeToString(dto)}")
             postgrest.from(APP_FILTERS_TABLE).upsert(dto) {
                 onConflict = "id"
@@ -221,10 +233,11 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun getAppFilters(): List<AppFilterDto> {
+        val currentUserId = userId ?: return emptyList()
         return try {
-            Log.d(TAG, "Getting app filters for user: $userId")
+            Log.d(TAG, "Getting app filters for user: $currentUserId")
             val result = postgrest.from(APP_FILTERS_TABLE)
-                .select { filter { eq("user_id", userId) } }
+                .select { filter { eq("user_id", currentUserId) } }
                 .decodeList<AppFilterDto>()
             Log.d(TAG, "Got ${result.size} app filters from Supabase")
             result
@@ -240,8 +253,9 @@ class SupabaseDataSource @Inject constructor(
     // ========== Plans ==========
 
     suspend fun upsertPlan(plan: PlanEntity) {
+        val currentUserId = userId ?: return
         try {
-            val dto = plan.toSupabaseDto(userId)
+            val dto = plan.toSupabaseDto(currentUserId)
             Log.d(TAG, "Upserting plan: ${json.encodeToString(dto)}")
             postgrest.from(PLANS_TABLE).upsert(dto) {
                 onConflict = "id"
@@ -257,10 +271,11 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun getPlans(): List<PlanDto> {
+        val currentUserId = userId ?: return emptyList()
         return try {
-            Log.d(TAG, "Getting plans for user: $userId")
+            Log.d(TAG, "Getting plans for user: $currentUserId")
             val result = postgrest.from(PLANS_TABLE)
-                .select { filter { eq("user_id", userId) } }
+                .select { filter { eq("user_id", currentUserId) } }
                 .decodeList<PlanDto>()
             Log.d(TAG, "Got ${result.size} plans from Supabase")
             result
@@ -276,8 +291,9 @@ class SupabaseDataSource @Inject constructor(
     // ========== Day Categories ==========
 
     suspend fun upsertDayCategory(entity: DayCategoryEntity) {
+        val currentUserId = userId ?: return
         try {
-            val dto = entity.toSupabaseDto(userId)
+            val dto = entity.toSupabaseDto(currentUserId)
             Log.d(TAG, "Upserting day category: ${json.encodeToString(dto)}")
             postgrest.from(DAY_CATEGORIES_TABLE).upsert(dto) {
                 onConflict = "id"
@@ -293,10 +309,11 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun getDayCategories(): List<DayCategoryDto> {
+        val currentUserId = userId ?: return emptyList()
         return try {
-            Log.d(TAG, "Getting day categories for user: $userId")
+            Log.d(TAG, "Getting day categories for user: $currentUserId")
             val result = postgrest.from(DAY_CATEGORIES_TABLE)
-                .select { filter { eq("user_id", userId) } }
+                .select { filter { eq("user_id", currentUserId) } }
                 .decodeList<DayCategoryDto>()
             Log.d(TAG, "Got ${result.size} day categories from Supabase")
             result
@@ -310,10 +327,14 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun deleteDayCategory(id: String) {
+        val currentUserId = userId ?: return
         try {
             Log.d(TAG, "Deleting day category: $id")
             postgrest.from(DAY_CATEGORIES_TABLE).delete {
-                filter { eq("id", id) }
+                filter {
+                    eq("id", id)
+                    eq("user_id", currentUserId)
+                }
             }
             Log.d(TAG, "DayCategory deleted: $id")
         } catch (e: PostgrestRestException) {
@@ -356,6 +377,20 @@ class SupabaseDataSource @Inject constructor(
             throw e
         }
     }
+
+    suspend fun updateLastSyncAt(deviceId: String, timestamp: String) {
+        try {
+            postgrest.from(MOBILE_DEVICES_TABLE).update({
+                set("last_sync_at", timestamp)
+            }) {
+                filter { eq("id", deviceId) }
+            }
+            Log.d(TAG, "Updated last_sync_at for device: $deviceId to $timestamp")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update last_sync_at: ${e.message}", e)
+            throw e
+        }
+    }
 }
 
 // ========== DTOs for Supabase ==========
@@ -364,6 +399,7 @@ class SupabaseDataSource @Inject constructor(
 data class MessageDto(
     val id: String,
     val user_id: String,
+    val device_id: String? = null,
     val category_id: String? = null,
     val matched_rule_id: String? = null,
     val source: String,
@@ -387,6 +423,7 @@ data class MessageDto(
 ) {
     fun toEntity() = CapturedMessageEntity(
         id = id,
+        deviceId = device_id,
         categoryId = category_id,
         matchedRuleId = matched_rule_id,
         source = source,
@@ -513,9 +550,10 @@ data class AppFilterDto(
 
 // ========== Entity to DTO extensions ==========
 
-private fun CapturedMessageEntity.toSupabaseDto(userId: String) = MessageDto(
+private fun CapturedMessageEntity.toSupabaseDto(userId: String, deviceId: String?) = MessageDto(
     id = id,
     user_id = userId,
+    device_id = deviceId,
     category_id = categoryId,
     matched_rule_id = matchedRuleId,
     source = source,

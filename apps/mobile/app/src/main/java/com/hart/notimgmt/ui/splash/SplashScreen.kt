@@ -4,196 +4,210 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asComposePath
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hart.notimgmt.ui.theme.NotiRouteIndigo
+import com.hart.notimgmt.ui.theme.NotiRouteIndigoLight
+import com.hart.notimgmt.ui.theme.NotiRouteViolet
+import com.hart.notimgmt.ui.theme.NotiRouteVioletLight
+import com.hart.notimgmt.BuildConfig
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.cos
+import kotlin.math.sin
 
 @Composable
 fun SplashScreen(onFinished: () -> Unit) {
     val alphaAnim = remember { Animatable(0f) }
     val scaleAnim = remember { Animatable(0.85f) }
-    val waveOffsetAnim = remember { Animatable(0f) }
+    val sparkleAnim = rememberInfiniteTransition(label = "sparkle")
+    val sparklePhase = sparkleAnim.animateFloat(
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(6000, easing = LinearEasing)),
+        label = "sparkleRotation"
+    )
 
     LaunchedEffect(Unit) {
         launch { alphaAnim.animateTo(1f, tween(1000, easing = EaseOutExpo)) }
         launch { scaleAnim.animateTo(1f, tween(1200, easing = EaseOutBack)) }
-        launch {
-            waveOffsetAnim.animateTo(
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(4000, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse
-                )
-            )
-        }
         delay(3000)
         onFinished()
     }
 
-    val brandBlue = Color(0xFF4B4DFF)
-    val brandPurple = Color(0xFF934DFF)
-    val bgDark = Color(0xFF050505)
+    val sakura = NotiRouteIndigo
+    val sakuraLight = NotiRouteIndigoLight
+    val lavender = NotiRouteViolet
+    val lavenderLight = NotiRouteVioletLight
+    val bgGradient = Brush.verticalGradient(
+        listOf(Color(0xFFFFF0F5), Color(0xFFFFF8F3), Color(0xFFF3E5F5))
+    )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(bgDark),
+            .background(bgGradient),
         contentAlignment = Alignment.Center
     ) {
-        // Background abstract elements (Waves & Orbs)
+        // Floating sparkles & decorations
         Canvas(modifier = Modifier.fillMaxSize().alpha(alphaAnim.value)) {
-            val width = size.width
-            val height = size.height
+            val w = size.width
+            val h = size.height
+            val phase = sparklePhase.value
 
-            // Glow Orbs mapped to canvas
+            // Soft glow orbs
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(brandBlue.copy(alpha = 0.3f), Color.Transparent),
-                    center = Offset(width * 0.2f, height * 0.25f),
-                    radius = width * 0.5f
+                    colors = listOf(sakuraLight.copy(alpha = 0.2f), Color.Transparent),
+                    center = Offset(w * 0.15f, h * 0.2f), radius = w * 0.35f
                 )
             )
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(brandPurple.copy(alpha = 0.3f), Color.Transparent),
-                    center = Offset(width * 0.8f, height * 0.7f),
-                    radius = width * 0.6f
+                    colors = listOf(lavenderLight.copy(alpha = 0.15f), Color.Transparent),
+                    center = Offset(w * 0.85f, h * 0.75f), radius = w * 0.4f
                 )
             )
-            
-            // Scattered Dots
-            drawCircle(color = brandBlue.copy(alpha = 0.4f), radius = 8f, center = Offset(width * 0.15f, height * 0.1f))
-            drawCircle(color = brandPurple.copy(alpha = 0.5f), radius = 12f, center = Offset(width * 0.85f, height * 0.2f))
-            drawCircle(color = brandBlue.copy(alpha = 0.3f), radius = 10f, center = Offset(width * 0.2f, height * 0.85f))
-            drawCircle(color = brandPurple.copy(alpha = 0.4f), radius = 6f, center = Offset(width * 0.85f, height * 0.6f))
-            
-            // Vector Waves (Simplified path using Compose Path)
-            val scaleX = width / 400f
-            val scaleY = height / 800f
-            
-            val wave1 = androidx.core.graphics.PathParser.createPathFromPathData(
-                "M-50 150C50 100 150 250 200 400C250 550 350 700 450 650"
-            ).asComposePath()
-            
-            val wave2 = androidx.core.graphics.PathParser.createPathFromPathData(
-                "M450 150C350 100 250 250 200 400C150 550 50 700 -50 650"
-            ).asComposePath()
-            
-            val waveOffsetY = waveOffsetAnim.value * 60f
-            
-            withTransform({
-                scale(scaleX, scaleY, pivot = Offset.Zero)
-                translate(0f, waveOffsetY)
-            }) {
-                drawPath(
-                    path = wave1,
-                    brush = Brush.linearGradient(
-                        colors = listOf(brandBlue, brandPurple),
-                        start = Offset(0f, 0f),
-                        end = Offset(400f, 800f)
-                    ),
-                    style = Stroke(width = 2f),
-                    alpha = 0.5f
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(sakura.copy(alpha = 0.1f), Color.Transparent),
+                    center = Offset(w * 0.6f, h * 0.15f), radius = w * 0.25f
                 )
-                drawPath(
-                    path = wave2,
-                    brush = Brush.linearGradient(
-                        colors = listOf(brandPurple, brandBlue),
-                        start = Offset(400f, 0f),
-                        end = Offset(0f, 800f)
-                    ),
-                    style = Stroke(width = 2f),
-                    alpha = 0.5f
+            )
+
+            // Sparkle stars scattered around
+            val sparkles = listOf(
+                Triple(0.12f, 0.08f, 6f), Triple(0.88f, 0.12f, 8f),
+                Triple(0.08f, 0.55f, 5f), Triple(0.92f, 0.45f, 7f),
+                Triple(0.75f, 0.88f, 6f), Triple(0.25f, 0.85f, 5f),
+                Triple(0.5f, 0.05f, 4f), Triple(0.35f, 0.92f, 7f),
+                Triple(0.9f, 0.65f, 5f), Triple(0.15f, 0.35f, 4f)
+            )
+            sparkles.forEachIndexed { i, (fx, fy, r) ->
+                val offset = (phase + i * 36f) % 360f
+                val alpha = (0.3f + 0.4f * sin(Math.toRadians(offset.toDouble())).toFloat())
+                    .coerceIn(0.1f, 0.7f)
+                val color = if (i % 2 == 0) sakuraLight else lavenderLight
+                drawStar(Offset(w * fx, h * fy), r * (w / 400f), color.copy(alpha = alpha))
+            }
+
+            // Tiny floating circles (bokeh)
+            val bokeh = listOf(
+                Triple(0.2f, 0.3f, 12f), Triple(0.7f, 0.2f, 8f),
+                Triple(0.4f, 0.7f, 10f), Triple(0.8f, 0.8f, 6f),
+                Triple(0.3f, 0.6f, 7f)
+            )
+            bokeh.forEachIndexed { i, (fx, fy, r) ->
+                val offset = (phase + i * 72f) % 360f
+                val yOff = sin(Math.toRadians(offset.toDouble())).toFloat() * 8f
+                val alpha = 0.15f + 0.1f * cos(Math.toRadians(offset.toDouble())).toFloat()
+                val color = if (i % 2 == 0) sakura else lavender
+                drawCircle(
+                    color = color.copy(alpha = alpha.coerceIn(0.05f, 0.25f)),
+                    radius = r * (w / 400f),
+                    center = Offset(w * fx, h * fy + yOff)
                 )
             }
         }
 
-        // Central N Logo and Branding
+        // Central Logo & Branding
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .alpha(alphaAnim.value)
-                .scale(scaleAnim.value)
+            modifier = Modifier.alpha(alphaAnim.value).scale(scaleAnim.value)
         ) {
-            // Logo Container
+            // Logo with sakura gradient
             Box(
-                modifier = Modifier.size(120.dp),
+                modifier = Modifier
+                    .size(120.dp)
+                    .background(
+                        brush = Brush.linearGradient(listOf(sakura, lavender)),
+                        shape = RoundedCornerShape(28.dp)
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                // Outer Glow
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .blur(32.dp)
-                        .background(
-                            brush = Brush.linearGradient(listOf(brandBlue.copy(alpha=0.6f), brandPurple.copy(alpha=0.6f))),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
-                        )
-                )
-                
-                // Actual Shape
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .background(
-                            brush = Brush.linearGradient(listOf(brandBlue, brandPurple)),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Canvas(modifier = Modifier.size(60.dp)) {
-                        val nPath = androidx.core.graphics.PathParser.createPathFromPathData(
-                            "M25 20V80H38L62 38V80H75V20H62L38 62V20H25Z"
-                        ).asComposePath()
-                        withTransform({
-                            scale(size.width / 100f, size.height / 100f, pivot = Offset.Zero)
-                        }) {
-                            drawPath(
-                                path = nPath,
-                                color = Color.White
-                            )
-                        }
+                Canvas(modifier = Modifier.size(56.dp)) {
+                    val nPath = Path().apply {
+                        val s = size.width / 100f
+                        moveTo(25f * s, 20f * s)
+                        lineTo(25f * s, 80f * s)
+                        lineTo(38f * s, 80f * s)
+                        lineTo(62f * s, 38f * s)
+                        lineTo(62f * s, 80f * s)
+                        lineTo(75f * s, 80f * s)
+                        lineTo(75f * s, 20f * s)
+                        lineTo(62f * s, 20f * s)
+                        lineTo(38f * s, 62f * s)
+                        lineTo(38f * s, 20f * s)
+                        close()
                     }
+                    drawPath(nPath, Color.White)
                 }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
-                text = "NotiFlow",
+                text = "NotiRoute",
                 style = MaterialTheme.typography.displayMedium.copy(
                     letterSpacing = (-1).sp,
                     fontWeight = FontWeight.ExtraBold
                 ),
-                color = Color.White
+                color = Color(0xFF2D1B33)
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
-                text = "FOCUS RECLAIMED",
+                text = "알림을 깔끔하게, 하루를 가볍게 \u2728",
                 style = MaterialTheme.typography.labelMedium.copy(
-                    letterSpacing = 4.sp,
-                    fontWeight = FontWeight.Bold
+                    letterSpacing = 1.sp,
+                    fontWeight = FontWeight.Medium
                 ),
-                color = Color(0xFFA0A0A0)
+                color = Color(0xFF7B6B80)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "v${BuildConfig.VERSION_NAME}",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Medium
+                ),
+                color = Color(0xFF7B6B80).copy(alpha = 0.7f)
             )
         }
     }
 }
+
+/** Draw a 4-pointed star */
+private fun DrawScope.drawStar(center: Offset, radius: Float, color: Color) {
+    val path = Path().apply {
+        for (i in 0 until 4) {
+            val angle = Math.toRadians((i * 90.0) - 90.0)
+            val x = center.x + radius * cos(angle).toFloat()
+            val y = center.y + radius * sin(angle).toFloat()
+            if (i == 0) moveTo(x, y) else lineTo(x, y)
+            val midAngle = Math.toRadians((i * 90.0 + 45.0) - 90.0)
+            val mx = center.x + radius * 0.35f * cos(midAngle).toFloat()
+            val my = center.y + radius * 0.35f * sin(midAngle).toFloat()
+            lineTo(mx, my)
+        }
+        close()
+    }
+    drawPath(path, color)
+}
+

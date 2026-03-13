@@ -24,9 +24,9 @@ import androidx.compose.ui.unit.dp
 import com.hart.notimgmt.ui.theme.*
 
 val predefinedColors: List<Color> = listOf(
-    NotiFlowIndigo,           // Sky Blue (Primary)
-    NotiFlowViolet,              // Mint
-    NotiFlowIndigoDark,       // Deep Blue
+    NotiRouteIndigo,           // Sky Blue (Primary)
+    NotiRouteViolet,              // Mint
+    NotiRouteIndigoDark,       // Deep Blue
     Color(0xFFE91E63),    // Pink
     Color(0xFF9C27B0),    // Purple
     Color(0xFF4CAF50),    // Green
@@ -80,3 +80,4 @@ fun ColorPicker(
         }
     }
 }
+

@@ -21,22 +21,22 @@
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <application
-        android:name=".NotiFlowApp"
-        android:usesCleartextTraffic="true"
+        android:name=".NotiRouteApp"
         android:allowBackup="true"
+        android:largeHeap="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.NotiFlow"
+        android:theme="@style/Theme.NotiRoute"
         tools:targetApi="31">
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.NotiFlow">
+            android:theme="@style/Theme.NotiRoute">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -44,7 +44,7 @@
             </intent-filter>
         </activity>
         <service
-            android:name=".service.notification.NotiFlowListenerService"
+            android:name=".service.notification.NotiRouteListenerService"
             android:exported="true"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
@@ -100,7 +100,7 @@
 
         <!-- FCM Service -->
         <service
-            android:name=".service.fcm.NotiFlowFcmService"
+            android:name=".service.fcm.NotiRouteFcmService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
@@ -125,7 +125,7 @@
 
         <!-- Home Screen Widget -->
         <receiver
-            android:name=".widget.NotiFlowWidgetProvider"
+            android:name=".widget.NotiRouteWidgetProvider"
             android:exported="true"
             android:label="@string/widget_name">
             <intent-filter>

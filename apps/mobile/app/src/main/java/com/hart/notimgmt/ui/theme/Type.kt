@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.sp
 import com.hart.notimgmt.R
 
 // ============================================
-// NotiFlow Typography — Pretendard
+// NotiRoute Typography — Pretendard
 // ============================================
 
 @OptIn(ExperimentalTextApi::class)
@@ -24,7 +24,7 @@ val PretendardFontFamily = FontFamily(
     )
 )
 
-val NotiFlowTypography = Typography(
+val NotiRouteTypography = Typography(
     // Display — Hero titles
     displayLarge = TextStyle(
         fontFamily = PretendardFontFamily,
@@ -140,3 +140,4 @@ val NotiFlowTypography = Typography(
         letterSpacing = 0.sp
     )
 )
+

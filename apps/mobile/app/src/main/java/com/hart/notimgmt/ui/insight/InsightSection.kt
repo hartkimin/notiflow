@@ -27,8 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import com.hart.notimgmt.ui.theme.NotiFlowSuccess
-import com.hart.notimgmt.ui.theme.NotiFlowWarning
+import com.hart.notimgmt.ui.theme.NotiRouteSuccess
+import com.hart.notimgmt.ui.theme.NotiRouteWarning
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -132,13 +132,13 @@ private fun WeeklyTotalRow(summary: WeeklySummary) {
                 imageVector = if (isUp) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
-                tint = if (isUp) NotiFlowWarning else NotiFlowSuccess
+                tint = if (isUp) NotiRouteWarning else NotiRouteSuccess
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = "지난 주 대비 ${if (isUp) "+" else ""}$delta",
                 style = MaterialTheme.typography.labelSmall,
-                color = if (isUp) NotiFlowWarning else NotiFlowSuccess
+                color = if (isUp) NotiRouteWarning else NotiRouteSuccess
             )
         }
     }
@@ -161,8 +161,8 @@ private fun ProcessingRateRow(rate: Int) {
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = when {
-                    rate >= 80 -> NotiFlowSuccess
-                    rate >= 50 -> NotiFlowWarning
+                    rate >= 80 -> NotiRouteSuccess
+                    rate >= 50 -> NotiRouteWarning
                     else -> MaterialTheme.colorScheme.error
                 }
             )
@@ -183,8 +183,8 @@ private fun ProcessingRateRow(rate: Int) {
                     .clip(RoundedCornerShape(3.dp))
                     .background(
                         when {
-                            rate >= 80 -> NotiFlowSuccess
-                            rate >= 50 -> NotiFlowWarning
+                            rate >= 80 -> NotiRouteSuccess
+                            rate >= 50 -> NotiRouteWarning
                             else -> MaterialTheme.colorScheme.error
                         }
                     )
@@ -291,3 +291,4 @@ private fun TopSendersSection(senders: List<SenderStat>) {
         }
     }
 }
+

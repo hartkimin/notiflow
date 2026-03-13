@@ -40,6 +40,9 @@ class SettingsViewModel @Inject constructor(
     private val _appMode = MutableStateFlow(appPreferences.appMode)
     val appMode: StateFlow<AppMode> = _appMode.asStateFlow()
 
+    private val _supabaseUrl = MutableStateFlow(appPreferences.supabaseUrl)
+    val supabaseUrl: StateFlow<String> = _supabaseUrl.asStateFlow()
+
     init {
         viewModelScope.launch {
             authManager.observeAuthState().collect { user ->

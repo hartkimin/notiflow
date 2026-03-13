@@ -34,6 +34,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.datetime.Instant
+import kotlinx.datetime.Clock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
 import com.hart.notimgmt.data.preferences.AppPreferences
@@ -146,6 +148,12 @@ class SyncManager @Inject constructor(
     private var lastDeviceUpdateMs = 0L
     private val DEVICE_UPDATE_THROTTLE_MS = 60_000L
 
+    private fun getMyDeviceId(): String? {
+        val userId = auth.currentUserOrNull()?.id ?: return null
+        val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+        return "${userId}_${androidId}"
+    }
+
     private fun addLog(message: String) {
         Log.d(TAG, message)
         val currentState = _syncState.value
@@ -172,7 +180,7 @@ class SyncManager @Inject constructor(
         _syncState.value = SyncState(lastSyncAt = appPreferences.lastSyncAt)
     }
 
-    private fun markSyncSuccess() {
+    private suspend fun markSyncSuccess() {
         val now = System.currentTimeMillis()
         appPreferences.lastSyncAt = now
         _syncStatus.value = SyncStatus.IDLE
@@ -181,6 +189,20 @@ class SyncManager @Inject constructor(
             lastSyncAt = now,
             lastErrorMessage = null
         )
+
+        // Update last_sync_at on the remote mobile_devices table
+        val userId = auth.currentUserOrNull()?.id
+        if (userId != null) {
+            val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+            val myDeviceId = "${userId}_${androidId}"
+            try {
+                val isoNow = Instant.fromEpochMilliseconds(now).toString()
+                supabaseDataSource.updateLastSyncAt(myDeviceId, isoNow)
+                Log.d(TAG, "Remote last_sync_at updated to: $isoNow")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to update remote last_sync_at", e)
+            }
+        }
     }
 
     private fun markSyncError(message: String?) {
@@ -245,8 +267,9 @@ class SyncManager @Inject constructor(
 
     /**
      * 수동 동기화 (강제 - 양방향)
+     * @param clearRequest 웹 대시보드에서 요청한 동기화 플래그(sync_requested_at)를 클리어할지 여부
      */
-    fun forceSync() {
+    fun forceSync(clearRequest: Boolean = false) {
         if (!isCloudMode) { addLog("⚠️ 오프라인 모드"); return }
         val userId = auth.currentUserOrNull()?.id
         if (userId == null) {
@@ -261,6 +284,16 @@ class SyncManager @Inject constructor(
 
         scope.launch {
             try {
+                if (clearRequest) {
+                    val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+                    val myDeviceId = "${userId}_${androidId}"
+                    try {
+                        supabaseDataSource.clearSyncRequest(myDeviceId)
+                        Log.d(TAG, "Cleared sync_requested_at via forceSync(clearRequest=true)")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to clear sync_requested_at in forceSync", e)
+                    }
+                }
                 initialSync()
                 if (!channelSubscribed.get()) {
                     subscribeToRealtimeChanges(userId)
@@ -744,11 +777,12 @@ class SyncManager @Inject constructor(
                 val remoteMessageMap = remoteMessages.associateBy { it.id }
                 var messagePushCount = 0
                 var messagePushError: String? = null
+                val deviceId = getMyDeviceId()
                 capturedMessageDao.getAllActiveOnce().forEach { local ->
                     val remote = remoteMessageMap[local.id]
                     if (remote == null || local.updatedAt > remote.updated_at) {
                         try {
-                            supabaseDataSource.upsertMessage(local)
+                            supabaseDataSource.upsertMessage(local, deviceId)
                             messagePushCount++
                         } catch (e: Exception) {
                             addLog("❌ 메시지 업로드 실패: ${e.message}")
@@ -985,7 +1019,7 @@ class SyncManager @Inject constructor(
             return
         }
         try {
-            supabaseDataSource.upsertMessage(message)
+            supabaseDataSource.upsertMessage(message, getMyDeviceId())
             capturedMessageDao.markSynced(message.id)
             Log.d(TAG, "Message synced: ${message.id}")
             updateHeartbeatThrottled()
@@ -1130,9 +1164,10 @@ class SyncManager @Inject constructor(
         if (pending.isEmpty()) return
         addLog("보류 메시지 ${pending.size}개 동기화 중...")
         var successCount = 0
+        val deviceId = getMyDeviceId()
         for (msg in pending) {
             try {
-                supabaseDataSource.upsertMessage(msg)
+                supabaseDataSource.upsertMessage(msg, deviceId)
                 capturedMessageDao.markSynced(msg.id)
                 successCount++
             } catch (e: Exception) {
@@ -1479,12 +1514,7 @@ class SyncManager @Inject constructor(
                         Log.d(TAG, "Remote sync request received from web dashboard (Realtime)")
                         addLog("🔄 웹 대시보드에서 동기화 요청 수신")
                         // sync_requested_at을 클리어하여 재트리거 방지
-                        try {
-                            supabaseDataSource.clearSyncRequest(myDeviceId)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to clear sync_requested_at", e)
-                        }
-                        forceSync()
+                        forceSync(clearRequest = true)
                     }
                 }
                 else -> {}

@@ -143,11 +143,22 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_26_27 = object : Migration(26, 27) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE captured_messages ADD COLUMN deviceId TEXT")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "mednoti.db")
-            .addMigrations(MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26)
+            .addMigrations(
+                MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, 
+                MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, 
+                MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, 
+                MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27
+            )
             // v8: UUID 기반 ID 체계로 전환 - 파괴적 마이그레이션 (Firestore 동기화 준비)
             .fallbackToDestructiveMigration()
             .addCallback(object : RoomDatabase.Callback() {

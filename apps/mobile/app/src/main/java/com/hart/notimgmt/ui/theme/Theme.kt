@@ -15,63 +15,65 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 // ============================================
-// NotiFlow Indigo Glassmorphism Theme
+// NotiRoute Indigo Glassmorphism Theme
 // ============================================
 
-private val NotiFlowLightColorScheme = lightColorScheme(
-    primary = NotiFlowIndigo,
-    onPrimary = NotiFlowWhite,
-    primaryContainer = NotiFlowIndigoLight,
-    onPrimaryContainer = NotiFlowLightTextPrimary,
-    secondary = NotiFlowViolet,
-    onSecondary = NotiFlowWhite,
-    secondaryContainer = NotiFlowVioletLight,
-    onSecondaryContainer = NotiFlowLightTextPrimary,
-    tertiary = NotiFlowViolet,
-    onTertiary = NotiFlowWhite,
-    background = NotiFlowLightBackground,
-    onBackground = NotiFlowLightTextPrimary,
-    surface = NotiFlowLightSurface,
-    onSurface = NotiFlowLightTextPrimary,
-    surfaceVariant = NotiFlowLightSurfaceVariant,
-    onSurfaceVariant = NotiFlowLightTextSecondary,
-    outline = NotiFlowLightBorder,
-    outlineVariant = NotiFlowLightBorder,
-    error = NotiFlowError,
-    onError = NotiFlowWhite,
-    errorContainer = NotiFlowErrorLight,
-    onErrorContainer = NotiFlowError,
-    inverseSurface = NotiFlowDarkSurface,
-    inverseOnSurface = NotiFlowDarkTextPrimary,
-    surfaceTint = NotiFlowIndigo
+private val NotiRouteLightOnPrimary = Color(0xFF000000) // black text on pink — WCAG AA 7:1
+
+private val NotiRouteLightColorScheme = lightColorScheme(
+    primary = NotiRouteIndigo,
+    onPrimary = NotiRouteLightOnPrimary,
+    primaryContainer = NotiRouteIndigoLight,
+    onPrimaryContainer = NotiRouteLightTextPrimary,
+    secondary = NotiRouteViolet,
+    onSecondary = NotiRouteLightOnPrimary,
+    secondaryContainer = NotiRouteVioletLight,
+    onSecondaryContainer = NotiRouteLightTextPrimary,
+    tertiary = NotiRouteViolet,
+    onTertiary = NotiRouteLightOnPrimary,
+    background = NotiRouteLightBackground,
+    onBackground = NotiRouteLightTextPrimary,
+    surface = NotiRouteLightSurface,
+    onSurface = NotiRouteLightTextPrimary,
+    surfaceVariant = NotiRouteLightSurfaceVariant,
+    onSurfaceVariant = NotiRouteLightTextSecondary,
+    outline = NotiRouteLightBorder,
+    outlineVariant = NotiRouteLightBorder,
+    error = NotiRouteError,
+    onError = NotiRouteWhite,
+    errorContainer = NotiRouteErrorLight,
+    onErrorContainer = NotiRouteError,
+    inverseSurface = NotiRouteDarkSurface,
+    inverseOnSurface = NotiRouteDarkTextPrimary,
+    surfaceTint = NotiRouteIndigo
 )
 
-private val NotiFlowDarkColorScheme = darkColorScheme(
-    primary = NotiFlowIndigoLight,
-    onPrimary = NotiFlowDarkBackground,
-    primaryContainer = NotiFlowIndigo,
-    onPrimaryContainer = NotiFlowWhite,
-    secondary = NotiFlowVioletLight,
-    onSecondary = NotiFlowDarkBackground,
-    secondaryContainer = NotiFlowViolet,
-    onSecondaryContainer = NotiFlowWhite,
-    tertiary = NotiFlowVioletLight,
-    onTertiary = NotiFlowDarkBackground,
-    background = NotiFlowDarkBackground,
-    onBackground = NotiFlowDarkTextPrimary,
-    surface = NotiFlowDarkSurface,
-    onSurface = NotiFlowDarkTextPrimary,
-    surfaceVariant = NotiFlowDarkSurfaceVariant,
-    onSurfaceVariant = NotiFlowDarkTextSecondary,
-    outline = NotiFlowDarkBorder,
-    outlineVariant = NotiFlowDarkBorder,
-    error = NotiFlowError,
-    onError = NotiFlowWhite,
-    errorContainer = NotiFlowDarkSurfaceVariant,
-    onErrorContainer = NotiFlowError,
-    inverseSurface = NotiFlowLightSurface,
-    inverseOnSurface = NotiFlowLightTextPrimary,
-    surfaceTint = NotiFlowIndigoLight
+private val NotiRouteDarkColorScheme = darkColorScheme(
+    primary = NotiRouteIndigoLight,
+    onPrimary = NotiRouteDarkBackground,
+    primaryContainer = NotiRouteIndigo,
+    onPrimaryContainer = NotiRouteWhite,
+    secondary = NotiRouteVioletLight,
+    onSecondary = NotiRouteDarkBackground,
+    secondaryContainer = NotiRouteViolet,
+    onSecondaryContainer = NotiRouteWhite,
+    tertiary = NotiRouteVioletLight,
+    onTertiary = NotiRouteDarkBackground,
+    background = NotiRouteDarkBackground,
+    onBackground = NotiRouteDarkTextPrimary,
+    surface = NotiRouteDarkSurface,
+    onSurface = NotiRouteDarkTextPrimary,
+    surfaceVariant = NotiRouteDarkSurfaceVariant,
+    onSurfaceVariant = NotiRouteDarkTextSecondary,
+    outline = NotiRouteDarkBorder,
+    outlineVariant = NotiRouteDarkBorder,
+    error = NotiRouteError,
+    onError = NotiRouteWhite,
+    errorContainer = NotiRouteDarkSurfaceVariant,
+    onErrorContainer = NotiRouteError,
+    inverseSurface = NotiRouteLightSurface,
+    inverseOnSurface = NotiRouteLightTextPrimary,
+    surfaceTint = NotiRouteIndigoLight
 )
 
 // Glass Colors for Composables
@@ -85,44 +87,47 @@ data class GlassColors(
     val gradientEnd: Color
 )
 
+/** App-level dark theme flag — respects ThemeMode override, not just system setting. */
+val LocalIsDarkTheme = staticCompositionLocalOf { false }
+
 val LocalGlassColors = staticCompositionLocalOf {
     GlassColors(
-        surface = NotiFlowGlassWhite,
-        surfaceLight = NotiFlowGlassWhiteLight,
-        border = NotiFlowGlassBorderLight,
-        shadow = NotiFlowShadowLight,
-        gradientStart = NotiFlowGradientStart,
-        gradientMiddle = NotiFlowGradientMiddle,
-        gradientEnd = NotiFlowGradientEnd
+        surface = NotiRouteGlassWhite,
+        surfaceLight = NotiRouteGlassWhiteLight,
+        border = NotiRouteGlassBorderLight,
+        shadow = NotiRouteShadowLight,
+        gradientStart = NotiRouteGradientStart,
+        gradientMiddle = NotiRouteGradientMiddle,
+        gradientEnd = NotiRouteGradientEnd
     )
 }
 
 @Composable
-fun NotiFlowTheme(
+fun NotiRouteTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) NotiFlowDarkColorScheme else NotiFlowLightColorScheme
+    val colorScheme = if (darkTheme) NotiRouteDarkColorScheme else NotiRouteLightColorScheme
 
     val glassColors = if (darkTheme) {
         GlassColors(
-            surface = NotiFlowGlassDark,
-            surfaceLight = NotiFlowGlassDarkLight,
-            border = NotiFlowGlassBorderDark,
-            shadow = NotiFlowShadowDark,
-            gradientStart = NotiFlowIndigoDark,
-            gradientMiddle = NotiFlowViolet,
-            gradientEnd = NotiFlowIndigo
+            surface = NotiRouteGlassDark,
+            surfaceLight = NotiRouteGlassDarkLight,
+            border = NotiRouteGlassBorderDark,
+            shadow = NotiRouteShadowDark,
+            gradientStart = NotiRouteIndigoDark,
+            gradientMiddle = NotiRouteViolet,
+            gradientEnd = NotiRouteIndigo
         )
     } else {
         GlassColors(
-            surface = NotiFlowGlassWhite,
-            surfaceLight = NotiFlowGlassWhiteLight,
-            border = NotiFlowGlassBorderLight,
-            shadow = NotiFlowShadowLight,
-            gradientStart = NotiFlowGradientStart,
-            gradientMiddle = NotiFlowGradientMiddle,
-            gradientEnd = NotiFlowGradientEnd
+            surface = NotiRouteGlassWhite,
+            surfaceLight = NotiRouteGlassWhiteLight,
+            border = NotiRouteGlassBorderLight,
+            shadow = NotiRouteShadowLight,
+            gradientStart = NotiRouteGradientStart,
+            gradientMiddle = NotiRouteGradientMiddle,
+            gradientEnd = NotiRouteGradientEnd
         )
     }
 
@@ -136,17 +141,20 @@ fun NotiFlowTheme(
         }
     }
 
-    CompositionLocalProvider(LocalGlassColors provides glassColors) {
+    CompositionLocalProvider(
+        LocalIsDarkTheme provides darkTheme,
+        LocalGlassColors provides glassColors
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = NotiFlowTypography,
+            typography = NotiRouteTypography,
             content = content
         )
     }
 }
 
 // Extension to access glass colors
-object NotiFlowDesign {
+object NotiRouteDesign {
     val glassColors: GlassColors
         @Composable
         get() = LocalGlassColors.current

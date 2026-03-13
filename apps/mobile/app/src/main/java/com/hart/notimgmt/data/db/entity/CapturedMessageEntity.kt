@@ -32,6 +32,7 @@ import java.util.UUID
 )
 data class CapturedMessageEntity(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    val deviceId: String? = null,
     val categoryId: String?,
     val matchedRuleId: String?,
     val source: String,

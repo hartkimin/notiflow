@@ -11,7 +11,7 @@ import com.hart.notimgmt.data.model.serializeStatusHistory
 import com.hart.notimgmt.data.repository.MessageRepository
 import com.hart.notimgmt.data.repository.StatusStepRepository
 import com.hart.notimgmt.service.snooze.SnoozeManager
-import com.hart.notimgmt.widget.NotiFlowWidgetProvider
+import com.hart.notimgmt.widget.NotiRouteWidgetProvider
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -56,7 +56,7 @@ class QuickActionReceiver : BroadcastReceiver() {
                 }
 
                 // Update widgets
-                NotiFlowWidgetProvider.updateWidgets(context)
+                NotiRouteWidgetProvider.updateWidgets(context)
             } catch (e: Exception) {
                 Log.e(TAG, "Error handling quick action for $messageId", e)
             } finally {
@@ -99,3 +99,4 @@ class QuickActionReceiver : BroadcastReceiver() {
         Log.d(TAG, "Snoozed message $messageId for 1 hour")
     }
 }
+

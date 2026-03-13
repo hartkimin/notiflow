@@ -226,7 +226,7 @@ class AiChatViewModel @Inject constructor(
         if (stored != null) {
             curAccessToken = stored
         } else {
-            val defaultToken = "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"
+            val defaultToken = "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"
             appPreferences.saveHfTokenData(
                 accessToken = defaultToken,
                 refreshToken = "",

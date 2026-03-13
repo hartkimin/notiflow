@@ -229,7 +229,7 @@ fun BackupRestoreSection(
                         showExportDialog = false
                         val timestamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale.getDefault())
                             .format(Date())
-                        exportLauncher.launch("notiflow_backup_${timestamp}.json")
+                        exportLauncher.launch("notiroute_backup_${timestamp}.json")
                     }
                 ) {
                     Text("내보내기", color = if (hasAnySelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f))
@@ -616,3 +616,4 @@ private fun SummaryRow(label: String, value: String, bold: Boolean = false) {
         )
     }
 }
+

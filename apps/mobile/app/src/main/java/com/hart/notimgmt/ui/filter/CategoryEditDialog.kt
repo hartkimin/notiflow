@@ -36,7 +36,7 @@ import com.hart.notimgmt.ui.components.GlassButton
 import com.hart.notimgmt.ui.components.GlassDivider
 import com.hart.notimgmt.ui.components.GlassOutlinedButton
 import com.hart.notimgmt.ui.components.predefinedColors
-import com.hart.notimgmt.ui.theme.NotiFlowDesign
+import com.hart.notimgmt.ui.theme.NotiRouteDesign
 
 private const val MAX_CATEGORY_NAME_LENGTH = 30
 
@@ -71,7 +71,7 @@ fun CategoryEditDialog(
         }
     }
 
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -166,3 +166,4 @@ fun CategoryEditDialog(
         }
     }
 }
+

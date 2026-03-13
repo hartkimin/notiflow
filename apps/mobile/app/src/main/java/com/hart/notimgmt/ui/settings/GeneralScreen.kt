@@ -81,10 +81,10 @@ import com.hart.notimgmt.data.model.ThemeMode
 import com.hart.notimgmt.ui.components.ConfirmDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import com.hart.notimgmt.ui.onboarding.checkBatteryOptimization
-import com.hart.notimgmt.ui.onboarding.checkNotificationListener
-import com.hart.notimgmt.ui.onboarding.checkPostNotifPermission
-import com.hart.notimgmt.ui.onboarding.checkSmsPermission
+import com.hart.notimgmt.util.checkBatteryOptimization
+import com.hart.notimgmt.util.checkNotificationListener
+import com.hart.notimgmt.util.checkPostNotifPermission
+import com.hart.notimgmt.util.checkSmsPermission
 import com.hart.notimgmt.data.backup.DataSummary
 import com.hart.notimgmt.data.sync.SyncStatus
 import com.hart.notimgmt.data.sync.TableSyncInfo
@@ -114,6 +114,7 @@ fun GeneralScreen(
     val isLoggedIn by settingsViewModel.isLoggedIn.collectAsState()
     val isLoggingOut by settingsViewModel.isLoggingOut.collectAsState()
     val appMode by settingsViewModel.appMode.collectAsState()
+    val serverUrl by settingsViewModel.supabaseUrl.collectAsState()
     val isCloudMode = appMode == AppMode.CLOUD
     val snackbarHostState = LocalSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
@@ -656,6 +657,13 @@ fun GeneralScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
+                                Text(
+                                    text = serverUrl,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                         }
                     }
@@ -1081,7 +1089,7 @@ fun GeneralScreen(
         // 앱 정보 섹션
         SettingsSection(title = "앱 정보") {
             Text(
-                text = "NotiFlow",
+                text = "NotiRoute",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -1109,7 +1117,7 @@ fun GeneralScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "버전 3.6.0",
+                        text = "버전 ${com.hart.notimgmt.BuildConfig.VERSION_NAME}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -1143,6 +1151,54 @@ fun GeneralScreen(
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    ReleaseNoteItem(
+                        version = "0.0.4.2",
+                        date = "2026.03.13",
+                        notes = listOf(
+                            "클라우드 동기화 시 서버 데이터 스키마 변경에 따른 크래시 방지 안정성 강화 (JSON 파싱 규칙 유연화)"
+                        )
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+
+                    ReleaseNoteItem(
+                        version = "0.0.4.1",
+                        date = "2026.03.13",
+                        notes = listOf(
+                            "NotiFlow 브랜드명 일괄 변경 (패키지명, 리소스 동기화)",
+                            "앱 내 위젯 이름 및 리소스 경로 수정"
+                        )
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+
+                    ReleaseNoteItem(
+                        version = "0.0.4.0",
+                        date = "2026.03.13",
+                        notes = listOf(
+                            "웹 대시보드 - 모바일 앱 간 백그라운드 FCM 동기화 파이프라인 구축",
+                            "SWR 기반 낙관적 UI 업데이트 적용 (클라이언트 즉각 반응)",
+                            "백그라운드에서 강제 동기화(forceSync) 시 무한 루프 방지 로직 보완"
+                        )
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+
+                    ReleaseNoteItem(
+                        version = "0.0.3.6",
+                        date = "2026.03.11",
+                        notes = listOf(
+                            "클라우드 동기화 안정성 개선 — 로그인 후 재시작 시 세션 유지 보장",
+                            "설정 저장 방식 개선 — 주요 설정(URL, 모드) 동기 저장(commit) 적용",
+                            "URL 변경 시 클라우드 모드 자동 전환 로직 수정",
+                            "로그인 정보 저장 및 복원 신뢰도 향상"
+                        )
+                    )
+
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    )
+
                     ReleaseNoteItem(
                         version = "3.6.0",
                         date = "2026.02.23",
@@ -1261,7 +1317,7 @@ fun GeneralScreen(
                             "메시지/보드 탭 스와이프 검색바 (아래로 스와이프 시 표시, 위로 스크롤 시 숨김)",
                             "보드 탭 검색 필터링 추가",
                             "앱 선택 UI 고도화 — 검색 기반 바텀시트 + 앱 아이콘 표시",
-                            "온보딩/스플래시 배경을 NotiFlow 브랜드 벡터 이미지로 교체"
+                            "온보딩/스플래시 배경을 NotiRoute 브랜드 벡터 이미지로 교체"
                         )
                     )
 
@@ -1273,10 +1329,10 @@ fun GeneralScreen(
                         version = "3.0.0",
                         date = "2026.02.08",
                         notes = listOf(
-                            "NotiFlow로 리브랜딩 (MedNoti → NotiFlow)",
+                            "NotiRoute로 리브랜딩 (MedNoti → NotiRoute)",
                             "새 앱 아이콘 (벨 + Flow 웨이브 + N 뱃지)",
                             "온보딩 화면 텍스트 및 브랜딩 업데이트",
-                            "applicationId 변경 (com.hart.notiflow)"
+                            "applicationId 변경 (com.hart.notiroute)"
                         )
                     )
 
@@ -1713,3 +1769,4 @@ private fun formatSyncTime(timestamp: Long): String {
         }
     }
 }
+

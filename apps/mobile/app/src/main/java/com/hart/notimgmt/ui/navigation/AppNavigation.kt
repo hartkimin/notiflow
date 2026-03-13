@@ -46,13 +46,12 @@ import com.hart.notimgmt.ui.kanban.WeeklyPlannerScreen
 import com.hart.notimgmt.ui.login.LoginScreen
 import com.hart.notimgmt.ui.message.MessageDetailScreen
 import com.hart.notimgmt.ui.message.MessageListScreen
-import com.hart.notimgmt.ui.onboarding.OnboardingScreen
 import com.hart.notimgmt.ui.chat.AiChatScreen
 import com.hart.notimgmt.ui.settings.SettingsScreen
 import com.hart.notimgmt.ui.splash.SplashScreen
 import com.hart.notimgmt.ui.trash.TrashScreen
 import com.hart.notimgmt.ui.tutorial.TutorialScreen
-import com.hart.notimgmt.ui.theme.NotiFlowDesign
+import com.hart.notimgmt.ui.theme.NotiRouteDesign
 
 val LocalSnackbarHostState = compositionLocalOf<SnackbarHostState> {
     error("No SnackbarHostState provided")
@@ -72,24 +71,14 @@ fun AppNavigation(
         composable(Routes.SPLASH) {
             SplashScreen(
                 onFinished = {
+                    // Mark onboarding as completed (legacy screen removed)
+                    appPreferences.isOnboardingCompleted = true
                     val destination = when {
-                        !appPreferences.isOnboardingCompleted -> Routes.ONBOARDING
                         !appPreferences.isTutorialSeen -> Routes.TUTORIAL
-                        else -> Routes.MAIN  // Always go to main; login via Settings
+                        else -> Routes.MAIN
                     }
                     navController.navigate(destination) {
                         popUpTo(Routes.SPLASH) { inclusive = true }
-                    }
-                }
-            )
-        }
-
-        composable(Routes.ONBOARDING) {
-            OnboardingScreen(
-                onComplete = {
-                    appPreferences.isOnboardingCompleted = true
-                    navController.navigate(Routes.TUTORIAL) {
-                        popUpTo(Routes.ONBOARDING) { inclusive = true }
                     }
                 }
             )
@@ -173,7 +162,7 @@ fun MainScreen(onLogout: () -> Unit = {}, onSwitchToCloud: () -> Unit = {}) {
 
 @Composable
 private fun BottomNavBar(navController: NavHostController, tabs: List<Screen>) {
-    val glassColors = NotiFlowDesign.glassColors
+    val glassColors = NotiRouteDesign.glassColors
 
     Surface(
         modifier = Modifier
@@ -376,3 +365,4 @@ private fun MainNavHost(navController: NavHostController, modifier: Modifier = M
         }
     }
 }
+

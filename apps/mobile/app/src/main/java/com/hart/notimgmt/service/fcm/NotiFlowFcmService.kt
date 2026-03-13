@@ -18,7 +18,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class NotiFlowFcmService : FirebaseMessagingService() {
+class NotiRouteFcmService : FirebaseMessagingService() {
 
     @Inject
     lateinit var appPreferences: AppPreferences
@@ -27,7 +27,7 @@ class NotiFlowFcmService : FirebaseMessagingService() {
     lateinit var syncManager: SyncManager
 
     companion object {
-        private const val TAG = "NotiFlowFcm"
+        private const val TAG = "NotiRouteFcm"
         private const val CHANNEL_ID = "orders"
         private const val CHANNEL_NAME = "주문 알림"
     }
@@ -52,10 +52,10 @@ class NotiFlowFcmService : FirebaseMessagingService() {
         when (message.data["type"]) {
             "sync_request" -> {
                 Log.d(TAG, "Sync request received via FCM")
-                syncManager.forceSync()
+                syncManager.forceSync(clearRequest = true)
             }
             else -> {
-                val title = message.notification?.title ?: message.data["title"] ?: "NotiFlow"
+                val title = message.notification?.title ?: message.data["title"] ?: "NotiRoute"
                 val body = message.notification?.body ?: message.data["body"] ?: ""
                 showNotification(title, body, message.data)
             }
@@ -110,3 +110,4 @@ class NotiFlowFcmService : FirebaseMessagingService() {
         }
     }
 }
+

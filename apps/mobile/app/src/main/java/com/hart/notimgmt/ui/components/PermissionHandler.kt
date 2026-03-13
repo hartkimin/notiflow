@@ -121,7 +121,7 @@ private fun PermissionRequestScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "NotiFlow",
+            text = "NotiRoute",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
@@ -130,7 +130,7 @@ private fun PermissionRequestScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "NotiFlow를 사용하려면 다음 권한이 필요합니다",
+            text = "NotiRoute를 사용하려면 다음 권한이 필요합니다",
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -237,3 +237,4 @@ private fun checkPostNotificationsPermission(context: Context): Boolean {
         true // Not needed below Android 13
     }
 }
+

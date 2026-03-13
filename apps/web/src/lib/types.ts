@@ -105,16 +105,17 @@ export interface Product {
   name: string;
   official_name: string;
   short_name: string | null;
-  category: string;
-  manufacturer: string | null;
-  ingredient: string | null;
-  efficacy: string | null;
-  standard_code: string | null;
-  unit: string | null;
-  unit_price: number | null;
-  is_active: boolean;
-  mfds_raw: Record<string, unknown> | null;
-  mfds_source_type: string | null;
+  category?: string | null;
+  manufacturer?: string | null;
+  ingredient?: string | null;
+  efficacy?: string | null;
+  standard_code?: string | null;
+  unit?: string | null;
+  unit_price?: number | null;
+  is_active?: boolean;
+  mfds_raw?: Record<string, unknown> | null;
+  mfds_source_type?: string | null;
+  source_type?: string;
 }
 
 export interface Supplier {
@@ -237,23 +238,7 @@ export interface RawMessage {
   forecast_id?: number | null;
 }
 
-// --- Product (alias for ProductCatalogRow with extended fields) ---
 
-export interface Product {
-  id: number;
-  name: string;
-  official_name: string;
-  short_name: string | null;
-  manufacturer?: string | null;
-  category?: string | null;
-  unit_price?: number | null;
-  unit?: string | null;
-  ingredient?: string | null;
-  efficacy?: string | null;
-  is_active?: boolean;
-  standard_code?: string | null;
-  source_type?: string;
-}
 
 export interface ProductAlias {
   id: number;

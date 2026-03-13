@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { SyncDiffEntry, MfdsApiSource } from "@/lib/types";
 import type { FilterChip } from "@/lib/mfds-search-utils";
 import { parseMessageCore, getAISettingsFromClient } from "@/lib/parse-service";

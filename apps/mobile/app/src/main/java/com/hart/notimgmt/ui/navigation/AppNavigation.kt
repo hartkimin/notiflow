@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -215,6 +216,10 @@ private fun BottomNavBar(navController: NavHostController, tabs: List<Screen>) {
                     },
                     selected = selected,
                     onClick = {
+                        // 빠른 연속 클릭 방지: 현재 화면이 RESUMED 상태일 때만 네비게이션 허용
+                        val currentEntry = navController.currentBackStackEntry
+                        if (currentEntry?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.RESUMED) != true) return@NavigationBarItem
+
                         // Messages 탭 클릭 시 필터 없이 이동
                         val targetRoute = when (screen) {
                             is Screen.Messages -> Screen.Messages.createRoute(null)

@@ -75,7 +75,11 @@ fun BackupRestoreSection(
 
     // Load current data summary
     LaunchedEffect(Unit) {
-        dataSummary = withContext(Dispatchers.IO) { backupManager.getDataSummary() }
+        try {
+            dataSummary = withContext(Dispatchers.IO) { backupManager.getDataSummary() }
+        } catch (e: Exception) {
+            onMessage("데이터 요약 로드 실패: ${e.message}")
+        }
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -87,13 +91,17 @@ fun BackupRestoreSection(
         coroutineScope.launch {
             isLoading = true
             try {
-                val json = withContext(Dispatchers.IO) { backupManager.exportToJson(options) }
                 withContext(Dispatchers.IO) {
-                    context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+                    context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { writer ->
+                        val json = backupManager.exportToJson(options)
+                        writer.write(json)
+                    }
                 }
                 onMessage("백업이 완료되었습니다")
-            } catch (e: Exception) {
-                onMessage("백업 실패: ${e.message}")
+            } catch (e: Throwable) {
+                val msg = if (e is OutOfMemoryError) "메모리 부족: 메시지를 제외하고 다시 시도해주세요"
+                         else "백업 실패: ${e.message}"
+                onMessage(msg)
             } finally {
                 isLoading = false
             }
@@ -114,7 +122,7 @@ fun BackupRestoreSection(
                 pendingRestoreUri = uri
                 pendingBackupSummary = summary
                 showRestoreDialog = true
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 onMessage("파일을 읽을 수 없습니다: ${e.message}")
             } finally {
                 isLoading = false
@@ -409,7 +417,7 @@ fun BackupRestoreSection(
                                 if (options.plans) restoredCount += summary.planCount
                                 if (options.dayCategories) restoredCount += summary.dayCategoryCount
                                 onMessage("복원이 완료되었습니다 (${restoredCount}건)")
-                            } catch (e: Exception) {
+                            } catch (e: Throwable) {
                                 onMessage("복원 실패: ${e.message}")
                             } finally {
                                 isLoading = false
@@ -517,8 +525,12 @@ fun BackupRestoreSection(
                     Button(
                         onClick = {
                             coroutineScope.launch {
-                                dataSummary = withContext(Dispatchers.IO) { backupManager.getDataSummary() }
-                                showExportDialog = true
+                                try {
+                                    dataSummary = withContext(Dispatchers.IO) { backupManager.getDataSummary() }
+                                    showExportDialog = true
+                                } catch (e: Exception) {
+                                    onMessage("데이터 조회 실패: ${e.message}")
+                                }
                             }
                         },
                         modifier = Modifier.weight(1f),

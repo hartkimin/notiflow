@@ -61,7 +61,8 @@ data class ExportOptions(
     val messages: Boolean = true,      // 메시지
     val appFilters: Boolean = true,    // 앱 필터
     val plans: Boolean = true,         // 스케줄
-    val dayCategories: Boolean = true  // 요일 카테고리
+    val dayCategories: Boolean = true, // 요일 카테고리
+    val includeImages: Boolean = false // 이미지 포함 (Base64, 메모리 주의)
 )
 
 @Singleton
@@ -200,7 +201,7 @@ class BackupManager @Inject constructor(
                         put("content", m.content)
                         put("statusId", m.statusId ?: JSONObject.NULL)
                         put("comment", m.comment ?: JSONObject.NULL)
-                        put("senderIcon", m.senderIcon ?: JSONObject.NULL)
+                        put("senderIcon", if (options.includeImages) (m.senderIcon ?: JSONObject.NULL) else JSONObject.NULL)
                         put("isArchived", m.isArchived)
                         put("isDeleted", m.isDeleted)
                         put("receivedAt", m.receivedAt)
@@ -210,7 +211,7 @@ class BackupManager @Inject constructor(
                         put("isPinned", m.isPinned)
                         put("snoozeAt", m.snoozeAt ?: JSONObject.NULL)
                         put("originalContent", m.originalContent ?: JSONObject.NULL)
-                        put("attachedImage", m.attachedImage ?: JSONObject.NULL)
+                        put("attachedImage", if (options.includeImages) (m.attachedImage ?: JSONObject.NULL) else JSONObject.NULL)
                         put("roomName", m.roomName ?: JSONObject.NULL)
                     })
                 }

@@ -45,8 +45,23 @@ packages/supabase/.temp/
 # Agent Skills (npx skills)
 .agents/
 
+# Claude Code
+.claude/
+
 # Worktrees
 .worktrees/
+
+# Firebase service account keys
+*-firebase-adminsdk-*.json
+
+# Local Supabase
+apps/web/supabase/
+
+# Local Docker
+supabase-docker/
+
+# AI model files
+*.litertlm
 
 # Temporary
 *.png

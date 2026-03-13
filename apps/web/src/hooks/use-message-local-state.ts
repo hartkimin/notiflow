@@ -53,16 +53,19 @@ export function useMessageLocalState() {
   const [states, setStates] = useState<MessageLocalStateMap>({});
   const [hydrated, setHydrated] = useState(false);
 
+  // Hydrate from localStorage on mount
   useEffect(() => {
     setSteps(readJSON(STEPS_KEY, DEFAULT_STEPS));
     setStates(readJSON(STATES_KEY, {}));
     setHydrated(true);
   }, []);
 
+  // Persist steps
   useEffect(() => {
     if (hydrated) writeJSON(STEPS_KEY, steps);
   }, [steps, hydrated]);
 
+  // Persist states
   useEffect(() => {
     if (hydrated) writeJSON(STATES_KEY, states);
   }, [states, hydrated]);
@@ -73,12 +76,12 @@ export function useMessageLocalState() {
   );
 
   const getState = useCallback(
-    (msgId: string): MessageLocalData => states[msgId] ?? emptyLocal(),
+    (msgId: number): MessageLocalData => states[msgId] ?? emptyLocal(),
     [states],
   );
 
   const updateState = useCallback(
-    (msgId: string, updater: (prev: MessageLocalData) => MessageLocalData) => {
+    (msgId: number, updater: (prev: MessageLocalData) => MessageLocalData) => {
       setStates((prev) => ({
         ...prev,
         [msgId]: updater(prev[msgId] ?? emptyLocal()),
@@ -87,8 +90,10 @@ export function useMessageLocalState() {
     [],
   );
 
+  // --- Status ---
+
   const changeStatus = useCallback(
-    (msgId: string, newStatusId: string) => {
+    (msgId: number, newStatusId: string) => {
       updateState(msgId, (prev) => {
         const fromStep = steps.find((s) => s.id === prev.statusId);
         const toStep = steps.find((s) => s.id === newStatusId);
@@ -111,28 +116,37 @@ export function useMessageLocalState() {
   );
 
   const clearStatus = useCallback(
-    (msgId: string) => {
-      updateState(msgId, (prev) => ({ ...prev, statusId: null }));
+    (msgId: number) => {
+      updateState(msgId, (prev) => ({
+        ...prev,
+        statusId: null,
+      }));
     },
     [updateState],
   );
 
+  // --- Pin ---
+
   const togglePin = useCallback(
-    (msgId: string) => {
+    (msgId: number) => {
       updateState(msgId, (prev) => ({ ...prev, isPinned: !prev.isPinned }));
     },
     [updateState],
   );
 
+  // --- Snooze ---
+
   const setSnooze = useCallback(
-    (msgId: string, snoozeAt: string | null) => {
+    (msgId: number, snoozeAt: string | null) => {
       updateState(msgId, (prev) => ({ ...prev, snoozeAt }));
     },
     [updateState],
   );
 
+  // --- Comments ---
+
   const addComment = useCallback(
-    (msgId: string, text: string) => {
+    (msgId: number, text: string) => {
       const comment: MessageComment = {
         id: generateId(),
         text,
@@ -147,7 +161,7 @@ export function useMessageLocalState() {
   );
 
   const deleteComment = useCallback(
-    (msgId: string, commentId: string) => {
+    (msgId: number, commentId: string) => {
       updateState(msgId, (prev) => ({
         ...prev,
         comments: prev.comments.filter((c) => c.id !== commentId),
@@ -156,12 +170,16 @@ export function useMessageLocalState() {
     [updateState],
   );
 
+  // --- Edit content ---
+
   const setEditedContent = useCallback(
-    (msgId: string, content: string | null) => {
+    (msgId: number, content: string | null) => {
       updateState(msgId, (prev) => ({ ...prev, editedContent: content }));
     },
     [updateState],
   );
+
+  // --- Steps management ---
 
   const updateSteps = useCallback((newSteps: StatusStep[]) => {
     setSteps(newSteps);

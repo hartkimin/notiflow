@@ -219,6 +219,51 @@ export interface ProductCatalogRow {
   source_type: string;
 }
 
+// --- Raw Messages (manual/web-side messages, raw_messages table) ---
+
+export interface RawMessage {
+  id: number;
+  content: string;
+  received_at: string;
+  sender: string | null;
+  parse_status: string;
+  source_app: string;
+  hospital_id: number | null;
+  order_id: number | null;
+  device_name: string | null;
+  parse_result: Record<string, unknown>[] | null;
+  parse_method: string | null;
+  is_order_message: boolean | null;
+  forecast_id?: number | null;
+}
+
+// --- Product (alias for ProductCatalogRow with extended fields) ---
+
+export interface Product {
+  id: number;
+  name: string;
+  official_name: string;
+  short_name: string | null;
+  manufacturer?: string | null;
+  category?: string | null;
+  unit_price?: number | null;
+  unit?: string | null;
+  ingredient?: string | null;
+  efficacy?: string | null;
+  is_active?: boolean;
+  standard_code?: string | null;
+  source_type?: string;
+}
+
+export interface ProductAlias {
+  id: number;
+  product_id: number;
+  hospital_id: number | null;
+  alias: string;
+  source: string | null;
+  created_at: string;
+}
+
 export interface DashboardUser {
   id: string;
   email: string;
@@ -355,7 +400,7 @@ export type MessageLocalStateMap = Record<string, MessageLocalData>;
 // --- Message Calendar Union ---
 
 export type MessageCalendarItem =
-  | { kind: "message"; data: CapturedMessage }
+  | { kind: "message"; data: RawMessage }
   | { kind: "forecast"; data: OrderForecast };
 
 // --- Order Forecasts ---
@@ -374,13 +419,15 @@ export interface OrderForecast {
   matched_at: string | null;
   created_at: string;
   updated_at: string;
+  message_id?: number | null;
 }
 
 export interface ForecastItem {
   id: number;
   forecast_id: number;
-  product_id: number | null;
-  product_name: string | null;
+  mfds_item_id: number | null;
+  item_name: string | null;
+  product_name?: string | null;
   quantity: number | null;
   unit_type: string;
   notes: string | null;
@@ -479,4 +526,82 @@ export interface MfdsItem {
   permit_date: string | null;
   raw_data: Record<string, unknown>;
   synced_at: string;
+}
+
+// --- External API search results (공공데이터포털) ---
+
+export interface DrugSearchResult {
+  item_seq: string;
+  item_name: string;
+  entp_name: string;
+  entp_no: string;
+  item_permit_date: string;
+  edi_code: string | null;
+  atc_code: string | null;
+  main_item_ingr: string | null;
+  bar_code: string | null;
+  bizrno: string | null;
+  rare_drug_yn: string | null;
+}
+
+export interface DeviceSearchResult {
+  prdlst_sn: string;
+  prdlst_nm: string;
+  meddev_item_no: string;
+  mnft_clnt_nm: string;
+  mnsc_nm: string | null;
+  mnsc_natn_cd: string | null;
+  use_purps_cont: string | null;
+  prmsn_ymd: string | null;
+  prmsn_dclr_divs_nm: string | null;
+  mdeq_clsf_no: string | null;
+  clsf_no_grad_cd: string | null;
+  prdt_nm_info: string | null;
+}
+
+export interface DeviceStdSearchResult {
+  udidi_cd: string;
+  prdlst_nm: string;
+  mnft_iprt_entp_nm: string | null;
+  mdeq_clsf_no: string | null;
+  clsf_no_grad_cd: string | null;
+  permit_no: string | null;
+  prmsn_ymd: string | null;
+  foml_info: string | null;
+  prdt_nm_info: string | null;
+  use_purps_cont: string | null;
+  strg_cnd_info: string | null;
+  circ_cnd_info: string | null;
+  hmbd_trspt_mdeq_yn: string | null;
+  dspsbl_mdeq_yn: string | null;
+  trck_mng_trgt_yn: string | null;
+  total_dev: string | null;
+  cmbnmd_yn: string | null;
+  use_before_strlzt_need_yn: string | null;
+  sterilization_method_nm: string | null;
+  rcprslry_trgt_yn: string | null;
+}
+
+// --- MFDS Sync Logs ---
+
+export interface MfdsSyncLog {
+  id: number;
+  status: string;
+  trigger_type: string | null;
+  drug_added: number;
+  device_added: number;
+  device_std_added: number;
+  drug_updated: number;
+  device_updated: number;
+  device_std_updated: number;
+  duration_ms: number | null;
+  started_at: string;
+  completed_at: string | null;
+}
+
+export interface MfdsSyncStats {
+  drug_count: number;
+  device_count: number;
+  device_std_count: number;
+  last_sync: MfdsSyncLog | null;
 }

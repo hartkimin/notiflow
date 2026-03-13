@@ -1,88 +1,60 @@
 import { createClient } from "@/lib/supabase/server";
-import type { CapturedMessage } from "@/lib/types";
+import type { RawMessage } from "@/lib/types";
 
-/**
- * Get paginated messages from captured_messages.
- * received_at is stored as epoch ms (bigint), so date filtering uses numeric comparison.
- */
 export async function getMessages(params: {
   from?: string;
   to?: string;
-  source?: string;
+  parse_status?: string;
+  source_app?: string;
   limit?: number;
   offset?: number;
-} = {}): Promise<{ data: CapturedMessage[]; count: number }> {
+} = {}): Promise<{ messages: RawMessage[]; total: number }> {
   const supabase = await createClient();
-  const limit = params.limit ?? 50;
-  const offset = params.offset ?? 0;
 
-  let query = supabase
-    .from("captured_messages")
-    .select(
-      "id, app_name, sender, content, received_at, category_id, status_id, is_archived, source, room_name, sender_icon, attached_image",
-      { count: "exact" },
-    )
-    .eq("is_deleted", false)
+  let query = supabase.from("raw_messages").select("*", { count: "exact" });
+
+  if (params.from) query = query.gte("received_at", params.from);
+  if (params.to) query = query.lte("received_at", params.to);
+  if (params.parse_status) query = query.eq("parse_status", params.parse_status);
+  if (params.source_app) query = query.eq("source_app", params.source_app);
+
+  query = query
     .order("received_at", { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  if (params.from) {
-    const fromMs = new Date(params.from + "T00:00:00").getTime();
-    query = query.gte("received_at", fromMs);
-  }
-  if (params.to) {
-    const toMs = new Date(params.to + "T23:59:59.999").getTime();
-    query = query.lte("received_at", toMs);
-  }
-  if (params.source && params.source !== "all") {
-    query = query.eq("source", params.source);
-  }
+    .range(params.offset || 0, (params.offset || 0) + (params.limit || 50) - 1);
 
   const { data, count, error } = await query;
   if (error) throw error;
-  return { data: (data ?? []) as CapturedMessage[], count: count ?? 0 };
+
+  return { messages: (data ?? []) as RawMessage[], total: count ?? 0 };
+}
+
+export async function getMessageById(id: string): Promise<RawMessage | null> {
+  const supabase = await createClient();
+  const numId = parseInt(id, 10);
+  if (isNaN(numId)) return null;
+  const { data } = await supabase
+    .from("raw_messages")
+    .select("*")
+    .eq("id", numId)
+    .maybeSingle();
+  return data as RawMessage | null;
 }
 
 /**
- * Get messages in a date range for calendar view.
- * startMs/endMs are epoch milliseconds.
+ * Get all messages in a date range (no pagination) for calendar view.
  */
 export async function getMessagesForCalendar(params: {
-  startMs: number;
-  endMs: number;
-}): Promise<CapturedMessage[]> {
+  from: string;  // ISO date string "YYYY-MM-DD"
+  to: string;    // ISO date string "YYYY-MM-DD"
+}): Promise<RawMessage[]> {
   const supabase = await createClient();
-
   const { data, error } = await supabase
-    .from("captured_messages")
-    .select(
-      "id, app_name, sender, content, received_at, category_id, status_id, is_archived, source, room_name, sender_icon, attached_image",
-    )
-    .eq("is_deleted", false)
-    .gte("received_at", params.startMs)
-    .lt("received_at", params.endMs)
-    .order("received_at", { ascending: true })
+    .from("raw_messages")
+    .select("*")
+    .gte("received_at", params.from)
+    .lt("received_at", params.to)
+    .order("received_at", { ascending: false })
     .limit(500);
-
   if (error) throw error;
-  return (data ?? []) as CapturedMessage[];
-}
-
-/**
- * Get a single message by ID.
- */
-export async function getMessageById(id: string): Promise<CapturedMessage | null> {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("captured_messages")
-    .select(
-      "id, app_name, sender, content, received_at, category_id, status_id, is_archived, source, room_name, sender_icon, attached_image",
-    )
-    .eq("id", id)
-    .eq("is_deleted", false)
-    .single();
-
-  if (error) return null;
-  return data as CapturedMessage;
+  return (data ?? []) as RawMessage[];
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarPlus, CalendarRange, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,14 +9,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { MessageInbox } from "@/components/message-inbox";
-import dynamic from "next/dynamic";
-import { Skeleton } from "@/components/ui/skeleton";
-
-const MessageCalendar = dynamic(
-  () => import("@/components/message-calendar").then(m => ({ default: m.MessageCalendar })),
-  { loading: () => <Skeleton className="h-[500px] w-full rounded-md" /> },
-);
-import { getCalendarMessagesAction, getCalendarForecastsAction } from "@/app/(dashboard)/notifications/actions";
+import { MessageCalendar } from "@/components/message-calendar";
+import { CreateMessageDialog } from "@/components/message-list";
 import { ForecastDialog } from "@/components/forecast-dialog";
 import { ForecastBatchDialog } from "@/components/forecast-batch-dialog";
 import {
@@ -24,9 +18,7 @@ import {
   toLocalDateStr,
 } from "@/lib/schedule-utils";
 import type { CalendarView } from "@/lib/schedule-utils";
-import type { CapturedMessage, Hospital, OrderForecast } from "@/lib/types";
-
-type ProductOption = { id: number; name: string; short_name: string | null; is_active: boolean };
+import type { RawMessage, Hospital, Product, OrderForecast } from "@/lib/types";
 
 // ─── Types ──────────────────────────────────────
 
@@ -35,17 +27,15 @@ type TabValue = "list" | "calendar";
 interface MessagesViewProps {
   initialTab: TabValue;
   // List data
-  messages: CapturedMessage[];
+  messages: RawMessage[];
   hospitals: Hospital[];
-  products: ProductOption[];
+  products: Product[];
   currentPage: number;
   totalPages: number;
   totalCount: number;
-  // Calendar params (data fetched on tab activation)
-  calendarStartMs: number;
-  calendarEndMs: number;
-  calendarFrom: string;
-  calendarTo: string;
+  // Calendar data
+  calendarMessages: RawMessage[];
+  calendarForecasts: OrderForecast[];
   initialCalView: CalendarView;
   initialCalDate: Date;
 }
@@ -56,55 +46,39 @@ export function MessagesView({
   initialTab,
   messages, hospitals, products,
   currentPage, totalPages, totalCount,
-  calendarStartMs, calendarEndMs, calendarFrom, calendarTo,
-  initialCalView, initialCalDate,
+  calendarMessages, calendarForecasts, initialCalView, initialCalDate,
 }: MessagesViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Tab state
   const [tab, setTab] = useState<TabValue>(initialTab);
+
+  // Calendar state (lifted from DataCalendar for toolbar control)
   const [calView, setCalView] = useState<CalendarView>(initialCalView);
   const [calDate, setCalDate] = useState<Date>(initialCalDate);
 
-  const [calendarMessages, setCalendarMessages] = useState<CapturedMessage[]>([]);
-  const [calendarForecasts, setCalendarForecasts] = useState<OrderForecast[]>([]);
-  const [calLoading, setCalLoading] = useState(false);
-  const calFetchedRef = useRef<boolean>(false);
-
-  useEffect(() => {
-    if (tab === "calendar" && !calFetchedRef.current) {
-      calFetchedRef.current = true;
-      setCalLoading(true);
-      Promise.all([
-        getCalendarMessagesAction(calendarStartMs, calendarEndMs),
-        getCalendarForecastsAction(calendarFrom, calendarTo),
-      ])
-        .then(([msgs, fcsts]) => {
-          setCalendarMessages(msgs);
-          setCalendarForecasts(fcsts);
-        })
-        .catch(() => {})
-        .finally(() => setCalLoading(false));
-    }
-  }, [tab, calendarStartMs, calendarEndMs, calendarFrom, calendarTo]);
-
+  // Forecast dialog state
   const [forecastDialogOpen, setForecastDialogOpen] = useState(false);
   const [forecastDialogDate, setForecastDialogDate] = useState<string | undefined>();
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
 
+  // Loaded month for calendar server-navigation check
   const loadedYear = initialCalDate.getFullYear();
   const loadedMonth = initialCalDate.getMonth();
 
+  // ─── Tab switching ──────────────────────────────
   const handleTabChange = useCallback((value: TabValue) => {
     setTab(value);
-    const url = value === "list" ? "/notifications" : "/notifications?tab=calendar";
+    const url = value === "list" ? "/messages" : "/messages?tab=calendar";
     window.history.replaceState(null, "", url);
   }, []);
 
+  // ─── Calendar navigation ────────────────────────
   const navigateCalDate = useCallback((date: Date) => {
     if (date.getMonth() !== loadedMonth || date.getFullYear() !== loadedYear) {
       const m = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      router.push(`/notifications?tab=calendar&month=${m}`);
+      router.push(`/messages?tab=calendar&month=${m}`);
       return;
     }
     setCalDate(date);
@@ -141,19 +115,27 @@ export function MessagesView({
     calView === "week" ? formatWeekLabel(getWeekMonday(calDate)) :
     formatMonthLabel(calDate);
 
+  // ─── List filter submit ─────────────────────────
+  const pendingCount = messages.filter(
+    (m) => m.parse_status === "pending" || m.parse_status === "failed",
+  ).length;
+
   function handleFilterSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const params = new URLSearchParams();
     const from = fd.get("from") as string;
     const to = fd.get("to") as string;
-    const source = fd.get("source") as string;
+    const parse_status = fd.get("parse_status") as string;
+    const source_app = fd.get("source_app") as string;
     if (from) params.set("from", from);
     if (to) params.set("to", to);
-    if (source && source !== "all") params.set("source", source);
-    router.push(`/notifications?${params}`);
+    if (parse_status && parse_status !== "all") params.set("parse_status", parse_status);
+    if (source_app && source_app !== "all") params.set("source_app", source_app);
+    router.push(`/messages?${params}`);
   }
 
+  // ─── Render ─────────────────────────────────────
   return (
     <div className="flex flex-col gap-0">
       {/* ──── Unified Toolbar ──── */}
@@ -187,7 +169,19 @@ export function MessagesView({
           <form onSubmit={handleFilterSubmit} className="flex items-center gap-2 flex-1 min-w-0">
             <Input type="date" name="from" defaultValue={searchParams.get("from") || ""} className="h-8 w-[120px] text-xs" />
             <Input type="date" name="to" defaultValue={searchParams.get("to") || ""} className="h-8 w-[120px] text-xs" />
-            <Select name="source" defaultValue={searchParams.get("source") || "all"}>
+            <Select name="parse_status" defaultValue={searchParams.get("parse_status") || "all"}>
+              <SelectTrigger className="h-8 w-[100px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 상태</SelectItem>
+                <SelectItem value="parsed">파싱완료</SelectItem>
+                <SelectItem value="pending">대기</SelectItem>
+                <SelectItem value="failed">실패</SelectItem>
+                <SelectItem value="skipped">건너뜀</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select name="source_app" defaultValue={searchParams.get("source_app") || "all"}>
               <SelectTrigger className="h-8 w-[100px] text-xs">
                 <SelectValue />
               </SelectTrigger>
@@ -196,6 +190,7 @@ export function MessagesView({
                 <SelectItem value="kakaotalk">카카오톡</SelectItem>
                 <SelectItem value="sms">SMS</SelectItem>
                 <SelectItem value="telegram">텔레그램</SelectItem>
+                <SelectItem value="manual">수동</SelectItem>
               </SelectContent>
             </Select>
             <Button type="submit" size="sm" variant="outline" className="h-8 px-2">
@@ -203,6 +198,9 @@ export function MessagesView({
             </Button>
             <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap">
               <span>전체 <strong className="text-foreground">{totalCount}</strong>건</span>
+              {pendingCount > 0 && (
+                <span>· 미처리 <strong className="text-orange-600">{pendingCount}</strong>건</span>
+              )}
             </div>
           </form>
         ) : (
@@ -233,6 +231,7 @@ export function MessagesView({
               ))}
             </div>
 
+            {/* Forecast buttons */}
             <Button variant="outline" size="sm" className="h-8 text-xs shrink-0" onClick={() => setForecastDialogOpen(true)}>
               <CalendarPlus className="h-3.5 w-3.5 mr-1" />예상 등록
             </Button>
@@ -241,18 +240,23 @@ export function MessagesView({
             </Button>
           </div>
         )}
+
+        <div className="w-px h-5 bg-border shrink-0" />
+
+        {/* Create button */}
+        <CreateMessageDialog />
       </div>
 
       {/* ──── Content ──── */}
       {tab === "list" ? (
         <MessageInbox
           messages={messages}
+          hospitals={hospitals}
+          products={products}
           currentPage={currentPage}
           totalPages={totalPages}
           totalCount={totalCount}
         />
-      ) : calLoading ? (
-        <Skeleton className="h-[500px] w-full rounded-md" />
       ) : (
         <MessageCalendar
           messages={calendarMessages}

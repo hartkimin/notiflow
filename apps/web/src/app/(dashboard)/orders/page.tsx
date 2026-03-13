@@ -86,7 +86,7 @@ export default async function OrdersPage({ searchParams }: Props) {
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
   const initialMessageContent = sourceMessage?.content;
-  const sourceMessageId = sourceMessage?.id;
+  const sourceMessageId = sourceMessage?.id?.toString();
 
   return (
     <>

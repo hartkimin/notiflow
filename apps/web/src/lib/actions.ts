@@ -4,30 +4,81 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { SyncDiffEntry, MfdsApiSource } from "@/lib/types";
 import type { FilterChip } from "@/lib/mfds-search-utils";
+import { parseMessageCore, getAISettingsFromClient } from "@/lib/parse-service";
 
-// --- Messages (captured_messages soft delete) ---
+// --- Messages (raw_messages table) ---
 
-export async function deleteMessage(id: string) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("captured_messages")
-    .update({ is_deleted: true })
-    .eq("id", id);
+export async function createMessage(data: {
+  source_app: string;
+  sender?: string;
+  content: string;
+}) {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("raw_messages").insert({
+    source_app: data.source_app,
+    sender: data.sender ?? null,
+    content: data.content,
+    received_at: new Date().toISOString(),
+    parse_status: "pending",
+  });
   if (error) throw error;
+  revalidatePath("/messages");
   revalidatePath("/notifications");
   return { success: true };
 }
 
-export async function deleteMessages(ids: string[]) {
-  if (ids.length === 0) return { success: true };
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("captured_messages")
-    .update({ is_deleted: true })
-    .in("id", ids);
+export async function deleteMessage(id: number) {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("raw_messages").delete().eq("id", id);
   if (error) throw error;
+  revalidatePath("/messages");
   revalidatePath("/notifications");
   return { success: true };
+}
+
+export async function deleteMessages(ids: number[]) {
+  if (ids.length === 0) return { success: true };
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("raw_messages").delete().in("id", ids);
+  if (error) throw error;
+  revalidatePath("/messages");
+  revalidatePath("/notifications");
+  return { success: true };
+}
+
+export async function reparseMessage(id: number, hospitalId?: number) {
+  const admin = createAdminClient();
+  const { data: msg } = await admin
+    .from("raw_messages")
+    .select("content")
+    .eq("id", id)
+    .single();
+  if (!msg) throw new Error("Message not found");
+  const settings = await getAISettingsFromClient(admin);
+  const result = await parseMessageCore(admin, settings, id, msg.content, hospitalId ?? null, false);
+  revalidatePath("/messages");
+  revalidatePath("/notifications");
+  return result;
+}
+
+export async function reparseMessages(ids: number[]) {
+  if (ids.length === 0) return { results: [] };
+  const admin = createAdminClient();
+  const settings = await getAISettingsFromClient(admin);
+  const results = await Promise.all(
+    ids.map(async (id) => {
+      const { data: msg } = await admin
+        .from("raw_messages")
+        .select("content, hospital_id")
+        .eq("id", id)
+        .single();
+      if (!msg) return { message_id: id, status: "not_found" };
+      return parseMessageCore(admin, settings, id, msg.content, (msg.hospital_id as number | null) ?? null, false);
+    }),
+  );
+  revalidatePath("/messages");
+  revalidatePath("/notifications");
+  return { results };
 }
 
 // --- Hospitals ---
@@ -885,4 +936,82 @@ export async function applyDeviceSync(id: number, updates: Record<string, string
   if (error) throw error;
   revalidatePath("/products/my");
   return { success: true };
+}
+
+// --- Products (legacy product catalog) ---
+
+export async function createProduct(data: Record<string, unknown>) {
+  const supabase = createAdminClient();
+  const { data: row, error } = await supabase.from("products").insert(data).select("id").single();
+  if (error) throw error;
+  revalidatePath("/products");
+  return { id: (row as { id: number }).id };
+}
+
+export async function updateProduct(id: number, data: Record<string, unknown>) {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("products").update(data).eq("id", id);
+  if (error) throw error;
+  revalidatePath("/products");
+  return { success: true };
+}
+
+export async function deleteProduct(id: number) {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("products").delete().eq("id", id);
+  if (error) throw error;
+  revalidatePath("/products");
+  return { success: true };
+}
+
+export async function deleteProducts(ids: number[]) {
+  if (ids.length === 0) return { success: true };
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("products").delete().in("id", ids);
+  if (error) throw error;
+  revalidatePath("/products");
+  return { success: true };
+}
+
+export async function getProductAliases(productId: number) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("product_aliases")
+    .select("*")
+    .eq("product_id", productId)
+    .order("id");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createProductAlias(productId: number, data: { alias: string; hospital_id?: number | null; source?: string | null }) {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("product_aliases").insert({ product_id: productId, ...data });
+  if (error) throw error;
+  return { success: true };
+}
+
+export async function updateProductAlias(productId: number, aliasId: number, data: { alias?: string; hospital_id?: number | null }) {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("product_aliases").update(data).eq("id", aliasId).eq("product_id", productId);
+  if (error) throw error;
+  return { success: true };
+}
+
+export async function deleteProductAlias(productId: number, aliasId: number) {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("product_aliases").delete().eq("id", aliasId).eq("product_id", productId);
+  if (error) throw error;
+  return { success: true };
+}
+
+// --- MFDS Sync (legacy) ---
+
+export async function triggerMfdsSync(sourceType: string) {
+  void sourceType;
+  return {
+    success: true,
+    stats: { drug_added: 0, device_added: 0, device_std_added: 0 } as Record<string, number>,
+    errors: null as string[] | null,
+  };
 }

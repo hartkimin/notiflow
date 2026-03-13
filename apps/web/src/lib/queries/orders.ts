@@ -126,19 +126,20 @@ export async function getOrderItems(params: {
 export async function getOrder(id: number): Promise<OrderDetail> {
   const supabase = await createClient();
 
-  const { data: order, error } = await supabase
-    .from("orders")
-    .select("*, hospitals(name)")
-    .eq("id", id)
-    .single();
+  const [{ data: order, error }, { data: items }] = await Promise.all([
+    supabase
+      .from("orders")
+      .select("*, hospitals(name)")
+      .eq("id", id)
+      .single(),
+    supabase
+      .from("order_items")
+      .select("*, products(name, official_name), suppliers(name)")
+      .eq("order_id", id)
+      .order("id"),
+  ]);
 
   if (error) throw error;
-
-  const { data: items } = await supabase
-    .from("order_items")
-    .select("*, products(name, official_name), suppliers(name)")
-    .eq("order_id", id)
-    .order("id");
 
   return {
     ...order,

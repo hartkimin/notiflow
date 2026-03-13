@@ -25,14 +25,15 @@ export function useResizableColumns(storageKey: string, defaultWidths: Record<st
       if (!dragRef.current) return;
       const diff = ev.clientX - dragRef.current.startX;
       const newW = Math.max(40, dragRef.current.startW + diff);
-      setWidths((prev) => {
-        const next = { ...prev, [dragRef.current!.col]: newW };
-        try { localStorage.setItem(`col-widths-${storageKey}`, JSON.stringify(next)); } catch { /* ignore */ }
-        return next;
-      });
+      setWidths((prev) => ({ ...prev, [dragRef.current!.col]: newW }));
     };
 
     const onMouseUp = () => {
+      // Persist only once on release, not on every mousemove frame
+      setWidths((current) => {
+        try { localStorage.setItem(`col-widths-${storageKey}`, JSON.stringify(current)); } catch { /* ignore */ }
+        return current;
+      });
       dragRef.current = null;
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);

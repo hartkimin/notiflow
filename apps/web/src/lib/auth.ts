@@ -39,6 +39,15 @@ export async function requireAuth(): Promise<UserSession> {
   };
 }
 
+/** Require admin role. Throws if not admin. */
+export async function requireAdmin(): Promise<UserSession> {
+  const session = await requireAuth();
+  if (session.role !== "admin") {
+    throw new Error("관리자 권한이 필요합니다.");
+  }
+  return session;
+}
+
 /** Get current user or null (no redirect). */
 export async function getUser(): Promise<UserSession | null> {
   const supabase = await createClient();

@@ -43,11 +43,15 @@ export function useRealtime(
     };
   }, [table, opts?.event, opts?.schema, opts?.filter, router]);
 
-  // Restore scroll position after React finishes re-rendering
+  // Restore scroll position after React finishes re-rendering.
+  // No dependency array intentional: must run after every render caused by router.refresh().
+  // scrollRef.current is reset to 0 immediately to prevent re-scrolling on subsequent renders.
   useEffect(() => {
     if (scrollRef.current > 0) {
+      const savedY = scrollRef.current;
+      scrollRef.current = 0;
       requestAnimationFrame(() => {
-        window.scrollTo(0, scrollRef.current);
+        window.scrollTo(0, savedY);
       });
     }
   });

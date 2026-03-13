@@ -71,6 +71,7 @@ import { useResizableColumns } from "@/hooks/use-resizable-columns";
 import { ResizableTh } from "@/components/resizable-th";
 import { toast } from "sonner";
 import type { OrderItemFlat } from "@/lib/types";
+import { ORDER_STATUS_LABELS as STATUS_LABEL, ORDER_STATUS_VARIANT as STATUS_VARIANT } from "@/lib/order-status";
 
 export interface ProductOption {
   id: number;
@@ -80,22 +81,6 @@ export interface ProductOption {
 const ORDER_COL_DEFAULTS: Record<string, number> = {
   checkbox: 36, expand: 28, order_number: 120, order_date: 70, delivery_date: 70,
   hospital: 150, item_count: 60, status: 80, actions: 40,
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  draft: "임시",
-  confirmed: "확인됨",
-  processing: "처리중",
-  delivered: "배송완료",
-  cancelled: "취소",
-};
-
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  draft: "secondary",
-  confirmed: "default",
-  processing: "default",
-  delivered: "outline",
-  cancelled: "destructive",
 };
 
 const KPIS_LABEL: Record<string, string> = {

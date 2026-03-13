@@ -68,14 +68,7 @@ import { MessageSquareText } from "lucide-react";
 import { toast } from "sonner";
 import { MfdsSearchPanel } from "@/components/mfds-search-panel";
 import type { OrderDetail, OrderComment, Product, Supplier } from "@/lib/types";
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "임시",
-  confirmed: "확인됨",
-  processing: "처리중",
-  delivered: "배송완료",
-  cancelled: "취소",
-};
+import { ORDER_STATUS_LABELS as STATUS_LABELS } from "@/lib/order-status";
 
 const STATUS_VARIANT: Record<
   string,

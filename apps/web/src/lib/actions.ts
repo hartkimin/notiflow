@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth";
 import type { SyncDiffEntry, MfdsApiSource } from "@/lib/types";
 import type { FilterChip } from "@/lib/mfds-search-utils";
+import { getFilterableColumns, getSearchableColumns } from "@/lib/mfds-search-utils";
 
 // --- Messages (captured_messages soft delete) ---
 
@@ -43,6 +45,7 @@ export async function createHospital(data: {
   payment_terms?: string;
   lead_time_days?: number;
 }) {
+  await requireAdmin();
   const supabase = await createClient();
   const { error } = await supabase.from("hospitals").insert(data);
   if (error) throw error;
@@ -51,6 +54,7 @@ export async function createHospital(data: {
 }
 
 export async function updateHospital(id: number, data: Record<string, unknown>) {
+  await requireAdmin();
   const supabase = await createClient();
   const { error } = await supabase.from("hospitals").update(data).eq("id", id);
   if (error) throw error;
@@ -59,6 +63,7 @@ export async function updateHospital(id: number, data: Record<string, unknown>) 
 }
 
 export async function deleteHospital(id: number) {
+  await requireAdmin();
   const supabase = await createClient();
   const { error } = await supabase.from("hospitals").delete().eq("id", id);
   if (error) throw error;
@@ -67,6 +72,7 @@ export async function deleteHospital(id: number) {
 }
 
 export async function deleteHospitals(ids: number[]) {
+  await requireAdmin();
   if (ids.length === 0) return { success: true };
   const supabase = await createClient();
   const { error } = await supabase.from("hospitals").delete().in("id", ids);
@@ -78,6 +84,7 @@ export async function deleteHospitals(ids: number[]) {
 // --- Orders ---
 
 export async function deleteOrder(id: number) {
+  await requireAdmin();
   const supabase = await createClient();
   const { error } = await supabase.from("orders").delete().eq("id", id);
   if (error) throw error;
@@ -96,6 +103,7 @@ export async function updateOrder(id: number, data: Record<string, unknown>) {
 }
 
 export async function deleteOrders(ids: number[]) {
+  await requireAdmin();
   if (ids.length === 0) return { success: true };
   const supabase = await createClient();
   const { error } = await supabase.from("orders").delete().in("id", ids);
@@ -139,6 +147,7 @@ export async function createSupplier(data: {
   business_category?: string;
   notes?: string;
 }) {
+  await requireAdmin();
   const supabase = await createClient();
   const { error } = await supabase.from("suppliers").insert(data);
   if (error) throw error;
@@ -147,6 +156,7 @@ export async function createSupplier(data: {
 }
 
 export async function updateSupplier(id: number, data: Record<string, unknown>) {
+  await requireAdmin();
   const supabase = await createClient();
   const { error } = await supabase.from("suppliers").update(data).eq("id", id);
   if (error) throw error;
@@ -155,6 +165,7 @@ export async function updateSupplier(id: number, data: Record<string, unknown>) 
 }
 
 export async function deleteSupplier(id: number) {
+  await requireAdmin();
   const supabase = await createClient();
   const { error } = await supabase.from("suppliers").delete().eq("id", id);
   if (error) throw error;
@@ -163,6 +174,7 @@ export async function deleteSupplier(id: number) {
 }
 
 export async function deleteSuppliers(ids: number[]) {
+  await requireAdmin();
   if (ids.length === 0) return { success: true };
   const supabase = await createClient();
   const { error } = await supabase.from("suppliers").delete().in("id", ids);
@@ -215,6 +227,7 @@ export async function createUser(data: {
   name: string;
   role?: string;
 }) {
+  await requireAdmin();
   const supabase = await createClient();
   const { data: result, error } = await supabase.functions.invoke("manage-users", {
     body: { _action: "create", ...data },
@@ -227,6 +240,7 @@ export async function createUser(data: {
 }
 
 export async function updateUser(id: string, data: Record<string, unknown>) {
+  await requireAdmin();
   const supabase = await createClient();
   const { data: result, error } = await supabase.functions.invoke("manage-users", {
     body: { _action: "update", id, ...data },
@@ -239,6 +253,7 @@ export async function updateUser(id: string, data: Record<string, unknown>) {
 }
 
 export async function deleteUser(id: string) {
+  await requireAdmin();
   const supabase = await createClient();
   const { data: result, error } = await supabase.functions.invoke("manage-users", {
     body: { _action: "delete", id },
@@ -369,6 +384,26 @@ export async function searchMfdsItems(params: {
   const q = query.trim();
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
+
+  // Build allowlists from the same column definitions used client-side
+  const allowedSearchFields = new Set(
+    getSearchableColumns(sourceType).map((c) => c.field),
+  );
+  const allowedFilterFields = new Set(
+    getFilterableColumns(sourceType).map((c) => c.field),
+  );
+
+  // Validate searchField against allowlist
+  if (searchField !== "_all" && !allowedSearchFields.has(searchField)) {
+    throw new Error(`허용되지 않은 검색 필드입니다: ${searchField}`);
+  }
+
+  // Validate all filter chip fields against allowlist
+  for (const chip of filters) {
+    if (!allowedFilterFields.has(chip.field)) {
+      throw new Error(`허용되지 않은 필터 필드입니다: ${chip.field}`);
+    }
+  }
 
   // Build base query
   let dbQuery = supabase

@@ -40,14 +40,7 @@ import { getDailyStats, getTrendStats, getHospitalStats, getProductStats } from 
 import { getOrders } from "@/lib/queries/orders";
 import { getTodayDeliveries } from "@/lib/queries/deliveries";
 import { getPendingKpis } from "@/lib/queries/reports";
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "임시",
-  confirmed: "확인됨",
-  processing: "처리중",
-  delivered: "배송완료",
-  cancelled: "취소",
-};
+import { ORDER_STATUS_LABELS as STATUS_LABELS } from "@/lib/order-status";
 
 export default async function DashboardHome() {
   const [stats, ordersRes, deliveriesRes, kpisRes, trend, hospitals, products] = await Promise.all([

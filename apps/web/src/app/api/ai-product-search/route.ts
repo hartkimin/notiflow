@@ -190,10 +190,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const query = body.query?.trim();
-  if (!query) {
+  const rawQuery = body.query?.trim() ?? "";
+  if (!rawQuery) {
     return NextResponse.json({ error: "query is required" }, { status: 400 });
   }
+  if (rawQuery.length > 200) {
+    return NextResponse.json({ error: "query가 너무 깁니다 (최대 200자)" }, { status: 400 });
+  }
+  // Sanitize: remove characters that could break out of the quoted prompt context
+  const query = rawQuery.replace(/["\\`]/g, " ").trim();
 
   // Load AI settings from DB
   const { data: settings } = await supabase
@@ -261,8 +266,9 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     const latencyMs = Date.now() - start;
+    console.error(`AI product search failed (${latencyMs}ms):`, err);
     return NextResponse.json(
-      { error: `AI 검색 실패 (${latencyMs}ms): ${err instanceof Error ? err.message : String(err)}` },
+      { error: `AI 검색에 실패했습니다. 잠시 후 다시 시도해주세요. (${latencyMs}ms)` },
       { status: 500 },
     );
   }

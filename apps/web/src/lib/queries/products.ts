@@ -96,7 +96,10 @@ export async function getProductsCatalog() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("products_catalog")
-    .select("id, name, official_name, short_name, is_active, standard_code");
+    .select("id, name, official_name, short_name, is_active, standard_code")
+    .eq("is_active", true)
+    .order("name")
+    .limit(500);
   if (error) throw error;
   return data ?? [];
 }

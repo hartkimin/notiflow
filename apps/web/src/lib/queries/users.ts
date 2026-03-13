@@ -13,16 +13,28 @@ export interface UserProfile {
 export async function getUsers(): Promise<{ users: UserProfile[]; total: number }> {
   const supabase = await createClient();
 
-  // Call the manage-users Edge Function
-  const { data, error } = await supabase.functions.invoke("manage-users", {
+  // Try direct table access first as it's more reliable for dashboard
+  const { data, count, error } = await supabase
+    .from("user_profiles")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false });
+
+  if (!error && data) {
+    return { users: data as UserProfile[], total: count ?? data.length };
+  }
+
+  // Fallback to Edge Function if table access fails (e.g. RLS issues)
+  console.warn("Direct user_profiles access failed, trying Edge Function:", error?.message);
+  
+  const { data: funcData, error: funcError } = await supabase.functions.invoke("manage-users", {
     body: { _action: "list" },
   });
 
-  if (error) {
-    console.error("getUsers failed:", error.message);
+  if (funcError) {
+    console.error("getUsers (Edge Function) failed:", funcError.message);
     return { users: [], total: 0 };
   }
 
-  const result = data as { users?: UserProfile[]; total?: number } | null;
+  const result = funcData as { users?: UserProfile[]; total?: number } | null;
   return { users: result?.users ?? [], total: result?.total ?? 0 };
 }

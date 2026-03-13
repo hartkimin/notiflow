@@ -185,20 +185,18 @@ export function OrderInlineForm({
     return labels[key] ?? key;
   }
 
-  // Get the value for a column key from the raw record
+  // Get the value for a column key from the raw record (case-insensitive)
   function getColumnValue(
     raw: Record<string, unknown>,
     key: string,
   ): string {
-    // Keys in displayColumns are UPPERCASE (e.g., "ITEM_NAME"),
-    // raw keys from DB are lowercase (e.g., "item_name")
-    const dbKey = key.toLowerCase();
-    const val = raw[dbKey];
+    // Try original key, then lowercase, then uppercase
+    const val = raw[key] ?? raw[key.toLowerCase()] ?? raw[key.toUpperCase()];
     if (val === null || val === undefined) return "";
     return String(val);
   }
 
-  // Collect all unique column keys used by selected items
+  // Collect all unique column keys that SHOULD be displayed based on settings
   function getDisplayHeaders(): Array<{
     key: string;
     label: string;
@@ -206,14 +204,21 @@ export function OrderInlineForm({
     const seen = new Set<string>();
     const headers: Array<{ key: string; label: string }> = [];
 
-    for (const item of selectedItems) {
-      const cols =
-        item.type === "drug" ? displayColumns.drug : displayColumns.device;
-      for (const col of cols) {
-        if (!seen.has(col)) {
-          seen.add(col);
-          headers.push({ key: col, label: getColumnLabel(col, item.type) });
-        }
+    // Prioritize showing item name first if it exists in either set
+    const prioritizedKeys = ["ITEM_NAME", "PRDLST_NM"];
+    
+    // Add columns from drug settings
+    for (const col of displayColumns.drug) {
+      if (!seen.has(col)) {
+        seen.add(col);
+        headers.push({ key: col, label: getColumnLabel(col, "drug") });
+      }
+    }
+    // Add columns from device settings
+    for (const col of displayColumns.device) {
+      if (!seen.has(col)) {
+        seen.add(col);
+        headers.push({ key: col, label: getColumnLabel(col, "device") });
       }
     }
     return headers;

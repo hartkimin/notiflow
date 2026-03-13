@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { ChevronsLeft, ChevronsRight } from "lucide-react";
-import { navGroups, Package2 } from "@/lib/nav-items";
+import { navGroups } from "@/lib/nav-items";
 import { APP_VERSION } from "@/lib/version";
 import { NotificationToggle } from "./notification-toggle";
 import {
@@ -13,155 +12,147 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { LayoutDashboard, Settings, User, Pin, PinOff } from "lucide-react";
 
 interface AppSidebarProps {
   userName?: string;
   collapsed?: boolean;
+  pinned?: boolean;
+  onPinToggle?: () => void;
   onToggle?: () => void;
 }
 
-export function AppSidebar({ userName, collapsed = false, onToggle }: AppSidebarProps) {
+export function AppSidebar({ userName, collapsed = false, pinned = false, onPinToggle }: AppSidebarProps) {
   const pathname = usePathname();
 
+  // Flatten all nav items for the 1:1 icon bar
+  const allItems = navGroups.flatMap(g => g.items.map(item => ({ ...item, groupId: g.id })));
+
   return (
-    <TooltipProvider>
-      <div data-sidebar className="hidden border-r bg-muted/40 md:block overflow-hidden">
-        <div className="flex h-full max-h-screen flex-col">
-          {/* Header */}
-          <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-            <Link
-              href="/dashboard"
-              className={cn(
-                "flex items-center gap-2 font-semibold transition-opacity hover:opacity-80",
-                collapsed && "justify-center"
-              )}
-            >
-              <Package2 className="h-6 w-6 shrink-0 text-primary" />
-              {!collapsed && (
-                <span className="whitespace-nowrap">
-                  NotiFlow
-                  <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
-                    v{APP_VERSION}
-                  </span>
-                </span>
-              )}
-            </Link>
-            {!collapsed && (
-              <div className="ml-auto flex items-center gap-1">
-                <NotificationToggle />
-                <button
-                  onClick={onToggle}
-                  className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                >
-                  <ChevronsLeft className="h-4 w-4" />
-                </button>
-              </div>
-            )}
+    <TooltipProvider delayDuration={0}>
+      <div className="flex h-full bg-background select-none">
+        {/* Step 1: Icon Strip (1:1 matching with items) */}
+        <div className="flex w-[64px] flex-col items-center border-r bg-zinc-950 py-4 dark:bg-black shrink-0 z-20 overflow-y-auto no-scrollbar">
+          <Link 
+            href="/dashboard" 
+            className="mb-6 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-105 transition-transform shrink-0"
+          >
+            <LayoutDashboard className="h-6 w-6" />
+          </Link>
+          
+          <div className="flex flex-1 flex-col gap-3 w-full items-center">
+            {allItems.map((item) => {
+              const isActive = item.exact 
+                ? item.href === pathname 
+                : item.href === pathname || (item.href !== "/" && pathname.startsWith(item.href));
+
+              return (
+                <Tooltip key={item.href}>
+                  <TooltipTrigger asChild>
+                    <Link 
+                      href={item.href}
+                      className={cn(
+                        "relative flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-200 shrink-0",
+                        isActive 
+                          ? "bg-zinc-800 text-primary" 
+                          : "text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-200"
+                      )}
+                    >
+                      {isActive && (
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />
+                      )}
+                      <item.icon className="h-5 w-5" />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={12} className="bg-zinc-900 border-zinc-800 text-white font-medium">
+                    {item.label}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
           </div>
-          {collapsed && (
-            <div className="flex justify-center py-2">
-              <button
-                onClick={onToggle}
-                className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                <ChevronsRight className="h-4 w-4" />
-              </button>
+
+          <div className="mt-auto flex flex-col gap-4 pt-4 border-t border-zinc-800/50 w-full items-center shrink-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link href="/settings" className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
+                  pathname === "/settings" ? "bg-zinc-800 text-primary" : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+                )}>
+                  <Settings className="h-5 w-5" />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={12}>설정</TooltipContent>
+            </Tooltip>
+            
+            <div className="p-1">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800 border border-zinc-700 text-xs font-bold text-white shadow-inner">
+                {userName?.charAt(0).toUpperCase() || <User className="h-4 w-4" />}
+              </div>
             </div>
-          )}
-
-          {/* Navigation */}
-          <div className="flex-1 overflow-y-auto py-2">
-            {navGroups.map((group, groupIdx) => (
-              <div key={group.label} className={cn(groupIdx > 0 && "mt-2")}>
-                {!collapsed && (
-                  <div className="px-4 lg:px-6 py-1.5">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                      {group.label}
-                    </span>
-                  </div>
-                )}
-                {collapsed && groupIdx > 0 && (
-                  <div className="mx-3 border-t" />
-                )}
-                <nav className={cn("grid gap-0.5", collapsed ? "px-1.5" : "px-2 lg:px-3")}>
-                  {group.items.map((item) => {
-                    const isActive = item.exact
-                      ? item.href === pathname
-                      : item.href === pathname ||
-                        (item.href !== "/" && pathname.startsWith(item.href));
-
-                    const linkContent = (
-                      <Link
-                        href={item.href}
-                        className={cn(
-                          "group relative flex items-center rounded-md text-sm font-medium text-muted-foreground",
-                          "transition-all duration-150 ease-out",
-                          "hover:bg-accent hover:text-accent-foreground",
-                          "active:scale-[0.98] active:bg-accent/80",
-                          collapsed
-                            ? "justify-center px-2 py-2"
-                            : "gap-3 px-3 py-2",
-                          isActive && [
-                            "bg-primary/10 text-primary font-semibold",
-                            "hover:bg-primary/15",
-                          ]
-                        )}
-                      >
-                        {isActive && !collapsed && (
-                          <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full bg-primary" />
-                        )}
-                        <item.icon
-                          className={cn(
-                            "h-4 w-4 shrink-0 transition-colors",
-                            isActive
-                              ? "text-primary"
-                              : "text-muted-foreground/70 group-hover:text-accent-foreground"
-                          )}
-                        />
-                        {!collapsed && (
-                          <span className="whitespace-nowrap">{item.label}</span>
-                        )}
-                      </Link>
-                    );
-
-                    if (collapsed) {
-                      return (
-                        <Tooltip key={item.href}>
-                          <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-                          <TooltipContent side="right" sideOffset={8}>
-                            {item.label}
-                          </TooltipContent>
-                        </Tooltip>
-                      );
-                    }
-
-                    return <span key={item.href}>{linkContent}</span>;
-                  })}
-                </nav>
-              </div>
-            ))}
-          </div>
-
-          {/* Footer */}
-          <div className="border-t">
-            {/* User info */}
-            {userName && (
-              <div className={cn("px-4 py-3", collapsed ? "flex justify-center px-2" : "lg:px-6")}>
-                <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-2")}>
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                    {userName.charAt(0).toUpperCase()}
-                  </div>
-                  {!collapsed && (
-                    <span className="text-sm text-muted-foreground truncate">
-                      {userName}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-
           </div>
         </div>
+
+        {/* Step 2: Details Panel */}
+        {!collapsed && (
+          <div className="flex w-[240px] flex-col bg-background/95 backdrop-blur-xl border-r shadow-xl">
+            <div className="flex h-[60px] items-center justify-between px-6 border-b">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-black tracking-[0.2em] uppercase text-foreground/70">NotiFlow</span>
+                <span className="text-[9px] font-medium text-muted-foreground/50 opacity-50">v{APP_VERSION}</span>
+              </div>
+              <button 
+                onClick={onPinToggle}
+                className={cn(
+                  "p-1.5 rounded-md transition-colors",
+                  pinned ? "text-primary bg-primary/10" : "text-muted-foreground/40 hover:bg-accent hover:text-foreground"
+                )}
+              >
+                {pinned ? <Pin className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto px-3 py-6 space-y-8">
+              {navGroups.map((group) => (
+                <div key={group.id}>
+                  <h3 className="mb-3 px-4 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground/40">
+                    {group.label}
+                  </h3>
+                  <div className="space-y-1">
+                    {group.items.map((item) => {
+                      const isActive = item.exact
+                        ? item.href === pathname
+                        : item.href === pathname || (item.href !== "/" && pathname.startsWith(item.href));
+                      
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={cn(
+                            "group flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm transition-all duration-200",
+                            isActive 
+                              ? "bg-primary/10 text-primary font-bold shadow-[0_0_0_1px_inset] shadow-primary/10" 
+                              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                          )}
+                        >
+                          <item.icon className={cn(
+                            "h-4 w-4 transition-colors", 
+                            isActive ? "text-primary" : "text-muted-foreground/50 group-hover:text-foreground/70"
+                          )} />
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="p-4 border-t bg-muted/20">
+              <NotificationToggle />
+            </div>
+          </div>
+        )}
       </div>
     </TooltipProvider>
   );

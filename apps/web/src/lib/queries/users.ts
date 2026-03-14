@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface UserProfile {
   id: string;
@@ -13,28 +14,32 @@ export interface UserProfile {
 export async function getUsers(): Promise<{ users: UserProfile[]; total: number }> {
   const supabase = await createClient();
 
-  // Try direct table access first as it's more reliable for dashboard
-  const { data, count, error } = await supabase
+  // Get profiles from user_profiles table
+  const { data: profiles, count, error } = await supabase
     .from("user_profiles")
     .select("*", { count: "exact" })
     .order("created_at", { ascending: false });
 
-  if (!error && data) {
-    return { users: data as UserProfile[], total: count ?? data.length };
-  }
-
-  // Fallback to Edge Function if table access fails (e.g. RLS issues)
-  console.warn("Direct user_profiles access failed, trying Edge Function:", error?.message);
-  
-  const { data: funcData, error: funcError } = await supabase.functions.invoke("manage-users", {
-    body: { _action: "list" },
-  });
-
-  if (funcError) {
-    console.error("getUsers (Edge Function) failed:", funcError.message);
+  if (error || !profiles) {
+    console.warn("user_profiles access failed:", error?.message);
     return { users: [], total: 0 };
   }
 
-  const result = funcData as { users?: UserProfile[]; total?: number } | null;
-  return { users: result?.users ?? [], total: result?.total ?? 0 };
+  // Get emails from auth.users via admin client
+  const admin = createAdminClient();
+  const { data: authData } = await admin.auth.admin.listUsers();
+  const emailMap = new Map<string, string>();
+  if (authData?.users) {
+    for (const u of authData.users) {
+      emailMap.set(u.id, u.email ?? "");
+    }
+  }
+
+  // Merge email into profiles
+  const users: UserProfile[] = profiles.map((p: any) => ({
+    ...p,
+    email: emailMap.get(p.id) ?? "",
+  }));
+
+  return { users, total: count ?? users.length };
 }

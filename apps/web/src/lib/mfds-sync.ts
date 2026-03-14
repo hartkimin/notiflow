@@ -35,6 +35,7 @@ export type SyncMode = "full" | "incremental";
 export interface SyncProgress {
   totalFetched: number;
   totalUpserted: number;
+  totalSkipped: number;
   currentPage: number;
   totalPages: number | null;
   durationMs: number;
@@ -44,6 +45,7 @@ export interface SyncProgress {
 export interface SyncResult {
   totalFetched: number;
   totalUpserted: number;
+  totalSkipped: number;
   outcome: "completed" | "partial" | "cancelled";
   nextPage: number | null;
   apiTotalCount: number | null;
@@ -169,58 +171,16 @@ export async function runSync(
   const config = MFDS_API_CONFIGS[sourceType];
   if (!config) throw new Error(`Unknown source: ${sourceType}`);
 
-  // ── Date window (incremental only) ──
-  let startDate: string | undefined;
-  let endDate: string | undefined;
-
-  if (syncMode === "incremental") {
-    // Check if dates are already saved in log (for resume stability)
-    const { data: log } = await admin
-      .from("mfds_sync_logs")
-      .select("sync_start_date, sync_end_date")
-      .eq("id", logId)
-      .single();
-
-    startDate = log?.sync_start_date ?? undefined;
-    endDate = log?.sync_end_date ?? undefined;
-
-    if (!startDate || !endDate) {
-      // Calculate: latest permit_date - 7 days → today
-      const { data: latest } = await admin
-        .from("mfds_items")
-        .select("permit_date")
-        .eq("source_type", sourceType)
-        .not("permit_date", "is", null)
-        .order("permit_date", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      endDate = formatDate(new Date());
-      if (latest?.permit_date) {
-        const pd = latest.permit_date;
-        const d = new Date(`${pd.slice(0, 4)}-${pd.slice(4, 6)}-${pd.slice(6, 8)}`);
-        d.setDate(d.getDate() - SAFE_WINDOW_DAYS);
-        startDate = formatDate(d);
-      } else {
-        const d = new Date();
-        d.setDate(d.getDate() - 365); // 1년 전부터
-        startDate = formatDate(d);
-      }
-
-      // Save dates for resume stability
-      await admin.from("mfds_sync_logs").update({
-        sync_start_date: startDate,
-        sync_end_date: endDate,
-      }).eq("id", logId);
-    }
-    console.log(`[Sync] Incremental: ${startDate} ~ ${endDate}`);
-  } else {
-    console.log(`[Sync] Full sync — no date filter`);
-  }
+  // Both full and incremental fetch all pages without date filter.
+  // Comparison key: ITEM_SEQ (drug) / UDIDI_CD (device_std) = source_key
+  // - Full: upsert all items regardless
+  // - Incremental: compare by source_key, skip unchanged, only upsert new/changed
+  console.log(`[Sync] ${syncMode} sync — key: ${config.sourceKeyField} (no date filter, diff by source_key)`);
 
   // ── Main loop ──
   let totalFetched = priorFetched;
   let totalUpserted = priorUpserted;
+  let totalSkipped = 0;
   let page = startPage;
   let apiTotalCount: number | null = null;
   const t0 = Date.now();
@@ -236,52 +196,103 @@ export async function runSync(
           .single();
         if (s?.status === "cancelled") {
           console.log("[Sync] Cancelled.");
-          return { totalFetched, totalUpserted, outcome: "cancelled", nextPage: page, apiTotalCount };
+          return { totalFetched, totalUpserted, totalSkipped, outcome: "cancelled", nextPage: page, apiTotalCount };
         }
       }
 
-      // Fetch
-      const { items, totalCount } = await fetchPage(config, apiKey, page, startDate, endDate);
+      // Fetch (no date filter — diff by source_key handles incremental)
+      const { items, totalCount } = await fetchPage(config, apiKey, page);
       if (apiTotalCount == null && totalCount > 0) apiTotalCount = totalCount;
       if (items.length === 0) break;
 
       totalFetched += items.length;
 
-      // Transform → deduplicate within page → UPSERT
+      // Transform → deduplicate within page
       const seen = new Set<string>();
-      const rows = items
-        .map((item: any) => {
-          const key = String(item[config.sourceKeyField] || "");
-          if (!key) return null;
-          // API can return duplicate keys within same page — keep last occurrence
-          const dedupeKey = `${sourceType}:${key}`;
-          if (seen.has(dedupeKey)) return null;
-          seen.add(dedupeKey);
-          return {
-            source_type: sourceType,
-            source_key: key,
-            item_name: String(item[config.itemNameField] || ""),
-            manufacturer: String(item[config.manufacturerField] || ""),
-            standard_code: String(item[config.standardCodeField] || ""),
-            permit_date: String(item[config.permitDateField] || ""),
-            raw_data: item,
-            synced_at: new Date().toISOString(),
-          };
-        })
-        .filter(Boolean);
+      const apiRows: { source_key: string; item_name: string; manufacturer: string; standard_code: string; permit_date: string; raw_data: any }[] = [];
+      for (const item of items) {
+        const key = String(item[config.sourceKeyField] || "");
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        apiRows.push({
+          source_key: key,
+          item_name: String(item[config.itemNameField] || ""),
+          manufacturer: String(item[config.manufacturerField] || ""),
+          standard_code: String(item[config.standardCodeField] || ""),
+          permit_date: String(item[config.permitDateField] || ""),
+          raw_data: item,
+        });
+      }
 
-      if (rows.length > 0) {
+      const now = new Date().toISOString();
+      let pageSkipped = 0;
+      let toUpsert: any[];
+
+      if (syncMode === "incremental") {
+        // ── Incremental: compare by source_key, skip unchanged ──
+        const sourceKeys = apiRows.map(r => r.source_key);
+        const { data: existing } = await admin
+          .from("mfds_items")
+          .select("source_key, item_name, manufacturer, standard_code, permit_date")
+          .eq("source_type", sourceType)
+          .in("source_key", sourceKeys);
+
+        const existingMap = new Map<string, { item_name: string; manufacturer: string; standard_code: string; permit_date: string }>();
+        if (existing) {
+          for (const row of existing) existingMap.set(row.source_key, row);
+        }
+
+        toUpsert = [];
+        for (const row of apiRows) {
+          const db = existingMap.get(row.source_key);
+          if (db &&
+            db.item_name === row.item_name &&
+            db.manufacturer === row.manufacturer &&
+            db.standard_code === row.standard_code &&
+            db.permit_date === row.permit_date
+          ) {
+            pageSkipped++;
+            continue; // Same → skip
+          }
+          toUpsert.push({
+            source_type: sourceType,
+            source_key: row.source_key,
+            item_name: row.item_name,
+            manufacturer: row.manufacturer,
+            standard_code: row.standard_code,
+            permit_date: row.permit_date,
+            raw_data: row.raw_data,
+            synced_at: now,
+          });
+        }
+      } else {
+        // ── Full: upsert all (no diff check) ──
+        toUpsert = apiRows.map(row => ({
+          source_type: sourceType,
+          source_key: row.source_key,
+          item_name: row.item_name,
+          manufacturer: row.manufacturer,
+          standard_code: row.standard_code,
+          permit_date: row.permit_date,
+          raw_data: row.raw_data,
+          synced_at: now,
+        }));
+      }
+
+      totalSkipped += pageSkipped;
+
+      if (toUpsert.length > 0) {
         const { count, error } = await admin
           .from("mfds_items")
-          .upsert(rows, { onConflict: "source_type,source_key", count: "exact" });
+          .upsert(toUpsert, { onConflict: "source_type,source_key", count: "exact" });
         if (error) {
           console.error(`[Sync] Upsert error page ${page}:`, error.message);
         } else {
-          totalUpserted += count || rows.length;
+          totalUpserted += count || toUpsert.length;
         }
       }
 
-      // Save progress (next_page = page+1 so resume skips this page)
+      // Save progress
       const totalPages = apiTotalCount ? Math.ceil(apiTotalCount / PAGE_SIZE) : null;
       await admin.from("mfds_sync_logs").update({
         total_fetched: totalFetched,
@@ -294,13 +305,16 @@ export async function runSync(
       onProgress?.({
         totalFetched,
         totalUpserted,
+        totalSkipped,
         currentPage: page,
         totalPages,
         durationMs: Date.now() - t0,
         syncMode,
       });
 
-      console.log(`[Sync] Page ${page}/${totalPages ?? "?"} → ${items.length} items (total: ${totalFetched})`);
+      const upsertInfo = toUpsert.length > 0 ? `${toUpsert.length} upsert` : "";
+      const skipInfo = pageSkipped > 0 ? `${pageSkipped} skip` : "";
+      console.log(`[Sync] Page ${page}/${totalPages ?? "?"} → ${[upsertInfo, skipInfo].filter(Boolean).join(", ")} (fetched: ${totalFetched})`);
 
       // Done?
       if (totalPages != null && page >= totalPages) break;
@@ -334,8 +348,8 @@ export async function runSync(
         : { last_incremental_at: new Date().toISOString() }),
     }, { onConflict: "source_type" });
 
-    console.log(`[Sync] Done! ${totalFetched} fetched, ${totalUpserted} upserted in ${Date.now() - t0}ms`);
-    return { totalFetched, totalUpserted, outcome: "completed", nextPage: null, apiTotalCount };
+    console.log(`[Sync] Done! ${totalFetched} fetched, ${totalUpserted} upserted, ${totalSkipped} skipped in ${Date.now() - t0}ms`);
+    return { totalFetched, totalUpserted, totalSkipped, outcome: "completed", nextPage: null, apiTotalCount };
   } catch (err) {
     console.error("[Sync] Fatal:", err);
     await admin.from("mfds_sync_logs").update({

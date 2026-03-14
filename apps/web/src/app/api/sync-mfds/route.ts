@@ -5,17 +5,14 @@ import {
   runSync,
   createSyncLog,
   createAdminSupabase,
+  cleanupStaleLogs,
   type SyncMode,
 } from "@/lib/mfds-sync";
 
 export async function POST(req: Request) {
   const body = await req.json();
   const sourceType: string = body.sourceType;
-  const syncMode: SyncMode = body.syncMode ?? "full";
-  const continueLogId: number | undefined = body.logId;
-  const startPage: number = body.startPage ?? 1;
-  const priorFetched: number = body.priorFetched ?? 0;
-  const priorUpserted: number = body.priorUpserted ?? 0;
+  const requestedMode: SyncMode = body.syncMode ?? "full";
 
   if (!sourceType || !MFDS_API_CONFIGS[sourceType]) {
     return NextResponse.json({ error: "Invalid sourceType" }, { status: 400 });
@@ -37,15 +34,52 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "MFDS API 키가 설정되지 않았습니다." }, { status: 400 });
   }
 
-  const logId = continueLogId ?? await createSyncLog("manual", sourceType, syncMode);
-  if (continueLogId) {
-    await admin.from("mfds_sync_logs")
-      .update({ status: "running" })
-      .eq("id", continueLogId);
+  // Clean up stale logs first
+  await cleanupStaleLogs();
+
+  // Auto-detect partial sync for this source type
+  const { data: partial } = await admin
+    .from("mfds_sync_logs")
+    .select("id, sync_mode, next_page, total_fetched, total_upserted")
+    .eq("source_type", sourceType)
+    .eq("status", "partial")
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let logId: number;
+  let syncMode: SyncMode;
+  let startPage: number;
+  let priorFetched: number;
+  let priorUpserted: number;
+
+  if (partial) {
+    // Resume interrupted sync from saved page
+    logId = partial.id;
+    syncMode = (partial.sync_mode as SyncMode) ?? requestedMode;
+    startPage = partial.next_page ?? 1;
+    priorFetched = partial.total_fetched ?? 0;
+    priorUpserted = partial.total_upserted ?? 0;
+    await admin.from("mfds_sync_logs").update({ status: "running" }).eq("id", logId);
+    console.log(`[Sync API] Resuming logId=${logId} from page ${startPage} (${priorFetched} fetched)`);
+  } else {
+    // New sync — calculate start page from existing DB count
+    const { count: existingCount } = await admin
+      .from("mfds_items")
+      .select("id", { count: "exact", head: true })
+      .eq("source_type", sourceType);
+
+    const alreadyFetched = existingCount ?? 0;
+    startPage = alreadyFetched > 0 ? Math.floor(alreadyFetched / 500) + 1 : 1;
+
+    logId = await createSyncLog("manual", sourceType, requestedMode);
+    syncMode = requestedMode;
+    priorFetched = 0;
+    priorUpserted = 0;
+    console.log(`[Sync API] New ${syncMode} sync logId=${logId} — DB has ${alreadyFetched} items, starting page ${startPage}`);
   }
 
-  // Stream is UI-only — sync must NEVER fail because of stream errors.
-  // If client disconnects, sync continues silently (progress saved to DB).
+  // Stream is UI-only — sync continues even if client disconnects
   const encoder = new TextEncoder();
   let streamAlive = true;
 
@@ -56,14 +90,12 @@ export async function POST(req: Request) {
         try {
           controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
         } catch {
-          // Client disconnected — stop sending but do NOT stop sync
           streamAlive = false;
         }
       };
 
-      send({ type: "start", logId, syncMode });
+      send({ type: "start", logId, syncMode, resuming: !!partial, startPage, priorFetched });
 
-      // Run sync — onProgress errors are swallowed (stream-only)
       try {
         const result = await runSync(
           sourceType,
@@ -73,24 +105,18 @@ export async function POST(req: Request) {
           startPage,
           priorFetched,
           priorUpserted,
-          (p) => {
-            // Progress callback — safe to fail silently
-            try { send({ type: "progress", ...p }); } catch { streamAlive = false; }
-          },
+          (p) => { try { send({ type: "progress", ...p }); } catch { streamAlive = false; } },
         );
         send({ type: "done", ...result });
       } catch (err) {
         send({ type: "error", message: (err as Error).message });
       }
 
-      // Close stream
       if (streamAlive) {
-        try { controller.close(); } catch { /* already closed */ }
+        try { controller.close(); } catch { /* */ }
       }
     },
-    cancel() {
-      streamAlive = false;
-    },
+    cancel() { streamAlive = false; },
   });
 
   return new Response(stream, {

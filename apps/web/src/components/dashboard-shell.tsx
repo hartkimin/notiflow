@@ -22,18 +22,18 @@ export function DashboardShell({ userName, children }: DashboardShellProps) {
   return (
     <div className="flex min-h-screen w-full bg-background overflow-hidden relative">
       {/* Sidebar Container */}
-      <aside 
+      <aside
         className={cn(
-          "hidden md:flex h-screen shrink-0 border-r transition-all duration-300 z-50 bg-background",
-          pinned ? "w-[304px]" : "w-[64px]"
+          "hidden md:flex h-screen shrink-0 transition-all duration-300 z-50 bg-white",
+          pinned ? "w-[240px]" : "w-[64px]"
         )}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
         <div className={cn(
-          "h-full transition-all duration-300 ease-in-out border-r",
-          isExpanded ? "w-[304px]" : "w-[64px]",
-          !pinned && isExpanded && "absolute left-0 shadow-2xl shadow-black/20"
+          "h-full transition-all duration-300 ease-in-out",
+          isExpanded ? "w-[240px]" : "w-[64px]",
+          !pinned && isExpanded && "absolute left-0 shadow-2xl shadow-black/10 border-r"
         )}>
           <AppSidebar
             userName={userName}

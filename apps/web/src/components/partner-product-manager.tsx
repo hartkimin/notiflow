@@ -4,7 +4,7 @@ import { useState, useEffect, useTransition, useCallback } from "react";
 import { 
   Plus, Search, Trash2, History, Loader2, 
   Check, ChevronDown, ChevronRight, Calculator,
-  Database, Globe, Clock
+  Database, Globe, Clock, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,8 @@ import {
 } from "@/components/ui/tabs";
 import { 
   getPartnerProducts, addPartnerProduct, deletePartnerProduct, 
-  updatePartnerProductPrice, searchMfdsItems, searchMyItems 
+  updatePartnerProductPrice, searchMfdsItems, searchMyItems,
+  addToMyDrugs, addToMyDevices
 } from "@/lib/actions";
 import { toast } from "sonner";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -89,11 +90,23 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
   async function handleAdd(item: any) {
     startTransition(async () => {
       try {
+        let finalProductId = item.id;
         const standardCode = (item.BAR_CODE || item.bar_code || item.UDIDI_CD || item.udidi_cd) as string;
-        const productId = item.id || item.MFDS_ID;
 
-        if (!productId) {
-          toast.error("품목 ID를 찾을 수 없습니다.");
+        // CRITICAL: If adding from Global MFDS, we MUST register it to "My Products" first
+        if (searchSource === "mfds") {
+          const addRes = searchType === "drug" 
+            ? await addToMyDrugs(item) 
+            : await addToMyDevices(item);
+          
+          if (!addRes.success) {
+            throw new Error(addRes.alreadyExists ? "이미 관리 품목에 존재하지만 정보를 가져오지 못했습니다." : "내 품목 등록 실패");
+          }
+          finalProductId = addRes.id;
+        }
+
+        if (!finalProductId) {
+          toast.error("품목 ID를 생성하거나 찾을 수 없습니다.");
           return;
         }
 
@@ -101,19 +114,23 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
           partnerType,
           partnerId,
           productSource: searchType === "drug" ? "drug" : "device",
-          productId,
+          productId: finalProductId,
           standardCode,
         });
 
-        if (res.alreadyExists) {
-          toast.info("이미 등록된 품목입니다.");
+        if (res.success) {
+          if (res.alreadyExists) {
+            toast.info("이미 이 업체에 등록된 품목입니다.");
+          } else {
+            toast.success("품목이 성공적으로 추가되었습니다.");
+            loadProducts();
+          }
         } else {
-          toast.success("품목이 추가되었습니다.");
-          loadProducts();
+          toast.error(`추가 실패: ${res.error}`);
         }
       } catch (err) {
         console.error("Add partner product failed:", err);
-        toast.error(`품목 추가 실패: ${err instanceof Error ? err.message : String(err)}`);
+        toast.error(`작업 실패: ${err instanceof Error ? err.message : String(err)}`);
       }
     });
   }

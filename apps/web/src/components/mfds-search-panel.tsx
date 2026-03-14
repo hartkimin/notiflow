@@ -466,16 +466,18 @@ export function MfdsSearchPanel({
 
           if (event.type === "start") {
             setSyncLogId(event.logId);
+            if (event.resuming) {
+              setSyncProgress(`이어받기: ${(event.priorFetched ?? 0).toLocaleString()}건부터 계속...`);
+            }
           } else if (event.type === "progress") {
             const pct = event.totalPages
               ? ` (${((event.currentPage / event.totalPages) * 100).toFixed(1)}%)`
               : "";
             const modeLabel = event.syncMode === "full" ? "[전체] " : "";
-            const apiTotal = event.totalPages
-              ? ` / API ${(event.totalPages * 500).toLocaleString()}건`
-              : "";
+            const skipInfo = event.totalSkipped > 0 ? ` | ${event.totalSkipped.toLocaleString()}건 동일` : "";
+            const upsertInfo = event.totalUpserted > 0 ? ` | ${event.totalUpserted.toLocaleString()}건 반영` : "";
             setSyncProgress(
-              `${modeLabel}${event.totalFetched.toLocaleString()}건${apiTotal}${pct}`,
+              `${modeLabel}${event.totalFetched.toLocaleString()}건 조회${upsertInfo}${skipInfo}${pct}`,
             );
             if (Date.now() - lastSearchRefresh > 5000) {
               doSearch(1);
@@ -483,8 +485,9 @@ export function MfdsSearchPanel({
             }
           } else if (event.type === "done") {
             doSearch(1);
+            const skipMsg = event.totalSkipped > 0 ? `, ${event.totalSkipped.toLocaleString()}건 동일(스킵)` : "";
             toast.success(
-              `동기화 완료: ${event.totalFetched.toLocaleString()}건 확인, ${event.totalUpserted.toLocaleString()}건 반영`,
+              `동기화 완료: ${event.totalFetched.toLocaleString()}건 확인, ${event.totalUpserted.toLocaleString()}건 반영${skipMsg}`,
             );
           } else if (event.type === "error") {
             toast.error(`동기화 실패: ${event.message}`);
@@ -542,36 +545,16 @@ export function MfdsSearchPanel({
   }, [mode, doSearch]);
 
   // ── MFDS sync trigger ────────────────
+  // API route auto-detects and resumes partial syncs — UI just sends sourceType + syncMode
   async function handleMfdsSync(syncMode: "full" | "incremental" = "full") {
     setIsSyncing(true);
     setSyncProgress("동기화 준비 중...");
 
     try {
-      // Check for partial sync to resume (via API, not server action)
-      const statusRes = await fetch("/api/sync-mfds/status");
-      const statusData = await statusRes.json();
-      let body: Record<string, unknown>;
-
-      if (statusData.active && statusData.active.source_type === tab && statusData.active.status === "partial") {
-        const a = statusData.active;
-        body = {
-          sourceType: tab,
-          syncMode: a.sync_mode ?? syncMode,
-          logId: a.id,
-          startPage: a.next_page ?? 1,
-          priorFetched: a.total_fetched ?? 0,
-          priorUpserted: a.total_upserted ?? 0,
-        };
-        setSyncProgress(`이어받기: ${(a.total_fetched ?? 0).toLocaleString()}건부터 계속...`);
-      } else {
-        body = { sourceType: tab, syncMode };
-        setSyncProgress(syncMode === "full" ? "전체 동기화 시작..." : "증분 동기화 시작...");
-      }
-
       const res = await fetch("/api/sync-mfds", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ sourceType: tab, syncMode }),
       });
 
       if (!res.ok) {

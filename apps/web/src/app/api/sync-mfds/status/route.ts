@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
-import { createAdminSupabase } from "@/lib/mfds-sync";
+import { createAdminSupabase, cleanupStaleLogs } from "@/lib/mfds-sync";
 
 export async function GET() {
   const admin = createAdminSupabase();
 
+  // Auto-cleanup stale "running" logs (process died)
+  await cleanupStaleLogs();
+
   // Find active or partial sync
   const { data: active } = await admin
     .from("mfds_sync_logs")
-    .select("id, source_type, sync_mode, total_fetched, total_upserted, next_page, api_total_count, status")
+    .select("id, source_type, sync_mode, total_fetched, total_upserted, next_page, api_total_count, status, started_at")
     .in("status", ["running", "partial"])
     .order("started_at", { ascending: false })
     .limit(1)

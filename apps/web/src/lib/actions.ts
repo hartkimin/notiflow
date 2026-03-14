@@ -394,34 +394,48 @@ function parseMfdsApiItems(body: Record<string, unknown>): Record<string, unknow
 
 export async function getPartnerProducts(partnerType: "hospital" | "supplier", partnerId: number) {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  
+  // 1. Fetch the mapping entries
+  const { data: mappings, error } = await supabase
     .from("partner_products")
-    .select(`
-      *,
-      products:product_id (name, standard_code),
-      my_drugs:product_id (item_name, bar_code),
-      my_devices:product_id (prdlst_nm, udidi_cd)
-    `)
+    .select("*")
     .eq("partner_type", partnerType)
     .eq("partner_id", partnerId)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
+  if (!mappings || mappings.length === 0) return [];
 
-  // Manual join processing due to multiple potential sources
-  return (data ?? []).map(item => {
+  // 2. Collect IDs by source type to perform batch lookups
+  const productIds = mappings.filter(m => m.product_source === 'product').map(m => m.product_id);
+  const drugIds = mappings.filter(m => m.product_source === 'drug').map(m => m.product_id);
+  const deviceIds = mappings.filter(m => m.product_source === 'device').map(m => m.product_id);
+
+  // 3. Batch fetch from each table
+  const [productsRes, drugsRes, devicesRes] = await Promise.all([
+    productIds.length > 0 ? supabase.from("products").select("id, name, standard_code").in("id", productIds) : { data: [] },
+    drugIds.length > 0 ? supabase.from("my_drugs").select("id, item_name, bar_code").in("id", drugIds) : { data: [] },
+    deviceIds.length > 0 ? supabase.from("my_devices").select("id, prdlst_nm, udidi_cd").in("id", deviceIds) : { data: [] },
+  ]);
+
+  // 4. Map back to unified format
+  const productsMap = new Map((productsRes.data ?? []).map((p: any) => [p.id, p]));
+  const drugsMap = new Map((drugsRes.data ?? []).map((d: any) => [d.id, d]));
+  const devicesMap = new Map((devicesRes.data ?? []).map((v: any) => [v.id, v]));
+
+  return mappings.map(item => {
     let name = "알 수 없는 품목";
     let code = item.standard_code || "";
 
-    if (item.product_source === "product" && item.products) {
-      name = (item.products as any).name;
-      code = (item.products as any).standard_code;
-    } else if (item.product_source === "drug" && item.my_drugs) {
-      name = (item.my_drugs as any).item_name;
-      code = (item.my_drugs as any).bar_code;
-    } else if (item.product_source === "device" && item.my_devices) {
-      name = (item.my_devices as any).prdlst_nm;
-      code = (item.my_devices as any).udidi_cd;
+    if (item.product_source === "product") {
+      const p = productsMap.get(item.product_id);
+      if (p) { name = p.name; code = p.standard_code || code; }
+    } else if (item.product_source === "drug") {
+      const d = drugsMap.get(item.product_id);
+      if (d) { name = d.item_name; code = d.bar_code || code; }
+    } else if (item.product_source === "device") {
+      const v = devicesMap.get(item.product_id);
+      if (v) { name = v.prdlst_nm; code = v.udidi_cd || code; }
     }
 
     return { ...item, name, code };
@@ -773,9 +787,12 @@ export async function searchMfdsItems(params: {
 
   if (error) throw new Error(`DB 검색 오류: ${error.message}`);
 
-  // Extract raw_data from each row (this is what the UI expects)
+  // Extract raw_data and inject the database ID
   const items = (data ?? []).map(
-    (row: { raw_data: Record<string, unknown> }) => row.raw_data,
+    (row: any) => ({
+      ...row.raw_data,
+      MFDS_ID: row.id, // Database primary key
+    }),
   );
 
   return {

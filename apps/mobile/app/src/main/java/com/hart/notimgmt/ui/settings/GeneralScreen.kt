@@ -81,6 +81,13 @@ import com.hart.notimgmt.data.model.ThemeMode
 import com.hart.notimgmt.ui.components.ConfirmDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.material.icons.automirrored.outlined.Login
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import com.hart.notimgmt.ui.onboarding.checkBatteryOptimization
 import com.hart.notimgmt.ui.onboarding.checkNotificationListener
 import com.hart.notimgmt.ui.onboarding.checkPostNotifPermission
@@ -125,6 +132,12 @@ fun GeneralScreen(
     var downloadDataSummary by remember { mutableStateOf<DataSummary?>(null) }
     var isLoadingRemoteSummary by remember { mutableStateOf(false) }
     var showSwitchToOfflineDialog by remember { mutableStateOf(false) }
+    var showInlineLogin by remember { mutableStateOf(false) }
+    var loginEmail by remember { mutableStateOf("") }
+    var loginPassword by remember { mutableStateOf("") }
+    var loginPasswordVisible by remember { mutableStateOf(false) }
+    val isLoggingIn by settingsViewModel.isLoggingIn.collectAsState()
+    val loginError by settingsViewModel.loginError.collectAsState()
 
     // Permission states
     val context = LocalContext.current
@@ -899,21 +912,29 @@ fun GeneralScreen(
             }
         }
 
-        // Offline mode: show "Switch to Cloud" card
+        // Offline mode: inline accordion login
         if (!isCloudMode) {
-            SettingsSection(title = "데이터 모드") {
+            SettingsSection(title = "로그인") {
+                // Login toggle header
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
-                    modifier = Modifier.fillMaxWidth()
+                    color = if (showInlineLogin) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    border = if (showInlineLogin) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                             else null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showInlineLogin = !showInlineLogin
+                            settingsViewModel.clearLoginError()
+                        }
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.CloudOff,
+                            imageVector = if (showInlineLogin) Icons.Outlined.Cloud else Icons.AutoMirrored.Outlined.Login,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp)
@@ -921,31 +942,103 @@ fun GeneralScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "현재: 오프라인 모드",
+                                text = "클라우드 로그인",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Text(
-                                text = "클라우드로 전환하면 데이터를 동기화할 수 있습니다",
+                                text = "로그인하면 데이터가 자동으로 동기화됩니다",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        Icon(
+                            imageVector = if (showInlineLogin) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = {
-                        onSwitchToCloud()
-                    },
-                    modifier = Modifier.fillMaxWidth()
+
+                // Accordion login form
+                AnimatedVisibility(
+                    visible = showInlineLogin,
+                    enter = expandVertically(),
+                    exit = shrinkVertically()
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Cloud,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("클라우드 모드로 전환", style = MaterialTheme.typography.labelMedium)
+                    Column(modifier = Modifier.padding(top = 12.dp)) {
+                        OutlinedTextField(
+                            value = loginEmail,
+                            onValueChange = { loginEmail = it },
+                            label = { Text("이메일") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isLoggingIn
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = loginPassword,
+                            onValueChange = { loginPassword = it },
+                            label = { Text("비밀번호") },
+                            singleLine = true,
+                            visualTransformation = if (loginPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = {
+                                IconButton(onClick = { loginPasswordVisible = !loginPasswordVisible }) {
+                                    Icon(
+                                        imageVector = if (loginPasswordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isLoggingIn
+                        )
+
+                        // Error message
+                        if (loginError != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = loginError ?: "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = {
+                                settingsViewModel.login(loginEmail.trim(), loginPassword) {
+                                    loginEmail = ""
+                                    loginPassword = ""
+                                    showInlineLogin = false
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("로그인 성공! 동기화를 시작합니다.")
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isLoggingIn && loginEmail.isNotBlank() && loginPassword.isNotBlank()
+                        ) {
+                            if (isLoggingIn) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("로그인 중...")
+                            } else {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Outlined.Login,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("로그인")
+                            }
+                        }
+                    }
                 }
             }
         }

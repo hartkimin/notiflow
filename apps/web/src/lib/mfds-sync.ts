@@ -352,11 +352,21 @@ export async function runSync(
     return { totalFetched, totalUpserted, totalSkipped, outcome: "completed", nextPage: null, apiTotalCount };
   } catch (err) {
     console.error("[Sync] Fatal:", err);
+    // Save as partial (resumable) if we made any progress, otherwise error
+    const hasProgress = totalFetched > priorFetched;
     await admin.from("mfds_sync_logs").update({
-      status: "error",
+      status: hasProgress ? "partial" : "error",
       finished_at: new Date().toISOString(),
       error_message: (err as Error).message,
+      total_fetched: totalFetched,
+      total_upserted: totalUpserted,
+      next_page: page,
+      duration_ms: Date.now() - t0,
     }).eq("id", logId);
+    if (hasProgress) {
+      console.log(`[Sync] Saved as partial at page ${page} (${totalFetched} fetched) — resumable`);
+      return { totalFetched, totalUpserted, totalSkipped, outcome: "partial" as const, nextPage: page, apiTotalCount };
+    }
     throw err;
   }
 }

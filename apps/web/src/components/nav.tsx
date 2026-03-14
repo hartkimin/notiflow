@@ -4,9 +4,6 @@ import { Menu } from "lucide-react";
 import { navGroups, Package2 } from "@/lib/nav-items";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { UserMenu } from "./user-menu";
-import { ThemeToggle } from "./theme-toggle";
-import { NotificationToggle } from "./notification-toggle";
 import { AutoRefreshProvider } from "./auto-refresh";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
@@ -14,7 +11,7 @@ import Link from "next/link";
 
 export function Nav({ syncInterval = 5 }: { syncInterval?: number }) {
   const pathname = usePathname();
-  
+
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6 lg:h-[60px] sticky top-0 z-40 transition-all duration-200 shadow-sm">
       {/* Mobile Toggle - Only visible on small screens */}
@@ -40,15 +37,15 @@ export function Nav({ syncInterval = 5 }: { syncInterval?: number }) {
                     const isActive = item.exact
                       ? item.href === pathname
                       : item.href === pathname || (item.href !== "/" && pathname.startsWith(item.href));
-                    
+
                     return (
                       <Link
                         key={item.href}
                         href={item.href}
                         className={cn(
                           "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-150",
-                          isActive 
-                            ? "bg-primary/10 text-primary shadow-[0_0_0_1px_inset] shadow-primary/20" 
+                          isActive
+                            ? "bg-primary/10 text-primary shadow-[0_0_0_1px_inset] shadow-primary/20"
                             : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                         )}
                       >
@@ -64,7 +61,7 @@ export function Nav({ syncInterval = 5 }: { syncInterval?: number }) {
         </SheetContent>
       </Sheet>
 
-      {/* Page Title or Breadcrumb (Contextual) */}
+      {/* Page Title */}
       <div className="flex items-center gap-2">
         <h1 className="text-sm font-bold capitalize hidden sm:block">
           {pathname.split("/").pop()?.replace("-", " ") || "Dashboard"}
@@ -72,14 +69,10 @@ export function Nav({ syncInterval = 5 }: { syncInterval?: number }) {
       </div>
 
       <div className="flex-1" />
-      
+
       {/* Global Actions */}
       <div className="flex items-center gap-2">
         <AutoRefreshProvider intervalMinutes={syncInterval} />
-        <div className="h-4 w-[1px] bg-border mx-1 hidden sm:block" />
-        <NotificationToggle />
-        <div className="h-4 w-[1px] bg-border mx-1 hidden sm:block" />
-        <UserMenu />
       </div>
     </header>
   );

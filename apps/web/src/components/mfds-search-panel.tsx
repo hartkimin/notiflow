@@ -444,61 +444,66 @@ export function MfdsSearchPanel({
     }
   }, [mode, tab, doSearch]);
 
-  // ── NDJSON stream reader ─────────────────────────────────────────
-  const readStream = useCallback(
-    async (response: Response) => {
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let lastSearchRefresh = 0;
+  // ── Poll sync progress ─────────────────────────────────────────
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop()!;
+  const stopPolling = useCallback(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  }, []);
 
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          const event = JSON.parse(line);
+  const startPolling = useCallback((logId: number) => {
+    stopPolling();
+    let lastSearchRefresh = 0;
 
-          if (event.type === "start") {
-            setSyncLogId(event.logId);
-            if (event.resuming) {
-              setSyncProgress(`이어받기: ${(event.priorFetched ?? 0).toLocaleString()}건부터 계속...`);
-            }
-          } else if (event.type === "progress") {
-            const pct = event.totalPages
-              ? ` (${((event.currentPage / event.totalPages) * 100).toFixed(1)}%)`
-              : "";
-            const modeLabel = event.syncMode === "full" ? "[전체] " : "";
-            const skipInfo = event.totalSkipped > 0 ? ` | ${event.totalSkipped.toLocaleString()}건 동일` : "";
-            const upsertInfo = event.totalUpserted > 0 ? ` | ${event.totalUpserted.toLocaleString()}건 반영` : "";
-            setSyncProgress(
-              `${modeLabel}${event.totalFetched.toLocaleString()}건 조회${upsertInfo}${skipInfo}${pct}`,
-            );
-            if (Date.now() - lastSearchRefresh > 5000) {
-              doSearch(1);
-              lastSearchRefresh = Date.now();
-            }
-          } else if (event.type === "done") {
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const r = await fetch("/api/sync-mfds/status");
+        const data = await r.json();
+        const a = data.active;
+
+        if (!a || a.id !== logId || !["running"].includes(a.status)) {
+          // Sync finished (completed, cancelled, error, or gone)
+          stopPolling();
+          setIsSyncing(false);
+          setSyncLogId(null);
+
+          if (!a || a.status === "completed" || a.id !== logId) {
+            setSyncProgress(null);
             doSearch(1);
-            const skipMsg = event.totalSkipped > 0 ? `, ${event.totalSkipped.toLocaleString()}건 동일(스킵)` : "";
-            toast.success(
-              `동기화 완료: ${event.totalFetched.toLocaleString()}건 확인, ${event.totalUpserted.toLocaleString()}건 반영${skipMsg}`,
-            );
-          } else if (event.type === "error") {
-            toast.error(`동기화 실패: ${event.message}`);
+            toast.success("동기화가 완료되었습니다.");
+          } else if (a.status === "cancelled") {
+            setSyncProgress(null);
+            toast.info("동기화가 중지되었습니다.");
+          } else if (a.status === "error") {
+            setSyncProgress(null);
+            toast.error(`동기화 실패: ${a.error_message ?? "알 수 없는 오류"}`);
+          } else if (a.status === "partial") {
+            const pct = a.api_total_count ? ` (${((a.total_fetched / a.api_total_count) * 100).toFixed(1)}%)` : "";
+            setSyncProgress(`중단됨: ${a.total_fetched.toLocaleString()}건${pct} — 동기화 버튼으로 이어받기`);
           }
+          return;
         }
-      }
-    },
-    [doSearch],
-  );
 
-  // ── Check active sync on page load (via fetch API, not server action) ──
+        // Still running — update progress
+        const pct = a.api_total_count ? ` (${((a.total_fetched / a.api_total_count) * 100).toFixed(1)}%)` : "";
+        setSyncProgress(`동기화 진행 중: ${a.total_fetched.toLocaleString()}건${pct}`);
+
+        // Refresh search results periodically
+        if (Date.now() - lastSearchRefresh > 5000) {
+          doSearch(1);
+          lastSearchRefresh = Date.now();
+        }
+      } catch { /* ignore network errors */ }
+    }, 2000);
+  }, [stopPolling, doSearch]);
+
+  // Cleanup on unmount
+  useEffect(() => () => stopPolling(), [stopPolling]);
+
+  // ── Check active sync on page load ──
   useEffect(() => {
     if (mode !== "browse") return;
     let cancelled = false;
@@ -513,28 +518,8 @@ export function MfdsSearchPanel({
           setSyncLogId(a.id);
           const pct = a.api_total_count ? ` (${((a.total_fetched / a.api_total_count) * 100).toFixed(1)}%)` : "";
           setSyncProgress(`동기화 진행 중: ${a.total_fetched.toLocaleString()}건${pct}`);
-
-          const poll = setInterval(async () => {
-            try {
-              const r2 = await fetch("/api/sync-mfds/status");
-              const d2 = await r2.json();
-              if (!d2.active || d2.active.id !== a.id) {
-                clearInterval(poll);
-                setIsSyncing(false);
-                setSyncProgress(null);
-                setSyncLogId(null);
-                doSearch(1);
-                return;
-              }
-              const p = d2.active;
-              const pct2 = p.api_total_count ? ` (${((p.total_fetched / p.api_total_count) * 100).toFixed(1)}%)` : "";
-              setSyncProgress(`동기화 진행 중: ${p.total_fetched.toLocaleString()}건${pct2}`);
-            } catch { /* ignore */ }
-          }, 3000);
-
-          return () => clearInterval(poll);
+          startPolling(a.id);
         } else if (a.status === "partial") {
-          // Show resume prompt
           const pct = a.api_total_count ? ` (${((a.total_fetched / a.api_total_count) * 100).toFixed(1)}%)` : "";
           setSyncProgress(`중단됨: ${a.total_fetched.toLocaleString()}건${pct} — 동기화 버튼으로 이어받기`);
         }
@@ -542,10 +527,10 @@ export function MfdsSearchPanel({
       .catch(() => {});
 
     return () => { cancelled = true; };
-  }, [mode, doSearch]);
+  }, [mode, startPolling]);
 
   // ── MFDS sync trigger ────────────────
-  // API route auto-detects and resumes partial syncs — UI just sends sourceType + syncMode
+  // API starts sync in background — UI polls status for progress
   async function handleMfdsSync(syncMode: "full" | "incremental" = "full") {
     setIsSyncing(true);
     setSyncProgress("동기화 준비 중...");
@@ -557,20 +542,31 @@ export function MfdsSearchPanel({
         body: JSON.stringify({ sourceType: tab, syncMode }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(err.error ?? "동기화 시작 실패");
+        if (res.status === 409 && data.logId) {
+          // Already running — start polling existing sync
+          setSyncLogId(data.logId);
+          startPolling(data.logId);
+          toast.info("이미 동기화가 진행 중입니다. 진행상황을 표시합니다.");
+          return;
+        }
+        throw new Error(data.error ?? "동기화 시작 실패");
       }
 
-      await readStream(res);
+      setSyncLogId(data.logId);
+      if (data.resuming) {
+        setSyncProgress(`이어받기: ${(data.priorFetched ?? 0).toLocaleString()}건부터 계속...`);
+      }
+      startPolling(data.logId);
     } catch (err) {
-      toast.error(
-        `동기화 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
-      );
-    } finally {
       setIsSyncing(false);
       setSyncProgress(null);
       setSyncLogId(null);
+      toast.error(
+        `동기화 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
+      );
     }
   }
 

@@ -1,18 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { navGroups } from "@/lib/nav-items";
 import { APP_VERSION } from "@/lib/version";
-import { NotificationToggle } from "./notification-toggle";
+import { createClient } from "@/lib/supabase/client";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { LayoutDashboard, Settings, User, Pin, PinOff } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { LayoutDashboard, Settings, User, Pin, PinOff, LogOut, HelpCircle } from "lucide-react";
 
 interface AppSidebarProps {
   userName?: string;
@@ -24,7 +32,16 @@ interface AppSidebarProps {
 
 export function AppSidebar({ userName, collapsed = false, pinned = false, onPinToggle }: AppSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const allItems = navGroups.flatMap(g => g.items.map(item => ({ ...item, groupId: g.id })));
+
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
+  const userInitial = userName?.charAt(0).toUpperCase();
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -76,7 +93,7 @@ export function AppSidebar({ userName, collapsed = false, pinned = false, onPinT
                 <TooltipTrigger asChild>
                   <Link href="/settings" className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
-                    pathname === "/settings" ? "bg-primary/10 text-primary" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                    pathname.startsWith("/settings") ? "bg-primary/10 text-primary" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
                   )}>
                     <Settings className="h-5 w-5" />
                   </Link>
@@ -84,16 +101,41 @@ export function AppSidebar({ userName, collapsed = false, pinned = false, onPinT
                 <TooltipContent side="right" sideOffset={12}>설정</TooltipContent>
               </Tooltip>
 
-              <div className="p-1">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 border border-zinc-200 text-xs font-bold text-zinc-700">
-                  {userName?.charAt(0).toUpperCase() || <User className="h-4 w-4" />}
-                </div>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="p-1 rounded-lg hover:bg-zinc-100 transition-colors">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 border border-zinc-200 text-xs font-bold text-zinc-700">
+                      {userInitial || <User className="h-4 w-4" />}
+                    </div>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="right" align="end" sideOffset={8}>
+                  <DropdownMenuLabel>{userName ?? "사용자"}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings">
+                      <Settings className="mr-2 h-4 w-4" />
+                      설정
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/help">
+                      <HelpCircle className="mr-2 h-4 w-4" />
+                      도움말
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    로그아웃
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         )}
 
-        {/* ── Expanded: Text menu (no icons) ── */}
+        {/* ── Expanded: Text menu ── */}
         {!collapsed && (
           <div className="flex w-[240px] flex-col bg-white">
             <div className="flex h-[60px] items-center justify-between px-6 border-b shrink-0">
@@ -151,20 +193,42 @@ export function AppSidebar({ userName, collapsed = false, pinned = false, onPinT
             <div className="border-t">
               <Link href="/settings" className={cn(
                 "flex h-[44px] items-center gap-3 px-6 text-sm transition-colors",
-                pathname === "/settings" ? "text-primary font-bold" : "text-zinc-700 hover:bg-zinc-50"
+                pathname.startsWith("/settings") ? "text-primary font-bold" : "text-zinc-700 hover:bg-zinc-50"
               )}>
-                <Settings className={cn("h-5 w-5 shrink-0", pathname === "/settings" ? "text-primary" : "text-zinc-400")} />
+                <Settings className={cn("h-5 w-5 shrink-0", pathname.startsWith("/settings") ? "text-primary" : "text-zinc-400")} />
                 <span>설정</span>
               </Link>
-              <div className="flex items-center gap-3 px-6 py-3 border-t">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 border border-zinc-200 text-xs font-bold text-zinc-700">
-                  {userName?.charAt(0).toUpperCase() || <User className="h-3.5 w-3.5" />}
-                </div>
-                <span className="text-sm text-zinc-700 truncate">{userName ?? "사용자"}</span>
-              </div>
-              <div className="px-4 pb-3">
-                <NotificationToggle />
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex w-full items-center gap-3 px-6 py-3 border-t hover:bg-zinc-50 transition-colors">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 border border-zinc-200 text-xs font-bold text-zinc-700">
+                      {userInitial || <User className="h-3.5 w-3.5" />}
+                    </div>
+                    <span className="text-sm text-zinc-700 truncate">{userName ?? "사용자"}</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" align="start" sideOffset={8} className="w-[200px]">
+                  <DropdownMenuLabel>{userName ?? "사용자"}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings">
+                      <Settings className="mr-2 h-4 w-4" />
+                      설정
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/help">
+                      <HelpCircle className="mr-2 h-4 w-4" />
+                      도움말
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    로그아웃
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         )}

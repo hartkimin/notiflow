@@ -1,10 +1,8 @@
 import {
   Package2,
-  Users,
   ClipboardList,
   Building2,
   Factory,
-  Smartphone,
   LayoutDashboard,
   Search,
   BookmarkCheck,
@@ -49,14 +47,6 @@ export const navGroups: NavGroup[] = [
     items: [
       { href: "/hospitals", label: "병원(거래처)", icon: Building2 },
       { href: "/suppliers", label: "제조/공급사", icon: Factory },
-    ],
-  },
-  {
-    label: "시스템 설정",
-    id: "system",
-    items: [
-      { href: "/users", label: "사용자 관리", icon: Users },
-      { href: "/devices", label: "기기 관리", icon: Smartphone },
     ],
   },
 ];

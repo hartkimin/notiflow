@@ -37,6 +37,18 @@ export async function POST(req: Request) {
   // Clean up stale logs first
   await cleanupStaleLogs();
 
+  // Check if there's already a running sync
+  const { data: running } = await admin
+    .from("mfds_sync_logs")
+    .select("id")
+    .eq("status", "running")
+    .limit(1)
+    .maybeSingle();
+
+  if (running) {
+    return NextResponse.json({ error: "이미 동기화가 진행 중입니다.", logId: running.id }, { status: 409 });
+  }
+
   // Auto-detect partial sync for this source type
   const { data: partial } = await admin
     .from("mfds_sync_logs")
@@ -54,7 +66,6 @@ export async function POST(req: Request) {
   let priorUpserted: number;
 
   if (partial) {
-    // Resume interrupted sync from saved page
     logId = partial.id;
     syncMode = (partial.sync_mode as SyncMode) ?? requestedMode;
     startPage = partial.next_page ?? 1;
@@ -63,7 +74,6 @@ export async function POST(req: Request) {
     await admin.from("mfds_sync_logs").update({ status: "running" }).eq("id", logId);
     console.log(`[Sync API] Resuming logId=${logId} from page ${startPage} (${priorFetched} fetched)`);
   } else {
-    // New sync — calculate start page from existing DB count
     const { count: existingCount } = await admin
       .from("mfds_items")
       .select("id", { count: "exact", head: true })
@@ -79,51 +89,27 @@ export async function POST(req: Request) {
     console.log(`[Sync API] New ${syncMode} sync logId=${logId} — DB has ${alreadyFetched} items, starting page ${startPage}`);
   }
 
-  // Stream is UI-only — sync continues even if client disconnects
-  const encoder = new TextEncoder();
-  let streamAlive = true;
-
-  const stream = new ReadableStream({
-    async start(controller) {
-      const send = (data: Record<string, unknown>) => {
-        if (!streamAlive) return;
-        try {
-          controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
-        } catch {
-          streamAlive = false;
-        }
-      };
-
-      send({ type: "start", logId, syncMode, resuming: !!partial, startPage, priorFetched });
-
-      try {
-        const result = await runSync(
-          sourceType,
-          setting.value,
-          logId,
-          syncMode,
-          startPage,
-          priorFetched,
-          priorUpserted,
-          (p) => { try { send({ type: "progress", ...p }); } catch { streamAlive = false; } },
-        );
-        send({ type: "done", ...result });
-      } catch (err) {
-        send({ type: "error", message: (err as Error).message });
-      }
-
-      if (streamAlive) {
-        try { controller.close(); } catch { /* */ }
-      }
-    },
-    cancel() { streamAlive = false; },
+  // Fire-and-forget: run sync in background, independent of HTTP connection
+  runSync(
+    sourceType,
+    setting.value,
+    logId,
+    syncMode,
+    startPage,
+    priorFetched,
+    priorUpserted,
+  ).then((result) => {
+    console.log(`[Sync API] Background sync logId=${logId} finished: ${result.outcome} — ${result.totalFetched} fetched, ${result.totalUpserted} upserted`);
+  }).catch((err) => {
+    console.error(`[Sync API] Background sync logId=${logId} failed:`, err);
   });
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "application/x-ndjson",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-    },
+  // Return immediately — client polls /api/sync-mfds/status for progress
+  return NextResponse.json({
+    logId,
+    syncMode,
+    resuming: !!partial,
+    startPage,
+    priorFetched,
   });
 }

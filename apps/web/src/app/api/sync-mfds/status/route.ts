@@ -10,7 +10,7 @@ export async function GET() {
   // Find active or partial sync
   const { data: active } = await admin
     .from("mfds_sync_logs")
-    .select("id, source_type, sync_mode, total_fetched, total_upserted, next_page, api_total_count, status, started_at")
+    .select("id, source_type, sync_mode, total_fetched, total_upserted, next_page, api_total_count, status, started_at, error_message")
     .in("status", ["running", "partial"])
     .order("started_at", { ascending: false })
     .limit(1)

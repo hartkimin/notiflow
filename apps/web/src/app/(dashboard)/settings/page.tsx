@@ -1,7 +1,5 @@
 import { getSettings, getOrderDisplayColumns } from "@/lib/queries/settings";
-import { AISettingsForm } from "@/components/ai-settings";
-import { SyncSettingsForm } from "@/components/sync-settings";
-import { OrderColumnSettings } from "@/components/order-column-settings";
+import { SettingsGeneral } from "@/components/settings-general";
 
 export default async function SettingsPage() {
   const [settings, displayColumns] = await Promise.all([
@@ -9,11 +7,5 @@ export default async function SettingsPage() {
     getOrderDisplayColumns(),
   ]);
 
-  return (
-    <>
-      <SyncSettingsForm syncInterval={settings.sync_interval_minutes} />
-      <OrderColumnSettings initialColumns={displayColumns} />
-      <AISettingsForm settings={settings} />
-    </>
-  );
+  return <SettingsGeneral settings={settings} displayColumns={displayColumns} />;
 }

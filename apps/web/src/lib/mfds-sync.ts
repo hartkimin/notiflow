@@ -9,8 +9,8 @@
  */
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
-const PAGE_SIZE = 100; // Smaller page size for better reliability and memory
-const SAFE_WINDOW_DAYS = 7; // Look back 7 days to catch any late entries
+const PAGE_SIZE = 500; // Increased to 500 per request as requested
+const SAFE_WINDOW_DAYS = 7; 
 
 interface ApiConfig {
   url: string;

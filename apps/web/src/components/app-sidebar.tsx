@@ -31,7 +31,7 @@ export function AppSidebar({ userName, collapsed = false, pinned = false, onPinT
   return (
     <TooltipProvider delayDuration={0}>
       <div className="flex h-full bg-background select-none">
-        {/* Step 1: Icon Strip (1:1 matching with items) */}
+        {/* Step 1: Icon Strip (Always visible 64px) */}
         <div className="flex w-[64px] flex-col items-center border-r bg-zinc-950 py-4 dark:bg-black shrink-0 z-20 overflow-y-auto no-scrollbar">
           <Link 
             href="/dashboard" 
@@ -40,7 +40,7 @@ export function AppSidebar({ userName, collapsed = false, pinned = false, onPinT
             <LayoutDashboard className="h-6 w-6" />
           </Link>
           
-          <div className="flex flex-1 flex-col gap-3 w-full items-center">
+          <div className="flex flex-1 flex-col gap-1 w-full items-center">
             {allItems.map((item) => {
               const isActive = item.exact 
                 ? item.href === pathname 
@@ -52,7 +52,7 @@ export function AppSidebar({ userName, collapsed = false, pinned = false, onPinT
                     <Link 
                       href={item.href}
                       className={cn(
-                        "relative flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-200 shrink-0",
+                        "relative flex h-[44px] w-10 items-center justify-center rounded-lg transition-all duration-200 shrink-0",
                         isActive 
                           ? "bg-zinc-800 text-primary" 
                           : "text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-200"
@@ -95,30 +95,30 @@ export function AppSidebar({ userName, collapsed = false, pinned = false, onPinT
 
         {/* Step 2: Details Panel */}
         {!collapsed && (
-          <div className="flex w-[240px] flex-col bg-background/95 backdrop-blur-xl border-r shadow-xl">
-            <div className="flex h-[60px] items-center justify-between px-6 border-b">
+          <div className="flex w-[240px] flex-col bg-background border-r shadow-xl">
+            <div className="flex h-[60px] items-center justify-between px-6 border-b shrink-0">
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-black tracking-[0.2em] uppercase text-foreground/70">NotiFlow</span>
-                <span className="text-[9px] font-medium text-muted-foreground/50 opacity-50">v{APP_VERSION}</span>
+                <span className="text-[11px] font-black tracking-[0.2em] uppercase text-zinc-950">NotiFlow</span>
+                <span className="text-[9px] font-bold text-zinc-400">v{APP_VERSION}</span>
               </div>
               <button 
                 onClick={onPinToggle}
                 className={cn(
                   "p-1.5 rounded-md transition-colors",
-                  pinned ? "text-primary bg-primary/10" : "text-muted-foreground/40 hover:bg-accent hover:text-foreground"
+                  pinned ? "text-primary bg-primary/10" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-950"
                 )}
               >
                 {pinned ? <Pin className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
               </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto px-3 py-6 space-y-8">
+            <div className="flex-1 overflow-y-auto py-6 no-scrollbar">
               {navGroups.map((group) => (
-                <div key={group.id}>
-                  <h3 className="mb-3 px-4 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground/40">
+                <div key={group.id} className="mb-6">
+                  <h3 className="mb-2 px-6 text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-400">
                     {group.label}
                   </h3>
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     {group.items.map((item) => {
                       const isActive = item.exact
                         ? item.href === pathname
@@ -129,17 +129,17 @@ export function AppSidebar({ userName, collapsed = false, pinned = false, onPinT
                           key={item.href}
                           href={item.href}
                           className={cn(
-                            "group flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm transition-all duration-200",
+                            "group flex h-[44px] items-center gap-3 px-6 text-sm transition-all duration-200",
                             isActive 
-                              ? "bg-primary/10 text-primary font-bold shadow-[0_0_0_1px_inset] shadow-primary/10" 
-                              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                              ? "bg-primary/5 text-primary font-bold border-r-2 border-primary" 
+                              : "text-zinc-950 hover:bg-zinc-50"
                           )}
                         >
                           <item.icon className={cn(
-                            "h-4 w-4 transition-colors", 
-                            isActive ? "text-primary" : "text-muted-foreground/50 group-hover:text-foreground/70"
+                            "h-5 w-5 transition-colors", 
+                            isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-950"
                           )} />
-                          {item.label}
+                          <span className="truncate">{item.label}</span>
                         </Link>
                       );
                     })}
@@ -148,7 +148,7 @@ export function AppSidebar({ userName, collapsed = false, pinned = false, onPinT
               ))}
             </div>
             
-            <div className="p-4 border-t bg-muted/20">
+            <div className="p-4 border-t bg-zinc-50/50">
               <NotificationToggle />
             </div>
           </div>

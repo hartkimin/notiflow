@@ -14,13 +14,16 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown, Sparkles, Loader2, Globe, Phone, MapPin, Building, User as UserIcon } from "lucide-react";
 import { createSupplier, updateSupplier, deleteSupplier, deleteSuppliers } from "@/lib/actions";
 import { toast } from "sonner";
 import { useResizableColumns } from "@/hooks/use-resizable-columns";
 import { ResizableTh } from "@/components/resizable-th";
 import { BulkActionBar } from "@/components/bulk-action-bar";
 import { useRowSelection } from "@/hooks/use-row-selection";
+import { ResizablePanelGroup, ResizablePanel } from "@/components/ui/resizable";
+import { ResizableDetailPanel } from "@/components/resizable-detail-panel";
+import { cn } from "@/lib/utils";
 import type { Supplier } from "@/lib/types";
 
 const SUPPLIER_COL_DEFAULTS: Record<string, number> = {
@@ -69,6 +72,7 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
   const [editItem, setEditItem] = useState<Supplier | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -78,6 +82,7 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
   function switchView(v: "list" | "grid") {
     setView(v);
     rowSelection.clear();
+    setSelectedSupplier(null);
   }
 
   function toggleSort(key: SortKey) {
@@ -110,6 +115,7 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
         await deleteSupplier(id);
         toast.success("공급사가 삭제되었습니다.");
         setDeleteId(null);
+        if (selectedSupplier?.id === id) setSelectedSupplier(null);
         router.refresh();
       } catch (err) {
         toast.error(`공급사 삭제 실패: ${err instanceof Error ? err.message : String(err)}`);
@@ -117,9 +123,11 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
     });
   }
 
+  const PanelGroup = ResizablePanelGroup as any;
+
   return (
     <>
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center mb-4">
         <div className="flex gap-1">
           <Button variant={view === "list" ? "default" : "outline"} size="icon" className="h-8 w-8" onClick={() => switchView("list")}>
             <LayoutList className="h-4 w-4" />
@@ -133,125 +141,212 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
         </Button>
       </div>
 
-      {suppliers.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">공급사가 없습니다.</p>
-      ) : view === "list" ? (
-        <div className="rounded-md border overflow-x-auto">
-          <Table className="table-fixed">
-            <thead className="[&_tr]:border-b">
-              <TableRow>
-                <ResizableTh width={widths.checkbox} colKey="checkbox" onResizeStart={onMouseDown}>
-                  <Checkbox
-                    checked={rowSelection.allSelected ? true : rowSelection.someSelected ? "indeterminate" : false}
-                    onCheckedChange={() => rowSelection.toggleAll()}
-                  />
-                </ResizableTh>
-                <ResizableTh width={widths.id} colKey="id" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("id")}>
-                  <span className="inline-flex items-center">ID<SortIcon active={sortKey === "id"} dir={sortDir} /></span>
-                </ResizableTh>
-                <ResizableTh width={widths.name} colKey="name" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("name")}>
-                  <span className="inline-flex items-center">공급사명<SortIcon active={sortKey === "name"} dir={sortDir} /></span>
-                </ResizableTh>
-                <ResizableTh width={widths.short_name} colKey="short_name" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("short_name")}>
-                  <span className="inline-flex items-center">약칭<SortIcon active={sortKey === "short_name"} dir={sortDir} /></span>
-                </ResizableTh>
-                <ResizableTh width={widths.ceo_name} colKey="ceo_name" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("ceo_name")}>
-                  <span className="inline-flex items-center">대표자<SortIcon active={sortKey === "ceo_name"} dir={sortDir} /></span>
-                </ResizableTh>
-                <ResizableTh width={widths.phone} colKey="phone" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("phone")}>
-                  <span className="inline-flex items-center">전화번호<SortIcon active={sortKey === "phone"} dir={sortDir} /></span>
-                </ResizableTh>
-                <ResizableTh width={widths.business_type} colKey="business_type" onResizeStart={onMouseDown}>업태/종목</ResizableTh>
-                <ResizableTh width={widths.notes} colKey="notes" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("notes")}>
-                  <span className="inline-flex items-center">비고<SortIcon active={sortKey === "notes"} dir={sortDir} /></span>
-                </ResizableTh>
-                <ResizableTh width={widths.is_active} colKey="is_active" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("is_active")}>
-                  <span className="inline-flex items-center">상태<SortIcon active={sortKey === "is_active"} dir={sortDir} /></span>
-                </ResizableTh>
-                <ResizableTh width={widths.actions} colKey="actions" onResizeStart={onMouseDown}>관리</ResizableTh>
-              </TableRow>
-            </thead>
-            <TableBody>
-              {sorted.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell className="px-2">
-                    <Checkbox
-                      checked={rowSelection.selected.has(s.id)}
-                      onCheckedChange={() => rowSelection.toggle(s.id)}
-                    />
-                  </TableCell>
-                  <TableCell className="font-mono text-xs overflow-hidden text-ellipsis">{s.id}</TableCell>
-                  <TableCell className="font-medium overflow-hidden text-ellipsis">{s.name}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm overflow-hidden text-ellipsis">{s.short_name || "-"}</TableCell>
-                  <TableCell className="text-sm overflow-hidden text-ellipsis">{s.ceo_name || "-"}</TableCell>
-                  <TableCell className="text-sm overflow-hidden text-ellipsis">{s.phone || "-"}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground overflow-hidden text-ellipsis">
-                    {s.business_type || s.business_category
-                      ? [s.business_type, s.business_category].filter(Boolean).join(" / ")
-                      : "-"}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground overflow-hidden text-ellipsis">{s.notes || "-"}</TableCell>
-                  <TableCell className="overflow-hidden text-ellipsis">
-                    <Badge variant={s.is_active ? "default" : "secondary"}>
-                      {s.is_active ? "활성" : "비활성"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditItem(s)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(s.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+      <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-background">
+        <PanelGroup direction="horizontal">
+          <ResizablePanel defaultSize={selectedSupplier ? 70 : 100} minSize={30}>
+            {suppliers.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">공급사가 없습니다.</p>
+            ) : view === "list" ? (
+              <div className="h-full overflow-auto no-scrollbar">
+                <Table className="table-fixed">
+                  <thead className="sticky top-0 bg-zinc-50/80 backdrop-blur-sm z-10 [&_tr]:border-b">
+                    <TableRow>
+                      <ResizableTh width={widths.checkbox} colKey="checkbox" onResizeStart={onMouseDown}>
+                        <Checkbox
+                          checked={rowSelection.allSelected ? true : rowSelection.someSelected ? "indeterminate" : false}
+                          onCheckedChange={() => rowSelection.toggleAll()}
+                        />
+                      </ResizableTh>
+                      <ResizableTh width={widths.id} colKey="id" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("id")}>
+                        <span className="inline-flex items-center">ID<SortIcon active={sortKey === "id"} dir={sortDir} /></span>
+                      </ResizableTh>
+                      <ResizableTh width={widths.name} colKey="name" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("name")}>
+                        <span className="inline-flex items-center">공급사명<SortIcon active={sortKey === "name"} dir={sortDir} /></span>
+                      </ResizableTh>
+                      <ResizableTh width={widths.short_name} colKey="short_name" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("short_name")}>
+                        <span className="inline-flex items-center">약칭<SortIcon active={sortKey === "short_name"} dir={sortDir} /></span>
+                      </ResizableTh>
+                      <ResizableTh width={widths.ceo_name} colKey="ceo_name" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("ceo_name")}>
+                        <span className="inline-flex items-center">대표자<SortIcon active={sortKey === "ceo_name"} dir={sortDir} /></span>
+                      </ResizableTh>
+                      <ResizableTh width={widths.phone} colKey="phone" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("phone")}>
+                        <span className="inline-flex items-center">전화번호<SortIcon active={sortKey === "phone"} dir={sortDir} /></span>
+                      </ResizableTh>
+                      <ResizableTh width={widths.business_type} colKey="business_type" onResizeStart={onMouseDown}>업태/종목</ResizableTh>
+                      <ResizableTh width={widths.notes} colKey="notes" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("notes")}>
+                        <span className="inline-flex items-center">비고<SortIcon active={sortKey === "notes"} dir={sortDir} /></span>
+                      </ResizableTh>
+                      <ResizableTh width={widths.is_active} colKey="is_active" onResizeStart={onMouseDown} className="cursor-pointer select-none" onClick={() => toggleSort("is_active")}>
+                        <span className="inline-flex items-center">상태<SortIcon active={sortKey === "is_active"} dir={sortDir} /></span>
+                      </ResizableTh>
+                      <ResizableTh width={widths.actions} colKey="actions" onResizeStart={onMouseDown}>관리</ResizableTh>
+                    </TableRow>
+                  </thead>
+                  <TableBody>
+                    {sorted.map((s) => (
+                      <TableRow 
+                        key={s.id} 
+                        className={cn(
+                          "cursor-pointer hover:bg-zinc-50 transition-colors",
+                          selectedSupplier?.id === s.id && "bg-primary/5 hover:bg-primary/10"
+                        )}
+                        onClick={() => setSelectedSupplier(s)}
+                      >
+                        <TableCell className="px-2" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={rowSelection.selected.has(s.id)}
+                            onCheckedChange={() => rowSelection.toggle(s.id)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-mono text-xs overflow-hidden text-ellipsis">{s.id}</TableCell>
+                        <TableCell className="font-medium overflow-hidden text-ellipsis text-zinc-950">{s.name}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm overflow-hidden text-ellipsis">{s.short_name || "-"}</TableCell>
+                        <TableCell className="text-sm overflow-hidden text-ellipsis">{s.ceo_name || "-"}</TableCell>
+                        <TableCell className="text-sm overflow-hidden text-ellipsis">{s.phone || "-"}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground overflow-hidden text-ellipsis">
+                          {s.business_type || s.business_category
+                            ? [s.business_type, s.business_category].filter(Boolean).join(" / ")
+                            : "-"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground overflow-hidden text-ellipsis">{s.notes || "-"}</TableCell>
+                        <TableCell className="overflow-hidden text-ellipsis">
+                          <Badge variant={s.is_active ? "default" : "secondary"} className="font-medium">
+                            {s.is_active ? "활성" : "비활성"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditItem(s)}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(s.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {sorted.map((s) => (
+                  <Card key={s.id} 
+                    className={cn(
+                      "cursor-pointer hover:border-primary/50 transition-all",
+                      selectedSupplier?.id === s.id && "ring-2 ring-primary/20 border-primary"
+                    )}
+                    onClick={() => setSelectedSupplier(s)}
+                  >
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-zinc-950">{s.name}</h3>
+                        <div className="flex items-center gap-1">
+                          <Badge variant={s.is_active ? "default" : "secondary"}>
+                            {s.is_active ? "활성" : "비활성"}
+                          </Badge>
+                        </div>
+                      </div>
+                      {s.short_name && (
+                        <p className="text-sm text-muted-foreground">약칭: {s.short_name}</p>
+                      )}
+                      {s.phone && (
+                        <p className="text-sm text-muted-foreground flex items-center gap-1.5"><Phone className="h-3 w-3" /> {s.phone}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </ResizablePanel>
+
+          <ResizableDetailPanel
+            isOpen={!!selectedSupplier}
+            onClose={() => setSelectedSupplier(null)}
+            title="상세 정보"
+          >
+            {selectedSupplier && (
+              <div className="space-y-8">
+                <div>
+                  <h4 className="text-lg font-black text-zinc-950 mb-1">{selectedSupplier.name}</h4>
+                  <p className="text-sm text-muted-foreground">{selectedSupplier.short_name || "별칭 없음"}</p>
+                </div>
+
+                <div className="grid gap-6">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">기본 정보</Label>
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-start gap-3">
+                        <UserIcon className="h-4 w-4 text-zinc-400 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-bold text-zinc-950">대표자</p>
+                          <p className="text-sm text-zinc-600">{selectedSupplier.ceo_name || "-"}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <Building className="h-4 w-4 text-zinc-400 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-bold text-zinc-950">사업자등록번호</p>
+                          <p className="text-sm text-zinc-600">{selectedSupplier.business_number || "-"}</p>
+                        </div>
+                      </div>
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {sorted.map((s) => (
-            <Card key={s.id}>
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium">{s.name}</h3>
-                  <div className="flex items-center gap-1">
-                    <Badge variant={s.is_active ? "default" : "secondary"}>
-                      {s.is_active ? "활성" : "비활성"}
-                    </Badge>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditItem(s)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(s.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">연락처 및 주소</Label>
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-start gap-3">
+                        <Phone className="h-4 w-4 text-zinc-400 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-bold text-zinc-950">전화번호</p>
+                          <p className="text-sm text-zinc-600">{selectedSupplier.phone || "-"}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <MapPin className="h-4 w-4 text-zinc-400 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-bold text-zinc-950">주소</p>
+                          <p className="text-sm text-zinc-600 leading-relaxed">{selectedSupplier.address || "-"}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <Globe className="h-4 w-4 text-zinc-400 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-bold text-zinc-950">홈페이지</p>
+                          {selectedSupplier.website ? (
+                            <a href={selectedSupplier.website} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">
+                              {selectedSupplier.website}
+                            </a>
+                          ) : <p className="text-sm text-zinc-600">-</p>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">기타</Label>
+                    <div className="pt-2">
+                      <p className="text-xs font-bold text-zinc-950 mb-1">비고</p>
+                      <p className="text-sm text-zinc-600 whitespace-pre-wrap">{selectedSupplier.notes || "기록된 비고가 없습니다."}</p>
+                    </div>
                   </div>
                 </div>
-                {s.short_name && (
-                  <p className="text-sm text-muted-foreground">약칭: {s.short_name}</p>
-                )}
-                {s.ceo_name && (
-                  <p className="text-sm text-muted-foreground">대표자: {s.ceo_name}</p>
-                )}
-                {s.phone && (
-                  <p className="text-sm text-muted-foreground">전화: {s.phone}</p>
-                )}
-                {(s.business_type || s.business_category) && (
-                  <p className="text-xs text-muted-foreground">
-                    {[s.business_type, s.business_category].filter(Boolean).join(" / ")}
-                  </p>
-                )}
-                {s.notes && (
-                  <p className="text-sm text-muted-foreground">{s.notes}</p>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+
+                <div className="pt-6 border-t flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => setEditItem(selectedSupplier)}>
+                    <Pencil className="h-3.5 w-3.5 mr-2" /> 수정
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1 text-destructive hover:bg-destructive/5" onClick={() => setDeleteId(selectedSupplier.id)}>
+                    <Trash2 className="h-3.5 w-3.5 mr-2" /> 삭제
+                  </Button>
+                </div>
+              </div>
+            )}
+          </ResizableDetailPanel>
+        </PanelGroup>
+      </div>
 
       <BulkActionBar
         count={rowSelection.count}

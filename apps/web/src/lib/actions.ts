@@ -390,7 +390,125 @@ function parseMfdsApiItems(body: Record<string, unknown>): Record<string, unknow
   return [item as Record<string, unknown>];
 }
 
-// --- MFDS DB Search (replaces direct API search for browse mode) ---
+// --- My Products Search (identical logic to MFDS DB Search) ---
+
+export async function searchMyItems(params: {
+  query: string;
+  sourceType: MfdsApiSource;
+  searchField?: string;
+  page?: number;
+  pageSize?: number;
+  filters?: FilterChip[];
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}): Promise<{
+  items: Record<string, unknown>[];
+  totalCount: number;
+  page: number;
+}> {
+  const {
+    query,
+    sourceType,
+    searchField = "_all",
+    page = 1,
+    pageSize = 25,
+    filters = [],
+    sortBy,
+    sortOrder = "asc",
+  } = params;
+
+  const supabase = await createClient();
+  const q = query.trim();
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const table = sourceType === "drug" ? "my_drugs" : "my_devices";
+
+  // Build base query
+  let dbQuery = supabase
+    .from(table)
+    .select("*", { count: "exact" });
+
+  // Apply text search
+  if (q) {
+    if (searchField === "_all") {
+      if (sourceType === "drug") {
+        dbQuery = dbQuery.or(
+          `item_name.ilike.%${q}%,entp_name.ilike.%${q}%,bar_code.ilike.%${q}%`,
+        );
+      } else {
+        dbQuery = dbQuery.or(
+          `prdlst_nm.ilike.%${q}%,mnft_iprt_entp_nm.ilike.%${q}%,udidi_cd.ilike.%${q}%`,
+        );
+      }
+    } else {
+      dbQuery = dbQuery.ilike(searchField.toLowerCase(), `%${q}%`);
+    }
+  }
+
+  // Apply column filters (from the table headers)
+  for (const chip of filters) {
+    const dbCol = chip.field.toLowerCase();
+    switch (chip.operator) {
+      case "contains":
+        dbQuery = dbQuery.filter(dbCol, "ilike", `%${chip.value}%`);
+        break;
+      case "equals":
+        dbQuery = dbQuery.filter(dbCol, "eq", chip.value);
+        break;
+      case "startsWith":
+        dbQuery = dbQuery.filter(dbCol, "ilike", `${chip.value}%`);
+        break;
+      case "notContains":
+        dbQuery = dbQuery.not(dbCol as "id", "ilike", `%${chip.value}%`);
+        break;
+      case "before":
+        dbQuery = dbQuery.filter(dbCol, "lt", chip.value);
+        break;
+      case "after":
+        dbQuery = dbQuery.filter(dbCol, "gt", chip.value);
+        break;
+      case "between":
+        dbQuery = dbQuery.filter(dbCol, "gte", chip.value);
+        if (chip.valueTo) {
+          dbQuery = dbQuery.filter(dbCol, "lte", chip.valueTo);
+        }
+        break;
+    }
+  }
+
+  // Sorting
+  if (sortBy) {
+    dbQuery = dbQuery.order(sortBy.toLowerCase(), { ascending: sortOrder === "asc" });
+  } else {
+    const defaultSort = sourceType === "drug" ? "item_name" : "prdlst_nm";
+    dbQuery = dbQuery.order(defaultSort, { ascending: true });
+  }
+
+  // Pagination
+  dbQuery = dbQuery.range(from, to);
+
+  const { data, count, error } = await dbQuery;
+  if (error) throw new Error(`MyItems 검색 오류: ${error.message}`);
+
+  // Map database rows (lowercase) to UI expected format (UPPERCASE keys)
+  const items = (data ?? []).map((row: Record<string, unknown>) => {
+    const mapped: Record<string, unknown> = { ...row };
+    // Also include Uppercase keys for UI compatibility with MfdsResultTable
+    Object.entries(row).forEach(([k, v]) => {
+      if (k !== "id" && k !== "unit_price" && k !== "added_at" && k !== "synced_at") {
+        mapped[k.toUpperCase()] = v;
+      }
+    });
+    return mapped;
+  });
+
+  return {
+    items,
+    totalCount: count ?? 0,
+    page,
+  };
+}
 
 export async function searchMfdsItems(params: {
   query: string;

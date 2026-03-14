@@ -11,6 +11,7 @@ import {
   type ColumnDef,
   type VisibilityState,
   type SortingState,
+  type ColumnFiltersState,
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +24,7 @@ import {
 import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2 } from "lucide-react";
 import {
   searchMfdsItems,
+  searchMyItems,
   getMfdsSyncProgress,
   getActiveSyncLog,
   addToMyDrugs,
@@ -99,6 +101,7 @@ export function MfdsSearchPanel({
   // Table state
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => getDefaultVisibility("drug"));
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnSizing, setColumnSizing] = useState<Record<string, number>>({});
 
@@ -336,10 +339,11 @@ export function MfdsSearchPanel({
   const table = useReactTable({
     data: results,
     columns,
-    state: { sorting, columnVisibility, globalFilter, columnSizing },
+    state: { sorting, columnVisibility, globalFilter, columnSizing, columnFilters },
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: setGlobalFilter,
+    onColumnFiltersChange: setColumnFilters,
     onColumnSizingChange: setColumnSizing,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -360,7 +364,9 @@ export function MfdsSearchPanel({
         try {
           const q = query.trim();
 
-          const result = await searchMfdsItems({
+          const searchFn = mode === "manage" ? searchMyItems : searchMfdsItems;
+
+          const result = await searchFn({
             query: q,
             sourceType: tab,
             searchField,
@@ -376,7 +382,7 @@ export function MfdsSearchPanel({
             setHasSearched(true);
             setExpandedRowId(null);
 
-            if (q) {
+            if (q && mode !== "manage") {
               recentSearches.add(q, tab);
             }
           }
@@ -397,7 +403,7 @@ export function MfdsSearchPanel({
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [query, activeFilters, tab, searchField],
+    [query, activeFilters, tab, searchField, mode],
   );
 
   // ── Debounced auto-search on query change ─────────────────────────
@@ -430,14 +436,12 @@ export function MfdsSearchPanel({
     }
   }, [doSearch, mode]);
 
-  // ── Manage mode: load data from DB props ──────────────────────────
+  // ── Manage mode: load data via doSearch ──────────────────────────
   useEffect(() => {
-    if (mode !== "manage") return;
-    const data = tab === "drug" ? (myDrugs ?? []) : (myDevices ?? []);
-    setResults(data);
-    setTotalCount(data.length);
-    setHasSearched(true);
-  }, [mode, tab, myDrugs, myDevices]);
+    if (mode === "manage") {
+      doSearch(1);
+    }
+  }, [mode, tab, doSearch]);
 
   // ── NDJSON stream reader — reads streaming sync progress ─────────
   const readStream = useCallback(
@@ -892,15 +896,13 @@ export function MfdsSearchPanel({
       />
 
       {/* Pagination */}
-      {mode !== "manage" && (
-        <MfdsPagination
-          page={page}
-          totalPages={totalPages}
-          totalCount={totalCount}
-          isPending={isPending}
-          onPageChange={(p) => doSearch(p)}
-        />
-      )}
+      <MfdsPagination
+        page={page}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        isPending={isPending}
+        onPageChange={(p) => doSearch(p)}
+      />
 
       {/* Sync diff dialog */}
       {syncDiff && (

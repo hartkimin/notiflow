@@ -60,20 +60,12 @@ class SupabaseDataSource @Inject constructor(
 
     suspend fun getMessages(): List<MessageDto> {
         val currentUserId = userId ?: return emptyList()
-        return try {
-            Log.d(TAG, "Getting messages for user: $currentUserId")
-            val result = postgrest.from(MESSAGES_TABLE)
-                .select { filter { eq("user_id", currentUserId) } }
-                .decodeList<MessageDto>()
-            Log.d(TAG, "Got ${result.size} messages from Supabase")
-            result
-        } catch (e: PostgrestRestException) {
-            Log.e(TAG, "Postgrest error getting messages: ${e.error}, message: ${e.message}", e)
-            emptyList()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to get messages: ${e.message}", e)
-            emptyList()
-        }
+        Log.d(TAG, "Getting messages for user: $currentUserId")
+        val result = postgrest.from(MESSAGES_TABLE)
+            .select { filter { eq("user_id", currentUserId) } }
+            .decodeList<MessageDto>()
+        Log.d(TAG, "Got ${result.size} messages from Supabase")
+        return result
     }
 
     suspend fun deleteMessages(ids: List<String>) {
@@ -120,20 +112,12 @@ class SupabaseDataSource @Inject constructor(
 
     suspend fun getCategories(): List<CategoryDto> {
         val currentUserId = userId ?: return emptyList()
-        return try {
-            Log.d(TAG, "Getting categories for user: $currentUserId")
-            val result = postgrest.from(CATEGORIES_TABLE)
-                .select { filter { eq("user_id", currentUserId) } }
-                .decodeList<CategoryDto>()
-            Log.d(TAG, "Got ${result.size} categories from Supabase")
-            result
-        } catch (e: PostgrestRestException) {
-            Log.e(TAG, "Postgrest error getting categories: ${e.error}, message: ${e.message}", e)
-            emptyList()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to get categories: ${e.message}", e)
-            emptyList()
-        }
+        Log.d(TAG, "Getting categories for user: $currentUserId")
+        val result = postgrest.from(CATEGORIES_TABLE)
+            .select { filter { eq("user_id", currentUserId) } }
+            .decodeList<CategoryDto>()
+        Log.d(TAG, "Got ${result.size} categories from Supabase")
+        return result
     }
 
     // ========== Filter Rules ==========
@@ -158,20 +142,12 @@ class SupabaseDataSource @Inject constructor(
 
     suspend fun getFilterRules(): List<FilterRuleDto> {
         val currentUserId = userId ?: return emptyList()
-        return try {
-            Log.d(TAG, "Getting filter rules for user: $currentUserId")
-            val result = postgrest.from(FILTER_RULES_TABLE)
-                .select { filter { eq("user_id", currentUserId) } }
-                .decodeList<FilterRuleDto>()
-            Log.d(TAG, "Got ${result.size} filter rules from Supabase")
-            result
-        } catch (e: PostgrestRestException) {
-            Log.e(TAG, "Postgrest error getting filter rules: ${e.error}, message: ${e.message}", e)
-            emptyList()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to get filter rules: ${e.message}", e)
-            emptyList()
-        }
+        Log.d(TAG, "Getting filter rules for user: $currentUserId")
+        val result = postgrest.from(FILTER_RULES_TABLE)
+            .select { filter { eq("user_id", currentUserId) } }
+            .decodeList<FilterRuleDto>()
+        Log.d(TAG, "Got ${result.size} filter rules from Supabase")
+        return result
     }
 
     // ========== Status Steps ==========
@@ -196,20 +172,12 @@ class SupabaseDataSource @Inject constructor(
 
     suspend fun getStatusSteps(): List<StatusStepDto> {
         val currentUserId = userId ?: return emptyList()
-        return try {
-            Log.d(TAG, "Getting status steps for user: $currentUserId")
-            val result = postgrest.from(STATUS_STEPS_TABLE)
-                .select { filter { eq("user_id", currentUserId) } }
-                .decodeList<StatusStepDto>()
-            Log.d(TAG, "Got ${result.size} status steps from Supabase")
-            result
-        } catch (e: PostgrestRestException) {
-            Log.e(TAG, "Postgrest error getting status steps: ${e.error}, message: ${e.message}", e)
-            emptyList()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to get status steps: ${e.message}", e)
-            emptyList()
-        }
+        Log.d(TAG, "Getting status steps for user: $currentUserId")
+        val result = postgrest.from(STATUS_STEPS_TABLE)
+            .select { filter { eq("user_id", currentUserId) } }
+            .decodeList<StatusStepDto>()
+        Log.d(TAG, "Got ${result.size} status steps from Supabase")
+        return result
     }
 
     // ========== App Filters ==========
@@ -234,20 +202,12 @@ class SupabaseDataSource @Inject constructor(
 
     suspend fun getAppFilters(): List<AppFilterDto> {
         val currentUserId = userId ?: return emptyList()
-        return try {
-            Log.d(TAG, "Getting app filters for user: $currentUserId")
-            val result = postgrest.from(APP_FILTERS_TABLE)
-                .select { filter { eq("user_id", currentUserId) } }
-                .decodeList<AppFilterDto>()
-            Log.d(TAG, "Got ${result.size} app filters from Supabase")
-            result
-        } catch (e: PostgrestRestException) {
-            Log.e(TAG, "Postgrest error getting app filters: ${e.error}, message: ${e.message}", e)
-            emptyList()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to get app filters: ${e.message}", e)
-            emptyList()
-        }
+        Log.d(TAG, "Getting app filters for user: $currentUserId")
+        val result = postgrest.from(APP_FILTERS_TABLE)
+            .select { filter { eq("user_id", currentUserId) } }
+            .decodeList<AppFilterDto>()
+        Log.d(TAG, "Got ${result.size} app filters from Supabase")
+        return result
     }
 
     // ========== Plans ==========
@@ -272,20 +232,12 @@ class SupabaseDataSource @Inject constructor(
 
     suspend fun getPlans(): List<PlanDto> {
         val currentUserId = userId ?: return emptyList()
-        return try {
-            Log.d(TAG, "Getting plans for user: $currentUserId")
-            val result = postgrest.from(PLANS_TABLE)
-                .select { filter { eq("user_id", currentUserId) } }
-                .decodeList<PlanDto>()
-            Log.d(TAG, "Got ${result.size} plans from Supabase")
-            result
-        } catch (e: PostgrestRestException) {
-            Log.e(TAG, "Postgrest error getting plans: ${e.error}, message: ${e.message}", e)
-            emptyList()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to get plans: ${e.message}", e)
-            emptyList()
-        }
+        Log.d(TAG, "Getting plans for user: $currentUserId")
+        val result = postgrest.from(PLANS_TABLE)
+            .select { filter { eq("user_id", currentUserId) } }
+            .decodeList<PlanDto>()
+        Log.d(TAG, "Got ${result.size} plans from Supabase")
+        return result
     }
 
     // ========== Day Categories ==========
@@ -310,20 +262,12 @@ class SupabaseDataSource @Inject constructor(
 
     suspend fun getDayCategories(): List<DayCategoryDto> {
         val currentUserId = userId ?: return emptyList()
-        return try {
-            Log.d(TAG, "Getting day categories for user: $currentUserId")
-            val result = postgrest.from(DAY_CATEGORIES_TABLE)
-                .select { filter { eq("user_id", currentUserId) } }
-                .decodeList<DayCategoryDto>()
-            Log.d(TAG, "Got ${result.size} day categories from Supabase")
-            result
-        } catch (e: PostgrestRestException) {
-            Log.e(TAG, "Postgrest error getting day categories: ${e.error}, message: ${e.message}", e)
-            emptyList()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to get day categories: ${e.message}", e)
-            emptyList()
-        }
+        Log.d(TAG, "Getting day categories for user: $currentUserId")
+        val result = postgrest.from(DAY_CATEGORIES_TABLE)
+            .select { filter { eq("user_id", currentUserId) } }
+            .decodeList<DayCategoryDto>()
+        Log.d(TAG, "Got ${result.size} day categories from Supabase")
+        return result
     }
 
     suspend fun deleteDayCategory(id: String) {
@@ -553,7 +497,7 @@ data class AppFilterDto(
 private fun CapturedMessageEntity.toSupabaseDto(userId: String, deviceId: String?) = MessageDto(
     id = id,
     user_id = userId,
-    device_id = deviceId,
+    device_id = deviceId ?: this.deviceId,
     category_id = categoryId,
     matched_rule_id = matchedRuleId,
     source = source,

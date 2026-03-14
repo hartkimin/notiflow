@@ -148,7 +148,11 @@ class SyncManager @Inject constructor(
     private var lastDeviceUpdateMs = 0L
     private val DEVICE_UPDATE_THROTTLE_MS = 60_000L
 
-    private fun getMyDeviceId(): String? {
+    /**
+     * 현재 기기의 고유 ID를 반환 ({userId}_{androidId}).
+     * 로그인되지 않은 경우 null.
+     */
+    fun getMyDeviceId(): String? {
         val userId = auth.currentUserOrNull()?.id ?: return null
         val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
         return "${userId}_${androidId}"
@@ -406,19 +410,41 @@ class SyncManager @Inject constructor(
         resetTableStatuses()
         addLog("동기화 시작...")
 
+        var hasError = false
         try {
             syncPull()
+        } catch (e: Exception) {
+            Log.e(TAG, "Pull sync failed: ${e.message}", e)
+            addLog("⚠️ 데이터 가져오기 중 일부 실패: ${e.message}")
+            hasError = true
+        }
+        try {
             syncPush()
+        } catch (e: Exception) {
+            Log.e(TAG, "Push sync failed: ${e.message}", e)
+            addLog("⚠️ 데이터 업로드 중 일부 실패: ${e.message}")
+            hasError = true
+        }
+        try {
             syncPendingMessages()
+        } catch (e: Exception) {
+            Log.e(TAG, "Pending messages sync failed: ${e.message}", e)
+            hasError = true
+        }
+        try {
             syncPendingDeletions()
-            registerDeviceSilently()
+        } catch (e: Exception) {
+            Log.e(TAG, "Pending deletions sync failed: ${e.message}", e)
+            hasError = true
+        }
+        registerDeviceSilently()
 
+        if (hasError) {
+            addLog("⚠️ 동기화 완료 (일부 오류 발생, 다음 동기화 시 재시도)")
+            markSyncSuccess() // 부분 성공도 timestamp 업데이트
+        } else {
             markSyncSuccess()
             addLog("✅ 동기화 완료!")
-        } catch (e: Exception) {
-            Log.e(TAG, "Initial sync failed: ${e.message}", e)
-            addLog("❌ 동기화 실패: ${e.message}")
-            markSyncError(e.message)
         }
     }
 
@@ -438,12 +464,20 @@ class SyncManager @Inject constructor(
 
     private fun registerDeviceSilently() {
         scope.launch {
-            try {
-                registerDevice()
-                addLog("✓ 기기 정보 등록 완료")
-            } catch (e: Exception) {
-                Log.e(TAG, "Device registration failed (non-blocking): ${e.message}", e)
+            var lastError: Exception? = null
+            for (attempt in 1..3) {
+                try {
+                    registerDevice()
+                    addLog("✓ 기기 정보 등록 완료")
+                    return@launch
+                } catch (e: Exception) {
+                    lastError = e
+                    Log.e(TAG, "Device registration attempt $attempt/3 failed: ${e.message}", e)
+                    if (attempt < 3) kotlinx.coroutines.delay(attempt * 2000L)
+                }
             }
+            Log.e(TAG, "Device registration failed after 3 attempts: ${lastError?.message}")
+            addLog("⚠️ 기기 등록 실패 (다음 동기화 시 재시도)")
         }
     }
 
@@ -557,7 +591,8 @@ class SyncManager @Inject constructor(
                     val entity = dto.toEntity().copy(
                         categoryId = if (dto.category_id in validCategoryIds) dto.category_id else null,
                         statusId = if (dto.status_id in validStatusIds) dto.status_id else null,
-                        matchedRuleId = if (dto.matched_rule_id in validRuleIds) dto.matched_rule_id else null
+                        matchedRuleId = if (dto.matched_rule_id in validRuleIds) dto.matched_rule_id else null,
+                        needsSync = false
                     )
                     capturedMessageDao.upsert(entity)
                     messagePullCount++
@@ -904,70 +939,81 @@ class SyncManager @Inject constructor(
     private suspend fun subscribeToRealtimeChanges(userId: String) {
         if (!channelSubscribed.compareAndSet(false, true)) return
 
-        try {
-            val channel = realtime.channel("db-changes")
+        for (attempt in 1..3) {
+            try {
+                // 이전 채널 정리
+                try { realtime.removeAllChannels() } catch (_: Exception) {}
 
-            // Messages changes
-            channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-                table = SupabaseDataSource.MESSAGES_TABLE
-            }.onEach { action ->
-                handleMessageChange(action, userId)
-            }.launchIn(scope)
+                val channel = realtime.channel("db-changes")
 
-            // Categories changes
-            channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-                table = SupabaseDataSource.CATEGORIES_TABLE
-            }.onEach { action ->
-                handleCategoryChange(action, userId)
-            }.launchIn(scope)
+                // Messages changes
+                channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                    table = SupabaseDataSource.MESSAGES_TABLE
+                }.onEach { action ->
+                    handleMessageChange(action, userId)
+                }.launchIn(scope)
 
-            // Status steps changes
-            channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-                table = SupabaseDataSource.STATUS_STEPS_TABLE
-            }.onEach { action ->
-                handleStatusStepChange(action, userId)
-            }.launchIn(scope)
+                // Categories changes
+                channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                    table = SupabaseDataSource.CATEGORIES_TABLE
+                }.onEach { action ->
+                    handleCategoryChange(action, userId)
+                }.launchIn(scope)
 
-            // Filter rules changes
-            channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-                table = SupabaseDataSource.FILTER_RULES_TABLE
-            }.onEach { action ->
-                handleFilterRuleChange(action, userId)
-            }.launchIn(scope)
+                // Status steps changes
+                channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                    table = SupabaseDataSource.STATUS_STEPS_TABLE
+                }.onEach { action ->
+                    handleStatusStepChange(action, userId)
+                }.launchIn(scope)
 
-            // App filters changes
-            channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-                table = SupabaseDataSource.APP_FILTERS_TABLE
-            }.onEach { action ->
-                handleAppFilterChange(action, userId)
-            }.launchIn(scope)
+                // Filter rules changes
+                channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                    table = SupabaseDataSource.FILTER_RULES_TABLE
+                }.onEach { action ->
+                    handleFilterRuleChange(action, userId)
+                }.launchIn(scope)
 
-            // Plans changes
-            channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-                table = SupabaseDataSource.PLANS_TABLE
-            }.onEach { action ->
-                handlePlanChange(action, userId)
-            }.launchIn(scope)
+                // App filters changes
+                channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                    table = SupabaseDataSource.APP_FILTERS_TABLE
+                }.onEach { action ->
+                    handleAppFilterChange(action, userId)
+                }.launchIn(scope)
 
-            // Day categories changes
-            channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-                table = SupabaseDataSource.DAY_CATEGORIES_TABLE
-            }.onEach { action ->
-                handleDayCategoryChange(action, userId)
-            }.launchIn(scope)
+                // Plans changes
+                channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                    table = SupabaseDataSource.PLANS_TABLE
+                }.onEach { action ->
+                    handlePlanChange(action, userId)
+                }.launchIn(scope)
 
-            // Mobile devices changes (sync trigger from web dashboard)
-            channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-                table = SupabaseDataSource.MOBILE_DEVICES_TABLE
-            }.onEach { action ->
-                handleMobileDeviceChange(action, userId)
-            }.launchIn(scope)
+                // Day categories changes
+                channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                    table = SupabaseDataSource.DAY_CATEGORIES_TABLE
+                }.onEach { action ->
+                    handleDayCategoryChange(action, userId)
+                }.launchIn(scope)
 
-            channel.subscribe()
-            Log.d(TAG, "Subscribed to realtime changes")
-        } catch (e: Exception) {
-            channelSubscribed.set(false)
-            Log.e(TAG, "Failed to subscribe to realtime changes", e)
+                // Mobile devices changes (sync trigger from web dashboard)
+                channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                    table = SupabaseDataSource.MOBILE_DEVICES_TABLE
+                }.onEach { action ->
+                    handleMobileDeviceChange(action, userId)
+                }.launchIn(scope)
+
+                channel.subscribe()
+                Log.d(TAG, "Subscribed to realtime changes")
+                return
+            } catch (e: Exception) {
+                Log.e(TAG, "Realtime subscription attempt $attempt/3 failed: ${e.message}", e)
+                if (attempt < 3) {
+                    kotlinx.coroutines.delay(attempt * 3000L)
+                } else {
+                    channelSubscribed.set(false)
+                    addLog("⚠️ 실시간 연결 실패 (다음 동기화 시 재시도)")
+                }
+            }
         }
     }
 
@@ -980,8 +1026,9 @@ class SyncManager @Inject constructor(
         scope.launch {
             try {
                 realtime.removeAllChannels()
+                Log.d(TAG, "All realtime channels removed")
             } catch (e: Exception) {
-                Log.e(TAG, "Error removing channels", e)
+                Log.e(TAG, "Error removing channels: ${e.message}", e)
             }
         }
         Log.d(TAG, "Stopped Supabase realtime listeners")
@@ -999,13 +1046,16 @@ class SyncManager @Inject constructor(
      */
     private suspend fun awaitUserLoggedIn(): Boolean {
         if (isUserLoggedIn()) return true
-        // 세션이 아직 로딩 중일 수 있으므로 대기
-        val status = withTimeoutOrNull(15_000L) {
+        // 세션이 아직 로딩 중일 수 있으므로 대기 (느린 네트워크 고려하여 30초)
+        val status = withTimeoutOrNull(30_000L) {
             auth.sessionStatus.first { it !is SessionStatus.Initializing }
         }
         return when (status) {
             is SessionStatus.Authenticated -> true
-            else -> false
+            else -> {
+                Log.w(TAG, "awaitUserLoggedIn failed: status=$status")
+                false
+            }
         }
     }
 
@@ -1291,7 +1341,8 @@ class SyncManager @Inject constructor(
         return dto.toEntity().copy(
             categoryId = validCategoryId,
             statusId = validStatusId,
-            matchedRuleId = validRuleId
+            matchedRuleId = validRuleId,
+            needsSync = false
         )
     }
 

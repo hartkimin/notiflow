@@ -1,16 +1,23 @@
 /**
- * Advanced Real-time Adaptive MFDS Sync Engine
- * 
- * Features:
- * 1. Sliding Window: Re-scans the last 7 days to catch late-registered or modified items.
- * 2. Multi-parameter Filtering: Uses both permit date and system update hints if available.
- * 3. Exact Matching: Uses source_type + source_key for reliable upserts.
- * 4. Resumable: Supports startPage and prior progress for long-running syncs.
+ * MFDS Sync Engine v3 — Simple, Robust, Docker-Native
+ *
+ * Strategy:
+ * - Full mode: no date filter → fetch ALL items from API sequentially
+ * - Incremental mode: date-window filter for daily updates
+ * - Page-by-page: fetch 500 items → UPSERT to DB → next page
+ * - No time budget (Docker, not serverless)
+ * - Resume: saves next_page after each page → restart continues from there
+ * - No duplicates: UPSERT on UNIQUE(source_type, source_key)
+ * - Retry: 3 attempts per page with exponential backoff
  */
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
-const PAGE_SIZE = 500; // Increased to 500 per request as requested
-const SAFE_WINDOW_DAYS = 7; 
+const PAGE_SIZE = 500;
+const SAFE_WINDOW_DAYS = 7;
+const MAX_RETRIES = 3;
+const RETRY_BASE_MS = 2_000;
+
+// ─── Types ───────────────────────────────────────────────────────────
 
 interface ApiConfig {
   url: string;
@@ -22,6 +29,27 @@ interface ApiConfig {
   startDateParam: string;
   endDateParam: string;
 }
+
+export type SyncMode = "full" | "incremental";
+
+export interface SyncProgress {
+  totalFetched: number;
+  totalUpserted: number;
+  currentPage: number;
+  totalPages: number | null;
+  durationMs: number;
+  syncMode: SyncMode;
+}
+
+export interface SyncResult {
+  totalFetched: number;
+  totalUpserted: number;
+  outcome: "completed" | "partial" | "cancelled";
+  nextPage: number | null;
+  apiTotalCount: number | null;
+}
+
+// ─── API Configs ─────────────────────────────────────────────────────
 
 export const MFDS_API_CONFIGS: Record<string, ApiConfig> = {
   drug: {
@@ -46,41 +74,14 @@ export const MFDS_API_CONFIGS: Record<string, ApiConfig> = {
   },
 };
 
-// Helper: Format date to YYYYMMDD
+// ─── Helpers ─────────────────────────────────────────────────────────
+
 function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0].replace(/-/g, '');
+  return date.toISOString().split("T")[0].replace(/-/g, "");
 }
 
-async function fetchMfdsPage(
-  config: ApiConfig,
-  apiKey: string,
-  page: number,
-  startDate: string,
-  endDate: string,
-): Promise<{ items: any[]; totalCount: number }> {
-  const params = new URLSearchParams({
-    serviceKey: apiKey,
-    pageNo: String(page),
-    numOfRows: String(PAGE_SIZE),
-    type: "json",
-    [config.startDateParam]: startDate,
-    [config.endDateParam]: endDate,
-  });
-
-  const res = await fetch(`${config.url}?${params}`);
-  if (!res.ok) throw new Error(`API Error ${res.status}`);
-  
-  const json = await res.json();
-  const body = json?.body;
-  if (!body) return { items: [], totalCount: 0 };
-
-  let items = body.items;
-  if (!items) items = [];
-  if (!Array.isArray(items)) {
-    items = items.item ? (Array.isArray(items.item) ? items.item : [items.item]) : [];
-  }
-
-  return { items, totalCount: body.totalCount || 0 };
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 export function createAdminSupabase() {
@@ -90,166 +91,348 @@ export function createAdminSupabase() {
   );
 }
 
-export interface SyncProgress {
-  totalFetched: number;
-  totalUpserted: number;
-  currentPage: number;
-  durationMs: number;
+// ─── Fetch One Page (with retry) ─────────────────────────────────────
+
+async function fetchPage(
+  config: ApiConfig,
+  apiKey: string,
+  page: number,
+  startDate?: string,
+  endDate?: string,
+): Promise<{ items: any[]; totalCount: number }> {
+  const params = new URLSearchParams({
+    serviceKey: apiKey,
+    pageNo: String(page),
+    numOfRows: String(PAGE_SIZE),
+    type: "json",
+  });
+  if (startDate && endDate) {
+    params.set(config.startDateParam, startDate);
+    params.set(config.endDateParam, endDate);
+  }
+
+  let lastErr: Error | null = null;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(`${config.url}?${params}`);
+      if (!res.ok) throw new Error(`API ${res.status}`);
+
+      const json = await res.json();
+      const body = json?.body;
+      if (!body) return { items: [], totalCount: 0 };
+
+      let items = body.items;
+      if (!items) items = [];
+      if (!Array.isArray(items)) {
+        items = items.item
+          ? Array.isArray(items.item) ? items.item : [items.item]
+          : [];
+      }
+      return { items, totalCount: body.totalCount || 0 };
+    } catch (err) {
+      lastErr = err as Error;
+      if (attempt < MAX_RETRIES) {
+        const delay = RETRY_BASE_MS * Math.pow(2, attempt - 1);
+        console.warn(`[Sync] Page ${page} attempt ${attempt} failed, retry in ${delay}ms`);
+        await sleep(delay);
+      }
+    }
+  }
+  throw lastErr!;
 }
 
-export interface SyncResult {
-  totalFetched: number;
-  totalUpserted: number;
-  outcome: "completed" | "partial";
-  nextPage: number | null;
-}
+// ─── Core Sync ───────────────────────────────────────────────────────
 
 /**
- * Advanced Adaptive Sync with support for resumes and progress tracking.
+ * Sync items from MFDS API to mfds_items table.
+ *
+ * How it works:
+ * 1. Fetch page N from API (500 items)
+ * 2. UPSERT to DB (unique on source_type + source_key → no duplicates)
+ * 3. Save progress (next_page = N+1) to sync log
+ * 4. Repeat until last page
+ *
+ * On interruption: next call with same logId resumes from saved next_page.
+ * On restart from scratch: next_page=1, re-fetches all (UPSERT = idempotent).
  */
-export async function runAdvancedSync(
+export async function runSync(
   sourceType: string,
   apiKey: string,
   logId: number,
+  syncMode: SyncMode = "full",
   startPage = 1,
   priorFetched = 0,
   priorUpserted = 0,
-  onProgress?: (progress: SyncProgress) => void,
+  onProgress?: (p: SyncProgress) => void,
 ): Promise<SyncResult> {
   const admin = createAdminSupabase();
   const config = MFDS_API_CONFIGS[sourceType];
-  
-  // 1. Calculate the sliding window
-  const { data: latestItem } = await admin
-    .from("mfds_items")
-    .select("permit_date")
-    .eq("source_type", sourceType)
-    .order("permit_date", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  if (!config) throw new Error(`Unknown source: ${sourceType}`);
 
-  const now = new Date();
-  const endDateStr = formatDate(now);
-  
-  let startDate: Date;
-  if (latestItem?.permit_date) {
-    startDate = new Date(latestItem.permit_date);
-    startDate.setDate(startDate.getDate() - SAFE_WINDOW_DAYS);
+  // ── Date window (incremental only) ──
+  let startDate: string | undefined;
+  let endDate: string | undefined;
+
+  if (syncMode === "incremental") {
+    // Check if dates are already saved in log (for resume stability)
+    const { data: log } = await admin
+      .from("mfds_sync_logs")
+      .select("sync_start_date, sync_end_date")
+      .eq("id", logId)
+      .single();
+
+    startDate = log?.sync_start_date ?? undefined;
+    endDate = log?.sync_end_date ?? undefined;
+
+    if (!startDate || !endDate) {
+      // Calculate: latest permit_date - 7 days → today
+      const { data: latest } = await admin
+        .from("mfds_items")
+        .select("permit_date")
+        .eq("source_type", sourceType)
+        .not("permit_date", "is", null)
+        .order("permit_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      endDate = formatDate(new Date());
+      if (latest?.permit_date) {
+        const pd = latest.permit_date;
+        const d = new Date(`${pd.slice(0, 4)}-${pd.slice(4, 6)}-${pd.slice(6, 8)}`);
+        d.setDate(d.getDate() - SAFE_WINDOW_DAYS);
+        startDate = formatDate(d);
+      } else {
+        const d = new Date();
+        d.setDate(d.getDate() - 365); // 1년 전부터
+        startDate = formatDate(d);
+      }
+
+      // Save dates for resume stability
+      await admin.from("mfds_sync_logs").update({
+        sync_start_date: startDate,
+        sync_end_date: endDate,
+      }).eq("id", logId);
+    }
+    console.log(`[Sync] Incremental: ${startDate} ~ ${endDate}`);
   } else {
-    startDate = new Date();
-    startDate.setDate(startDate.getDate() - 30);
+    console.log(`[Sync] Full sync — no date filter`);
   }
-  const startDateStr = formatDate(startDate);
 
-  console.log(`[Sync] ${sourceType} Window: ${startDateStr} ~ ${endDateStr} (Starting Page: ${startPage})`);
-
+  // ── Main loop ──
   let totalFetched = priorFetched;
   let totalUpserted = priorUpserted;
-  let currentPage = startPage;
-  const startTime = Date.now();
+  let page = startPage;
+  let apiTotalCount: number | null = null;
+  const t0 = Date.now();
 
   try {
     while (true) {
-      // Time budget check (4 minutes for edge functions)
-      if (Date.now() - startTime > 240000) {
-        await admin.from("mfds_sync_logs").update({
-          status: "partial",
-          total_fetched: totalFetched,
-          total_upserted: totalUpserted,
-          duration_ms: Date.now() - startTime,
-          next_page: currentPage,
-        }).eq("id", logId);
-
-        return { totalFetched, totalUpserted, outcome: "partial", nextPage: currentPage };
+      // Check cancellation every 5 pages
+      if (page % 5 === 0) {
+        const { data: s } = await admin
+          .from("mfds_sync_logs")
+          .select("status")
+          .eq("id", logId)
+          .single();
+        if (s?.status === "cancelled") {
+          console.log("[Sync] Cancelled.");
+          return { totalFetched, totalUpserted, outcome: "cancelled", nextPage: page, apiTotalCount };
+        }
       }
 
-      const { data: currentLog } = await admin
-        .from("mfds_sync_logs")
-        .select("status")
-        .eq("id", logId)
-        .single();
-
-      if (currentLog?.status === "cancelled") {
-        console.log(`[Sync] ${sourceType} sync cancelled by user.`);
-        return { totalFetched, totalUpserted, outcome: "completed", nextPage: null };
-      }
-
-      const { items, totalCount } = await fetchMfdsPage(config, apiKey, currentPage, startDateStr, endDateStr);
+      // Fetch
+      const { items, totalCount } = await fetchPage(config, apiKey, page, startDate, endDate);
+      if (apiTotalCount == null && totalCount > 0) apiTotalCount = totalCount;
       if (items.length === 0) break;
 
       totalFetched += items.length;
-      const rows = items.map(item => {
-        const sourceKey = String(item[config.sourceKeyField] || "");
-        if (!sourceKey) return null;
-        return {
-          source_type: sourceType,
-          source_key: sourceKey,
-          item_name: String(item[config.itemNameField] || ""),
-          manufacturer: String(item[config.manufacturerField] || ""),
-          standard_code: String(item[config.standardCodeField] || ""),
-          permit_date: String(item[config.permitDateField] || ""),
-          raw_data: item,
-          synced_at: new Date().toISOString()
-        };
-      }).filter(Boolean);
+
+      // Transform → deduplicate within page → UPSERT
+      const seen = new Set<string>();
+      const rows = items
+        .map((item: any) => {
+          const key = String(item[config.sourceKeyField] || "");
+          if (!key) return null;
+          // API can return duplicate keys within same page — keep last occurrence
+          const dedupeKey = `${sourceType}:${key}`;
+          if (seen.has(dedupeKey)) return null;
+          seen.add(dedupeKey);
+          return {
+            source_type: sourceType,
+            source_key: key,
+            item_name: String(item[config.itemNameField] || ""),
+            manufacturer: String(item[config.manufacturerField] || ""),
+            standard_code: String(item[config.standardCodeField] || ""),
+            permit_date: String(item[config.permitDateField] || ""),
+            raw_data: item,
+            synced_at: new Date().toISOString(),
+          };
+        })
+        .filter(Boolean);
 
       if (rows.length > 0) {
         const { count, error } = await admin
           .from("mfds_items")
           .upsert(rows, { onConflict: "source_type,source_key", count: "exact" });
-        
-        if (error) console.error("Upsert error:", error.message);
-        else totalUpserted += (count || rows.length);
+        if (error) {
+          console.error(`[Sync] Upsert error page ${page}:`, error.message);
+        } else {
+          totalUpserted += count || rows.length;
+        }
       }
 
-      // Sync progress log
+      // Save progress (next_page = page+1 so resume skips this page)
+      const totalPages = apiTotalCount ? Math.ceil(apiTotalCount / PAGE_SIZE) : null;
       await admin.from("mfds_sync_logs").update({
         total_fetched: totalFetched,
         total_upserted: totalUpserted,
-        duration_ms: Date.now() - startTime
+        next_page: page + 1,
+        api_total_count: apiTotalCount,
+        duration_ms: Date.now() - t0,
       }).eq("id", logId);
 
-      onProgress?.({ totalFetched, totalUpserted, currentPage, durationMs: Date.now() - startTime });
+      onProgress?.({
+        totalFetched,
+        totalUpserted,
+        currentPage: page,
+        totalPages,
+        durationMs: Date.now() - t0,
+        syncMode,
+      });
 
-      const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-      if (currentPage >= totalPages) break;
-      currentPage++;
+      console.log(`[Sync] Page ${page}/${totalPages ?? "?"} → ${items.length} items (total: ${totalFetched})`);
+
+      // Done?
+      if (totalPages != null && page >= totalPages) break;
+      page++;
     }
 
+    // ── Complete ──
     await admin.from("mfds_sync_logs").update({
       status: "completed",
       finished_at: new Date().toISOString(),
       total_fetched: totalFetched,
       total_upserted: totalUpserted,
-      duration_ms: Date.now() - startTime,
-      next_page: null
+      next_page: null,
+      api_total_count: apiTotalCount,
+      duration_ms: Date.now() - t0,
     }).eq("id", logId);
 
-    return { totalFetched, totalUpserted, outcome: "completed", nextPage: null };
+    // Update meta
+    const { count: localCount } = await admin
+      .from("mfds_items")
+      .select("id", { count: "exact", head: true })
+      .eq("source_type", sourceType);
+
+    await admin.from("mfds_sync_meta").upsert({
+      source_type: sourceType,
+      api_total_count: apiTotalCount,
+      local_count: localCount ?? 0,
+      updated_at: new Date().toISOString(),
+      ...(syncMode === "full"
+        ? { last_full_sync_at: new Date().toISOString() }
+        : { last_incremental_at: new Date().toISOString() }),
+    }, { onConflict: "source_type" });
+
+    console.log(`[Sync] Done! ${totalFetched} fetched, ${totalUpserted} upserted in ${Date.now() - t0}ms`);
+    return { totalFetched, totalUpserted, outcome: "completed", nextPage: null, apiTotalCount };
   } catch (err) {
+    console.error("[Sync] Fatal:", err);
     await admin.from("mfds_sync_logs").update({
       status: "error",
       finished_at: new Date().toISOString(),
-      error_message: (err as Error).message
+      error_message: (err as Error).message,
     }).eq("id", logId);
     throw err;
   }
 }
 
-export const runFullSync = runAdvancedSync;
+// Backward-compatible aliases
+export const runAdvancedSync = runSync;
+export const runFullSync = runSync;
 
-export async function createSyncLog(triggerType: string, sourceType: string) {
+// ─── Helpers for routes ──────────────────────────────────────────────
+
+export async function createSyncLog(triggerType: string, sourceType: string, syncMode: SyncMode = "full") {
   const admin = createAdminSupabase();
   const { data, error } = await admin
     .from("mfds_sync_logs")
-    .insert({ trigger_type: triggerType, source_type: sourceType, status: "running" })
-    .select("id").single();
+    .insert({
+      trigger_type: triggerType,
+      source_type: sourceType,
+      status: "running",
+      sync_mode: syncMode,
+    })
+    .select("id")
+    .single();
   if (error) throw error;
   return data.id;
 }
 
 export async function getMfdsApiKeyFromDb() {
   const admin = createAdminSupabase();
-  const { data } = await admin.from("settings").select("value").eq("key", "drug_api_service_key").single();
+  const { data } = await admin
+    .from("settings")
+    .select("value")
+    .eq("key", "drug_api_service_key")
+    .single();
   return data?.value || "";
+}
+
+export async function cleanupStaleLogs() {
+  const admin = createAdminSupabase();
+  const staleThreshold = new Date(Date.now() - 30 * 60 * 1000).toISOString(); // 30분
+  await admin
+    .from("mfds_sync_logs")
+    .update({
+      status: "error",
+      error_message: "동기화 시간 초과 (비정상 종료)",
+      finished_at: new Date().toISOString(),
+    })
+    .eq("status", "running")
+    .lt("started_at", staleThreshold);
+}
+
+export async function findPartialSync() {
+  const admin = createAdminSupabase();
+  const { data } = await admin
+    .from("mfds_sync_logs")
+    .select("id, source_type, next_page, total_fetched, total_upserted, sync_mode")
+    .eq("status", "partial")
+    .order("started_at", { ascending: true })
+    .limit(1);
+  return data?.[0] ?? null;
+}
+
+export async function detectSyncMode(
+  sourceType: string,
+  apiKey: string,
+): Promise<{ mode: SyncMode; reason: string }> {
+  const admin = createAdminSupabase();
+  const config = MFDS_API_CONFIGS[sourceType];
+  if (!config) return { mode: "incremental", reason: "unknown source" };
+
+  const { data: meta } = await admin
+    .from("mfds_sync_meta")
+    .select("*")
+    .eq("source_type", sourceType)
+    .maybeSingle();
+
+  if (!meta?.last_full_sync_at) {
+    return { mode: "full", reason: "전체 동기화 이력 없음" };
+  }
+
+  const { count: localCount } = await admin
+    .from("mfds_items")
+    .select("id", { count: "exact", head: true })
+    .eq("source_type", sourceType);
+
+  if (meta.api_total_count && localCount != null) {
+    const ratio = localCount / meta.api_total_count;
+    if (ratio < 0.9) {
+      return { mode: "full", reason: `로컬 ${localCount} / API ${meta.api_total_count} (${(ratio * 100).toFixed(0)}%)` };
+    }
+  }
+
+  return { mode: "incremental", reason: "정상" };
 }

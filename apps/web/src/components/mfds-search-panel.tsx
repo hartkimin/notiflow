@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2, Database } from "lucide-react";
 import {
   searchMfdsItems,
   searchMyItems,
@@ -443,35 +443,13 @@ export function MfdsSearchPanel({
     }
   }, [mode, tab, doSearch]);
 
-  // ── NDJSON stream reader — reads streaming sync progress ─────────
+  // ── NDJSON stream reader ─────────────────────────────────────────
   const readStream = useCallback(
     async (response: Response) => {
       const reader = response.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let lastLogId: number | null = null;
       let lastSearchRefresh = 0;
-
-      const { done: streamDone, value: firstChunk } = await reader.read().catch(() => ({ done: true, value: undefined }));
-      if (!streamDone && firstChunk) {
-        buffer += decoder.decode(firstChunk, { stream: true });
-      }
-      // Process first chunk + continue reading
-      const processBuffer = () => {
-        const lines = buffer.split("\n");
-        buffer = lines.pop()!;
-        return lines;
-      };
-
-      // Re-assemble: process first chunk inline, then loop
-      const allLines = streamDone ? [] : processBuffer();
-      for (const line of allLines) {
-        if (!line.trim()) continue;
-        const event = JSON.parse(line);
-        if (event.type === "start") lastLogId = event.logId;
-      }
-
-      if (streamDone) return;
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
@@ -485,11 +463,13 @@ export function MfdsSearchPanel({
           if (!line.trim()) continue;
           const event = JSON.parse(line);
 
-          if (event.type === "start") {
-            lastLogId = event.logId;
-          } else if (event.type === "progress") {
+          if (event.type === "progress") {
+            const pageInfo = event.totalPages
+              ? ` (${event.currentPage}/${event.totalPages}페이지)`
+              : "";
+            const modeLabel = event.syncMode === "full" ? "[전체] " : "";
             setSyncProgress(
-              `동기화 중... ${event.totalFetched.toLocaleString()}건 처리됨`,
+              `${modeLabel}동기화 중... ${event.totalFetched.toLocaleString()}건${pageInfo}`,
             );
             // Refresh search results at most every 5s
             if (Date.now() - lastSearchRefresh > 5000) {
@@ -497,28 +477,6 @@ export function MfdsSearchPanel({
               lastSearchRefresh = Date.now();
             }
           } else if (event.type === "done") {
-            if (event.outcome === "partial" && event.nextPage && lastLogId) {
-              // Auto-continue: start new streaming request
-              setSyncProgress(
-                `동기화 계속 중... ${event.totalFetched.toLocaleString()}건 처리됨`,
-              );
-              const contRes = await fetch("/api/sync-mfds", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  sourceType: tab,
-                  logId: lastLogId,
-                  startPage: event.nextPage,
-                  priorFetched: event.totalFetched,
-                  priorUpserted: event.totalUpserted,
-                }),
-              });
-              if (contRes.ok) {
-                await readStream(contRes);
-                return; // Continuation handles cleanup
-              }
-            }
-            // Completed
             doSearch(1);
             toast.success(
               `동기화 완료: ${event.totalFetched.toLocaleString()}건 확인, ${event.totalUpserted.toLocaleString()}건 반영`,
@@ -529,10 +487,10 @@ export function MfdsSearchPanel({
         }
       }
     },
-    [doSearch, tab],
+    [doSearch],
   );
 
-  // ── Resume sync status on page load (passive — can't attach to stream) ──
+  // ── Check active sync on page load ──
   useEffect(() => {
     if (mode !== "browse") return;
     let cancelled = false;
@@ -540,75 +498,42 @@ export function MfdsSearchPanel({
     getActiveSyncLog().then((active) => {
       if (cancelled || !active) return;
       setIsSyncing(true);
-      setSyncProgress(
-        `동기화 진행 중 (${active.totalFetched.toLocaleString()}건 처리됨)`,
-      );
-      // Poll once to check if it completed while page was loading
-      const checkInterval = setInterval(async () => {
-        const progress = await getMfdsSyncProgress(active.logId);
-        if (progress.status === "completed") {
-          clearInterval(checkInterval);
+      setSyncProgress(`동기화 진행 중 (${active.totalFetched.toLocaleString()}건 처리됨)`);
+
+      const poll = setInterval(async () => {
+        const p = await getMfdsSyncProgress(active.logId);
+        if (p.status === "completed") {
+          clearInterval(poll);
           setIsSyncing(false);
           setSyncProgress(null);
           doSearch(1);
-          toast.success(
-            `동기화 완료: ${progress.totalFetched.toLocaleString()}건 확인, ${progress.totalUpserted.toLocaleString()}건 반영`,
-          );
-        } else if (progress.status === "error") {
-          clearInterval(checkInterval);
+          toast.success(`동기화 완료: ${p.totalFetched.toLocaleString()}건`);
+        } else if (p.status === "error") {
+          clearInterval(poll);
           setIsSyncing(false);
           setSyncProgress(null);
-          toast.error(`동기화 실패: ${progress.errorMessage ?? "알 수 없는 오류"}`);
-        } else if (progress.status === "running") {
-          setSyncProgress(
-            `동기화 진행 중 (${progress.totalFetched.toLocaleString()}건 처리됨)`,
-          );
-        } else if (progress.status === "partial" && progress.nextPage && progress.sourceType) {
-          // Partial sync found on reload — trigger continuation
-          clearInterval(checkInterval);
-          setSyncProgress(
-            `동기화 계속 중... ${progress.totalFetched.toLocaleString()}건 처리됨`,
-          );
-          const contRes = await fetch("/api/sync-mfds", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              sourceType: progress.sourceType,
-              logId: active.logId,
-              startPage: progress.nextPage,
-              priorFetched: progress.totalFetched,
-              priorUpserted: progress.totalUpserted,
-            }),
-          });
-          if (contRes.ok) {
-            try {
-              await readStream(contRes);
-            } catch (err) {
-              toast.error(`스트림 오류: ${(err as Error).message}`);
-            } finally {
-              setIsSyncing(false);
-              setSyncProgress(null);
-            }
-          }
+          toast.error(`동기화 실패: ${p.errorMessage ?? "오류"}`);
+        } else {
+          setSyncProgress(`동기화 진행 중 (${p.totalFetched.toLocaleString()}건 처리됨)`);
         }
       }, 3000);
 
-      return () => clearInterval(checkInterval);
+      return () => clearInterval(poll);
     });
 
     return () => { cancelled = true; };
-  }, [mode, doSearch, readStream]);
+  }, [mode, doSearch]);
 
   // ── MFDS sync trigger (browse mode) — streaming ────────────────
-  async function handleMfdsSync() {
+  async function handleMfdsSync(syncMode: "full" | "incremental" = "incremental") {
     setIsSyncing(true);
-    setSyncProgress("동기화 시작...");
+    setSyncProgress(syncMode === "full" ? "전체 동기화 시작..." : "증분 동기화 시작...");
 
     try {
       const res = await fetch("/api/sync-mfds", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceType: tab }),
+        body: JSON.stringify({ sourceType: tab, syncMode }),
       });
 
       if (!res.ok) {
@@ -648,7 +573,7 @@ export function MfdsSearchPanel({
           });
         }
         if (mode === "pick" && onSelect) {
-          onSelect(result.id);
+          onSelect(result.id!);
         }
         router.refresh();
       } catch (err) {
@@ -828,14 +753,23 @@ export function MfdsSearchPanel({
               variant="outline"
               size="sm"
               disabled={isSyncing}
-              onClick={handleMfdsSync}
+              onClick={() => handleMfdsSync("incremental")}
             >
               {isSyncing ? (
                 <Loader2 className="h-3 w-3 animate-spin mr-1" />
               ) : (
                 <RefreshCw className="h-3 w-3 mr-1" />
               )}
-              동기화
+              증분
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isSyncing}
+              onClick={() => handleMfdsSync("full")}
+            >
+              <Database className="h-3 w-3 mr-1" />
+              전체
             </Button>
           </div>
         </div>

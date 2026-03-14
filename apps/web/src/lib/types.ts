@@ -573,14 +573,24 @@ export interface MfdsSyncLog {
   id: number;
   status: string;
   trigger_type: string | null;
+  source_type: string | null;
+  sync_mode: "full" | "incremental" | null;
+  total_fetched: number;
+  total_upserted: number;
+  next_page: number | null;
+  api_total_count: number | null;
+  failed_pages: number[];
+  duration_ms: number | null;
+  started_at: string;
+  finished_at: string | null;
+  error_message: string | null;
+  // Legacy fields (kept for backward compat with existing logs)
   drug_added: number;
   device_added: number;
   device_std_added: number;
   drug_updated: number;
   device_updated: number;
   device_std_updated: number;
-  duration_ms: number | null;
-  started_at: string;
   completed_at: string | null;
 }
 
@@ -589,4 +599,12 @@ export interface MfdsSyncStats {
   device_count: number;
   device_std_count: number;
   last_sync: MfdsSyncLog | null;
+}
+
+export interface MfdsSyncMeta {
+  source_type: string;
+  last_full_sync_at: string | null;
+  last_incremental_at: string | null;
+  api_total_count: number | null;
+  local_count: number | null;
 }

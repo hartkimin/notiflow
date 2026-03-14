@@ -2,16 +2,16 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
   MFDS_API_CONFIGS,
-  runFullSync,
+  runSync,
   createSyncLog,
   createAdminSupabase,
+  type SyncMode,
 } from "@/lib/mfds-sync";
-
-export const maxDuration = 300;
 
 export async function POST(req: Request) {
   const body = await req.json();
   const sourceType: string = body.sourceType;
+  const syncMode: SyncMode = body.syncMode ?? "full";
   const continueLogId: number | undefined = body.logId;
   const startPage: number = body.startPage ?? 1;
   const priorFetched: number = body.priorFetched ?? 0;
@@ -21,14 +21,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid sourceType" }, { status: 400 });
   }
 
-  // Auth — user session required
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   }
 
-  // Get API key
   const admin = createAdminSupabase();
   const { data: setting } = await admin
     .from("settings")
@@ -36,49 +34,62 @@ export async function POST(req: Request) {
     .eq("key", "drug_api_service_key")
     .single();
   if (!setting?.value) {
-    return NextResponse.json(
-      { error: "MFDS API 키가 설정되지 않았습니다." },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "MFDS API 키가 설정되지 않았습니다." }, { status: 400 });
   }
 
-  // Create or reuse sync log
-  const logId = continueLogId ?? await createSyncLog("manual", sourceType);
-
-  // If continuing a partial sync, set status back to "running"
+  const logId = continueLogId ?? await createSyncLog("manual", sourceType, syncMode);
   if (continueLogId) {
-    await admin
-      .from("mfds_sync_logs")
-      .update({ status: "running", next_page: null })
+    await admin.from("mfds_sync_logs")
+      .update({ status: "running" })
       .eq("id", continueLogId);
   }
 
-  // Stream NDJSON progress events — keeps function alive for full duration
+  // Stream is UI-only — sync must NEVER fail because of stream errors.
+  // If client disconnects, sync continues silently (progress saved to DB).
   const encoder = new TextEncoder();
+  let streamAlive = true;
+
   const stream = new ReadableStream({
     async start(controller) {
       const send = (data: Record<string, unknown>) => {
-        controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
+        if (!streamAlive) return;
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
+        } catch {
+          // Client disconnected — stop sending but do NOT stop sync
+          streamAlive = false;
+        }
       };
 
-      send({ type: "start", logId });
+      send({ type: "start", logId, syncMode });
 
+      // Run sync — onProgress errors are swallowed (stream-only)
       try {
-        const result = await runFullSync(
+        const result = await runSync(
           sourceType,
           setting.value,
           logId,
+          syncMode,
           startPage,
           priorFetched,
           priorUpserted,
-          (progress) => send({ type: "progress", ...progress }),
+          (p) => {
+            // Progress callback — safe to fail silently
+            try { send({ type: "progress", ...p }); } catch { streamAlive = false; }
+          },
         );
         send({ type: "done", ...result });
       } catch (err) {
         send({ type: "error", message: (err as Error).message });
       }
 
-      controller.close();
+      // Close stream
+      if (streamAlive) {
+        try { controller.close(); } catch { /* already closed */ }
+      }
+    },
+    cancel() {
+      streamAlive = false;
     },
   });
 

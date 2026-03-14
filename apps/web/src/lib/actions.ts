@@ -390,6 +390,124 @@ function parseMfdsApiItems(body: Record<string, unknown>): Record<string, unknow
   return [item as Record<string, unknown>];
 }
 
+// --- Partner Products (Hospitals/Suppliers) ---
+
+export async function getPartnerProducts(partnerType: "hospital" | "supplier", partnerId: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("partner_products")
+    .select(`
+      *,
+      products:product_id (name, standard_code),
+      my_drugs:product_id (item_name, bar_code),
+      my_devices:product_id (prdlst_nm, udidi_cd)
+    `)
+    .eq("partner_type", partnerType)
+    .eq("partner_id", partnerId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  // Manual join processing due to multiple potential sources
+  return (data ?? []).map(item => {
+    let name = "알 수 없는 품목";
+    let code = item.standard_code || "";
+
+    if (item.product_source === "product" && item.products) {
+      name = (item.products as any).name;
+      code = (item.products as any).standard_code;
+    } else if (item.product_source === "drug" && item.my_drugs) {
+      name = (item.my_drugs as any).item_name;
+      code = (item.my_drugs as any).bar_code;
+    } else if (item.product_source === "device" && item.my_devices) {
+      name = (item.my_devices as any).prdlst_nm;
+      code = (item.my_devices as any).udidi_cd;
+    }
+
+    return { ...item, name, code };
+  });
+}
+
+export async function addPartnerProduct(params: {
+  partnerType: "hospital" | "supplier";
+  partnerId: number;
+  productSource: "product" | "drug" | "device";
+  productId: number;
+  standardCode?: string;
+  unitPrice?: number;
+}) {
+  const supabase = await createClient();
+  const { partnerType, partnerId, productSource, productId, standardCode, unitPrice } = params;
+
+  // Check if already exists
+  const { data: existing } = await supabase
+    .from("partner_products")
+    .select("id")
+    .match({ partner_type: partnerType, partner_id: partnerId, product_source: productSource, product_id: productId })
+    .maybeSingle();
+
+  if (existing) return { success: true, alreadyExists: true };
+
+  const history = unitPrice ? [{ price: unitPrice, changed_at: new Date().toISOString(), reason: "Initial registration" }] : [];
+
+  const { error } = await supabase.from("partner_products").insert({
+    partner_type: partnerType,
+    partner_id: partnerId,
+    product_source: productSource,
+    product_id: productId,
+    standard_code: standardCode,
+    unit_price: unitPrice,
+    price_history: history,
+  });
+
+  if (error) throw error;
+  revalidatePath("/suppliers");
+  revalidatePath("/hospitals");
+  return { success: true };
+}
+
+export async function updatePartnerProductPrice(id: number, newPrice: number, reason = "Manual update") {
+  const supabase = await createClient();
+  
+  // Get current history
+  const { data: current } = await supabase
+    .from("partner_products")
+    .select("price_history, unit_price")
+    .eq("id", id)
+    .single();
+
+  if (!current) throw new Error("Partner product not found");
+
+  const history = Array.isArray(current.price_history) ? current.price_history : [];
+  const updatedHistory = [
+    ...history,
+    { price: newPrice, changed_at: new Date().toISOString(), reason }
+  ];
+
+  const { error } = await supabase
+    .from("partner_products")
+    .update({ 
+      unit_price: newPrice,
+      price_history: updatedHistory,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", id);
+
+  if (error) throw error;
+  revalidatePath("/suppliers");
+  revalidatePath("/hospitals");
+  return { success: true };
+}
+
+export async function deletePartnerProduct(id: number) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("partner_products").delete().eq("id", id);
+  if (error) throw error;
+  revalidatePath("/suppliers");
+  revalidatePath("/hospitals");
+  return { success: true };
+}
+
 // --- My Products Search (identical logic to MFDS DB Search) ---
 
 export async function searchMyItems(params: {

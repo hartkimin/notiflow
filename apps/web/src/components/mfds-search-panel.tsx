@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2, Database } from "lucide-react";
+import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2, Database, Square } from "lucide-react";
 import {
   searchMfdsItems,
   searchMyItems,
@@ -117,6 +117,7 @@ export function MfdsSearchPanel({
   // MFDS sync state (browse mode)
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
+  const [syncLogId, setSyncLogId] = useState<number | null>(null);
 
   // Debounce refs
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -463,15 +464,19 @@ export function MfdsSearchPanel({
           if (!line.trim()) continue;
           const event = JSON.parse(line);
 
-          if (event.type === "progress") {
-            const pageInfo = event.totalPages
-              ? ` (${event.currentPage}/${event.totalPages}페이지)`
+          if (event.type === "start") {
+            setSyncLogId(event.logId);
+          } else if (event.type === "progress") {
+            const pct = event.totalPages
+              ? ` (${((event.currentPage / event.totalPages) * 100).toFixed(1)}%)`
               : "";
             const modeLabel = event.syncMode === "full" ? "[전체] " : "";
+            const apiTotal = event.totalPages
+              ? ` / API ${(event.totalPages * 500).toLocaleString()}건`
+              : "";
             setSyncProgress(
-              `${modeLabel}동기화 중... ${event.totalFetched.toLocaleString()}건${pageInfo}`,
+              `${modeLabel}${event.totalFetched.toLocaleString()}건${apiTotal}${pct}`,
             );
-            // Refresh search results at most every 5s
             if (Date.now() - lastSearchRefresh > 5000) {
               doSearch(1);
               lastSearchRefresh = Date.now();
@@ -490,50 +495,83 @@ export function MfdsSearchPanel({
     [doSearch],
   );
 
-  // ── Check active sync on page load ──
+  // ── Check active sync on page load (via fetch API, not server action) ──
   useEffect(() => {
     if (mode !== "browse") return;
     let cancelled = false;
 
-    getActiveSyncLog().then((active) => {
-      if (cancelled || !active) return;
-      setIsSyncing(true);
-      setSyncProgress(`동기화 진행 중 (${active.totalFetched.toLocaleString()}건 처리됨)`);
+    fetch("/api/sync-mfds/status")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !data.active) return;
+        const a = data.active;
+        if (a.status === "running") {
+          setIsSyncing(true);
+          setSyncLogId(a.id);
+          const pct = a.api_total_count ? ` (${((a.total_fetched / a.api_total_count) * 100).toFixed(1)}%)` : "";
+          setSyncProgress(`동기화 진행 중: ${a.total_fetched.toLocaleString()}건${pct}`);
 
-      const poll = setInterval(async () => {
-        const p = await getMfdsSyncProgress(active.logId);
-        if (p.status === "completed") {
-          clearInterval(poll);
-          setIsSyncing(false);
-          setSyncProgress(null);
-          doSearch(1);
-          toast.success(`동기화 완료: ${p.totalFetched.toLocaleString()}건`);
-        } else if (p.status === "error") {
-          clearInterval(poll);
-          setIsSyncing(false);
-          setSyncProgress(null);
-          toast.error(`동기화 실패: ${p.errorMessage ?? "오류"}`);
-        } else {
-          setSyncProgress(`동기화 진행 중 (${p.totalFetched.toLocaleString()}건 처리됨)`);
+          const poll = setInterval(async () => {
+            try {
+              const r2 = await fetch("/api/sync-mfds/status");
+              const d2 = await r2.json();
+              if (!d2.active || d2.active.id !== a.id) {
+                clearInterval(poll);
+                setIsSyncing(false);
+                setSyncProgress(null);
+                setSyncLogId(null);
+                doSearch(1);
+                return;
+              }
+              const p = d2.active;
+              const pct2 = p.api_total_count ? ` (${((p.total_fetched / p.api_total_count) * 100).toFixed(1)}%)` : "";
+              setSyncProgress(`동기화 진행 중: ${p.total_fetched.toLocaleString()}건${pct2}`);
+            } catch { /* ignore */ }
+          }, 3000);
+
+          return () => clearInterval(poll);
+        } else if (a.status === "partial") {
+          // Show resume prompt
+          const pct = a.api_total_count ? ` (${((a.total_fetched / a.api_total_count) * 100).toFixed(1)}%)` : "";
+          setSyncProgress(`중단됨: ${a.total_fetched.toLocaleString()}건${pct} — 동기화 버튼으로 이어받기`);
         }
-      }, 3000);
-
-      return () => clearInterval(poll);
-    });
+      })
+      .catch(() => {});
 
     return () => { cancelled = true; };
   }, [mode, doSearch]);
 
-  // ── MFDS sync trigger (browse mode) — streaming ────────────────
-  async function handleMfdsSync(syncMode: "full" | "incremental" = "incremental") {
+  // ── MFDS sync trigger ────────────────
+  async function handleMfdsSync(syncMode: "full" | "incremental" = "full") {
     setIsSyncing(true);
-    setSyncProgress(syncMode === "full" ? "전체 동기화 시작..." : "증분 동기화 시작...");
+    setSyncProgress("동기화 준비 중...");
 
     try {
+      // Check for partial sync to resume (via API, not server action)
+      const statusRes = await fetch("/api/sync-mfds/status");
+      const statusData = await statusRes.json();
+      let body: Record<string, unknown>;
+
+      if (statusData.active && statusData.active.source_type === tab && statusData.active.status === "partial") {
+        const a = statusData.active;
+        body = {
+          sourceType: tab,
+          syncMode: a.sync_mode ?? syncMode,
+          logId: a.id,
+          startPage: a.next_page ?? 1,
+          priorFetched: a.total_fetched ?? 0,
+          priorUpserted: a.total_upserted ?? 0,
+        };
+        setSyncProgress(`이어받기: ${(a.total_fetched ?? 0).toLocaleString()}건부터 계속...`);
+      } else {
+        body = { sourceType: tab, syncMode };
+        setSyncProgress(syncMode === "full" ? "전체 동기화 시작..." : "증분 동기화 시작...");
+      }
+
       const res = await fetch("/api/sync-mfds", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceType: tab, syncMode }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -549,6 +587,24 @@ export function MfdsSearchPanel({
     } finally {
       setIsSyncing(false);
       setSyncProgress(null);
+      setSyncLogId(null);
+    }
+  }
+
+  // ── Stop sync ────────────────
+  async function handleStopSync() {
+    try {
+      await fetch("/api/sync-mfds/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logId: syncLogId }),
+      });
+      toast.info("동기화 중지 요청됨");
+      setIsSyncing(false);
+      setSyncProgress(null);
+      setSyncLogId(null);
+    } catch {
+      toast.error("중지 실패");
     }
   }
 
@@ -749,28 +805,35 @@ export function MfdsSearchPanel({
             {syncProgress && (
               <span className="text-xs text-muted-foreground">{syncProgress}</span>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isSyncing}
-              onClick={() => handleMfdsSync("incremental")}
-            >
-              {isSyncing ? (
-                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-              ) : (
-                <RefreshCw className="h-3 w-3 mr-1" />
-              )}
-              증분
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isSyncing}
-              onClick={() => handleMfdsSync("full")}
-            >
-              <Database className="h-3 w-3 mr-1" />
-              전체
-            </Button>
+            {isSyncing ? (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleStopSync}
+              >
+                <Square className="h-3 w-3 mr-1" />
+                정지
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleMfdsSync("incremental")}
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  증분
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleMfdsSync("full")}
+                >
+                  <Database className="h-3 w-3 mr-1" />
+                  전체
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}

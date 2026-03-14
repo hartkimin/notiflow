@@ -90,7 +90,12 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
     startTransition(async () => {
       try {
         const standardCode = (item.BAR_CODE || item.bar_code || item.UDIDI_CD || item.udidi_cd) as string;
-        const productId = item.id;
+        const productId = item.id || item.MFDS_ID;
+
+        if (!productId) {
+          toast.error("품목 ID를 찾을 수 없습니다.");
+          return;
+        }
 
         const res = await addPartnerProduct({
           partnerType,
@@ -107,7 +112,8 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
           loadProducts();
         }
       } catch (err) {
-        toast.error("품목 추가 실패");
+        console.error("Add partner product failed:", err);
+        toast.error(`품목 추가 실패: ${err instanceof Error ? err.message : String(err)}`);
       }
     });
   }

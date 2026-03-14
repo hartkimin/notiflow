@@ -432,38 +432,60 @@ export async function addPartnerProduct(params: {
   partnerType: "hospital" | "supplier";
   partnerId: number;
   productSource: "product" | "drug" | "device";
-  productId: number;
+  productId: any; // Allow any to handle potential string/negative IDs
   standardCode?: string;
   unitPrice?: number;
 }) {
   const supabase = await createClient();
-  const { partnerType, partnerId, productSource, productId, standardCode, unitPrice } = params;
+  const { partnerType, partnerId, productSource, standardCode, unitPrice } = params;
+  
+  // Ensure productId is a clean number (View mapping might send negative IDs, we want the absolute or raw ID)
+  const productId = typeof params.productId === 'string' ? parseInt(params.productId, 10) : params.productId;
 
-  // Check if already exists
-  const { data: existing } = await supabase
-    .from("partner_products")
-    .select("id")
-    .match({ partner_type: partnerType, partner_id: partnerId, product_source: productSource, product_id: productId })
-    .maybeSingle();
+  try {
+    // Check if already exists
+    const { data: existing, error: checkError } = await supabase
+      .from("partner_products")
+      .select("id")
+      .match({ 
+        partner_type: partnerType, 
+        partner_id: partnerId, 
+        product_source: productSource, 
+        product_id: productId 
+      })
+      .maybeSingle();
 
-  if (existing) return { success: true, alreadyExists: true };
+    if (checkError) {
+      console.error("Check existing partner product error:", checkError);
+      throw new Error(`중복 체크 오류: ${checkError.message}`);
+    }
 
-  const history = unitPrice ? [{ price: unitPrice, changed_at: new Date().toISOString(), reason: "Initial registration" }] : [];
+    if (existing) return { success: true, alreadyExists: true };
 
-  const { error } = await supabase.from("partner_products").insert({
-    partner_type: partnerType,
-    partner_id: partnerId,
-    product_source: productSource,
-    product_id: productId,
-    standard_code: standardCode,
-    unit_price: unitPrice,
-    price_history: history,
-  });
+    const history = unitPrice ? [{ price: unitPrice, changed_at: new Date().toISOString(), reason: "Initial registration" }] : [];
 
-  if (error) throw error;
-  revalidatePath("/suppliers");
-  revalidatePath("/hospitals");
-  return { success: true };
+    const { error: insertError } = await supabase.from("partner_products").insert({
+      partner_type: partnerType,
+      partner_id: partnerId,
+      product_source: productSource,
+      product_id: productId,
+      standard_code: standardCode,
+      unit_price: unitPrice,
+      price_history: history,
+    });
+
+    if (insertError) {
+      console.error("Insert partner product error:", insertError);
+      throw new Error(`저장 오류: ${insertError.message}`);
+    }
+
+    revalidatePath("/suppliers");
+    revalidatePath("/hospitals");
+    return { success: true };
+  } catch (err) {
+    console.error("addPartnerProduct failed:", err);
+    throw err;
+  }
 }
 
 export async function updatePartnerProductPrice(id: number, newPrice: number, reason = "Manual update") {

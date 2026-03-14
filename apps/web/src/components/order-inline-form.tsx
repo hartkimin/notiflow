@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Sheet,
   SheetContent,
@@ -21,12 +22,19 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter,
 } from "@/components/ui/table";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   PlusCircle,
   Search,
   X,
   Loader2,
+  Settings2,
 } from "lucide-react";
 import {
   searchMyItemsAction,
@@ -35,7 +43,8 @@ import {
 } from "@/app/(dashboard)/orders/actions";
 import { SearchableCombobox } from "@/components/searchable-combobox";
 
-// Column label lookup maps
+// ─── Column Labels ─────────────────────────────────────────────────
+
 const DRUG_LABELS: Record<string, string> = {
   ITEM_SEQ: "품목기준코드", ITEM_NAME: "품목명", ITEM_ENG_NAME: "영문명",
   ENTP_NAME: "업체명", ENTP_NO: "업체허가번호", ITEM_PERMIT_DATE: "허가일자",
@@ -59,6 +68,10 @@ const DEVICE_LABELS: Record<string, string> = {
   RCPRSLRY_TRGT_YN: "요양급여대상",
 };
 
+// All available columns for selection
+const ALL_DRUG_COLS = Object.entries(DRUG_LABELS).map(([key, label]) => ({ key, label }));
+const ALL_DEVICE_COLS = Object.entries(DEVICE_LABELS).map(([key, label]) => ({ key, label }));
+
 type SearchResult = Awaited<ReturnType<typeof searchMyItemsAction>>[number];
 
 interface SelectedItem {
@@ -69,6 +82,7 @@ interface SelectedItem {
   manufacturer: string | null;
   quantity: number;
   unit_price: number | null;
+  kpis_number: string;
   raw: Record<string, unknown>;
 }
 
@@ -86,9 +100,7 @@ export function OrderInlineForm({
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(!!initialNotes);
   const [hospitalId, setHospitalId] = useState<number | null>(null);
-  const [orderDate, setOrderDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
+  const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
   const [deliveryDate, setDeliveryDate] = useState("");
   const [deliveredAt, setDeliveredAt] = useState("");
   const [notes, setNotes] = useState(initialNotes ?? "");
@@ -98,76 +110,64 @@ export function OrderInlineForm({
   const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Column visibility (initialized from settings)
+  const [visibleDrugCols, setVisibleDrugCols] = useState<string[]>(displayColumns.drug);
+  const [visibleDeviceCols, setVisibleDeviceCols] = useState<string[]>(displayColumns.device);
+
   useEffect(() => {
-    if (searchQuery.length < 1) {
-      setSearchResults([]);
-      return;
-    }
+    if (searchQuery.length < 1) { setSearchResults([]); return; }
     const timer = setTimeout(async () => {
       setIsSearching(true);
-      try {
-        const results = await searchMyItemsAction(searchQuery);
-        setSearchResults(results);
-      } finally {
-        setIsSearching(false);
-      }
+      try { setSearchResults(await searchMyItemsAction(searchQuery)); }
+      finally { setIsSearching(false); }
     }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Merged display headers from both drug & device visible columns
+  const displayHeaders = useMemo(() => {
+    const seen = new Set<string>();
+    const headers: Array<{ key: string; label: string }> = [];
+    for (const col of visibleDrugCols) {
+      if (!seen.has(col)) { seen.add(col); headers.push({ key: col, label: DRUG_LABELS[col] ?? col }); }
+    }
+    for (const col of visibleDeviceCols) {
+      if (!seen.has(col)) { seen.add(col); headers.push({ key: col, label: DEVICE_LABELS[col] ?? col }); }
+    }
+    return headers;
+  }, [visibleDrugCols, visibleDeviceCols]);
+
+  // Total price
+  const totalPrice = useMemo(() => {
+    return selectedItems.reduce((sum, item) => {
+      return sum + (item.unit_price ?? 0) * item.quantity;
+    }, 0);
+  }, [selectedItems]);
+
   function addItem(result: SearchResult) {
     if (selectedItems.some((i) => i.id === result.id && i.type === result.type)) {
-      toast.error("이미 추가된 품목입니다");
-      return;
+      toast.error("이미 추가된 품목입니다"); return;
     }
-    setSelectedItems((prev) => [
-      ...prev,
-      {
-        id: result.id, type: result.type, name: result.name,
-        code: result.code, manufacturer: result.manufacturer,
-        quantity: 1, unit_price: result.unit_price, raw: result.raw,
-      },
-    ]);
-    setSearchQuery("");
-    setSearchResults([]);
+    setSelectedItems((prev) => [...prev, {
+      id: result.id, type: result.type, name: result.name,
+      code: result.code, manufacturer: result.manufacturer,
+      quantity: 1, unit_price: result.unit_price, kpis_number: "",
+      raw: result.raw,
+    }]);
+    setSearchQuery(""); setSearchResults([]);
   }
 
   function removeItem(index: number) {
     setSelectedItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function updateItemQuantity(index: number, quantity: number) {
-    setSelectedItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, quantity } : item)),
-    );
-  }
-
-  function updateItemPrice(index: number, unit_price: number | null) {
-    setSelectedItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, unit_price } : item)),
-    );
-  }
-
-  function getColumnLabel(key: string, type: "drug" | "device"): string {
-    return (type === "drug" ? DRUG_LABELS : DEVICE_LABELS)[key] ?? key;
+  function updateItem(index: number, field: keyof SelectedItem, value: unknown) {
+    setSelectedItems((prev) => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
   }
 
   function getColumnValue(raw: Record<string, unknown>, key: string): string {
     const val = raw[key] ?? raw[key.toLowerCase()] ?? raw[key.toUpperCase()];
-    if (val === null || val === undefined) return "";
-    return String(val);
-  }
-
-  function getDisplayHeaders(): Array<{ key: string; label: string }> {
-    const seen = new Set<string>();
-    const headers: Array<{ key: string; label: string }> = [];
-    for (const col of displayColumns.drug) {
-      if (!seen.has(col)) { seen.add(col); headers.push({ key: col, label: getColumnLabel(col, "drug") }); }
-    }
-    for (const col of displayColumns.device) {
-      if (!seen.has(col)) { seen.add(col); headers.push({ key: col, label: getColumnLabel(col, "device") }); }
-    }
-    return headers;
+    return val == null ? "" : String(val);
   }
 
   async function handleSubmit() {
@@ -189,142 +189,153 @@ export function OrderInlineForm({
       if (sourceMessageId) router.replace("/orders");
     } catch (err) {
       toast.error("주문 생성 실패: " + (err as Error).message);
-    } finally {
-      setIsSubmitting(false);
-    }
+    } finally { setIsSubmitting(false); }
   }
 
   function resetForm() {
-    setIsOpen(false);
-    setHospitalId(null);
-    setSelectedItems([]);
-    setNotes("");
-    setDeliveryDate("");
-    setDeliveredAt("");
-    setSearchQuery("");
-    setSearchResults([]);
+    setIsOpen(false); setHospitalId(null); setSelectedItems([]);
+    setNotes(""); setDeliveryDate(""); setDeliveredAt("");
+    setSearchQuery(""); setSearchResults([]);
   }
 
   function handleClose(open: boolean) {
-    if (!open) {
-      if (sourceMessageId) router.replace("/orders");
-      resetForm();
-    }
+    if (!open) { if (sourceMessageId) router.replace("/orders"); resetForm(); }
     setIsOpen(open);
   }
 
-  const displayHeaders = getDisplayHeaders();
+  function toggleCol(type: "drug" | "device", key: string, checked: boolean) {
+    const setter = type === "drug" ? setVisibleDrugCols : setVisibleDeviceCols;
+    setter((prev) => checked ? [...prev, key] : prev.filter((k) => k !== key));
+  }
 
   return (
     <>
-      {/* Trigger button rendered in the page header */}
       <Button variant="default" size="sm" onClick={() => setIsOpen(true)} className="gap-1.5">
         <PlusCircle className="h-4 w-4" />
         새 주문
       </Button>
 
-      {/* Sheet panel */}
       <Sheet open={isOpen} onOpenChange={handleClose}>
-        <SheetContent side="right" className="w-full sm:max-w-xl md:max-w-2xl overflow-y-auto">
-          <SheetHeader className="pb-4 border-b">
-            <SheetTitle className="flex items-center gap-2">
-              <PlusCircle className="h-4 w-4" />
-              새 주문 생성
-              {sourceMessageId && (
-                <Badge variant="secondary" className="text-xs font-normal">메시지에서</Badge>
-              )}
-            </SheetTitle>
-          </SheetHeader>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-xl">
+          <div className="max-w-5xl mx-auto">
+            <SheetHeader className="pb-3">
+              <SheetTitle className="flex items-center gap-2 text-base">
+                <PlusCircle className="h-4 w-4" />
+                새 주문 생성
+                {sourceMessageId && <Badge variant="secondary" className="text-xs font-normal">메시지에서</Badge>}
+              </SheetTitle>
+            </SheetHeader>
 
-          <div className="space-y-5 pt-5">
-            {/* Hospital + Dates */}
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium">거래처</Label>
+            {/* ── Top row: hospital + dates + search ── */}
+            <div className="flex flex-wrap items-end gap-3 pb-4 border-b">
+              <div className="space-y-1 min-w-[180px]">
+                <Label className="text-xs">거래처</Label>
                 <SearchableCombobox
-                  value={hospitalId}
-                  placeholder="거래처 선택"
-                  searchPlaceholder="거래처 검색..."
-                  emptyText="거래처 없음"
+                  value={hospitalId} placeholder="거래처 선택"
+                  searchPlaceholder="거래처 검색..." emptyText="거래처 없음"
                   onSelect={(id) => setHospitalId(id)}
-                  searchAction={searchHospitalsAction}
-                  className="w-full"
+                  searchAction={searchHospitalsAction} className="w-full"
                 />
               </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">주문일</Label>
-                  <Input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} className="h-8 text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">예상배송일</Label>
-                  <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className="h-8 text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">실제배송일</Label>
-                  <Input type="date" value={deliveredAt} onChange={(e) => setDeliveredAt(e.target.value)} className="h-8 text-sm" />
-                </div>
+              <div className="space-y-1">
+                <Label className="text-xs">주문일</Label>
+                <Input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} className="h-8 text-sm w-[140px]" />
               </div>
-            </div>
+              <div className="space-y-1">
+                <Label className="text-xs">예상배송</Label>
+                <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className="h-8 text-sm w-[140px]" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">실배송</Label>
+                <Input type="date" value={deliveredAt} onChange={(e) => setDeliveredAt(e.target.value)} className="h-8 text-sm w-[140px]" />
+              </div>
 
-            {/* Divider */}
-            <div className="border-t" />
+              {/* Spacer */}
+              <div className="flex-1" />
 
-            {/* Item search */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">품목 추가</Label>
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="품목명, 코드, 업체명으로 검색..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 h-8 text-sm"
-                />
-                {isSearching && (
-                  <Loader2 className="absolute right-2.5 top-2 h-4 w-4 animate-spin text-muted-foreground" />
+              {/* Item search */}
+              <div className="space-y-1 min-w-[250px] flex-1 max-w-md relative">
+                <Label className="text-xs">품목 검색</Label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="품목명, 코드, 업체명..."
+                    value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8 h-8 text-sm"
+                  />
+                  {isSearching && <Loader2 className="absolute right-2.5 top-2 h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                </div>
+                {searchResults.length > 0 && (
+                  <div className="absolute z-50 mt-0.5 w-full rounded-md border bg-popover shadow-lg max-h-[200px] overflow-y-auto">
+                    {searchResults.map((r) => (
+                      <button key={`${r.type}-${r.id}`} type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent text-left" onClick={() => addItem(r)}>
+                        <Badge variant={r.type === "drug" ? "default" : "secondary"} className="text-[10px] shrink-0">{r.type === "drug" ? "약" : "기기"}</Badge>
+                        <span className="truncate font-medium">{r.name}</span>
+                        {r.code && <span className="text-muted-foreground text-[10px] shrink-0">{r.code}</span>}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
 
-              {searchResults.length > 0 && (
-                <div className="rounded-md border bg-popover shadow-lg max-h-[200px] overflow-y-auto">
-                  {searchResults.map((result) => (
-                    <button
-                      key={`${result.type}-${result.id}`}
-                      type="button"
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
-                      onClick={() => addItem(result)}
-                    >
-                      <Badge variant={result.type === "drug" ? "default" : "secondary"} className="text-[10px] shrink-0">
-                        {result.type === "drug" ? "약" : "기기"}
-                      </Badge>
-                      <span className="truncate font-medium text-xs">{result.name}</span>
-                      {result.code && <span className="text-muted-foreground text-[10px] shrink-0">{result.code}</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* Column settings */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 shrink-0">
+                    <Settings2 className="h-3.5 w-3.5 mr-1" />
+                    컬럼
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-80 max-h-[300px] overflow-y-auto">
+                  <div className="space-y-3">
+                    <div>
+                      <h4 className="text-xs font-semibold mb-1.5">의약품</h4>
+                      <div className="grid grid-cols-2 gap-1">
+                        {ALL_DRUG_COLS.map((c) => (
+                          <label key={c.key} className="flex items-center gap-1.5 text-[11px] cursor-pointer">
+                            <Checkbox checked={visibleDrugCols.includes(c.key)} onCheckedChange={(v: boolean | "indeterminate") => toggleCol("drug", c.key, v === true)} className="h-3 w-3" />
+                            {c.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="border-t pt-2">
+                      <h4 className="text-xs font-semibold mb-1.5">의료기기</h4>
+                      <div className="grid grid-cols-2 gap-1">
+                        {ALL_DEVICE_COLS.map((c) => (
+                          <label key={c.key} className="flex items-center gap-1.5 text-[11px] cursor-pointer">
+                            <Checkbox checked={visibleDeviceCols.includes(c.key)} onCheckedChange={(v: boolean | "indeterminate") => toggleCol("device", c.key, v === true)} className="h-3 w-3" />
+                            {c.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
-            {/* Selected items */}
-            {selectedItems.length > 0 && (
-              <div className="border rounded-md overflow-x-auto">
+            {/* ── Items table ── */}
+            {selectedItems.length > 0 ? (
+              <div className="border rounded-md overflow-x-auto mt-3">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[50px] text-[11px]">유형</TableHead>
+                      <TableHead className="w-[45px] text-[11px]">유형</TableHead>
                       {displayHeaders.map((h) => (
                         <TableHead key={h.key} className="text-[11px]">{h.label}</TableHead>
                       ))}
-                      <TableHead className="w-[70px] text-[11px]">수량</TableHead>
-                      <TableHead className="w-[90px] text-[11px]">가격</TableHead>
-                      <TableHead className="w-[36px]" />
+                      <TableHead className="w-[65px] text-[11px]">수량</TableHead>
+                      <TableHead className="w-[85px] text-[11px]">납품가</TableHead>
+                      <TableHead className="w-[85px] text-[11px] text-right">소계</TableHead>
+                      <TableHead className="w-[100px] text-[11px]">KPIS 번호</TableHead>
+                      <TableHead className="w-[32px]" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {selectedItems.map((item, index) => {
-                      const itemCols = item.type === "drug" ? displayColumns.drug : displayColumns.device;
+                      const itemCols = item.type === "drug" ? visibleDrugCols : visibleDeviceCols;
+                      const subtotal = (item.unit_price ?? 0) * item.quantity;
                       return (
                         <TableRow key={`${item.type}-${item.id}`}>
                           <TableCell>
@@ -338,18 +349,23 @@ export function OrderInlineForm({
                             </TableCell>
                           ))}
                           <TableCell>
-                            <Input
-                              type="number" min={1} value={item.quantity}
-                              onChange={(e) => updateItemQuantity(index, Math.max(1, parseInt(e.target.value) || 1))}
-                              className="w-[60px] h-7 text-xs"
-                            />
+                            <Input type="number" min={1} value={item.quantity}
+                              onChange={(e) => updateItem(index, "quantity", Math.max(1, parseInt(e.target.value) || 1))}
+                              className="w-[55px] h-7 text-xs" />
                           </TableCell>
                           <TableCell>
-                            <Input
-                              type="number" min={0} value={item.unit_price ?? ""}
-                              onChange={(e) => updateItemPrice(index, e.target.value ? parseFloat(e.target.value) : null)}
-                              placeholder="0" className="w-[80px] h-7 text-xs"
-                            />
+                            <Input type="number" min={0} value={item.unit_price ?? ""}
+                              onChange={(e) => updateItem(index, "unit_price", e.target.value ? parseFloat(e.target.value) : null)}
+                              placeholder="0" className="w-[75px] h-7 text-xs" />
+                          </TableCell>
+                          <TableCell className="text-[11px] text-right tabular-nums font-medium">
+                            {subtotal > 0 ? subtotal.toLocaleString() : "-"}
+                          </TableCell>
+                          <TableCell>
+                            <Input value={item.kpis_number}
+                              onChange={(e) => updateItem(index, "kpis_number", e.target.value)}
+                              placeholder="KPIS No."
+                              className="w-[90px] h-7 text-xs" />
                           </TableCell>
                           <TableCell>
                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeItem(index)}>
@@ -360,40 +376,37 @@ export function OrderInlineForm({
                       );
                     })}
                   </TableBody>
+                  <TableFooter>
+                    <TableRow>
+                      <TableCell colSpan={displayHeaders.length + 3} className="text-right text-xs font-semibold">
+                        합계
+                      </TableCell>
+                      <TableCell className="text-right text-xs font-bold tabular-nums">
+                        {totalPrice.toLocaleString()}원
+                      </TableCell>
+                      <TableCell colSpan={2} />
+                    </TableRow>
+                  </TableFooter>
                 </Table>
               </div>
-            )}
-
-            {selectedItems.length === 0 && (
-              <div className="text-center py-8 text-sm text-muted-foreground border rounded-md border-dashed">
-                위 검색창에서 품목을 검색하여 추가하세요
+            ) : (
+              <div className="text-center py-10 text-sm text-muted-foreground border rounded-md border-dashed mt-3">
+                우측 상단 검색창에서 품목을 검색하여 추가하세요
               </div>
             )}
 
-            {/* Notes */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">메모</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="주문 메모..."
-                rows={2}
-                className="text-sm"
-              />
-            </div>
-
-            {/* Submit */}
-            <div className="flex gap-2 justify-end pt-2 border-t">
-              <Button variant="outline" size="sm" onClick={() => handleClose(false)}>
-                취소
-              </Button>
-              <Button size="sm" onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <><Loader2 className="mr-1 h-4 w-4 animate-spin" />생성 중...</>
-                ) : (
-                  "주문 생성"
-                )}
-              </Button>
+            {/* ── Bottom: notes + submit ── */}
+            <div className="flex items-start gap-4 mt-3 pt-3 border-t">
+              <div className="flex-1">
+                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)}
+                  placeholder="주문 메모..." rows={2} className="text-sm" />
+              </div>
+              <div className="flex gap-2 shrink-0 pt-1">
+                <Button variant="outline" size="sm" onClick={() => handleClose(false)}>취소</Button>
+                <Button size="sm" onClick={handleSubmit} disabled={isSubmitting}>
+                  {isSubmitting ? <><Loader2 className="mr-1 h-4 w-4 animate-spin" />생성 중...</> : "주문 생성"}
+                </Button>
+              </div>
             </div>
           </div>
         </SheetContent>

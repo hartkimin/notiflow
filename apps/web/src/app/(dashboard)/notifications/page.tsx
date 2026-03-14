@@ -6,7 +6,7 @@ import { parseCalendarParams, toLocalDateStr } from "@/lib/schedule-utils";
 import { MessagesView } from "@/components/messages-view";
 import { RealtimeListener } from "@/components/realtime-listener";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 15;
 
 interface Props {
   searchParams: Promise<{

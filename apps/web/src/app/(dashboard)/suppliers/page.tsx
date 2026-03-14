@@ -10,7 +10,7 @@ interface Props {
 export default async function SuppliersPage({ searchParams }: Props) {
   const params = await searchParams;
   const page = parseInt(params.page || "1", 10);
-  const limit = 25;
+  const limit = 15;
   const offset = (page - 1) * limit;
 
   const result = await getSuppliers({

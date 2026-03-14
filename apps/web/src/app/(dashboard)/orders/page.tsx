@@ -49,7 +49,7 @@ export default async function OrdersPage({ searchParams }: Props) {
   const initialTab = params.tab === "calendar" ? "calendar" : "list";
   const page = parseInt(params.page || "1", 10);
   const status = params.status;
-  const limit = 20;
+  const limit = 15;
   const offset = (page - 1) * limit;
 
   // Calendar month range

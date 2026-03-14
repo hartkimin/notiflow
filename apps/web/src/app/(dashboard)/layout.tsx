@@ -18,8 +18,8 @@ export default async function DashboardLayout({
       <div className="flex flex-1 flex-col min-w-0 min-h-screen">
         <Nav syncInterval={settings.sync_interval_minutes} />
         <GlobalNotifications />
-        <main className="flex-1 overflow-y-auto p-4 pb-20 md:pb-6 lg:p-6">
-          <div className="w-full space-y-6">
+        <main className="flex-1 overflow-y-auto p-4 pb-16 md:pb-4 lg:p-6 lg:pb-4">
+          <div className="w-full space-y-4">
             {children}
           </div>
         </main>

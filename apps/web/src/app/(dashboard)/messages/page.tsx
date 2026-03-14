@@ -26,7 +26,7 @@ export default async function MessagesPage({ searchParams }: Props) {
 
   // --- List data ---
   const page = parseInt(params.page || "1", 10);
-  const limit = 20;
+  const limit = 15;
   const offset = (page - 1) * limit;
 
   // --- Calendar month range ---

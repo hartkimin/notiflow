@@ -127,7 +127,7 @@ export function MfdsSearchPanel({
   const [editingPriceId, setEditingPriceId] = useState<number | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState<string>("");
 
-  const pageSize = 25;
+  const pageSize = 15;
   const totalPages = Math.ceil(totalCount / pageSize);
 
   // ── Column definitions ────────────────────────────────────────────
@@ -763,122 +763,108 @@ export function MfdsSearchPanel({
   // ── Render ────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-4">
-      {/* Sync status banner */}
-      {mode === "browse" && syncStatus && (
-        <div className="flex items-center justify-between rounded-lg border bg-muted/50 px-4 py-2 text-sm">
-          <div className="flex items-center gap-4 text-muted-foreground">
-            <span>의약품: {syncStatus.drugCount.toLocaleString()}건</span>
-            <span>의료기기: {syncStatus.deviceCount.toLocaleString()}건</span>
-            {syncStatus.lastSync && (
-              <span>
-                마지막 동기화:{" "}
-                {new Date(syncStatus.lastSync).toLocaleDateString("ko-KR")}
-              </span>
-            )}
-            {!syncStatus.lastSync && (
-              <span className="text-amber-600">동기화 필요</span>
-            )}
+    <div className="flex flex-col h-[calc(100vh-180px)] min-h-[400px]">
+      {/* Compact top bar: search + sync + toolbar in minimal space */}
+      <div className="space-y-1.5 shrink-0">
+        {/* Search bar */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <MfdsSearchBar
+              tab={tab}
+              onTabChange={handleTabChange}
+              query={query}
+              onQueryChange={setQuery}
+              searchField={searchField}
+              onSearchFieldChange={setSearchField}
+              activeFilters={activeFilters}
+              onFiltersChange={setActiveFilters}
+              filterLogic={filterLogic}
+              onFilterLogicChange={setFilterLogic}
+              onSearch={() => {
+                if (mode === "manage") {
+                  setGlobalFilter(query);
+                } else {
+                  if (debounceTimerRef.current) {
+                    clearTimeout(debounceTimerRef.current);
+                  }
+                  doSearch(1);
+                }
+              }}
+              isPending={isPending}
+              recentSearches={recentSearches.items}
+              onRecentClick={handleRecentClick}
+              hasSearched={hasSearched}
+            />
           </div>
-          <div className="flex items-center gap-2">
-            {syncProgress && (
-              <span className="text-xs text-muted-foreground">{syncProgress}</span>
-            )}
-            {isSyncing ? (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleStopSync}
-              >
-                <Square className="h-3 w-3 mr-1" />
-                정지
-              </Button>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleMfdsSync("incremental")}
-                >
-                  <RefreshCw className="h-3 w-3 mr-1" />
-                  증분
+
+          {/* Sync buttons (browse mode) */}
+          {mode === "browse" && syncStatus && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              {syncProgress && (
+                <span className="text-[11px] text-muted-foreground max-w-[200px] truncate">{syncProgress}</span>
+              )}
+              {isSyncing ? (
+                <Button variant="destructive" size="sm" className="h-8" onClick={handleStopSync}>
+                  <Square className="h-3 w-3 mr-1" />
+                  정지
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleMfdsSync("full")}
-                >
-                  <Database className="h-3 w-3 mr-1" />
-                  전체
-                </Button>
-              </>
-            )}
-          </div>
+              ) : (
+                <>
+                  <Button variant="outline" size="sm" className="h-8" onClick={() => handleMfdsSync("incremental")}>
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    증분
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-8" onClick={() => handleMfdsSync("full")}>
+                    <Database className="h-3 w-3 mr-1" />
+                    전체
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Search bar with tabs, query, filter chips, recent searches */}
-      <MfdsSearchBar
-        tab={tab}
-        onTabChange={handleTabChange}
-        query={query}
-        onQueryChange={setQuery}
-        searchField={searchField}
-        onSearchFieldChange={setSearchField}
-        activeFilters={activeFilters}
-        onFiltersChange={setActiveFilters}
-        filterLogic={filterLogic}
-        onFilterLogicChange={setFilterLogic}
-        onSearch={() => {
-          if (mode === "manage") {
-            setGlobalFilter(query);
-          } else {
-            if (debounceTimerRef.current) {
-              clearTimeout(debounceTimerRef.current);
-            }
-            doSearch(1);
+        {/* Inline toolbar: result count + column settings (compact) */}
+        {hasSearched && results.length > 0 && (
+          <div className="flex items-center justify-between">
+            <MfdsResultToolbar
+              totalCount={totalCount}
+              page={page}
+              totalPages={totalPages}
+              table={table}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Table fills remaining space */}
+      <div className="flex-1 min-h-0 overflow-auto mt-1.5">
+        <MfdsResultTable
+          table={table}
+          tab={tab}
+          expandedRowId={expandedRowId}
+          onExpandToggle={(rowId) =>
+            setExpandedRowId(expandedRowId === rowId ? null : rowId)
           }
-        }}
-        isPending={isPending}
-        recentSearches={recentSearches.items}
-        onRecentClick={handleRecentClick}
-        hasSearched={hasSearched}
-      />
+          existingStandardCodes={existingStandardCodes}
+          addingId={addingId}
+          onAdd={handleAdd}
+          isPending={isPending}
+          isLoading={isLoading}
+          hasSearched={hasSearched}
+        />
+      </div>
 
-      {/* Result toolbar (summary, column toggle) */}
-      {hasSearched && results.length > 0 && (
-        <MfdsResultToolbar
-          totalCount={totalCount}
+      {/* Pagination always at bottom */}
+      <div className="shrink-0 pt-2">
+        <MfdsPagination
           page={page}
           totalPages={totalPages}
-          table={table}
+          totalCount={totalCount}
+          isPending={isPending}
+          onPageChange={(p) => doSearch(p)}
         />
-      )}
-
-      {/* Result table with accordion expand + action buttons */}
-      <MfdsResultTable
-        table={table}
-        tab={tab}
-        expandedRowId={expandedRowId}
-        onExpandToggle={(rowId) =>
-          setExpandedRowId(expandedRowId === rowId ? null : rowId)
-        }
-        existingStandardCodes={existingStandardCodes}
-        addingId={addingId}
-        onAdd={handleAdd}
-        isPending={isPending}
-        isLoading={isLoading}
-        hasSearched={hasSearched}
-      />
-
-      {/* Pagination */}
-      <MfdsPagination
-        page={page}
-        totalPages={totalPages}
-        totalCount={totalCount}
-        isPending={isPending}
-        onPageChange={(p) => doSearch(p)}
-      />
+      </div>
 
       {/* Sync diff dialog */}
       {syncDiff && (

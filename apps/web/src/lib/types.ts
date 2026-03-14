@@ -303,6 +303,8 @@ export interface CapturedMessage {
   room_name: string | null;
   sender_icon: string | null;
   attached_image: string | null;
+  device_id: string | null;
+  device_name?: string | null;
 }
 
 export interface ChatRoom {

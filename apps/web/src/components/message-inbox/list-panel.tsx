@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Pin } from "lucide-react";
+import { Pin, Smartphone } from "lucide-react";
 import { Pagination } from "@/components/pagination";
 import { cn } from "@/lib/utils";
 import { SOURCE_LABEL, formatDate } from "./constants";
@@ -99,6 +99,12 @@ export function MessageListPanel({
                     </span>
                   )}
                   {msgLocal.isPinned && <Pin className="h-3 w-3 text-amber-500" />}
+                  {msg.device_name && (
+                    <span className="inline-flex items-center gap-0.5 text-[9px] text-muted-foreground" title={msg.device_name}>
+                      <Smartphone className="h-2.5 w-2.5" />
+                      {msg.device_name}
+                    </span>
+                  )}
                   <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 ml-auto">
                     {SOURCE_LABEL[msg.source] || msg.app_name || msg.source}
                   </Badge>

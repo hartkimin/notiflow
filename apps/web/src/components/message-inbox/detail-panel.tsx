@@ -16,7 +16,7 @@ import {
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Trash2, Pin, PinOff, Copy, Pencil, MessageSquare, X, ShoppingCart,
+  Trash2, Pin, PinOff, Copy, Pencil, MessageSquare, X, ShoppingCart, Smartphone,
 } from "lucide-react";
 import { deleteMessage } from "@/lib/actions";
 import { SOURCE_LABEL, formatDateTime } from "./constants";
@@ -127,6 +127,15 @@ export function MessageDetailPanel({ message, localState }: DetailPanelProps) {
           {SOURCE_LABEL[msg.source] || msg.app_name || msg.source}
         </span>
         <span className="text-xs text-muted-foreground">{formatDateTime(msg.received_at)}</span>
+        {msg.device_name && (
+          <>
+            <span className="text-muted-foreground/30">|</span>
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <Smartphone className="h-3 w-3" />
+              {msg.device_name}
+            </span>
+          </>
+        )}
         {msg.room_name && (
           <>
             <span className="text-muted-foreground/30">|</span>

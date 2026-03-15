@@ -175,6 +175,11 @@ export async function getHospitalProductsAction(hospitalId: number) {
   return getHospitalProducts(hospitalId);
 }
 
+export async function getPartnerProductsForOrderAction(hospitalId: number) {
+  const { getPartnerProducts } = await import("@/lib/actions");
+  return getPartnerProducts("hospital", hospitalId);
+}
+
 export async function getProductSuppliersAction(productId: number) {
   const { getProductSuppliers } = await import("@/lib/queries/hospital-products");
   return getProductSuppliers(productId);

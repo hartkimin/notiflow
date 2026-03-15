@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -13,6 +13,8 @@ import {
   FileText,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  Settings2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,28 +38,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  searchHospitalsAction,
-  getHospitalProductsAction,
-  getProductSuppliersAction,
+  getPartnerProductsForOrderAction,
   createOrderWithDetailsAction,
 } from "@/app/(dashboard)/orders/actions";
 import { UNIT_OPTIONS, CUSTOM_UNIT_VALUE } from "@/lib/unit-types";
 import type { OrderDisplayColumns } from "@/lib/queries/settings";
-import type { HospitalProduct, ProductSupplierOption } from "@/lib/types";
+import type { ProductSupplierOption } from "@/lib/types";
 
-// ── Column label maps ──────────────────────────────────────
-
-const DRUG_LABELS: Record<string, string> = {
-  ITEM_SEQ: "품목기준코드", ITEM_NAME: "품목명", ITEM_ENG_NAME: "영문명",
-  ENTP_NAME: "업체명", BAR_CODE: "표준코드", MATERIAL_NAME: "성분",
-  EDI_CODE: "보험코드", STORAGE_METHOD: "저장방법", PACK_UNIT: "포장단위",
-  ATC_CODE: "ATC코드", ETC_OTC_CODE: "전문/일반",
-};
-const DEVICE_LABELS: Record<string, string> = {
-  PRDLST_NM: "품목명", UDIDI_CD: "UDI-DI코드", MNFT_IPRT_ENTP_NM: "제조수입업체명",
-  MDEQ_CLSF_NO: "분류번호", CLSF_NO_GRAD_CD: "등급", FOML_INFO: "모델명",
-  PRDT_NM_INFO: "제품명",
-};
+// ── Partner product (from partner_products table) ─────────
+interface PartnerProduct {
+  id: number;
+  product_source: "drug" | "device" | "product";
+  product_id: number;
+  name: string;
+  code: string;
+  unit_price: number | null;
+}
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -65,7 +61,6 @@ interface LineItem {
   key: string;
   product_id: number;
   product_name: string;
-  manufacturer: string | null;
   standard_code: string | null;
   supplier_id: number | null;
   supplier_name: string | null;
@@ -76,7 +71,6 @@ interface LineItem {
   purchase_price: number | null;
   selling_price: number | null;
   kpis_number: string;
-  raw: Record<string, unknown>;
   source_type: "drug" | "device" | "product";
 }
 
@@ -84,6 +78,22 @@ interface Props {
   displayColumns: OrderDisplayColumns;
   sourceMessageId?: string;
 }
+
+// ── Optional column definitions ────────────────────────────
+
+interface OptionalColumn {
+  id: string;
+  label: string;
+  matchKeys: string[]; // displayColumns keys that activate this
+}
+
+const OPTIONAL_COLUMNS: OptionalColumn[] = [
+  { id: "standard_code", label: "표준코드", matchKeys: ["BAR_CODE", "UDIDI_CD"] },
+  { id: "supplier", label: "공급사", matchKeys: ["ENTP_NAME", "MNFT_IPRT_ENTP_NM"] },
+  { id: "unit", label: "단위", matchKeys: [] },
+  { id: "purchase_price", label: "매입가", matchKeys: [] },
+  { id: "kpis", label: "KPIS", matchKeys: [] },
+];
 
 let _keyCounter = 0;
 function nextKey() { return `po-${Date.now()}-${++_keyCounter}`; }
@@ -97,41 +107,86 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
   const [hospitalId, setHospitalId] = useState<number | null>(null);
   const [hospitalName, setHospitalName] = useState("");
   const [hospitalSearch, setHospitalSearch] = useState("");
-  const [hospitalResults, setHospitalResults] = useState<Array<{ id: number; name: string }>>([]);
-  const [hospitalSearching, setHospitalSearching] = useState(false);
-  const [showHospitalList, setShowHospitalList] = useState(false);
 
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
   const [deliveryDate, setDeliveryDate] = useState("");
   const [notes, setNotes] = useState("");
 
-  // ── Hospital products ──
-  const [hospitalProducts, setHospitalProducts] = useState<HospitalProduct[]>([]);
+  // ── Partner products (거래처 등록 품목) ──
+  const [partnerProducts, setPartnerProducts] = useState<PartnerProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
+  const [showPartnerList, setShowPartnerList] = useState(false);
   const [hpSearch, setHpSearch] = useState("");
   const [hpPage, setHpPage] = useState(1);
   const HP_PAGE_SIZE = 10;
 
-  // ── Item add state (stepped) ──
-  const [selectedProduct, setSelectedProduct] = useState<HospitalProduct | null>(null);
-  const [productSuppliers, setProductSuppliers] = useState<ProductSupplierOption[]>([]);
-  const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
-  const [addQuantity, setAddQuantity] = useState(1);
-  const [addUnitType, setAddUnitType] = useState("piece");
-  const [addCustomUnit, setAddCustomUnit] = useState(false);
-  const [addSellingPrice, setAddSellingPrice] = useState<number | null>(null);
-  const [addKpis, setAddKpis] = useState("");
+  // ── All products (for search fallback) ──
+  const [allProducts, setAllProducts] = useState<Array<{ id: number; name: string; official_name: string; manufacturer: string | null; standard_code: string | null }>>([]);
+  const [productSearch, setProductSearch] = useState("");
 
   // ── Line items ──
   const [items, setItems] = useState<LineItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ── Optional columns visibility ──
+  const defaultVisibleCols = useMemo(() => {
+    const allKeys = [...(displayColumns.drug ?? []), ...(displayColumns.device ?? [])];
+    const visible = new Set<string>();
+    for (const col of OPTIONAL_COLUMNS) {
+      if (col.matchKeys.some((k) => allKeys.includes(k))) {
+        visible.add(col.id);
+      }
+    }
+    return visible;
+  }, [displayColumns]);
+
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(new Set());
+  const [showColSettings, setShowColSettings] = useState(false);
+
+  // ── Column widths (resizable) ──
+  const [colWidths, setColWidths] = useState<Record<string, number>>({});
+  const resizingRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
+
+  const handleResizeStart = useCallback((col: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const th = (e.target as HTMLElement).closest("th");
+    const startW = th?.offsetWidth ?? 100;
+    resizingRef.current = { col, startX, startW };
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const diff = ev.clientX - resizingRef.current.startX;
+      const newW = Math.max(40, resizingRef.current.startW + diff);
+      setColWidths((prev) => ({ ...prev, [resizingRef.current!.col]: newW }));
+    };
+    const onMouseUp = () => {
+      resizingRef.current = null;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, []);
+
+  // ── Hospital search toggle ──
+  const [showHospitalList, setShowHospitalList] = useState(false);
+
+  useEffect(() => { setVisibleCols(defaultVisibleCols); }, [defaultVisibleCols]);
+
+  function toggleCol(id: string) {
+    setVisibleCols((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   // ── All hospitals (pre-load) ──
   const [allHospitals, setAllHospitals] = useState<Array<{ id: number; name: string }>>([]);
   const [hospitalsLoaded, setHospitalsLoaded] = useState(false);
 
   useEffect(() => {
-    // Load all hospitals on mount via server action
     (async () => {
       const { getAllHospitalsAction } = await import("@/app/(dashboard)/orders/actions");
       const hospitals = await getAllHospitalsAction();
@@ -140,24 +195,20 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
     })();
   }, []);
 
-  // ── Hospital search (filter from pre-loaded list) ──
   const filteredHospitals = hospitalSearch.length > 0
     ? allHospitals.filter((h) => h.name.toLowerCase().includes(hospitalSearch.toLowerCase()))
     : allHospitals;
 
-  // ── Load hospital products + fallback to all products ──
-  const [allProducts, setAllProducts] = useState<Array<{ id: number; name: string; official_name: string; manufacturer: string | null; standard_code: string | null }>>([]);
-  const [productSearch, setProductSearch] = useState("");
-
+  // ── Load partner products for selected hospital ──
   useEffect(() => {
-    if (!hospitalId) { setHospitalProducts([]); return; }
+    if (!hospitalId) { setPartnerProducts([]); return; }
     setProductsLoading(true);
     Promise.all([
-      getHospitalProductsAction(hospitalId),
+      getPartnerProductsForOrderAction(hospitalId),
       import("@/app/(dashboard)/orders/actions").then(({ getAllProductsAction }) => getAllProductsAction()),
     ])
-      .then(([hpProducts, catalog]) => {
-        setHospitalProducts(hpProducts);
+      .then(([ppList, catalog]) => {
+        setPartnerProducts(ppList);
         setAllProducts(catalog);
       })
       .finally(() => setProductsLoading(false));
@@ -167,66 +218,34 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
     setHospitalId(h.id);
     setHospitalName(h.name);
     setHospitalSearch("");
-    setShowHospitalList(false);
-    setHospitalResults([]);
-    // Reset product selection
-    setSelectedProduct(null);
-    setProductSuppliers([]);
+    setShowPartnerList(false);
     setHpSearch("");
     setHpPage(1);
   }
 
-  // ── Product selection → load suppliers ──
-  async function selectProduct(hp: HospitalProduct) {
-    setSelectedProduct(hp);
-    setAddQuantity(hp.default_quantity ?? 1);
-    setAddSellingPrice(hp.selling_price);
-    setAddKpis("");
-    setAddUnitType("piece");
-    setAddCustomUnit(false);
-
-    const suppliers = hp.suppliers.length > 0 ? hp.suppliers : await getProductSuppliersAction(hp.product_id);
-    setProductSuppliers(suppliers);
-    const primary = suppliers.find((s) => s.is_primary) ?? suppliers[0];
-    setSelectedSupplierId(primary?.supplier_id ?? null);
-  }
-
-  // ── Add line item ──
-  function addLineItem() {
-    if (!selectedProduct) return;
-    if (items.some((i) => i.product_id === selectedProduct.product_id)) {
+  // ── Add product directly to line items ──
+  function addProduct(pp: PartnerProduct) {
+    const dupKey = `${pp.product_source}-${pp.product_id}`;
+    if (items.some((i) => `${i.source_type}-${i.product_id}` === dupKey)) {
       toast.error("이미 추가된 품목입니다");
       return;
     }
-
-    const supplier = productSuppliers.find((s) => s.supplier_id === selectedSupplierId);
-
     setItems((prev) => [...prev, {
       key: nextKey(),
-      product_id: selectedProduct.product_id,
-      product_name: selectedProduct.product_name,
-      manufacturer: selectedProduct.manufacturer,
-      standard_code: selectedProduct.standard_code,
-      supplier_id: selectedSupplierId,
-      supplier_name: supplier?.supplier_name ?? null,
-      suppliers: productSuppliers,
-      quantity: addQuantity,
-      unit_type: addUnitType,
-      custom_unit: addCustomUnit,
-      purchase_price: supplier?.purchase_price ?? null,
-      selling_price: addSellingPrice,
-      kpis_number: addKpis,
-      raw: {},
-      source_type: "product",
+      product_id: pp.product_id,
+      product_name: pp.name,
+      standard_code: pp.code || null,
+      supplier_id: null,
+      supplier_name: null,
+      suppliers: [],
+      quantity: 1,
+      unit_type: "piece",
+      custom_unit: false,
+      purchase_price: null,
+      selling_price: pp.unit_price,
+      kpis_number: "",
+      source_type: pp.product_source,
     }]);
-
-    // Reset add form
-    setSelectedProduct(null);
-    setProductSuppliers([]);
-    setSelectedSupplierId(null);
-    setAddQuantity(1);
-    setAddSellingPrice(null);
-    setAddKpis("");
   }
 
   function removeItem(key: string) {
@@ -275,10 +294,21 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
     }
   }
 
-  const selectedSupplier = productSuppliers.find((s) => s.supplier_id === selectedSupplierId);
+  // ── Partner products filtered/paged ──
+  const filteredPartner = useMemo(() => {
+    if (hpSearch.length === 0) return partnerProducts;
+    const q = hpSearch.toLowerCase();
+    return partnerProducts.filter((pp) =>
+      pp.name.toLowerCase().includes(q) || (pp.code ?? "").toLowerCase().includes(q)
+    );
+  }, [partnerProducts, hpSearch]);
+
+  const ppTotalPages = Math.ceil(filteredPartner.length / HP_PAGE_SIZE);
+  const ppSafePage = Math.min(hpPage, Math.max(1, ppTotalPages));
+  const ppPaged = filteredPartner.slice((ppSafePage - 1) * HP_PAGE_SIZE, ppSafePage * HP_PAGE_SIZE);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-0">
+    <div className="w-full space-y-0">
       {/* ── PO Header ────────────────────────────────── */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -315,7 +345,7 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
                     </Badge>
                     <button
                       type="button"
-                      onClick={() => { setHospitalId(null); setHospitalName(""); setHospitalProducts([]); setSelectedProduct(null); }}
+                      onClick={() => { setHospitalId(null); setHospitalName(""); setPartnerProducts([]); setShowPartnerList(false); }}
                       className="text-muted-foreground hover:text-foreground"
                     >
                       <X className="h-4 w-4" />
@@ -323,33 +353,46 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
                   </div>
                 ) : (
                   <>
-                    <div className="relative mt-1.5">
-                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="거래처 검색 (입력하면 필터링됩니다)..."
-                        value={hospitalSearch}
-                        onChange={(e) => setHospitalSearch(e.target.value)}
-                        className="pl-8"
-                      />
+                    <div className="relative mt-1.5 flex gap-1.5">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="거래처명을 입력하세요..."
+                          value={hospitalSearch}
+                          onChange={(e) => setHospitalSearch(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") setShowHospitalList(true); }}
+                          className="pl-8"
+                        />
+                      </div>
+                      <Button
+                        variant={showHospitalList ? "default" : "outline"}
+                        size="sm"
+                        className="h-9 px-3"
+                        onClick={() => setShowHospitalList(!showHospitalList)}
+                      >
+                        {showHospitalList ? "닫기" : "검색"}
+                      </Button>
                     </div>
-                    <div className="mt-1.5 border rounded-md max-h-[200px] overflow-y-auto bg-white">
-                      {!hospitalsLoaded ? (
-                        <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
-                      ) : filteredHospitals.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-3">검색 결과 없음</p>
-                      ) : (
-                        filteredHospitals.map((h) => (
-                          <button
-                            key={h.id}
-                            type="button"
-                            className="flex w-full items-center px-3 py-2 text-sm hover:bg-accent text-left border-b last:border-b-0"
-                            onClick={() => selectHospital(h)}
-                          >
-                            {h.name}
-                          </button>
-                        ))
-                      )}
-                    </div>
+                    {showHospitalList && (
+                      <div className="mt-1.5 border rounded-md max-h-[200px] overflow-y-auto bg-white animate-in slide-in-from-top-1 fade-in duration-150">
+                        {!hospitalsLoaded ? (
+                          <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+                        ) : filteredHospitals.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-3">검색 결과 없음</p>
+                        ) : (
+                          filteredHospitals.map((h) => (
+                            <button
+                              key={h.id}
+                              type="button"
+                              className="flex w-full items-center px-3 py-2 text-sm hover:bg-accent text-left border-b last:border-b-0"
+                              onClick={() => { selectHospital(h); setShowHospitalList(false); }}
+                            >
+                              {h.name}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -391,255 +434,150 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="space-y-4">
-              {/* Step 1: Product selection */}
-              <div>
-                <Label className="text-xs font-medium">1. 품목 선택</Label>
-
-                {/* Hospital registered products */}
-                {hospitalProducts.length > 0 && (() => {
-                  const filtered = hpSearch.length > 0
-                    ? hospitalProducts.filter((hp) =>
-                        hp.product_name.toLowerCase().includes(hpSearch.toLowerCase()) ||
-                        (hp.manufacturer ?? "").toLowerCase().includes(hpSearch.toLowerCase())
-                      )
-                    : hospitalProducts;
-                  const totalPages = Math.ceil(filtered.length / HP_PAGE_SIZE);
-                  const safePage = Math.min(hpPage, Math.max(1, totalPages));
-                  const paged = filtered.slice((safePage - 1) * HP_PAGE_SIZE, safePage * HP_PAGE_SIZE);
-
-                  return (
-                    <>
-                      <div className="flex items-center justify-between mt-1 mb-1">
-                        <p className="text-[11px] text-muted-foreground">
-                          거래처 등록 품목
-                          <span className="ml-1 text-foreground font-medium">{filtered.length}건</span>
-                        </p>
-                      </div>
-                      <div className="relative mb-2">
-                        <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-                        <Input
-                          placeholder="등록 품목 검색 (품목명, 제조사)..."
-                          value={hpSearch}
-                          onChange={(e) => { setHpSearch(e.target.value); setHpPage(1); }}
-                          className="pl-8 h-8 text-xs"
-                        />
-                      </div>
-                      {filtered.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-md">
-                          검색 결과 없음
-                        </p>
-                      ) : (
-                        <>
-                          <div className="border rounded-md bg-white">
-                            {paged.map((hp) => {
-                              const isSelected = selectedProduct?.product_id === hp.product_id;
-                              const isAdded = items.some((i) => i.product_id === hp.product_id);
-                              return (
-                                <button
-                                  key={hp.product_id}
-                                  type="button"
-                                  disabled={isAdded}
-                                  className={`flex w-full items-center justify-between px-3 py-2 text-sm border-b last:border-b-0 text-left transition-colors ${
-                                    isSelected ? "bg-primary/5 border-l-2 border-l-primary" : "hover:bg-accent"
-                                  } ${isAdded ? "opacity-40 cursor-not-allowed" : ""}`}
-                                  onClick={() => selectProduct(hp)}
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span className="font-medium truncate">{hp.product_name}</span>
-                                    {hp.manufacturer && <span className="text-xs text-muted-foreground shrink-0">{hp.manufacturer}</span>}
-                                  </div>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    {hp.selling_price != null && (
-                                      <span className="text-xs text-muted-foreground">판매 {hp.selling_price.toLocaleString()}원</span>
-                                    )}
-                                    {isAdded && <Badge variant="outline" className="text-[10px]">추가됨</Badge>}
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {totalPages > 1 && (
-                            <div className="flex items-center justify-center gap-1 mt-2">
-                              <Button
-                                variant="outline" size="icon" className="h-7 w-7"
-                                disabled={safePage <= 1}
-                                onClick={() => setHpPage(safePage - 1)}
-                              >
-                                <ChevronLeft className="h-3.5 w-3.5" />
-                              </Button>
-                              <span className="text-xs text-muted-foreground px-2">
-                                {safePage} / {totalPages}
-                              </span>
-                              <Button
-                                variant="outline" size="icon" className="h-7 w-7"
-                                disabled={safePage >= totalPages}
-                                onClick={() => setHpPage(safePage + 1)}
-                              >
-                                <ChevronRight className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </>
-                  );
-                })()}
-
-                {/* Product search (all products) */}
-                <div className="mt-3">
-                  <p className="text-[11px] text-muted-foreground mb-1">
-                    {hospitalProducts.length > 0 ? "또는 전체 품목에서 검색" : "전체 품목에서 검색"}
-                  </p>
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="품목명으로 검색..."
-                      value={productSearch}
-                      onChange={(e) => setProductSearch(e.target.value)}
-                      className="pl-8 h-9 text-sm"
-                    />
-                  </div>
-                  {productSearch.length >= 1 && (
-                    <div className="mt-1 border rounded-md max-h-[180px] overflow-y-auto bg-white">
-                      {(() => {
-                        const filtered = allProducts.filter((p) =>
-                          (p.official_name || p.name).toLowerCase().includes(productSearch.toLowerCase())
-                        ).slice(0, 30);
-                        if (filtered.length === 0) return <p className="text-sm text-muted-foreground text-center py-3">검색 결과 없음</p>;
-                        return filtered.map((p) => {
-                          const isAdded = items.some((i) => i.product_id === p.id);
-                          return (
-                            <button
-                              key={p.id}
-                              type="button"
-                              disabled={isAdded}
-                              className={`flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-accent text-left border-b last:border-b-0 ${isAdded ? "opacity-40 cursor-not-allowed" : ""}`}
-                              onClick={() => {
-                                const asHp: HospitalProduct = {
-                                  id: 0, hospital_id: hospitalId!, product_id: p.id,
-                                  product_name: p.official_name || p.name,
-                                  manufacturer: p.manufacturer, standard_code: p.standard_code,
-                                  selling_price: null, default_quantity: null, suppliers: [],
-                                };
-                                selectProduct(asHp);
-                                setProductSearch("");
-                              }}
-                            >
-                              <span className="font-medium truncate">{p.official_name || p.name}</span>
-                              {isAdded && <Badge variant="outline" className="text-[10px]">추가됨</Badge>}
-                            </button>
-                          );
-                        });
-                      })()}
-                    </div>
+            <div className="space-y-3">
+              {/* Toggle buttons */}
+              <div className="flex items-center gap-2">
+                {partnerProducts.length > 0 && (
+                  <Button
+                    variant={showPartnerList ? "default" : "outline"}
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={() => { setShowPartnerList(!showPartnerList); setProductSearch(""); }}
+                  >
+                    <Search className="h-3.5 w-3.5" />
+                    거래처 품목
+                    <Badge variant={showPartnerList ? "secondary" : "outline"} className="text-[10px] px-1.5 ml-0.5">
+                      {partnerProducts.length}
+                    </Badge>
+                    <ChevronDown className={`h-3 w-3 transition-transform ${showPartnerList ? "rotate-180" : ""}`} />
+                  </Button>
+                )}
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="전체 품목에서 검색..."
+                    value={productSearch}
+                    onChange={(e) => { setProductSearch(e.target.value); if (e.target.value) setShowPartnerList(false); }}
+                    className="pl-8 h-8 text-xs"
+                  />
+                  {productSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setProductSearch("")}
+                      className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   )}
                 </div>
               </div>
 
-              {/* Step 2-7: Details (only when product selected) */}
-              {selectedProduct && (
-                <div className="border rounded-lg p-4 bg-white space-y-4">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <Badge variant="secondary">{selectedProduct.product_name}</Badge>
+              {/* Partner products panel (toggled) */}
+              {showPartnerList && (
+                <div className="border rounded-lg bg-white p-3 space-y-2 animate-in slide-in-from-top-1 fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] text-muted-foreground">
+                      거래처 등록 품목
+                      <span className="ml-1 text-foreground font-medium">{filteredPartner.length}건</span>
+                    </p>
+                    <button type="button" onClick={() => setShowPartnerList(false)} className="text-muted-foreground hover:text-foreground">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   </div>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="등록 품목 검색 (품목명, 코드)..."
+                      value={hpSearch}
+                      onChange={(e) => { setHpSearch(e.target.value); setHpPage(1); }}
+                      className="pl-8 h-8 text-xs"
+                    />
+                  </div>
+                  {filteredPartner.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-3">검색 결과 없음</p>
+                  ) : (
+                    <>
+                      <div className="border rounded-md max-h-[240px] overflow-y-auto">
+                        {ppPaged.map((pp) => {
+                          const ppKey = `${pp.product_source}-${pp.product_id}`;
+                          const isAdded = items.some((i) => `${i.source_type}-${i.product_id}` === ppKey);
+                          return (
+                            <button
+                              key={ppKey}
+                              type="button"
+                              disabled={isAdded}
+                              className={`flex w-full items-center justify-between px-3 py-2 text-sm border-b last:border-b-0 text-left transition-colors hover:bg-accent ${isAdded ? "opacity-40 cursor-not-allowed" : ""}`}
+                              onClick={() => addProduct(pp)}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Badge variant="outline" className={`text-[9px] px-1 py-0 h-4 shrink-0 ${
+                                  pp.product_source === "drug" ? "text-blue-600 bg-blue-50 border-blue-200" : "text-emerald-600 bg-emerald-50 border-emerald-200"
+                                }`}>
+                                  {pp.product_source === "drug" ? "약" : "기기"}
+                                </Badge>
+                                <span className="font-medium truncate">{pp.name}</span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {pp.unit_price != null && (
+                                  <span className="text-xs text-muted-foreground">{pp.unit_price.toLocaleString()}원</span>
+                                )}
+                                {isAdded ? (
+                                  <Badge variant="outline" className="text-[10px]">추가됨</Badge>
+                                ) : (
+                                  <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {ppTotalPages > 1 && (
+                        <div className="flex items-center justify-center gap-1">
+                          <Button variant="outline" size="icon" className="h-7 w-7" disabled={ppSafePage <= 1} onClick={() => setHpPage(ppSafePage - 1)}>
+                            <ChevronLeft className="h-3.5 w-3.5" />
+                          </Button>
+                          <span className="text-xs text-muted-foreground px-2">{ppSafePage} / {ppTotalPages}</span>
+                          <Button variant="outline" size="icon" className="h-7 w-7" disabled={ppSafePage >= ppTotalPages} onClick={() => setHpPage(ppSafePage + 1)}>
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
 
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                    {/* 2. Supplier */}
-                    <div className="col-span-2 md:col-span-1">
-                      <Label className="text-xs font-medium">2. 공급사</Label>
-                      {productSuppliers.length > 0 ? (
-                        <Select
-                          value={selectedSupplierId?.toString() ?? ""}
-                          onValueChange={(v) => setSelectedSupplierId(Number(v))}
+              {/* All products search results */}
+              {productSearch.length >= 1 && (
+                <div className="border rounded-md max-h-[200px] overflow-y-auto bg-white">
+                  {(() => {
+                    const filtered = allProducts.filter((p) =>
+                      (p.official_name || p.name).toLowerCase().includes(productSearch.toLowerCase())
+                    ).slice(0, 30);
+                    if (filtered.length === 0) return <p className="text-sm text-muted-foreground text-center py-3">검색 결과 없음</p>;
+                    return filtered.map((p) => {
+                      const isAdded = items.some((i) => i.source_type === "product" && i.product_id === p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          disabled={isAdded}
+                          className={`flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-accent text-left border-b last:border-b-0 ${isAdded ? "opacity-40 cursor-not-allowed" : ""}`}
+                          onClick={() => {
+                            addProduct({ id: 0, product_source: "product", product_id: p.id, name: p.official_name || p.name, code: p.standard_code ?? "", unit_price: null });
+                            setProductSearch("");
+                          }}
                         >
-                          <SelectTrigger className="mt-1 h-9 text-xs">
-                            <SelectValue placeholder="선택" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {productSuppliers.map((s) => (
-                              <SelectItem key={s.supplier_id} value={s.supplier_id.toString()}>
-                                {s.supplier_name}
-                                {s.purchase_price != null && ` — ${s.purchase_price.toLocaleString()}원`}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <p className="text-xs text-muted-foreground mt-1">공급사 없음</p>
-                      )}
-                      {selectedSupplier?.purchase_price != null && (
-                        <p className="text-[11px] text-muted-foreground mt-1">
-                          매입가: <span className="font-medium">{selectedSupplier.purchase_price.toLocaleString()}원</span>
-                        </p>
-                      )}
-                    </div>
-
-                    {/* 3. Quantity */}
-                    <div>
-                      <Label className="text-xs font-medium">3. 수량</Label>
-                      <Input
-                        type="number" min={1} value={addQuantity}
-                        onChange={(e) => setAddQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="mt-1 h-9 text-xs"
-                      />
-                    </div>
-
-                    {/* 4. Unit */}
-                    <div>
-                      <Label className="text-xs font-medium">4. 단위</Label>
-                      {addCustomUnit ? (
-                        <Input
-                          value={addUnitType} placeholder="단위 입력"
-                          onChange={(e) => setAddUnitType(e.target.value.slice(0, 20))}
-                          className="mt-1 h-9 text-xs" autoFocus
-                        />
-                      ) : (
-                        <Select value={addUnitType} onValueChange={(v) => {
-                          if (v === CUSTOM_UNIT_VALUE) { setAddCustomUnit(true); setAddUnitType(""); }
-                          else setAddUnitType(v);
-                        }}>
-                          <SelectTrigger className="mt-1 h-9 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {UNIT_OPTIONS.map((u) => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
-                            <SelectItem value={CUSTOM_UNIT_VALUE}>직접입력</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </div>
-
-                    {/* 5. Selling price */}
-                    <div>
-                      <Label className="text-xs font-medium">5. 공급가</Label>
-                      <Input
-                        type="number" min={0} value={addSellingPrice ?? ""}
-                        onChange={(e) => setAddSellingPrice(e.target.value ? parseFloat(e.target.value) : null)}
-                        placeholder="0" className="mt-1 h-9 text-xs"
-                      />
-                      {addSellingPrice != null && addQuantity > 0 && (
-                        <p className="text-[11px] text-muted-foreground mt-1">
-                          총액: <span className="font-medium">{(addSellingPrice * addQuantity).toLocaleString()}원</span>
-                        </p>
-                      )}
-                    </div>
-
-                    {/* 7. KPIS */}
-                    <div>
-                      <Label className="text-xs font-medium">6. KPIS</Label>
-                      <Input
-                        value={addKpis} placeholder="신고번호"
-                        onChange={(e) => setAddKpis(e.target.value.slice(0, 100))}
-                        className="mt-1 h-9 text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button size="sm" onClick={addLineItem} className="gap-1">
-                      <Plus className="h-3.5 w-3.5" />
-                      품목 추가
-                    </Button>
-                  </div>
+                          <span className="font-medium truncate">{p.official_name || p.name}</span>
+                          {isAdded ? (
+                            <Badge variant="outline" className="text-[10px]">추가됨</Badge>
+                          ) : (
+                            <Plus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          )}
+                        </button>
+                      );
+                    });
+                  })()}
                 </div>
               )}
             </div>
@@ -648,9 +586,38 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
 
         {/* ── Line Items Table ─────────────────────────── */}
         <div className="p-6">
-          <h3 className="text-sm font-semibold mb-3">
-            주문 품목 {items.length > 0 && <span className="text-muted-foreground font-normal">({items.length}건)</span>}
-          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold">
+              주문 품목 {items.length > 0 && <span className="text-muted-foreground font-normal">({items.length}건)</span>}
+            </h3>
+            {/* Column settings toggle */}
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1 text-xs text-muted-foreground h-7"
+                onClick={() => setShowColSettings(!showColSettings)}
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                컬럼 설정
+              </Button>
+              {showColSettings && (
+                <div className="absolute right-0 top-8 z-10 bg-white border rounded-lg shadow-lg p-2 min-w-[140px] animate-in fade-in zoom-in-95 duration-100">
+                  {OPTIONAL_COLUMNS.map((col) => (
+                    <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 text-xs hover:bg-accent rounded cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={visibleCols.has(col.id)}
+                        onChange={() => toggleCol(col.id)}
+                        className="rounded border-gray-300"
+                      />
+                      {col.label}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
           {items.length === 0 ? (
             <div className="text-center py-12 text-sm text-muted-foreground border border-dashed rounded-lg">
@@ -658,18 +625,59 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
             </div>
           ) : (
             <div className="border rounded-md overflow-x-auto">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow className="bg-muted/30">
-                    <TableHead className="text-xs w-[40px]">#</TableHead>
-                    <TableHead className="text-xs min-w-[160px]">품목명</TableHead>
-                    <TableHead className="text-xs min-w-[120px]">공급사</TableHead>
-                    <TableHead className="text-xs w-[70px] text-right">수량</TableHead>
-                    <TableHead className="text-xs w-[60px]">단위</TableHead>
-                    <TableHead className="text-xs w-[90px] text-right">매입가</TableHead>
-                    <TableHead className="text-xs w-[90px] text-right">공급가</TableHead>
-                    <TableHead className="text-xs w-[100px] text-right">금액</TableHead>
-                    <TableHead className="text-xs w-[80px]">KPIS</TableHead>
+                    <TableHead className="text-xs relative" style={{ width: colWidths["no"] ?? 40 }}>
+                      #
+                      <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("no", e)} />
+                    </TableHead>
+                    <TableHead className="text-xs relative" style={{ width: colWidths["name"] ?? 200 }}>
+                      품목명
+                      <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("name", e)} />
+                    </TableHead>
+                    {visibleCols.has("standard_code") && (
+                      <TableHead className="text-xs relative" style={{ width: colWidths["standard_code"] ?? 120 }}>
+                        표준코드
+                        <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("standard_code", e)} />
+                      </TableHead>
+                    )}
+                    {visibleCols.has("supplier") && (
+                      <TableHead className="text-xs relative" style={{ width: colWidths["supplier"] ?? 120 }}>
+                        공급사
+                        <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("supplier", e)} />
+                      </TableHead>
+                    )}
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["qty"] ?? 70 }}>
+                      수량
+                      <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("qty", e)} />
+                    </TableHead>
+                    {visibleCols.has("unit") && (
+                      <TableHead className="text-xs relative" style={{ width: colWidths["unit"] ?? 80 }}>
+                        단위
+                        <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("unit", e)} />
+                      </TableHead>
+                    )}
+                    {visibleCols.has("purchase_price") && (
+                      <TableHead className="text-xs text-right relative" style={{ width: colWidths["purchase_price"] ?? 90 }}>
+                        매입가
+                        <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("purchase_price", e)} />
+                      </TableHead>
+                    )}
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["selling_price"] ?? 90 }}>
+                      공급가
+                      <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("selling_price", e)} />
+                    </TableHead>
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["amount"] ?? 100 }}>
+                      금액
+                      <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("amount", e)} />
+                    </TableHead>
+                    {visibleCols.has("kpis") && (
+                      <TableHead className="text-xs relative" style={{ width: colWidths["kpis"] ?? 100 }}>
+                        KPIS
+                        <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("kpis", e)} />
+                      </TableHead>
+                    )}
                     <TableHead className="text-xs w-[36px]" />
                   </TableRow>
                 </TableHeader>
@@ -680,10 +688,25 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
                       <TableRow key={item.key}>
                         <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
                         <TableCell className="text-sm">
-                          <div className="font-medium truncate max-w-[200px]">{item.product_name}</div>
-                          {item.manufacturer && <div className="text-[11px] text-muted-foreground">{item.manufacturer}</div>}
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="outline" className={`text-[8px] px-1 py-0 h-3.5 shrink-0 ${
+                              item.source_type === "drug" ? "text-blue-600 bg-blue-50 border-blue-200"
+                                : item.source_type === "device" ? "text-emerald-600 bg-emerald-50 border-emerald-200"
+                                : "text-gray-500 bg-gray-50 border-gray-200"
+                            }`}>
+                              {item.source_type === "drug" ? "약" : item.source_type === "device" ? "기기" : "기타"}
+                            </Badge>
+                            <span className="font-medium truncate max-w-[180px]">{item.product_name}</span>
+                          </div>
                         </TableCell>
-                        <TableCell className="text-xs">{item.supplier_name ?? "-"}</TableCell>
+                        {visibleCols.has("standard_code") && (
+                          <TableCell className="text-xs text-muted-foreground font-mono">
+                            {item.standard_code || "-"}
+                          </TableCell>
+                        )}
+                        {visibleCols.has("supplier") && (
+                          <TableCell className="text-xs">{item.supplier_name ?? "-"}</TableCell>
+                        )}
                         <TableCell className="text-right">
                           <Input
                             type="number" min={1} value={item.quantity}
@@ -691,12 +714,37 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
                             className="h-7 w-[60px] text-xs text-right ml-auto"
                           />
                         </TableCell>
-                        <TableCell className="text-xs">
-                          {item.custom_unit ? item.unit_type : UNIT_OPTIONS.find((u) => u.value === item.unit_type)?.label ?? item.unit_type}
-                        </TableCell>
-                        <TableCell className="text-right text-xs tabular-nums">
-                          {item.purchase_price != null ? item.purchase_price.toLocaleString() : "-"}
-                        </TableCell>
+                        {visibleCols.has("unit") && (
+                          <TableCell>
+                            {item.custom_unit ? (
+                              <Input
+                                value={item.unit_type}
+                                onChange={(e) => updateItem(item.key, { unit_type: e.target.value.slice(0, 20) })}
+                                className="h-7 w-[70px] text-xs"
+                              />
+                            ) : (
+                              <Select value={item.unit_type} onValueChange={(v) => {
+                                if (v === CUSTOM_UNIT_VALUE) updateItem(item.key, { custom_unit: true, unit_type: "" });
+                                else updateItem(item.key, { unit_type: v });
+                              }}>
+                                <SelectTrigger className="h-7 w-[70px] text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {UNIT_OPTIONS.map((u) => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
+                                  <SelectItem value={CUSTOM_UNIT_VALUE}>직접입력</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </TableCell>
+                        )}
+                        {visibleCols.has("purchase_price") && (
+                          <TableCell className="text-right">
+                            <Input
+                              type="number" min={0} value={item.purchase_price ?? ""}
+                              onChange={(e) => updateItem(item.key, { purchase_price: e.target.value ? parseFloat(e.target.value) : null })}
+                              className="h-7 w-[80px] text-xs text-right ml-auto"
+                            />
+                          </TableCell>
+                        )}
                         <TableCell className="text-right">
                           <Input
                             type="number" min={0} value={item.selling_price ?? ""}
@@ -707,9 +755,16 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
                         <TableCell className="text-right text-xs tabular-nums font-medium">
                           {lineTotal.toLocaleString()}
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground truncate max-w-[80px]">
-                          {item.kpis_number || "-"}
-                        </TableCell>
+                        {visibleCols.has("kpis") && (
+                          <TableCell>
+                            <Input
+                              value={item.kpis_number}
+                              onChange={(e) => updateItem(item.key, { kpis_number: e.target.value.slice(0, 100) })}
+                              placeholder="신고번호"
+                              className="h-7 w-[90px] text-xs"
+                            />
+                          </TableCell>
+                        )}
                         <TableCell>
                           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeItem(item.key)}>
                             <X className="h-3.5 w-3.5" />
@@ -718,6 +773,30 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
                       </TableRow>
                     );
                   })}
+                  {/* ── Totals row ── */}
+                  <TableRow className="bg-muted/40 font-semibold border-t-2">
+                    <TableCell className="text-xs" />
+                    <TableCell className="text-xs">합계</TableCell>
+                    {visibleCols.has("standard_code") && <TableCell />}
+                    {visibleCols.has("supplier") && <TableCell />}
+                    <TableCell className="text-right text-xs tabular-nums">
+                      {items.reduce((s, i) => s + i.quantity, 0)}
+                    </TableCell>
+                    {visibleCols.has("unit") && <TableCell />}
+                    {visibleCols.has("purchase_price") && (
+                      <TableCell className="text-right text-xs tabular-nums">
+                        {totalPurchase.toLocaleString()}
+                      </TableCell>
+                    )}
+                    <TableCell className="text-right text-xs tabular-nums">
+                      {items.reduce((s, i) => s + (i.selling_price ?? 0), 0).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right text-xs tabular-nums font-bold">
+                      {totalSelling.toLocaleString()}원
+                    </TableCell>
+                    {visibleCols.has("kpis") && <TableCell />}
+                    <TableCell />
+                  </TableRow>
                 </TableBody>
               </Table>
             </div>

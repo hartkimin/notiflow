@@ -1,23 +1,19 @@
 "use client";
 
-import { useState, useEffect, useTransition, useCallback } from "react";
-import { 
-  Plus, Search, Trash2, History, Loader2, 
-  Check, ChevronDown, ChevronRight, Calculator,
-  Database, Globe, Clock, Sparkles
+import { useState, useEffect, useTransition, useCallback, useMemo } from "react";
+import {
+  Plus, Search, Trash2, History, Loader2,
+  Check, ChevronDown, ChevronUp, Calculator,
+  Database, Globe, Clock, Sparkles, Pill, Stethoscope, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Tabs, TabsContent, TabsList, TabsTrigger,
-} from "@/components/ui/tabs";
-import { 
-  getPartnerProducts, addPartnerProduct, deletePartnerProduct, 
+  getPartnerProducts, addPartnerProduct, deletePartnerProduct,
   updatePartnerProductPrice, searchMfdsItems, searchMyItems,
   addToMyDrugs, addToMyDevices
 } from "@/lib/actions";
@@ -33,24 +29,59 @@ interface PartnerProductManagerProps {
   partnerId: number;
 }
 
+type FilterType = "all" | "drug" | "device";
+
 export function PartnerProductManager({ partnerType, partnerId }: PartnerProductManagerProps) {
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
-  
-  // Search state
+
+  // Registered items filter & search
+  const [filterType, setFilterType] = useState<FilterType>("all");
+  const [listSearch, setListSearch] = useState("");
+
+  // Add panel state
+  const [isAddOpen, setIsAddOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchSource, setSearchSource] = useState<"my" | "mfds">("my");
   const [searchType, setSearchType] = useState<MfdsApiSource>("drug");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  
+
   // History dialog
   const [historyItem, setHistoryItem] = useState<any | null>(null);
 
   useEffect(() => {
     loadProducts();
   }, [partnerId]);
+
+  // Filter & search registered items
+  const filteredProducts = useMemo(() => {
+    let result = products;
+
+    // Type filter
+    if (filterType !== "all") {
+      result = result.filter(p => p.product_source === filterType);
+    }
+
+    // Search filter
+    if (listSearch.trim()) {
+      const q = listSearch.trim().toLowerCase();
+      result = result.filter(p =>
+        p.name?.toLowerCase().includes(q) ||
+        p.code?.toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }, [products, filterType, listSearch]);
+
+  // Count by type
+  const counts = useMemo(() => ({
+    all: products.length,
+    drug: products.filter(p => p.product_source === "drug").length,
+    device: products.filter(p => p.product_source === "device").length,
+  }), [products]);
 
   const handleSearch = useCallback(async (isInitial = false) => {
     const q = isInitial ? "" : searchQuery.trim();
@@ -60,7 +91,7 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
       const res = await fn({
         query: q,
         sourceType: searchType,
-        pageSize: 30, // Show up to 30 items
+        pageSize: 30,
       });
       setSearchResults(res.items);
     } catch (err) {
@@ -70,10 +101,10 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
     }
   }, [searchQuery, searchSource, searchType]);
 
-  // Auto-load initial results for search
+  // Auto-load initial results when add panel opens or source/type changes
   useEffect(() => {
-    handleSearch(true);
-  }, [searchSource, searchType, handleSearch]);
+    if (isAddOpen) handleSearch(true);
+  }, [searchSource, searchType, isAddOpen, handleSearch]);
 
   async function loadProducts() {
     setIsLoading(true);
@@ -93,12 +124,11 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
         let finalProductId = item.id;
         const standardCode = (item.BAR_CODE || item.bar_code || item.UDIDI_CD || item.udidi_cd) as string;
 
-        // CRITICAL: If adding from Global MFDS, we MUST register it to "My Products" first
         if (searchSource === "mfds") {
-          const addRes = searchType === "drug" 
-            ? await addToMyDrugs(item) 
+          const addRes = searchType === "drug"
+            ? await addToMyDrugs(item)
             : await addToMyDevices(item);
-          
+
           if (!addRes.success) {
             throw new Error(addRes.alreadyExists ? "이미 관리 품목에 존재하지만 정보를 가져오지 못했습니다." : "내 품목 등록 실패");
           }
@@ -149,7 +179,7 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
   async function handlePriceUpdate(id: number, currentPrice: number) {
     const newPriceStr = prompt("새로운 가격을 입력하세요:", String(currentPrice));
     if (newPriceStr === null) return;
-    
+
     const newPrice = parseFloat(newPriceStr);
     if (isNaN(newPrice)) {
       toast.error("유효한 숫자를 입력해주세요.");
@@ -165,83 +195,155 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
     }
   }
 
-  return (
-    <div className="space-y-6">
-      {/* ── Search and Add ── */}
-      <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-200/60 space-y-4">
-        <div className="flex items-center justify-between">
-          <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">품목 추가</h4>
-          <div className="flex bg-white rounded-lg border p-0.5 shadow-sm">
-            <button 
-              onClick={() => setSearchSource("my")}
-              className={cn("px-2.5 py-1 text-[10px] font-black rounded-md transition-all", searchSource === "my" ? "bg-zinc-950 text-white shadow-md" : "text-zinc-400 hover:text-zinc-600")}
-            >
-              내 품목
-            </button>
-            <button 
-              onClick={() => setSearchSource("mfds")}
-              className={cn("px-2.5 py-1 text-[10px] font-black rounded-md transition-all", searchSource === "mfds" ? "bg-zinc-950 text-white shadow-md" : "text-zinc-400 hover:text-zinc-600")}
-            >
-              식약처 전체
-            </button>
-          </div>
-        </div>
+  const filterButtons: { key: FilterType; label: string; icon: typeof Pill }[] = [
+    { key: "all", label: "전체", icon: Database },
+    { key: "drug", label: "의약품", icon: Pill },
+    { key: "device", label: "의료기기", icon: Stethoscope },
+  ];
 
-        <div className="flex gap-2">
-          <select 
-            value={searchType}
-            onChange={(e) => setSearchType(e.target.value as any)}
-            className="text-[11px] font-bold border rounded-lg px-2.5 bg-white outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
-          >
-            <option value="drug">의약품</option>
-            <option value="device">의료기기</option>
-          </select>
-          <div className="relative flex-1 group">
-            <Search className="absolute left-3 top-3 h-3.5 w-3.5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-            <Input 
-              placeholder="품목명 또는 코드 검색..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => searchResults.length === 0 && handleSearch(true)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              className="pl-9 h-10 text-xs bg-white rounded-lg border-zinc-200 focus:border-primary/50 focus:ring-primary/10 shadow-sm"
-            />
+  return (
+    <div className="space-y-4">
+      {/* ── Header: Filter + Search + Add Button ── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            {filterButtons.map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setFilterType(key)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-black rounded-lg transition-all",
+                  filterType === key
+                    ? "bg-zinc-950 text-white shadow-md"
+                    : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100"
+                )}
+              >
+                <Icon className="h-3 w-3" />
+                {label}
+                <span className={cn(
+                  "text-[9px] font-mono ml-0.5 px-1 py-0.5 rounded",
+                  filterType === key ? "bg-white/20" : "bg-zinc-100"
+                )}>
+                  {counts[key]}
+                </span>
+              </button>
+            ))}
           </div>
-          <Button size="sm" variant="secondary" onClick={() => handleSearch()} disabled={isSearching} className="font-bold h-10 px-4 rounded-lg shadow-sm">
-            {isSearching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "검색"}
+          <Button
+            size="sm"
+            variant={isAddOpen ? "secondary" : "default"}
+            onClick={() => { setIsAddOpen(!isAddOpen); setSearchResults([]); setSearchQuery(""); }}
+            className="h-7 text-[10px] font-black rounded-lg gap-1"
+          >
+            {isAddOpen ? <><ChevronUp className="h-3 w-3" /> 접기</> : <><Plus className="h-3 w-3" /> 품목 추가</>}
           </Button>
         </div>
 
-        {searchResults.length > 0 && (
-          <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden divide-y divide-zinc-100 max-h-[320px] overflow-y-auto custom-scrollbar shadow-lg animate-in fade-in zoom-in-95 duration-200">
-            {searchResults.map((item, idx) => {
-              const name = (item.ITEM_NAME || item.item_name || item.PRDLST_NM || item.prdlst_nm) as string;
-              const code = (item.BAR_CODE || item.bar_code || item.UDIDI_CD || item.udidi_cd) as string;
-              return (
-                <div key={idx} className="p-3 flex items-center justify-between hover:bg-zinc-50 transition-colors group/item">
-                  <div className="min-w-0 mr-4">
-                    <p className="text-[11px] font-bold text-zinc-950 truncate group-hover/item:text-primary transition-colors">{name}</p>
-                    <p className="text-[10px] text-zinc-400 font-mono tracking-tighter">{code}</p>
-                  </div>
-                  <Button size="xs" variant="outline" className="h-7 font-black shrink-0 border-zinc-200 hover:bg-primary hover:text-white hover:border-primary transition-all rounded-md" onClick={() => handleAdd(item)} disabled={isPending}>
-                    {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Plus className="h-3 w-3 mr-1" /> 추가</>}
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {/* Search bar for registered items */}
+        <div className="relative group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-300 group-focus-within:text-primary transition-colors" />
+          <Input
+            placeholder="등록된 품목에서 검색..."
+            value={listSearch}
+            onChange={(e) => setListSearch(e.target.value)}
+            className="pl-9 pr-8 h-9 text-xs bg-zinc-50 rounded-lg border-zinc-200/60 focus:bg-white focus:border-primary/50 focus:ring-primary/10 shadow-sm transition-all"
+          />
+          {listSearch && (
+            <button
+              onClick={() => setListSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* ── Collapsible Add Panel ── */}
+      {isAddOpen && (
+        <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-200/60 space-y-4 animate-in slide-in-from-top-2 fade-in duration-200">
+          <div className="flex items-center justify-between">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">품목 검색</h4>
+            <div className="flex gap-2">
+              <div className="flex bg-white rounded-lg border p-0.5 shadow-sm">
+                <button
+                  onClick={() => setSearchSource("my")}
+                  className={cn("px-2.5 py-1 text-[10px] font-black rounded-md transition-all", searchSource === "my" ? "bg-zinc-950 text-white shadow-md" : "text-zinc-400 hover:text-zinc-600")}
+                >
+                  내 품목
+                </button>
+                <button
+                  onClick={() => setSearchSource("mfds")}
+                  className={cn("px-2.5 py-1 text-[10px] font-black rounded-md transition-all", searchSource === "mfds" ? "bg-zinc-950 text-white shadow-md" : "text-zinc-400 hover:text-zinc-600")}
+                >
+                  식약처 전체
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <select
+              value={searchType}
+              onChange={(e) => setSearchType(e.target.value as any)}
+              className="text-[11px] font-bold border rounded-lg px-2.5 bg-white outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
+            >
+              <option value="drug">의약품</option>
+              <option value="device">의료기기</option>
+            </select>
+            <div className="relative flex-1 group">
+              <Search className="absolute left-3 top-3 h-3.5 w-3.5 text-zinc-400 group-focus-within:text-primary transition-colors" />
+              <Input
+                placeholder="품목명 또는 코드 검색..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => searchResults.length === 0 && handleSearch(true)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                className="pl-9 h-10 text-xs bg-white rounded-lg border-zinc-200 focus:border-primary/50 focus:ring-primary/10 shadow-sm"
+              />
+            </div>
+            <Button size="sm" variant="secondary" onClick={() => handleSearch()} disabled={isSearching} className="font-bold h-10 px-4 rounded-lg shadow-sm">
+              {isSearching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "검색"}
+            </Button>
+          </div>
+
+          {searchResults.length > 0 && (
+            <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden divide-y divide-zinc-100 max-h-[280px] overflow-y-auto custom-scrollbar shadow-lg animate-in fade-in zoom-in-95 duration-200">
+              {searchResults.map((item, idx) => {
+                const name = (item.ITEM_NAME || item.item_name || item.PRDLST_NM || item.prdlst_nm) as string;
+                const code = (item.BAR_CODE || item.bar_code || item.UDIDI_CD || item.udidi_cd) as string;
+                return (
+                  <div key={idx} className="p-3 flex items-center justify-between hover:bg-zinc-50 transition-colors group/item">
+                    <div className="min-w-0 mr-4">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <p className="text-[11px] font-bold text-zinc-950 truncate group-hover/item:text-primary transition-colors">{name}</p>
+                      </div>
+                      <p className="text-[10px] text-zinc-400 font-mono tracking-tighter">{code}</p>
+                    </div>
+                    <Button size="xs" variant="outline" className="h-7 font-black shrink-0 border-zinc-200 hover:bg-primary hover:text-white hover:border-primary transition-all rounded-md" onClick={() => handleAdd(item)} disabled={isPending}>
+                      {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Plus className="h-3 w-3 mr-1" /> 추가</>}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Product List ── */}
-      <div className="space-y-3">
-        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 px-1">등록된 품목 ({products.length})</h4>
-        
+      <div className="space-y-2">
         {isLoading ? (
           <div className="py-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-zinc-200" /></div>
-        ) : products.length === 0 ? (
+        ) : filteredProducts.length === 0 ? (
           <div className="text-center py-12 border-2 border-dashed border-zinc-100 rounded-2xl bg-zinc-50/30 transition-all">
-            <p className="text-[11px] font-bold text-zinc-300">등록된 품목이 없습니다.</p>
+            <p className="text-[11px] font-bold text-zinc-300">
+              {products.length === 0
+                ? "등록된 품목이 없습니다."
+                : listSearch
+                  ? `"${listSearch}" 검색 결과가 없습니다.`
+                  : `${filterType === "drug" ? "의약품" : "의료기기"} 품목이 없습니다.`}
+            </p>
           </div>
         ) : (
           <div className="border border-zinc-200 rounded-2xl overflow-hidden bg-white shadow-sm transition-all hover:shadow-md">
@@ -254,14 +356,29 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {products.map((p) => (
+                {filteredProducts.map((p) => (
                   <TableRow key={p.id} className="group hover:bg-zinc-50/50 transition-colors border-b-zinc-50">
                     <TableCell className="py-3.5 pl-4">
-                      <p className="text-[11px] font-bold text-zinc-950 leading-tight mb-0.5 truncate max-w-[180px]">{p.name}</p>
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[8px] font-black px-1.5 py-0 h-4 rounded-md border shrink-0",
+                            p.product_source === "drug"
+                              ? "text-blue-600 bg-blue-50 border-blue-200"
+                              : p.product_source === "device"
+                                ? "text-emerald-600 bg-emerald-50 border-emerald-200"
+                                : "text-zinc-500 bg-zinc-50 border-zinc-200"
+                          )}
+                        >
+                          {p.product_source === "drug" ? "의약품" : p.product_source === "device" ? "의료기기" : "기타"}
+                        </Badge>
+                        <p className="text-[11px] font-bold text-zinc-950 leading-tight truncate max-w-[160px]">{p.name}</p>
+                      </div>
                       <p className="text-[9px] font-mono text-zinc-400 tracking-tighter">{p.code}</p>
                     </TableCell>
                     <TableCell className="py-3.5 text-right pr-4">
-                      <button 
+                      <button
                         onClick={() => handlePriceUpdate(p.id, p.unit_price || 0)}
                         className="text-[11px] font-black text-zinc-950 hover:text-primary transition-all flex items-center justify-end gap-1.5 w-full"
                       >
@@ -271,17 +388,17 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
                     </TableCell>
                     <TableCell className="py-3.5 text-center px-0">
                       <div className="flex items-center justify-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           className="h-8 w-8 text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 rounded-lg"
                           onClick={() => setHistoryItem(p)}
                         >
                           <History className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           className="h-8 w-8 text-zinc-400 hover:text-destructive hover:bg-destructive/5 rounded-lg"
                           onClick={() => handleDelete(p.id)}
                         >
@@ -294,6 +411,13 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
               </TableBody>
             </Table>
           </div>
+        )}
+
+        {/* Filtered count info */}
+        {!isLoading && products.length > 0 && filteredProducts.length !== products.length && (
+          <p className="text-[10px] text-zinc-400 text-center font-medium">
+            {products.length}개 중 {filteredProducts.length}개 표시
+          </p>
         )}
       </div>
 
@@ -327,8 +451,8 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
                           <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-50 border border-zinc-100">
                             <Clock className="h-3 w-3 text-zinc-300" />
                             <p className="text-[10px] text-zinc-500 font-mono font-bold">
-                              {new Date(entry.changed_at).toLocaleString("ko-KR", { 
-                                month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" 
+                              {new Date(entry.changed_at).toLocaleString("ko-KR", {
+                                month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
                               })}
                             </p>
                           </div>

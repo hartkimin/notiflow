@@ -238,7 +238,6 @@ export async function createOrderWithDetailsAction(data: {
       unit_price: item.unit_price,
       purchase_price: item.purchase_price,
       line_total: item.unit_price ? item.unit_price * item.quantity : null,
-      match_status: "manual" as const,
     }));
 
     const { data: insertedItems, error: itemsErr } = await supabase

@@ -98,6 +98,34 @@ const OPTIONAL_COLUMNS: OptionalColumn[] = [
 let _keyCounter = 0;
 function nextKey() { return `po-${Date.now()}-${++_keyCounter}`; }
 
+// ── Korean initial consonant (초성) search ──────────────────
+const CHOSUNG = [
+  "ㄱ","ㄲ","ㄴ","ㄷ","ㄸ","ㄹ","ㅁ","ㅂ","ㅃ","ㅅ","ㅆ",
+  "ㅇ","ㅈ","ㅉ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ",
+];
+
+function getChosung(char: string): string {
+  const code = char.charCodeAt(0) - 0xAC00;
+  if (code < 0 || code > 11171) return char;
+  return CHOSUNG[Math.floor(code / 588)];
+}
+
+function isChosung(char: string): boolean {
+  return CHOSUNG.includes(char);
+}
+
+function matchesChosungSearch(text: string, query: string): boolean {
+  const lower = text.toLowerCase();
+  const qLower = query.toLowerCase();
+  // normal substring match
+  if (lower.includes(qLower)) return true;
+  // check if query is all chosung characters
+  if (![...qLower].every(isChosung)) return false;
+  // extract chosung from text and check substring match
+  const textChosung = [...text].map(getChosung).join("");
+  return textChosung.includes(qLower);
+}
+
 // ── Main Component ─────────────────────────────────────────
 
 export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
@@ -196,7 +224,7 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
   }, []);
 
   const filteredHospitals = hospitalSearch.length > 0
-    ? allHospitals.filter((h) => h.name.toLowerCase().includes(hospitalSearch.toLowerCase()))
+    ? allHospitals.filter((h) => matchesChosungSearch(h.name, hospitalSearch))
     : allHospitals;
 
   // ── Load partner products for selected hospital ──
@@ -375,22 +403,29 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
                       </Button>
                     </div>
                     {showHospitalList && (
-                      <div className="mt-1.5 border rounded-md max-h-[200px] overflow-y-auto bg-white animate-in slide-in-from-top-1 fade-in duration-150">
+                      <div className="mt-1.5 border rounded-md bg-white animate-in slide-in-from-top-1 fade-in duration-150">
                         {!hospitalsLoaded ? (
                           <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
                         ) : filteredHospitals.length === 0 ? (
                           <p className="text-sm text-muted-foreground text-center py-3">검색 결과 없음</p>
                         ) : (
-                          filteredHospitals.map((h) => (
-                            <button
-                              key={h.id}
-                              type="button"
-                              className="flex w-full items-center px-3 py-2 text-sm hover:bg-accent text-left border-b last:border-b-0"
-                              onClick={() => { selectHospital(h); setShowHospitalList(false); }}
-                            >
-                              {h.name}
-                            </button>
-                          ))
+                          <>
+                            <div className="px-3 py-1.5 border-b bg-muted/30 text-[11px] text-muted-foreground">
+                              검색 결과 <span className="font-medium text-foreground">{filteredHospitals.length}</span>건
+                            </div>
+                            <div className="max-h-[300px] overflow-y-auto">
+                              {filteredHospitals.map((h) => (
+                                <button
+                                  key={h.id}
+                                  type="button"
+                                  className="flex w-full items-center px-3 py-2 text-sm hover:bg-accent text-left border-b last:border-b-0"
+                                  onClick={() => { selectHospital(h); setShowHospitalList(false); }}
+                                >
+                                  {h.name}
+                                </button>
+                              ))}
+                            </div>
+                          </>
                         )}
                       </div>
                     )}

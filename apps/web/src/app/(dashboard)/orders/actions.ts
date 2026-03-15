@@ -194,6 +194,7 @@ export async function createOrderWithDetailsAction(data: {
   source_message_id: string | null;
   items: Array<{
     product_id: number;
+    product_name: string;
     source_type: "drug" | "device" | "product";
     supplier_id: number | null;
     quantity: number;
@@ -234,6 +235,7 @@ export async function createOrderWithDetailsAction(data: {
     const orderItems = data.items.map((item) => ({
       order_id: order.id,
       product_id: item.source_type === "product" ? item.product_id : null,
+      product_name: item.product_name,
       supplier_id: item.supplier_id,
       quantity: item.quantity,
       unit_type: item.unit_type,

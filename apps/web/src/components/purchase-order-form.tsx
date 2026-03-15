@@ -305,6 +305,7 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
         source_message_id: sourceMessageId ?? null,
         items: items.map((i) => ({
           product_id: i.product_id,
+          product_name: i.product_name,
           source_type: i.source_type,
           supplier_id: i.supplier_id,
           quantity: i.quantity,

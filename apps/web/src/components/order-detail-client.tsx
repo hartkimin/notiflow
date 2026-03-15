@@ -522,9 +522,10 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
               {order.items.map((item, idx) => {
                 const isDeleted = deletedIds.has(item.id);
                 const itemAny = item as unknown as Record<string, unknown>;
-                const productName = itemAny.products
-                  ? (itemAny.products as { name: string }).name
-                  : `제품 #${item.product_id ?? "미매칭"}`;
+                const productsJoin = itemAny.products as { name?: string; official_name?: string } | null;
+                const productName = productsJoin?.official_name || productsJoin?.name
+                  || (itemAny.product_name as string | null)
+                  || `제품 #${item.product_id ?? "미매칭"}`;
 
                 const edit = editItems[item.id];
                 const qty = edit ? edit.quantity : item.quantity;

@@ -106,7 +106,7 @@ export async function getOrderItems(params: {
       hospital_id: order?.hospital_id ?? null,
       hospital_name: order?.hospitals?.name ?? "",
       product_id: row.product_id ?? null,
-      product_name: product?.official_name ?? product?.short_name ?? "",
+      product_name: product?.official_name ?? product?.short_name ?? row.product_name ?? "",
       quantity: row.unit_type === "box" && qtyPerBox
         ? row.quantity * qtyPerBox
         : row.calculated_pieces ?? row.quantity,

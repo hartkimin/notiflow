@@ -11,6 +11,8 @@ import {
   X,
   Search,
   FileText,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,6 +108,9 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
   // ── Hospital products ──
   const [hospitalProducts, setHospitalProducts] = useState<HospitalProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
+  const [hpSearch, setHpSearch] = useState("");
+  const [hpPage, setHpPage] = useState(1);
+  const HP_PAGE_SIZE = 10;
 
   // ── Item add state (stepped) ──
   const [selectedProduct, setSelectedProduct] = useState<HospitalProduct | null>(null);
@@ -167,6 +172,8 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
     // Reset product selection
     setSelectedProduct(null);
     setProductSuppliers([]);
+    setHpSearch("");
+    setHpPage(1);
   }
 
   // ── Product selection → load suppliers ──
@@ -390,39 +397,94 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
                 <Label className="text-xs font-medium">1. 품목 선택</Label>
 
                 {/* Hospital registered products */}
-                {hospitalProducts.length > 0 && (
-                  <>
-                    <p className="text-[11px] text-muted-foreground mt-1 mb-1">거래처 등록 품목</p>
-                    <div className="border rounded-md max-h-[180px] overflow-y-auto bg-white">
-                      {hospitalProducts.map((hp) => {
-                        const isSelected = selectedProduct?.product_id === hp.product_id;
-                        const isAdded = items.some((i) => i.product_id === hp.product_id);
-                        return (
-                          <button
-                            key={hp.product_id}
-                            type="button"
-                            disabled={isAdded}
-                            className={`flex w-full items-center justify-between px-3 py-2 text-sm border-b last:border-b-0 text-left transition-colors ${
-                              isSelected ? "bg-primary/5 border-l-2 border-l-primary" : "hover:bg-accent"
-                            } ${isAdded ? "opacity-40 cursor-not-allowed" : ""}`}
-                            onClick={() => selectProduct(hp)}
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="font-medium truncate">{hp.product_name}</span>
-                              {hp.manufacturer && <span className="text-xs text-muted-foreground shrink-0">{hp.manufacturer}</span>}
+                {hospitalProducts.length > 0 && (() => {
+                  const filtered = hpSearch.length > 0
+                    ? hospitalProducts.filter((hp) =>
+                        hp.product_name.toLowerCase().includes(hpSearch.toLowerCase()) ||
+                        (hp.manufacturer ?? "").toLowerCase().includes(hpSearch.toLowerCase())
+                      )
+                    : hospitalProducts;
+                  const totalPages = Math.ceil(filtered.length / HP_PAGE_SIZE);
+                  const safePage = Math.min(hpPage, Math.max(1, totalPages));
+                  const paged = filtered.slice((safePage - 1) * HP_PAGE_SIZE, safePage * HP_PAGE_SIZE);
+
+                  return (
+                    <>
+                      <div className="flex items-center justify-between mt-1 mb-1">
+                        <p className="text-[11px] text-muted-foreground">
+                          거래처 등록 품목
+                          <span className="ml-1 text-foreground font-medium">{filtered.length}건</span>
+                        </p>
+                      </div>
+                      <div className="relative mb-2">
+                        <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                          placeholder="등록 품목 검색 (품목명, 제조사)..."
+                          value={hpSearch}
+                          onChange={(e) => { setHpSearch(e.target.value); setHpPage(1); }}
+                          className="pl-8 h-8 text-xs"
+                        />
+                      </div>
+                      {filtered.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-md">
+                          검색 결과 없음
+                        </p>
+                      ) : (
+                        <>
+                          <div className="border rounded-md bg-white">
+                            {paged.map((hp) => {
+                              const isSelected = selectedProduct?.product_id === hp.product_id;
+                              const isAdded = items.some((i) => i.product_id === hp.product_id);
+                              return (
+                                <button
+                                  key={hp.product_id}
+                                  type="button"
+                                  disabled={isAdded}
+                                  className={`flex w-full items-center justify-between px-3 py-2 text-sm border-b last:border-b-0 text-left transition-colors ${
+                                    isSelected ? "bg-primary/5 border-l-2 border-l-primary" : "hover:bg-accent"
+                                  } ${isAdded ? "opacity-40 cursor-not-allowed" : ""}`}
+                                  onClick={() => selectProduct(hp)}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="font-medium truncate">{hp.product_name}</span>
+                                    {hp.manufacturer && <span className="text-xs text-muted-foreground shrink-0">{hp.manufacturer}</span>}
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {hp.selling_price != null && (
+                                      <span className="text-xs text-muted-foreground">판매 {hp.selling_price.toLocaleString()}원</span>
+                                    )}
+                                    {isAdded && <Badge variant="outline" className="text-[10px]">추가됨</Badge>}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {totalPages > 1 && (
+                            <div className="flex items-center justify-center gap-1 mt-2">
+                              <Button
+                                variant="outline" size="icon" className="h-7 w-7"
+                                disabled={safePage <= 1}
+                                onClick={() => setHpPage(safePage - 1)}
+                              >
+                                <ChevronLeft className="h-3.5 w-3.5" />
+                              </Button>
+                              <span className="text-xs text-muted-foreground px-2">
+                                {safePage} / {totalPages}
+                              </span>
+                              <Button
+                                variant="outline" size="icon" className="h-7 w-7"
+                                disabled={safePage >= totalPages}
+                                onClick={() => setHpPage(safePage + 1)}
+                              >
+                                <ChevronRight className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              {hp.selling_price != null && (
-                                <span className="text-xs text-muted-foreground">판매 {hp.selling_price.toLocaleString()}원</span>
-                              )}
-                              {isAdded && <Badge variant="outline" className="text-[10px]">추가됨</Badge>}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
+                          )}
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
 
                 {/* Product search (all products) */}
                 <div className="mt-3">

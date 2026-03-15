@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 
 export function LoginForm() {
   const router = useRouter();
@@ -42,27 +42,57 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl">NotiFlow</CardTitle>
-        <p className="text-sm text-muted-foreground">주문관리 대시보드</p>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">이메일</Label>
-            <Input id="email" name="email" type="email" required autoFocus />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">비밀번호</Label>
-            <Input id="password" name="password" type="password" required />
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "로그인 중..." : "로그인"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="space-y-2">
+        <Label htmlFor="email" className="text-sm font-medium">
+          이메일
+        </Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="name@company.com"
+          required
+          autoFocus
+          autoComplete="email"
+          className="h-11"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="password" className="text-sm font-medium">
+          비밀번호
+        </Label>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          placeholder="••••••••"
+          required
+          autoComplete="current-password"
+          className="h-11"
+        />
+      </div>
+
+      {error && (
+        <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      <Button
+        type="submit"
+        className="w-full h-11 text-base bg-zinc-900 hover:bg-zinc-800 text-white"
+        disabled={loading}
+      >
+        {loading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            로그인 중...
+          </>
+        ) : (
+          "로그인"
+        )}
+      </Button>
+    </form>
   );
 }

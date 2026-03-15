@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { File } from "lucide-react";
+import { File, PlusCircle } from "lucide-react";
 
 import { getOrderItems } from "@/lib/queries/orders";
 import { getProductsCatalog } from "@/lib/queries/products";
@@ -94,14 +94,15 @@ export default async function OrdersPage({ searchParams }: Props) {
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">주문 관리</h1>
         <div className="ml-auto flex items-center gap-2">
-          <OrderInlineForm
-            displayColumns={displayColumns}
-            initialNotes={initialMessageContent}
-            sourceMessageId={sourceMessageId}
-          />
           <Button size="sm" variant="outline" className="h-8 gap-1">
             <File className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">내보내기</span>
+          </Button>
+          <Button size="sm" className="h-8 gap-1" asChild>
+            <Link href={sourceMessageId ? `/orders/new?source_message_id=${sourceMessageId}` : "/orders/new"}>
+              <PlusCircle className="h-3.5 w-3.5" />
+              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">주문 추가</span>
+            </Link>
           </Button>
         </div>
       </div>

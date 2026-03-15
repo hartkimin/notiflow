@@ -515,6 +515,27 @@ export interface MfdsItem {
   synced_at: string;
 }
 
+// --- Hospital Products & Supplier Options ---
+
+export interface HospitalProduct {
+  id: number;
+  hospital_id: number;
+  product_id: number;
+  product_name: string;
+  manufacturer: string | null;
+  standard_code: string | null;
+  selling_price: number | null;
+  default_quantity: number | null;
+  suppliers: ProductSupplierOption[];
+}
+
+export interface ProductSupplierOption {
+  supplier_id: number;
+  supplier_name: string;
+  purchase_price: number | null;
+  is_primary: boolean;
+}
+
 // --- External API search results (공공데이터포털) ---
 
 export interface DrugSearchResult {

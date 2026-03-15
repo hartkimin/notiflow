@@ -11,6 +11,7 @@ import {
   type ColumnDef,
   type VisibilityState,
   type SortingState,
+  type ColumnFiltersState,
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,9 +21,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2, Database, Square } from "lucide-react";
 import {
   searchMfdsItems,
+  searchMyItems,
   getMfdsSyncProgress,
   getActiveSyncLog,
   addToMyDrugs,
@@ -99,6 +101,7 @@ export function MfdsSearchPanel({
   // Table state
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => getDefaultVisibility("drug"));
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnSizing, setColumnSizing] = useState<Record<string, number>>({});
 
@@ -114,6 +117,7 @@ export function MfdsSearchPanel({
   // MFDS sync state (browse mode)
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
+  const [syncLogId, setSyncLogId] = useState<number | null>(null);
 
   // Debounce refs
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -123,7 +127,7 @@ export function MfdsSearchPanel({
   const [editingPriceId, setEditingPriceId] = useState<number | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState<string>("");
 
-  const pageSize = 25;
+  const pageSize = 15;
   const totalPages = Math.ceil(totalCount / pageSize);
 
   // ── Column definitions ────────────────────────────────────────────
@@ -336,10 +340,11 @@ export function MfdsSearchPanel({
   const table = useReactTable({
     data: results,
     columns,
-    state: { sorting, columnVisibility, globalFilter, columnSizing },
+    state: { sorting, columnVisibility, globalFilter, columnSizing, columnFilters },
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: setGlobalFilter,
+    onColumnFiltersChange: setColumnFilters,
     onColumnSizingChange: setColumnSizing,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -360,7 +365,9 @@ export function MfdsSearchPanel({
         try {
           const q = query.trim();
 
-          const result = await searchMfdsItems({
+          const searchFn = mode === "manage" ? searchMyItems : searchMfdsItems;
+
+          const result = await searchFn({
             query: q,
             sourceType: tab,
             searchField,
@@ -376,7 +383,7 @@ export function MfdsSearchPanel({
             setHasSearched(true);
             setExpandedRowId(null);
 
-            if (q) {
+            if (q && mode !== "manage") {
               recentSearches.add(q, tab);
             }
           }
@@ -397,7 +404,7 @@ export function MfdsSearchPanel({
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [query, activeFilters, tab, searchField],
+    [query, activeFilters, tab, searchField, mode],
   );
 
   // ── Debounced auto-search on query change ─────────────────────────
@@ -430,196 +437,153 @@ export function MfdsSearchPanel({
     }
   }, [doSearch, mode]);
 
-  // ── Manage mode: load data from DB props ──────────────────────────
+  // ── Manage mode: load data via doSearch ──────────────────────────
   useEffect(() => {
-    if (mode !== "manage") return;
-    const data = tab === "drug" ? (myDrugs ?? []) : (myDevices ?? []);
-    setResults(data);
-    setTotalCount(data.length);
-    setHasSearched(true);
-  }, [mode, tab, myDrugs, myDevices]);
+    if (mode === "manage") {
+      doSearch(1);
+    }
+  }, [mode, tab, doSearch]);
 
-  // ── NDJSON stream reader — reads streaming sync progress ─────────
-  const readStream = useCallback(
-    async (response: Response) => {
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let lastLogId: number | null = null;
-      let lastSearchRefresh = 0;
+  // ── Poll sync progress ─────────────────────────────────────────
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-      const { done: streamDone, value: firstChunk } = await reader.read().catch(() => ({ done: true, value: undefined }));
-      if (!streamDone && firstChunk) {
-        buffer += decoder.decode(firstChunk, { stream: true });
-      }
-      // Process first chunk + continue reading
-      const processBuffer = () => {
-        const lines = buffer.split("\n");
-        buffer = lines.pop()!;
-        return lines;
-      };
+  const stopPolling = useCallback(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  }, []);
 
-      // Re-assemble: process first chunk inline, then loop
-      const allLines = streamDone ? [] : processBuffer();
-      for (const line of allLines) {
-        if (!line.trim()) continue;
-        const event = JSON.parse(line);
-        if (event.type === "start") lastLogId = event.logId;
-      }
+  const startPolling = useCallback((logId: number) => {
+    stopPolling();
+    let lastSearchRefresh = 0;
 
-      if (streamDone) return;
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const r = await fetch("/api/sync-mfds/status");
+        const data = await r.json();
+        const a = data.active;
 
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop()!;
+        if (!a || a.id !== logId || !["running"].includes(a.status)) {
+          // Sync finished (completed, cancelled, error, or gone)
+          stopPolling();
+          setIsSyncing(false);
+          setSyncLogId(null);
 
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          const event = JSON.parse(line);
-
-          if (event.type === "start") {
-            lastLogId = event.logId;
-          } else if (event.type === "progress") {
-            setSyncProgress(
-              `동기화 중... ${event.totalFetched.toLocaleString()}건 처리됨`,
-            );
-            // Refresh search results at most every 5s
-            if (Date.now() - lastSearchRefresh > 5000) {
-              doSearch(1);
-              lastSearchRefresh = Date.now();
-            }
-          } else if (event.type === "done") {
-            if (event.outcome === "partial" && event.nextPage && lastLogId) {
-              // Auto-continue: start new streaming request
-              setSyncProgress(
-                `동기화 계속 중... ${event.totalFetched.toLocaleString()}건 처리됨`,
-              );
-              const contRes = await fetch("/api/sync-mfds", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  sourceType: tab,
-                  logId: lastLogId,
-                  startPage: event.nextPage,
-                  priorFetched: event.totalFetched,
-                  priorUpserted: event.totalUpserted,
-                }),
-              });
-              if (contRes.ok) {
-                await readStream(contRes);
-                return; // Continuation handles cleanup
-              }
-            }
-            // Completed
+          if (!a || a.status === "completed" || a.id !== logId) {
+            setSyncProgress(null);
             doSearch(1);
-            toast.success(
-              `동기화 완료: ${event.totalFetched.toLocaleString()}건 확인, ${event.totalUpserted.toLocaleString()}건 반영`,
-            );
-          } else if (event.type === "error") {
-            toast.error(`동기화 실패: ${event.message}`);
+            toast.success("동기화가 완료되었습니다.");
+          } else if (a.status === "cancelled") {
+            setSyncProgress(null);
+            toast.info("동기화가 중지되었습니다.");
+          } else if (a.status === "error") {
+            setSyncProgress(null);
+            toast.error(`동기화 실패: ${a.error_message ?? "알 수 없는 오류"}`);
+          } else if (a.status === "partial") {
+            const pct = a.api_total_count ? ` (${((a.total_fetched / a.api_total_count) * 100).toFixed(1)}%)` : "";
+            setSyncProgress(`중단됨: ${a.total_fetched.toLocaleString()}건${pct} — 동기화 버튼으로 이어받기`);
           }
+          return;
         }
-      }
-    },
-    [doSearch, tab],
-  );
 
-  // ── Resume sync status on page load (passive — can't attach to stream) ──
+        // Still running — update progress
+        const pct = a.api_total_count ? ` (${((a.total_fetched / a.api_total_count) * 100).toFixed(1)}%)` : "";
+        setSyncProgress(`동기화 진행 중: ${a.total_fetched.toLocaleString()}건${pct}`);
+
+        // Refresh search results periodically
+        if (Date.now() - lastSearchRefresh > 5000) {
+          doSearch(1);
+          lastSearchRefresh = Date.now();
+        }
+      } catch { /* ignore network errors */ }
+    }, 2000);
+  }, [stopPolling, doSearch]);
+
+  // Cleanup on unmount
+  useEffect(() => () => stopPolling(), [stopPolling]);
+
+  // ── Check active sync on page load ──
   useEffect(() => {
     if (mode !== "browse") return;
     let cancelled = false;
 
-    getActiveSyncLog().then((active) => {
-      if (cancelled || !active) return;
-      setIsSyncing(true);
-      setSyncProgress(
-        `동기화 진행 중 (${active.totalFetched.toLocaleString()}건 처리됨)`,
-      );
-      // Poll once to check if it completed while page was loading
-      const checkInterval = setInterval(async () => {
-        const progress = await getMfdsSyncProgress(active.logId);
-        if (progress.status === "completed") {
-          clearInterval(checkInterval);
-          setIsSyncing(false);
-          setSyncProgress(null);
-          doSearch(1);
-          toast.success(
-            `동기화 완료: ${progress.totalFetched.toLocaleString()}건 확인, ${progress.totalUpserted.toLocaleString()}건 반영`,
-          );
-        } else if (progress.status === "error") {
-          clearInterval(checkInterval);
-          setIsSyncing(false);
-          setSyncProgress(null);
-          toast.error(`동기화 실패: ${progress.errorMessage ?? "알 수 없는 오류"}`);
-        } else if (progress.status === "running") {
-          setSyncProgress(
-            `동기화 진행 중 (${progress.totalFetched.toLocaleString()}건 처리됨)`,
-          );
-        } else if (progress.status === "partial" && progress.nextPage && progress.sourceType) {
-          // Partial sync found on reload — trigger continuation
-          clearInterval(checkInterval);
-          setSyncProgress(
-            `동기화 계속 중... ${progress.totalFetched.toLocaleString()}건 처리됨`,
-          );
-          const contRes = await fetch("/api/sync-mfds", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              sourceType: progress.sourceType,
-              logId: active.logId,
-              startPage: progress.nextPage,
-              priorFetched: progress.totalFetched,
-              priorUpserted: progress.totalUpserted,
-            }),
-          });
-          if (contRes.ok) {
-            try {
-              await readStream(contRes);
-            } catch (err) {
-              toast.error(`스트림 오류: ${(err as Error).message}`);
-            } finally {
-              setIsSyncing(false);
-              setSyncProgress(null);
-            }
-          }
+    fetch("/api/sync-mfds/status")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !data.active) return;
+        const a = data.active;
+        if (a.status === "running") {
+          setIsSyncing(true);
+          setSyncLogId(a.id);
+          const pct = a.api_total_count ? ` (${((a.total_fetched / a.api_total_count) * 100).toFixed(1)}%)` : "";
+          setSyncProgress(`동기화 진행 중: ${a.total_fetched.toLocaleString()}건${pct}`);
+          startPolling(a.id);
+        } else if (a.status === "partial") {
+          const pct = a.api_total_count ? ` (${((a.total_fetched / a.api_total_count) * 100).toFixed(1)}%)` : "";
+          setSyncProgress(`중단됨: ${a.total_fetched.toLocaleString()}건${pct} — 동기화 버튼으로 이어받기`);
         }
-      }, 3000);
-
-      return () => clearInterval(checkInterval);
-    });
+      })
+      .catch(() => {});
 
     return () => { cancelled = true; };
-  }, [mode, doSearch, readStream]);
+  }, [mode, startPolling]);
 
-  // ── MFDS sync trigger (browse mode) — streaming ────────────────
-  async function handleMfdsSync() {
+  // ── MFDS sync trigger ────────────────
+  // API starts sync in background — UI polls status for progress
+  async function handleMfdsSync(syncMode: "full" | "incremental" = "full") {
     setIsSyncing(true);
-    setSyncProgress("동기화 시작...");
+    setSyncProgress("동기화 준비 중...");
 
     try {
       const res = await fetch("/api/sync-mfds", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceType: tab }),
+        body: JSON.stringify({ sourceType: tab, syncMode }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(err.error ?? "동기화 시작 실패");
+        if (res.status === 409 && data.logId) {
+          // Already running — start polling existing sync
+          setSyncLogId(data.logId);
+          startPolling(data.logId);
+          toast.info("이미 동기화가 진행 중입니다. 진행상황을 표시합니다.");
+          return;
+        }
+        throw new Error(data.error ?? "동기화 시작 실패");
       }
 
-      await readStream(res);
+      setSyncLogId(data.logId);
+      if (data.resuming) {
+        setSyncProgress(`이어받기: ${(data.priorFetched ?? 0).toLocaleString()}건부터 계속...`);
+      }
+      startPolling(data.logId);
     } catch (err) {
+      setIsSyncing(false);
+      setSyncProgress(null);
+      setSyncLogId(null);
       toast.error(
         `동기화 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
       );
-    } finally {
+    }
+  }
+
+  // ── Stop sync ────────────────
+  async function handleStopSync() {
+    try {
+      await fetch("/api/sync-mfds/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logId: syncLogId }),
+      });
+      toast.info("동기화 중지 요청됨");
       setIsSyncing(false);
       setSyncProgress(null);
+      setSyncLogId(null);
+    } catch {
+      toast.error("중지 실패");
     }
   }
 
@@ -644,7 +608,7 @@ export function MfdsSearchPanel({
           });
         }
         if (mode === "pick" && onSelect) {
-          onSelect(result.id);
+          onSelect(result.id!);
         }
         router.refresh();
       } catch (err) {
@@ -799,100 +763,100 @@ export function MfdsSearchPanel({
   // ── Render ────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-4">
-      {/* Sync status banner */}
-      {mode === "browse" && syncStatus && (
-        <div className="flex items-center justify-between rounded-lg border bg-muted/50 px-4 py-2 text-sm">
-          <div className="flex items-center gap-4 text-muted-foreground">
-            <span>의약품: {syncStatus.drugCount.toLocaleString()}건</span>
-            <span>의료기기: {syncStatus.deviceCount.toLocaleString()}건</span>
-            {syncStatus.lastSync && (
-              <span>
-                마지막 동기화:{" "}
-                {new Date(syncStatus.lastSync).toLocaleDateString("ko-KR")}
-              </span>
-            )}
-            {!syncStatus.lastSync && (
-              <span className="text-amber-600">동기화 필요</span>
-            )}
+    <div className="flex flex-col h-[calc(100vh-180px)] min-h-[400px]">
+      {/* Compact top bar: search + sync + toolbar in minimal space */}
+      <div className="space-y-1.5 shrink-0">
+        {/* Search bar */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <MfdsSearchBar
+              tab={tab}
+              onTabChange={handleTabChange}
+              query={query}
+              onQueryChange={setQuery}
+              searchField={searchField}
+              onSearchFieldChange={setSearchField}
+              activeFilters={activeFilters}
+              onFiltersChange={setActiveFilters}
+              filterLogic={filterLogic}
+              onFilterLogicChange={setFilterLogic}
+              onSearch={() => {
+                if (mode === "manage") {
+                  setGlobalFilter(query);
+                } else {
+                  if (debounceTimerRef.current) {
+                    clearTimeout(debounceTimerRef.current);
+                  }
+                  doSearch(1);
+                }
+              }}
+              isPending={isPending}
+              recentSearches={recentSearches.items}
+              onRecentClick={handleRecentClick}
+              hasSearched={hasSearched}
+            />
           </div>
-          <div className="flex items-center gap-2">
-            {syncProgress && (
-              <span className="text-xs text-muted-foreground">{syncProgress}</span>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isSyncing}
-              onClick={handleMfdsSync}
-            >
-              {isSyncing ? (
-                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-              ) : (
-                <RefreshCw className="h-3 w-3 mr-1" />
+
+          {/* Sync buttons (browse mode) */}
+          {mode === "browse" && syncStatus && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              {syncProgress && (
+                <span className="text-[11px] text-muted-foreground max-w-[200px] truncate">{syncProgress}</span>
               )}
-              동기화
-            </Button>
-          </div>
+              {isSyncing ? (
+                <Button variant="destructive" size="sm" className="h-8" onClick={handleStopSync}>
+                  <Square className="h-3 w-3 mr-1" />
+                  정지
+                </Button>
+              ) : (
+                <>
+                  <Button variant="outline" size="sm" className="h-8" onClick={() => handleMfdsSync("incremental")}>
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    증분
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-8" onClick={() => handleMfdsSync("full")}>
+                    <Database className="h-3 w-3 mr-1" />
+                    전체
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Search bar with tabs, query, filter chips, recent searches */}
-      <MfdsSearchBar
-        tab={tab}
-        onTabChange={handleTabChange}
-        query={query}
-        onQueryChange={setQuery}
-        searchField={searchField}
-        onSearchFieldChange={setSearchField}
-        activeFilters={activeFilters}
-        onFiltersChange={setActiveFilters}
-        filterLogic={filterLogic}
-        onFilterLogicChange={setFilterLogic}
-        onSearch={() => {
-          if (mode === "manage") {
-            setGlobalFilter(query);
-          } else {
-            if (debounceTimerRef.current) {
-              clearTimeout(debounceTimerRef.current);
-            }
-            doSearch(1);
-          }
-        }}
-        isPending={isPending}
-        recentSearches={recentSearches.items}
-        onRecentClick={handleRecentClick}
-        hasSearched={hasSearched}
-      />
+        {/* Inline toolbar: result count + column settings (compact) */}
+        {hasSearched && results.length > 0 && (
+          <div className="flex items-center justify-between">
+            <MfdsResultToolbar
+              totalCount={totalCount}
+              page={page}
+              totalPages={totalPages}
+              table={table}
+            />
+          </div>
+        )}
+      </div>
 
-      {/* Result toolbar (summary, column toggle) */}
-      {hasSearched && results.length > 0 && (
-        <MfdsResultToolbar
-          totalCount={totalCount}
-          page={page}
-          totalPages={totalPages}
+      {/* Table fills remaining space */}
+      <div className="flex-1 min-h-0 overflow-auto mt-1.5">
+        <MfdsResultTable
           table={table}
+          tab={tab}
+          expandedRowId={expandedRowId}
+          onExpandToggle={(rowId) =>
+            setExpandedRowId(expandedRowId === rowId ? null : rowId)
+          }
+          existingStandardCodes={existingStandardCodes}
+          addingId={addingId}
+          onAdd={handleAdd}
+          isPending={isPending}
+          isLoading={isLoading}
+          hasSearched={hasSearched}
         />
-      )}
+      </div>
 
-      {/* Result table with accordion expand + action buttons */}
-      <MfdsResultTable
-        table={table}
-        tab={tab}
-        expandedRowId={expandedRowId}
-        onExpandToggle={(rowId) =>
-          setExpandedRowId(expandedRowId === rowId ? null : rowId)
-        }
-        existingStandardCodes={existingStandardCodes}
-        addingId={addingId}
-        onAdd={handleAdd}
-        isPending={isPending}
-        isLoading={isLoading}
-        hasSearched={hasSearched}
-      />
-
-      {/* Pagination */}
-      {mode !== "manage" && (
+      {/* Pagination always at bottom */}
+      <div className="shrink-0 pt-2">
         <MfdsPagination
           page={page}
           totalPages={totalPages}
@@ -900,7 +864,7 @@ export function MfdsSearchPanel({
           isPending={isPending}
           onPageChange={(p) => doSearch(p)}
         />
-      )}
+      </div>
 
       {/* Sync diff dialog */}
       {syncDiff && (

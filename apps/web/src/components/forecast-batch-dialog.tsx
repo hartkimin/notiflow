@@ -18,11 +18,9 @@ import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { createForecastBatch } from "@/app/(dashboard)/notifications/forecast-actions";
+import { createForecastBatch } from "@/app/(dashboard)/messages/forecast-actions";
 import { getWeekMonday, getWeekDates, toLocalDateStr } from "@/lib/schedule-utils";
-import type { Hospital } from "@/lib/types";
-
-type ProductOption = { id: number; name: string; short_name: string | null; is_active: boolean };
+import type { Hospital, Product } from "@/lib/types";
 
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
 
@@ -30,7 +28,7 @@ interface ForecastBatchDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   hospitals: Hospital[];
-  products: ProductOption[];
+  products: Product[];
   referenceDate: Date;
 }
 
@@ -117,6 +115,7 @@ export function ForecastBatchDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Hospital */}
           <div className="space-y-1.5">
             <Label>거래처</Label>
             <Popover open={hospitalOpen} onOpenChange={setHospitalOpen}>
@@ -149,6 +148,7 @@ export function ForecastBatchDialog({
             </Popover>
           </div>
 
+          {/* Day selection */}
           <div className="space-y-1.5">
             <Label>요일 선택</Label>
             <div className="flex gap-2">
@@ -168,6 +168,7 @@ export function ForecastBatchDialog({
             </div>
           </div>
 
+          {/* Items */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label>공통 품목</Label>
@@ -221,6 +222,7 @@ export function ForecastBatchDialog({
             ))}
           </div>
 
+          {/* Notes */}
           <div className="space-y-1.5">
             <Label>노트</Label>
             <Textarea

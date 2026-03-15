@@ -1,17 +1,6 @@
-import { PlusCircle } from "lucide-react";
-
 import { getHospitals } from "@/lib/queries/hospitals";
-import { HospitalSearch, HospitalTable } from "@/components/hospital-list";
+import { HospitalTable } from "@/components/hospital-list";
 import { Pagination } from "@/components/pagination";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { RealtimeListener } from "@/components/realtime-listener";
 
 interface Props {
@@ -21,7 +10,7 @@ interface Props {
 export default async function HospitalsPage({ searchParams }: Props) {
   const params = await searchParams;
   const page = parseInt(params.page || "1", 10);
-  const limit = 25;
+  const limit = 15;
   const offset = (page - 1) * limit;
 
   const result = await getHospitals({
@@ -33,37 +22,24 @@ export default async function HospitalsPage({ searchParams }: Props) {
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
   return (
-    <>
+    <div className="flex-1 flex flex-col min-h-0 space-y-6">
       <RealtimeListener tables={["hospitals"]} />
-      <div className="flex items-center">
-        <h1 className="text-lg font-semibold md:text-2xl">거래처 관리</h1>
-        <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" className="h-8 gap-1">
-            <PlusCircle className="h-3.5 w-3.5" />
-            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              거래처 추가
-            </span>
-          </Button>
-        </div>
+      
+      {/* 
+          HospitalTable now includes the Page Header, Search, 
+          and Create Button in one efficient line.
+      */}
+      <div className="flex-1 flex flex-col min-h-0">
+        <HospitalTable hospitals={result.hospitals} />
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>거래처 목록</CardTitle>
-          <CardDescription>
-            <HospitalSearch />
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <HospitalTable hospitals={result.hospitals} />
-        </CardContent>
-        <CardFooter>
-          <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            totalCount={result.total}
-          />
-        </CardFooter>
-      </Card>
-    </>
+
+      <div className="flex justify-end pt-2 border-t shrink-0">
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalCount={result.total}
+        />
+      </div>
+    </div>
   );
 }

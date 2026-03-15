@@ -100,4 +100,38 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    private val _isLoggingIn = MutableStateFlow(false)
+    val isLoggingIn: StateFlow<Boolean> = _isLoggingIn.asStateFlow()
+
+    private val _loginError = MutableStateFlow<String?>(null)
+    val loginError: StateFlow<String?> = _loginError.asStateFlow()
+
+    fun login(email: String, password: String, onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            _isLoggingIn.value = true
+            _loginError.value = null
+            try {
+                val result = authManager.signInWithEmail(email, password)
+                result.fold(
+                    onSuccess = {
+                        appPreferences.appMode = AppMode.CLOUD
+                        _appMode.value = AppMode.CLOUD
+                        onSuccess()
+                    },
+                    onFailure = { e ->
+                        _loginError.value = e.message ?: "로그인에 실패했습니다"
+                    }
+                )
+            } catch (e: Exception) {
+                _loginError.value = e.message ?: "로그인에 실패했습니다"
+            } finally {
+                _isLoggingIn.value = false
+            }
+        }
+    }
+
+    fun clearLoginError() {
+        _loginError.value = null
+    }
+
 }

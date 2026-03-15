@@ -15,11 +15,13 @@ export default async function DashboardLayout({
 
   return (
     <DashboardShell userName={user.name}>
-      <div className="flex flex-col">
+      <div className="flex flex-1 flex-col min-w-0 min-h-screen">
         <Nav syncInterval={settings.sync_interval_minutes} />
         <GlobalNotifications />
-        <main className="flex flex-1 flex-col gap-4 p-4 pb-20 md:pb-4 lg:gap-6 lg:p-6 lg:pb-6 overflow-auto">
-          {children}
+        <main className="flex-1 overflow-y-auto p-4 pb-16 md:pb-4 lg:p-6 lg:pb-4">
+          <div className="w-full space-y-4">
+            {children}
+          </div>
         </main>
       </div>
       <MobileNav />

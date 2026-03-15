@@ -18,10 +18,8 @@ import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { createForecast } from "@/app/(dashboard)/notifications/forecast-actions";
-import type { Hospital } from "@/lib/types";
-
-type ProductOption = { id: number; name: string; short_name: string | null; official_name?: string; is_active: boolean };
+import { createForecast } from "@/app/(dashboard)/messages/forecast-actions";
+import type { Hospital, Product } from "@/lib/types";
 
 interface ForecastItemState {
   product_id: number | null;
@@ -34,7 +32,7 @@ interface ForecastDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   hospitals: Hospital[];
-  products: ProductOption[];
+  products: Product[];
   initialDate?: string;
 }
 
@@ -110,6 +108,7 @@ export function ForecastDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Date */}
           <div className="space-y-1.5">
             <Label>날짜</Label>
             <Input
@@ -119,6 +118,7 @@ export function ForecastDialog({
             />
           </div>
 
+          {/* Hospital */}
           <div className="space-y-1.5">
             <Label>거래처</Label>
             <Popover open={hospitalOpen} onOpenChange={setHospitalOpen}>
@@ -155,6 +155,7 @@ export function ForecastDialog({
             </Popover>
           </div>
 
+          {/* Items */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label>예상 품목</Label>
@@ -176,6 +177,7 @@ export function ForecastDialog({
             )}
           </div>
 
+          {/* Notes */}
           <div className="space-y-1.5">
             <Label>노트</Label>
             <Textarea
@@ -202,7 +204,7 @@ function ForecastItemRow({
   item, products, onChange, onRemove,
 }: {
   item: ForecastItemState;
-  products: ProductOption[];
+  products: Product[];
   onChange: (update: Partial<ForecastItemState>) => void;
   onRemove: () => void;
 }) {

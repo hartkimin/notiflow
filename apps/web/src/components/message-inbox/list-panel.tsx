@@ -9,27 +9,35 @@ import {
 import { Pin, Smartphone } from "lucide-react";
 import { Pagination } from "@/components/pagination";
 import { cn } from "@/lib/utils";
-import { SOURCE_LABEL, formatDate } from "./constants";
-import type { CapturedMessage } from "@/lib/types";
+import type { RawMessage } from "@/lib/types";
 import type { MessageLocalStateHook } from "@/hooks/use-message-local-state";
+import type { RowSelectionHook } from "@/hooks/use-row-selection";
 
-type SortKey = "received_at" | "sender";
+const SOURCE_LABEL: Record<string, string> = {
+  kakaotalk: "카카오톡", sms: "SMS", telegram: "텔레그램", manual: "수동",
+};
+
+type SortKey = "received_at" | "sender" | "parse_status";
+
+function formatTime(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
 
 interface ListPanelProps {
-  messages: CapturedMessage[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
+  messages: RawMessage[];
+  selectedId: number | null;
+  onSelect: (id: number) => void;
   localState: MessageLocalStateHook;
-  selectedIds: Set<string>;
-  onToggleSelect: (id: string) => void;
+  rowSelection: RowSelectionHook;
   currentPage: number;
   totalPages: number;
   totalCount: number;
 }
 
 export function MessageListPanel({
-  messages, selectedId, onSelect, localState,
-  selectedIds, onToggleSelect,
+  messages, selectedId, onSelect, localState, rowSelection,
   currentPage, totalPages, totalCount,
 }: ListPanelProps) {
   const [sortKey, setSortKey] = useState<SortKey>("received_at");
@@ -41,14 +49,17 @@ export function MessageListPanel({
       if (aPinned !== bPinned) return bPinned - aPinned;
 
       if (sortKey === "received_at") {
-        return b.received_at - a.received_at;
+        return new Date(b.received_at).getTime() - new Date(a.received_at).getTime();
       }
-      return (a.sender ?? "").localeCompare(b.sender ?? "", "ko");
+      const av = a[sortKey] ?? "";
+      const bv = b[sortKey] ?? "";
+      return String(av).localeCompare(String(bv), "ko");
     });
   }, [messages, sortKey, localState]);
 
   return (
     <div className="flex flex-col h-full">
+      {/* Sort selector */}
       <div className="flex items-center gap-2 px-3 py-2 border-b">
         <Select value={sortKey} onValueChange={(v: string) => setSortKey(v as SortKey)}>
           <SelectTrigger className="h-7 text-xs flex-1">
@@ -57,10 +68,12 @@ export function MessageListPanel({
           <SelectContent>
             <SelectItem value="received_at">수신시간↓</SelectItem>
             <SelectItem value="sender">발신자</SelectItem>
+            <SelectItem value="parse_status">상태</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
+      {/* Card list */}
       <div className="flex-1 overflow-y-auto">
         {sorted.map((msg) => {
           const msgLocal = localState.getState(msg.id);
@@ -79,24 +92,26 @@ export function MessageListPanel({
             >
               <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
                 <Checkbox
-                  checked={selectedIds.has(msg.id)}
-                  onCheckedChange={() => onToggleSelect(msg.id)}
+                  checked={rowSelection.selected.has(msg.id)}
+                  onCheckedChange={() => rowSelection.toggle(msg.id)}
                 />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium truncate">{msg.sender || "(발신자 없음)"}</span>
-                  <span className="text-[10px] text-muted-foreground shrink-0 ml-1">
-                    {formatDate(msg.received_at)}
-                  </span>
+                  <span className="text-[10px] text-muted-foreground shrink-0 ml-1">{formatTime(msg.received_at)}</span>
                 </div>
                 <p className="text-xs text-muted-foreground truncate mt-0.5">{msg.content}</p>
                 <div className="flex items-center gap-1.5 mt-1">
-                  {statusStep && (
+                  {statusStep ? (
                     <span className="inline-flex items-center gap-1 text-[10px]">
                       <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: statusStep.color }} />
                       {statusStep.name}
                     </span>
+                  ) : (
+                    <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4">
+                      {msg.parse_status === "parsed" ? "파싱완료" : msg.parse_status === "pending" ? "대기" : msg.parse_status === "failed" ? "실패" : "건너뜀"}
+                    </Badge>
                   )}
                   {msgLocal.isPinned && <Pin className="h-3 w-3 text-amber-500" />}
                   {msg.device_name && (
@@ -106,7 +121,7 @@ export function MessageListPanel({
                     </span>
                   )}
                   <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 ml-auto">
-                    {SOURCE_LABEL[msg.source] || msg.app_name || msg.source}
+                    {SOURCE_LABEL[msg.source_app] || msg.source_app}
                   </Badge>
                 </div>
               </div>
@@ -118,6 +133,7 @@ export function MessageListPanel({
         )}
       </div>
 
+      {/* Pagination */}
       <div className="border-t px-2 py-1.5">
         <Pagination currentPage={currentPage} totalPages={totalPages} totalCount={totalCount} />
       </div>

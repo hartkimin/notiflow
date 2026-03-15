@@ -81,10 +81,17 @@ import com.hart.notimgmt.data.model.ThemeMode
 import com.hart.notimgmt.ui.components.ConfirmDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import com.hart.notimgmt.util.checkBatteryOptimization
-import com.hart.notimgmt.util.checkNotificationListener
-import com.hart.notimgmt.util.checkPostNotifPermission
-import com.hart.notimgmt.util.checkSmsPermission
+import androidx.compose.material.icons.automirrored.outlined.Login
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import com.hart.notimgmt.ui.onboarding.checkBatteryOptimization
+import com.hart.notimgmt.ui.onboarding.checkNotificationListener
+import com.hart.notimgmt.ui.onboarding.checkPostNotifPermission
+import com.hart.notimgmt.ui.onboarding.checkSmsPermission
 import com.hart.notimgmt.data.backup.DataSummary
 import com.hart.notimgmt.data.sync.SyncStatus
 import com.hart.notimgmt.data.sync.TableSyncInfo
@@ -114,7 +121,6 @@ fun GeneralScreen(
     val isLoggedIn by settingsViewModel.isLoggedIn.collectAsState()
     val isLoggingOut by settingsViewModel.isLoggingOut.collectAsState()
     val appMode by settingsViewModel.appMode.collectAsState()
-    val serverUrl by settingsViewModel.supabaseUrl.collectAsState()
     val isCloudMode = appMode == AppMode.CLOUD
     val snackbarHostState = LocalSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
@@ -126,6 +132,12 @@ fun GeneralScreen(
     var downloadDataSummary by remember { mutableStateOf<DataSummary?>(null) }
     var isLoadingRemoteSummary by remember { mutableStateOf(false) }
     var showSwitchToOfflineDialog by remember { mutableStateOf(false) }
+    var showInlineLogin by remember { mutableStateOf(false) }
+    var loginEmail by remember { mutableStateOf("") }
+    var loginPassword by remember { mutableStateOf("") }
+    var loginPasswordVisible by remember { mutableStateOf(false) }
+    val isLoggingIn by settingsViewModel.isLoggingIn.collectAsState()
+    val loginError by settingsViewModel.loginError.collectAsState()
 
     // Permission states
     val context = LocalContext.current
@@ -657,13 +669,6 @@ fun GeneralScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                Text(
-                                    text = serverUrl,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
                             }
                         }
                     }
@@ -907,21 +912,29 @@ fun GeneralScreen(
             }
         }
 
-        // Offline mode: show "Switch to Cloud" card
+        // Offline mode: inline accordion login
         if (!isCloudMode) {
-            SettingsSection(title = "데이터 모드") {
+            SettingsSection(title = "로그인") {
+                // Login toggle header
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
-                    modifier = Modifier.fillMaxWidth()
+                    color = if (showInlineLogin) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    border = if (showInlineLogin) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                             else null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showInlineLogin = !showInlineLogin
+                            settingsViewModel.clearLoginError()
+                        }
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.CloudOff,
+                            imageVector = if (showInlineLogin) Icons.Outlined.Cloud else Icons.AutoMirrored.Outlined.Login,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp)
@@ -929,31 +942,103 @@ fun GeneralScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "현재: 오프라인 모드",
+                                text = "클라우드 로그인",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Text(
-                                text = "클라우드로 전환하면 데이터를 동기화할 수 있습니다",
+                                text = "로그인하면 데이터가 자동으로 동기화됩니다",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        Icon(
+                            imageVector = if (showInlineLogin) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = {
-                        onSwitchToCloud()
-                    },
-                    modifier = Modifier.fillMaxWidth()
+
+                // Accordion login form
+                AnimatedVisibility(
+                    visible = showInlineLogin,
+                    enter = expandVertically(),
+                    exit = shrinkVertically()
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Cloud,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("클라우드 모드로 전환", style = MaterialTheme.typography.labelMedium)
+                    Column(modifier = Modifier.padding(top = 12.dp)) {
+                        OutlinedTextField(
+                            value = loginEmail,
+                            onValueChange = { loginEmail = it },
+                            label = { Text("이메일") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isLoggingIn
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = loginPassword,
+                            onValueChange = { loginPassword = it },
+                            label = { Text("비밀번호") },
+                            singleLine = true,
+                            visualTransformation = if (loginPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = {
+                                IconButton(onClick = { loginPasswordVisible = !loginPasswordVisible }) {
+                                    Icon(
+                                        imageVector = if (loginPasswordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isLoggingIn
+                        )
+
+                        // Error message
+                        if (loginError != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = loginError ?: "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = {
+                                settingsViewModel.login(loginEmail.trim(), loginPassword) {
+                                    loginEmail = ""
+                                    loginPassword = ""
+                                    showInlineLogin = false
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("로그인 성공! 동기화를 시작합니다.")
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isLoggingIn && loginEmail.isNotBlank() && loginPassword.isNotBlank()
+                        ) {
+                            if (isLoggingIn) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("로그인 중...")
+                            } else {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Outlined.Login,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("로그인")
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1089,7 +1174,7 @@ fun GeneralScreen(
         // 앱 정보 섹션
         SettingsSection(title = "앱 정보") {
             Text(
-                text = "NotiRoute",
+                text = "NotiFlow",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -1117,7 +1202,7 @@ fun GeneralScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "버전 ${com.hart.notimgmt.BuildConfig.VERSION_NAME}",
+                        text = "버전 3.6.0",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -1151,54 +1236,6 @@ fun GeneralScreen(
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ReleaseNoteItem(
-                        version = "0.0.4.2",
-                        date = "2026.03.13",
-                        notes = listOf(
-                            "클라우드 동기화 시 서버 데이터 스키마 변경에 따른 크래시 방지 안정성 강화 (JSON 파싱 규칙 유연화)"
-                        )
-                    )
-
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-
-                    ReleaseNoteItem(
-                        version = "0.0.4.1",
-                        date = "2026.03.13",
-                        notes = listOf(
-                            "NotiFlow 브랜드명 일괄 변경 (패키지명, 리소스 동기화)",
-                            "앱 내 위젯 이름 및 리소스 경로 수정"
-                        )
-                    )
-
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-
-                    ReleaseNoteItem(
-                        version = "0.0.4.0",
-                        date = "2026.03.13",
-                        notes = listOf(
-                            "웹 대시보드 - 모바일 앱 간 백그라운드 FCM 동기화 파이프라인 구축",
-                            "SWR 기반 낙관적 UI 업데이트 적용 (클라이언트 즉각 반응)",
-                            "백그라운드에서 강제 동기화(forceSync) 시 무한 루프 방지 로직 보완"
-                        )
-                    )
-
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-
-                    ReleaseNoteItem(
-                        version = "0.0.3.6",
-                        date = "2026.03.11",
-                        notes = listOf(
-                            "클라우드 동기화 안정성 개선 — 로그인 후 재시작 시 세션 유지 보장",
-                            "설정 저장 방식 개선 — 주요 설정(URL, 모드) 동기 저장(commit) 적용",
-                            "URL 변경 시 클라우드 모드 자동 전환 로직 수정",
-                            "로그인 정보 저장 및 복원 신뢰도 향상"
-                        )
-                    )
-
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                    )
-
                     ReleaseNoteItem(
                         version = "3.6.0",
                         date = "2026.02.23",
@@ -1317,7 +1354,7 @@ fun GeneralScreen(
                             "메시지/보드 탭 스와이프 검색바 (아래로 스와이프 시 표시, 위로 스크롤 시 숨김)",
                             "보드 탭 검색 필터링 추가",
                             "앱 선택 UI 고도화 — 검색 기반 바텀시트 + 앱 아이콘 표시",
-                            "온보딩/스플래시 배경을 NotiRoute 브랜드 벡터 이미지로 교체"
+                            "온보딩/스플래시 배경을 NotiFlow 브랜드 벡터 이미지로 교체"
                         )
                     )
 
@@ -1329,10 +1366,10 @@ fun GeneralScreen(
                         version = "3.0.0",
                         date = "2026.02.08",
                         notes = listOf(
-                            "NotiRoute로 리브랜딩 (MedNoti → NotiRoute)",
+                            "NotiFlow로 리브랜딩 (MedNoti → NotiFlow)",
                             "새 앱 아이콘 (벨 + Flow 웨이브 + N 뱃지)",
                             "온보딩 화면 텍스트 및 브랜딩 업데이트",
-                            "applicationId 변경 (com.hart.notiroute)"
+                            "applicationId 변경 (com.hart.notiflow)"
                         )
                     )
 
@@ -1769,4 +1806,3 @@ private fun formatSyncTime(timestamp: Long): String {
         }
     }
 }
-

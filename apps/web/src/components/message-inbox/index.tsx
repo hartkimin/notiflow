@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo, useTransition, useEffect, useCallback } from "react";
+import { useState, useMemo, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Trash2, X } from "lucide-react";
+import { Bot, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -12,77 +12,91 @@ import {
 } from "@/components/ui/alert-dialog";
 import { MessageListPanel } from "./list-panel";
 import { MessageDetailPanel } from "./detail-panel";
+import { OrderPanel } from "./order-panel";
 import { useMessageLocalState } from "@/hooks/use-message-local-state";
-import { deleteMessages } from "@/lib/actions";
+import { useRowSelection } from "@/hooks/use-row-selection";
+import { reparseMessages, deleteMessages } from "@/lib/actions";
 import { requestSidebarCollapse } from "@/hooks/use-sidebar-collapse";
-import type { CapturedMessage } from "@/lib/types";
+import type { RawMessage, Hospital, Product } from "@/lib/types";
 
 interface MessageInboxProps {
-  messages: CapturedMessage[];
+  messages: RawMessage[];
+  hospitals: Hospital[];
+  products: Product[];
   currentPage: number;
   totalPages: number;
   totalCount: number;
 }
 
 export function MessageInbox({
-  messages, currentPage, totalPages, totalCount,
+  messages, hospitals, products, currentPage, totalPages, totalCount,
 }: MessageInboxProps) {
   const router = useRouter();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
   const localState = useMessageLocalState();
-
-  // String-based row selection
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const toggleSelect = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
-  const selectionCount = useMemo(
-    () => messages.filter((m) => selectedIds.has(m.id)).length,
-    [messages, selectedIds],
-  );
+  const allIds = useMemo(() => messages.map((m) => m.id), [messages]);
+  const rowSelection = useRowSelection(allIds);
 
   const selectedMsg = messages.find((m) => m.id === selectedId) ?? null;
 
+  // Auto-collapse sidebar to give 3-panel layout more horizontal space
   useEffect(() => {
     requestSidebarCollapse();
   }, []);
 
   return (
     <div className="flex flex-col">
-      {/* 2-panel layout: list + detail */}
-      <div className="grid grid-cols-[1fr_1fr] h-[calc(100vh-9rem)]">
+      {/* 3:3:3:1(여백) fixed grid — sidebar 크기에 무관하게 동일 비율 */}
+      <div className="grid grid-cols-[3fr_3fr_3fr_1fr] h-[calc(100vh-9rem)]">
         <div className="border rounded-l-lg overflow-hidden min-w-0">
           <MessageListPanel
             messages={messages}
             selectedId={selectedId}
             onSelect={setSelectedId}
             localState={localState}
-            selectedIds={selectedIds}
-            onToggleSelect={toggleSelect}
+            rowSelection={rowSelection}
             currentPage={currentPage}
             totalPages={totalPages}
             totalCount={totalCount}
           />
         </div>
-        <div className="border-y border-r rounded-r-lg overflow-hidden min-w-0">
+        <div className="border-y border-r overflow-hidden min-w-0">
           <MessageDetailPanel
             message={selectedMsg}
             localState={localState}
           />
         </div>
+        <div className="border-y border-r rounded-r-lg overflow-hidden min-w-0">
+          <OrderPanel
+            message={selectedMsg}
+            hospitals={hospitals}
+            products={products}
+          />
+        </div>
+        {/* 1fr 여백 */}
       </div>
 
       {/* Bulk action bar */}
-      {selectionCount > 0 && (
+      {rowSelection.count > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg border bg-background/95 backdrop-blur px-4 py-2.5 shadow-lg">
-          <span className="text-sm font-medium whitespace-nowrap">{selectionCount}개 선택됨</span>
+          <span className="text-sm font-medium whitespace-nowrap">{rowSelection.count}개 선택됨</span>
+          <Button size="sm" disabled={isPending}
+            onClick={() => {
+              startTransition(async () => {
+                try {
+                  const result = await reparseMessages(Array.from(rowSelection.selected));
+                  const successCount = result.results.filter((r) => r.data && !r.error).length;
+                  const failCount = result.results.filter((r) => r.error).length;
+                  toast.success(`일괄 파싱 완료: ${successCount}개 성공${failCount > 0 ? `, ${failCount}개 실패` : ""}`);
+                  rowSelection.clear();
+                  router.refresh();
+                } catch { toast.error("일괄 파싱에 실패했습니다."); }
+              });
+            }}
+          >
+            <Bot className="h-4 w-4 mr-1" />일괄 파싱
+          </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button size="sm" variant="destructive" disabled={isPending}>
@@ -91,7 +105,7 @@ export function MessageInbox({
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>{selectionCount}개 메시지를 삭제하시겠습니까?</AlertDialogTitle>
+                <AlertDialogTitle>{rowSelection.count}개 메시지를 삭제하시겠습니까?</AlertDialogTitle>
                 <AlertDialogDescription>이 작업은 되돌릴 수 없습니다.</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -100,9 +114,9 @@ export function MessageInbox({
                   onClick={() => {
                     startTransition(async () => {
                       try {
-                        await deleteMessages(Array.from(selectedIds));
-                        toast.success(`${selectionCount}개 메시지가 삭제되었습니다.`);
-                        clearSelection();
+                        await deleteMessages(Array.from(rowSelection.selected));
+                        toast.success(`${rowSelection.count}개 메시지가 삭제되었습니다.`);
+                        rowSelection.clear();
                         router.refresh();
                       } catch (err) { toast.error(`삭제 실패: ${err instanceof Error ? err.message : String(err)}`); }
                     });
@@ -112,7 +126,7 @@ export function MessageInbox({
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          <Button size="sm" variant="ghost" onClick={clearSelection} className="h-8 w-8 p-0">
+          <Button size="sm" variant="ghost" onClick={rowSelection.clear} className="h-8 w-8 p-0">
             <X className="h-4 w-4" />
           </Button>
         </div>

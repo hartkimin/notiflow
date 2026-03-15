@@ -49,7 +49,7 @@ export default async function OrdersPage({ searchParams }: Props) {
   const initialTab = params.tab === "calendar" ? "calendar" : "list";
   const page = parseInt(params.page || "1", 10);
   const status = params.status;
-  const limit = 20;
+  const limit = 15;
   const offset = (page - 1) * limit;
 
   // Calendar month range
@@ -86,7 +86,7 @@ export default async function OrdersPage({ searchParams }: Props) {
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
 
   const initialMessageContent = sourceMessage?.content;
-  const sourceMessageId = sourceMessage?.id;
+  const sourceMessageId = sourceMessage?.id?.toString();
 
   return (
     <>
@@ -94,18 +94,17 @@ export default async function OrdersPage({ searchParams }: Props) {
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">주문 관리</h1>
         <div className="ml-auto flex items-center gap-2">
+          <OrderInlineForm
+            displayColumns={displayColumns}
+            initialNotes={initialMessageContent}
+            sourceMessageId={sourceMessageId}
+          />
           <Button size="sm" variant="outline" className="h-8 gap-1">
             <File className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">내보내기</span>
           </Button>
         </div>
       </div>
-
-      <OrderInlineForm
-        displayColumns={displayColumns}
-        initialNotes={initialMessageContent}
-        sourceMessageId={sourceMessageId}
-      />
 
       <ClientTabs
         initialTab={initialTab}

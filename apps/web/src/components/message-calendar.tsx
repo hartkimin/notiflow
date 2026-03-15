@@ -1,24 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { ClipboardList, Trash2, Unlink } from "lucide-react";
+import { ClipboardList, Link2, Trash2, Unlink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataCalendar } from "@/components/data-calendar";
 import {
   deleteForecast,
   getForecastDetail,
+  getMatchingForecasts,
+  matchForecast,
   unmatchForecast,
-} from "@/app/(dashboard)/notifications/forecast-actions";
+} from "@/app/(dashboard)/messages/forecast-actions";
 import type { CalendarView } from "@/lib/schedule-utils";
 import type {
-  CapturedMessage,
   ForecastItem,
   ForecastStatus,
   Hospital,
   MessageCalendarItem,
   OrderForecast,
-  // Product type not needed; only Hospital for calendar props
+  Product,
+  RawMessage,
 } from "@/lib/types";
 
 // ─── Constants ───────────────────────────────────
@@ -27,6 +29,14 @@ const SOURCE_LABELS: Record<string, string> = {
   kakaotalk: "카카오톡",
   sms: "SMS",
   telegram: "텔레그램",
+  manual: "수동",
+};
+
+const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  parsed: "default",
+  pending: "secondary",
+  failed: "destructive",
+  skipped: "outline",
 };
 
 const FORECAST_STATUS_LABEL: Record<ForecastStatus, string> = {
@@ -47,19 +57,26 @@ const FORECAST_STATUS_CLASSES: Record<ForecastStatus, string> = {
 
 // ─── Helpers ─────────────────────────────────────
 
-function formatTime(epochMs: number): string {
-  const d = new Date(epochMs);
+function formatTime(dateStr: string): string {
+  const d = new Date(dateStr);
   return d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
 }
 
-function formatDate(epochMs: number): string {
-  const d = new Date(epochMs);
-  return `${d.getMonth() + 1}/${d.getDate()} ${formatTime(epochMs)}`;
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return `${d.getMonth() + 1}/${d.getDate()} ${formatTime(dateStr)}`;
 }
 
 function formatForecastDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function parseStatusLabel(status: string): string {
+  if (status === "parsed") return "파싱완료";
+  if (status === "pending") return "대기";
+  if (status === "failed") return "실패";
+  return status;
 }
 
 function ForecastStatusBadge({ status }: { status: ForecastStatus }) {
@@ -72,7 +89,7 @@ function ForecastStatusBadge({ status }: { status: ForecastStatus }) {
 
 // ─── Message Renderers ───────────────────────────
 
-function MessageMonthItem({ msg }: { msg: CapturedMessage }) {
+function MessageMonthItem({ msg }: { msg: RawMessage }) {
   return (
     <span>
       <span className="font-medium">{msg.sender ?? "?"}</span>{" "}
@@ -81,7 +98,7 @@ function MessageMonthItem({ msg }: { msg: CapturedMessage }) {
   );
 }
 
-function MessageWeekItem({ msg }: { msg: CapturedMessage }) {
+function MessageWeekItem({ msg }: { msg: RawMessage }) {
   return (
     <div>
       <div className="flex items-center justify-between gap-1">
@@ -93,19 +110,25 @@ function MessageWeekItem({ msg }: { msg: CapturedMessage }) {
   );
 }
 
-function MessageDayItem({ msg }: { msg: CapturedMessage }) {
+function MessageDayItem({ msg }: { msg: RawMessage }) {
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-medium truncate">{msg.sender ?? "?"}</span>
         <div className="flex items-center gap-1.5 shrink-0">
           <Badge variant="outline" className="text-[10px]">
-            {SOURCE_LABELS[msg.source] ?? msg.app_name}
+            {SOURCE_LABELS[msg.source_app] ?? msg.source_app}
+          </Badge>
+          <Badge variant={STATUS_VARIANTS[msg.parse_status] ?? "secondary"} className="text-[10px]">
+            {parseStatusLabel(msg.parse_status)}
           </Badge>
           <span className="text-xs text-muted-foreground">{formatDate(msg.received_at)}</span>
         </div>
       </div>
       <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{msg.content}</p>
+      {msg.device_name && (
+        <span className="text-xs text-muted-foreground mt-1">기기: {msg.device_name}</span>
+      )}
     </div>
   );
 }
@@ -174,7 +197,32 @@ function DayItem({ item }: { item: MessageCalendarItem }) {
 
 // ─── Message Detail ──────────────────────────────
 
-function MessageDetailContent({ msg }: { msg: CapturedMessage }) {
+function MessageDetailContent({ msg }: { msg: RawMessage }) {
+  const parseResult = msg.parse_result as {
+    items?: Array<{ item: string; qty: number; unit: string; matched_product?: string; confidence?: number }>;
+  } | null;
+
+  const [candidates, setCandidates] = useState<OrderForecast[]>([]);
+  const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (msg.forecast_id) return;
+    if (!msg.hospital_id) return;
+
+    setLoadingCandidates(true);
+    getMatchingForecasts(msg.hospital_id, msg.received_at)
+      .then(setCandidates)
+      .catch(() => setCandidates([]))
+      .finally(() => setLoadingCandidates(false));
+  }, [msg.hospital_id, msg.received_at, msg.forecast_id]);
+
+  function handleMatch(forecastId: number) {
+    startTransition(async () => {
+      await matchForecast(forecastId, msg.id);
+    });
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 text-sm">
@@ -188,12 +236,22 @@ function MessageDetailContent({ msg }: { msg: CapturedMessage }) {
         </div>
         <div>
           <span className="text-muted-foreground">출처</span>
-          <p><Badge variant="outline">{SOURCE_LABELS[msg.source] ?? msg.app_name}</Badge></p>
+          <p><Badge variant="outline">{SOURCE_LABELS[msg.source_app] ?? msg.source_app}</Badge></p>
         </div>
-        {msg.room_name && (
+        <div>
+          <span className="text-muted-foreground">파싱상태</span>
+          <p><Badge variant={STATUS_VARIANTS[msg.parse_status] ?? "secondary"}>{msg.parse_status}</Badge></p>
+        </div>
+        {msg.device_name && (
           <div>
-            <span className="text-muted-foreground">대화방</span>
-            <p className="font-medium">{msg.room_name}</p>
+            <span className="text-muted-foreground">기기</span>
+            <p className="font-medium">{msg.device_name}</p>
+          </div>
+        )}
+        {msg.order_id && (
+          <div>
+            <span className="text-muted-foreground">주문</span>
+            <p><a href={`/orders/${msg.order_id}`} className="text-primary hover:underline">#{msg.order_id}</a></p>
           </div>
         )}
       </div>
@@ -203,6 +261,72 @@ function MessageDetailContent({ msg }: { msg: CapturedMessage }) {
         <div className="rounded border p-3 text-sm whitespace-pre-wrap bg-muted/30">
           {msg.content}
         </div>
+      </div>
+
+      {parseResult?.items && parseResult.items.length > 0 && (
+        <div>
+          <h4 className="text-sm font-medium mb-1">파싱 결과</h4>
+          <div className="rounded border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left px-2 py-1 font-medium">품목</th>
+                  <th className="text-right px-2 py-1 font-medium">수량</th>
+                  <th className="text-left px-2 py-1 font-medium">단위</th>
+                  <th className="text-left px-2 py-1 font-medium">매칭</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parseResult.items.map((item, i) => (
+                  <tr key={i} className="border-t">
+                    <td className="px-2 py-1">{item.item}</td>
+                    <td className="px-2 py-1 text-right">{item.qty}</td>
+                    <td className="px-2 py-1">{item.unit}</td>
+                    <td className="px-2 py-1 text-muted-foreground">{item.matched_product ?? "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Forecast matching section */}
+      <div>
+        <h4 className="text-sm font-medium mb-1">매칭 후보</h4>
+        {msg.forecast_id ? (
+          <div className="rounded border p-3 bg-green-50 text-green-700 text-sm flex items-center gap-2">
+            <Link2 className="h-4 w-4 shrink-0" />
+            <span>예보 #{msg.forecast_id}에 매칭됨</span>
+          </div>
+        ) : loadingCandidates ? (
+          <p className="text-sm text-muted-foreground">후보 검색 중...</p>
+        ) : candidates.length === 0 ? (
+          <p className="text-sm text-muted-foreground">매칭 가능한 예보가 없습니다.</p>
+        ) : (
+          <div className="space-y-2">
+            {candidates.map((fc) => (
+              <div
+                key={fc.id}
+                className="flex items-center justify-between rounded border p-2 text-sm"
+              >
+                <div>
+                  <span className="font-medium">{fc.hospital_name ?? `병원#${fc.hospital_id}`}</span>
+                  <span className="text-muted-foreground ml-2">{fc.forecast_date}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  disabled={isPending}
+                  onClick={() => handleMatch(fc.id)}
+                >
+                  매칭 확인
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -254,10 +378,19 @@ function ForecastDetailContent({ forecast }: { forecast: OrderForecast }) {
           <span className="text-muted-foreground">출처</span>
           <p className="font-medium">{forecast.source === "manual" ? "수동" : "패턴"}</p>
         </div>
+        {forecast.message_id && (
+          <div>
+            <span className="text-muted-foreground">매칭 메시지</span>
+            <p className="flex items-center gap-1">
+              <Link2 className="h-3.5 w-3.5" />
+              <span className="font-medium">메시지 #{forecast.message_id}</span>
+            </p>
+          </div>
+        )}
         {forecast.matched_at && (
           <div>
             <span className="text-muted-foreground">매칭시간</span>
-            <p className="font-medium">{new Date(forecast.matched_at).toLocaleString("ko-KR")}</p>
+            <p className="font-medium">{formatDate(forecast.matched_at)}</p>
           </div>
         )}
       </div>
@@ -301,8 +434,9 @@ function ForecastDetailContent({ forecast }: { forecast: OrderForecast }) {
         )}
       </div>
 
+      {/* Actions */}
       <div className="flex items-center gap-2 pt-2 border-t">
-        {forecast.matched_at && (
+        {forecast.message_id && (
           <Button
             size="sm"
             variant="outline"
@@ -361,10 +495,10 @@ function getDetailTitle(item: MessageCalendarItem): string {
 // ─── Main Component ──────────────────────────────
 
 interface MessageCalendarProps {
-  messages: CapturedMessage[];
+  messages: RawMessage[];
   forecasts?: OrderForecast[];
   hospitals?: Hospital[];
-  products?: { id: number; name: string }[];
+  products?: Product[];
   initialView: CalendarView;
   initialDate: Date;
   hideHeader?: boolean;
@@ -378,6 +512,8 @@ interface MessageCalendarProps {
 export function MessageCalendar({
   messages,
   forecasts = [],
+  hospitals: _hospitals,
+  products: _products,
   initialView,
   initialDate,
   hideHeader,
@@ -404,7 +540,7 @@ export function MessageCalendar({
       detailTitle={getDetailTitle}
       initialView={initialView}
       initialDate={initialDate}
-      basePath="/notifications"
+      basePath="/messages"
       tabParam="calendar"
       hideHeader={hideHeader}
       view={view}

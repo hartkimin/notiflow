@@ -194,6 +194,7 @@ export async function createOrderWithDetailsAction(data: {
   source_message_id: string | null;
   items: Array<{
     product_id: number;
+    source_type: "drug" | "device" | "product";
     supplier_id: number | null;
     quantity: number;
     unit_type: string;
@@ -229,9 +230,10 @@ export async function createOrderWithDetailsAction(data: {
   if (orderErr) throw orderErr;
 
   if (data.items.length > 0) {
+    // product_id FK references products table only — set null for drug/device sources
     const orderItems = data.items.map((item) => ({
       order_id: order.id,
-      product_id: item.product_id,
+      product_id: item.source_type === "product" ? item.product_id : null,
       supplier_id: item.supplier_id,
       quantity: item.quantity,
       unit_type: item.unit_type,

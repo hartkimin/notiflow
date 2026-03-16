@@ -13,7 +13,7 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 const PAGE_SIZE = 500;
-const SAFE_WINDOW_DAYS = 7;
+const SAFE_WINDOW_DAYS = 30;
 const MAX_RETRIES = 3;
 const RETRY_BASE_MS = 2_000;
 
@@ -171,11 +171,45 @@ export async function runSync(
   const config = MFDS_API_CONFIGS[sourceType];
   if (!config) throw new Error(`Unknown source: ${sourceType}`);
 
-  // Both full and incremental fetch all pages without date filter.
-  // Comparison key: ITEM_SEQ (drug) / UDIDI_CD (device_std) = source_key
-  // - Full: upsert all items regardless
-  // - Incremental: compare by source_key, skip unchanged, only upsert new/changed
-  console.log(`[Sync] ${syncMode} sync — key: ${config.sourceKeyField} (no date filter, diff by source_key)`);
+  // Full: fetch all pages, upsert all items
+  // Incremental: use date filter from last known permit_date → fetch only new/recent items
+  let startDate: string | undefined;
+  let endDate: string | undefined;
+
+  if (syncMode === "incremental" && startPage <= 1) {
+    // Find the latest permit_date in DB for this source type to use as start filter
+    const { data: latestRow } = await admin
+      .from("mfds_items")
+      .select("permit_date")
+      .eq("source_type", sourceType)
+      .not("permit_date", "is", null)
+      .order("permit_date", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (latestRow?.permit_date) {
+      // Go back SAFE_WINDOW_DAYS for safety (items may be added retroactively)
+      const latest = latestRow.permit_date.replace(/\D/g, ""); // normalize to YYYYMMDD
+      const d = new Date(
+        parseInt(latest.slice(0, 4)),
+        parseInt(latest.slice(4, 6)) - 1,
+        parseInt(latest.slice(6, 8)),
+      );
+      d.setDate(d.getDate() - SAFE_WINDOW_DAYS);
+      startDate = formatDate(d);
+      endDate = formatDate(new Date()); // today
+      console.log(`[Sync] incremental date range: ${startDate} ~ ${endDate} (latest permit: ${latest}, window: ${SAFE_WINDOW_DAYS}d)`);
+      // Record date range in sync log
+      await admin.from("mfds_sync_logs").update({
+        sync_start_date: startDate,
+        sync_end_date: endDate,
+      }).eq("id", logId);
+    } else {
+      console.log(`[Sync] No existing data found — falling back to full fetch`);
+    }
+  }
+
+  console.log(`[Sync] ${syncMode} sync — key: ${config.sourceKeyField}${startDate ? ` (date filter: ${startDate}~${endDate})` : " (no date filter)"}`);
 
   // ── Main loop ──
   let totalFetched = priorFetched;
@@ -200,8 +234,8 @@ export async function runSync(
         }
       }
 
-      // Fetch (no date filter — diff by source_key handles incremental)
-      const { items, totalCount } = await fetchPage(config, apiKey, page);
+      // Fetch (with date filter for incremental, no filter for full)
+      const { items, totalCount } = await fetchPage(config, apiKey, page, startDate, endDate);
       if (apiTotalCount == null && totalCount > 0) apiTotalCount = totalCount;
       if (items.length === 0) break;
 
@@ -228,56 +262,18 @@ export async function runSync(
       let pageSkipped = 0;
       let toUpsert: any[];
 
-      if (syncMode === "incremental") {
-        // ── Incremental: compare by source_key, skip unchanged ──
-        const sourceKeys = apiRows.map(r => r.source_key);
-        const { data: existing } = await admin
-          .from("mfds_items")
-          .select("source_key, item_name, manufacturer, standard_code, permit_date")
-          .eq("source_type", sourceType)
-          .in("source_key", sourceKeys);
-
-        const existingMap = new Map<string, { item_name: string; manufacturer: string; standard_code: string; permit_date: string }>();
-        if (existing) {
-          for (const row of existing) existingMap.set(row.source_key, row);
-        }
-
-        toUpsert = [];
-        for (const row of apiRows) {
-          const db = existingMap.get(row.source_key);
-          if (db &&
-            db.item_name === row.item_name &&
-            db.manufacturer === row.manufacturer &&
-            db.standard_code === row.standard_code &&
-            db.permit_date === row.permit_date
-          ) {
-            pageSkipped++;
-            continue; // Same → skip
-          }
-          toUpsert.push({
-            source_type: sourceType,
-            source_key: row.source_key,
-            item_name: row.item_name,
-            manufacturer: row.manufacturer,
-            standard_code: row.standard_code,
-            permit_date: row.permit_date,
-            raw_data: row.raw_data,
-            synced_at: now,
-          });
-        }
-      } else {
-        // ── Full: upsert all (no diff check) ──
-        toUpsert = apiRows.map(row => ({
-          source_type: sourceType,
-          source_key: row.source_key,
-          item_name: row.item_name,
-          manufacturer: row.manufacturer,
-          standard_code: row.standard_code,
-          permit_date: row.permit_date,
-          raw_data: row.raw_data,
-          synced_at: now,
-        }));
-      }
+      // Both modes upsert all fetched items (incremental already filtered by date at API level)
+      // UPSERT on UNIQUE(source_type, source_key) handles duplicates safely
+      toUpsert = apiRows.map(row => ({
+        source_type: sourceType,
+        source_key: row.source_key,
+        item_name: row.item_name,
+        manufacturer: row.manufacturer,
+        standard_code: row.standard_code,
+        permit_date: row.permit_date,
+        raw_data: row.raw_data,
+        synced_at: now,
+      }));
 
       totalSkipped += pageSkipped;
 

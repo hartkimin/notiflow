@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useCallback, useMemo } from "react";
+import { useState, useEffect, useTransition, useCallback, useMemo, useRef } from "react";
 import {
   Plus, Search, Trash2, History, Loader2,
   Check, ChevronDown, ChevronUp, Calculator,
@@ -52,9 +52,22 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
   // History dialog
   const [historyItem, setHistoryItem] = useState<any | null>(null);
 
+  // Alias management
+  const [addingAliasFor, setAddingAliasFor] = useState<number | null>(null);
+  const [aliasInput, setAliasInput] = useState("");
+  const [aliasError, setAliasError] = useState("");
+  const [isAliasSubmitting, setIsAliasSubmitting] = useState(false);
+  const deleteTimers = useRef<Map<number, NodeJS.Timeout>>(new Map());
+
   useEffect(() => {
     loadProducts();
   }, [partnerId]);
+
+  // Cleanup delete timers on unmount
+  useEffect(() => {
+    const timers = deleteTimers.current;
+    return () => { timers.forEach(t => clearTimeout(t)); timers.clear(); };
+  }, []);
 
   // Filter & search registered items
   const filteredProducts = useMemo(() => {
@@ -194,6 +207,80 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
     } catch (err) {
       toast.error("가격 업데이트 실패");
     }
+  }
+
+  async function handleAddAlias(partnerProductId: number) {
+    if (isAliasSubmitting) return;
+    const trimmed = aliasInput.trim();
+    if (!trimmed) { setAliasError("별칭을 입력해주세요"); return; }
+    if (trimmed.length > 50) { setAliasError("별칭은 50자 이내로 입력해주세요"); return; }
+
+    setIsAliasSubmitting(true);
+    setAliasError("");
+    try {
+      const res = await addPartnerProductAlias(partnerProductId, trimmed);
+      if (res.success && res.data) {
+        setProducts(prev => prev.map(p =>
+          p.id === partnerProductId
+            ? { ...p, aliases: [...(p.aliases || []), { id: res.data.id, alias: res.data.alias }] }
+            : p
+        ));
+        setAliasInput("");
+        setAddingAliasFor(null);
+      } else {
+        setAliasError(res.error || "별칭 추가 실패");
+      }
+    } catch (err) {
+      setAliasError("별칭 추가 실패");
+    } finally {
+      setIsAliasSubmitting(false);
+    }
+  }
+
+  function handleDeleteAlias(aliasId: number, partnerProductId: number) {
+    const product = products.find(p => p.id === partnerProductId);
+    const alias = product?.aliases?.find((a: { id: number; alias: string }) => a.id === aliasId);
+    if (!alias) return;
+
+    // Optimistically remove from UI
+    setProducts(prev => prev.map(p =>
+      p.id === partnerProductId
+        ? { ...p, aliases: (p.aliases || []).filter((a: { id: number }) => a.id !== aliasId) }
+        : p
+    ));
+
+    // Set up delayed server delete with undo
+    const timeoutId = setTimeout(async () => {
+      deleteTimers.current.delete(aliasId);
+      try {
+        await deletePartnerProductAlias(aliasId);
+      } catch {
+        setProducts(prev => prev.map(p =>
+          p.id === partnerProductId
+            ? { ...p, aliases: [...(p.aliases || []), alias] }
+            : p
+        ));
+        toast.error("별칭 삭제 실패");
+      }
+    }, 3000);
+
+    deleteTimers.current.set(aliasId, timeoutId);
+
+    toast("별칭이 삭제되었습니다", {
+      action: {
+        label: "되돌리기",
+        onClick: () => {
+          clearTimeout(timeoutId);
+          deleteTimers.current.delete(aliasId);
+          setProducts(prev => prev.map(p =>
+            p.id === partnerProductId
+              ? { ...p, aliases: [...(p.aliases || []), alias] }
+              : p
+          ));
+        },
+      },
+      duration: 3000,
+    });
   }
 
   const filterButtons: { key: FilterType; label: string; icon: typeof Pill }[] = [
@@ -377,6 +464,58 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
                         <p className="text-[11px] font-bold text-zinc-950 leading-tight truncate max-w-[160px]">{p.name}</p>
                       </div>
                       <p className="text-[9px] font-mono text-zinc-400 tracking-tighter">{p.code}</p>
+                      {/* Alias chips */}
+                      <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                        {(p.aliases || []).map((a: { id: number; alias: string }) => {
+                          const isHighlighted = listSearch.trim() &&
+                            a.alias.toLowerCase().includes(listSearch.trim().toLowerCase());
+                          return (
+                            <Badge
+                              key={a.id}
+                              variant={isHighlighted ? "default" : "secondary"}
+                              className="text-[9px] font-medium px-1.5 py-0 h-5 gap-0.5"
+                            >
+                              {a.alias}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteAlias(a.id, p.id); }}
+                                className="ml-0.5 hover:text-destructive transition-colors"
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                            </Badge>
+                          );
+                        })}
+                        {addingAliasFor === p.id ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              autoFocus
+                              value={aliasInput}
+                              onChange={(e) => { setAliasInput(e.target.value); setAliasError(""); }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleAddAlias(p.id);
+                                if (e.key === "Escape") { setAddingAliasFor(null); setAliasInput(""); setAliasError(""); }
+                              }}
+                              onBlur={() => {
+                                if (aliasInput.trim()) handleAddAlias(p.id);
+                                else { setAddingAliasFor(null); setAliasError(""); }
+                              }}
+                              disabled={isAliasSubmitting}
+                              placeholder="별칭 입력..."
+                              className="h-5 w-24 text-[9px] px-1.5 border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-primary/30"
+                            />
+                            {aliasError && <span className="text-[8px] text-destructive">{aliasError}</span>}
+                          </div>
+                        ) : (
+                          (p.aliases || []).length < 5 && (
+                            <button
+                              onClick={() => { setAddingAliasFor(p.id); setAliasInput(""); setAliasError(""); }}
+                              className="inline-flex items-center gap-0.5 text-[9px] text-zinc-400 hover:text-primary transition-colors px-1 py-0.5 rounded hover:bg-zinc-100"
+                            >
+                              <Plus className="h-2.5 w-2.5" /> 별칭
+                            </button>
+                          )
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="py-3.5 text-right pr-4">
                       <button

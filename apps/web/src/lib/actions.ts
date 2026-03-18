@@ -589,7 +589,11 @@ export async function addPartnerProductAlias(partnerProductId: number, alias: st
       .select("id, alias, alias_normalized")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      // Handle unique constraint violation gracefully
+      if (error.code === "23505") return { success: false, error: "이미 등록된 별칭입니다" };
+      throw error;
+    }
     revalidatePath("/suppliers");
     revalidatePath("/hospitals");
     return { success: true, data };

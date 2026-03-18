@@ -271,7 +271,8 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
       action: {
         label: "되돌리기",
         onClick: () => {
-          clearTimeout(timeoutId);
+          const liveId = deleteTimers.current.get(aliasId);
+          if (liveId) clearTimeout(liveId);
           deleteTimers.current.delete(aliasId);
           setProducts(prev => prev.map(p =>
             p.id === partnerProductId
@@ -497,8 +498,7 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
                                 if (e.key === "Escape") { setAddingAliasFor(null); setAliasInput(""); setAliasError(""); }
                               }}
                               onBlur={() => {
-                                if (aliasInput.trim()) handleAddAlias(p.id);
-                                else { setAddingAliasFor(null); setAliasError(""); }
+                                if (!aliasInput.trim()) { setAddingAliasFor(null); setAliasError(""); }
                               }}
                               disabled={isAliasSubmitting}
                               placeholder="별칭 입력..."

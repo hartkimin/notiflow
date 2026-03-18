@@ -642,4 +642,5 @@ export interface PartnerProductAlias {
   match_count: number;
   last_matched_at: string | null;
   created_at: string;
+  updated_at: string;
 }

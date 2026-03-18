@@ -729,17 +729,15 @@ export async function getMfdsSyncProgress(logId: number) {
 
 export async function getMfdsSyncStatus() {
   const supabase = await createClient();
-  const [l, dr, dv, metaDrug, metaDevice] = await Promise.all([
+  const [l, metaDrug, metaDevice] = await Promise.all([
     supabase.from("mfds_sync_logs").select("finished_at").eq("status", "completed").order("finished_at", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("mfds_items").select("id", { count: "exact", head: true }).eq("source_type", "drug"),
-    supabase.from("mfds_items").select("id", { count: "exact", head: true }).eq("source_type", "device_std"),
     supabase.from("mfds_sync_meta").select("*").eq("source_type", "drug").maybeSingle(),
     supabase.from("mfds_sync_meta").select("*").eq("source_type", "device_std").maybeSingle(),
   ]);
   return {
     lastSync: l.data?.finished_at ?? null,
-    drugCount: dr.count ?? 0,
-    deviceCount: dv.count ?? 0,
+    drugCount: metaDrug.data?.local_count ?? 0,
+    deviceCount: metaDevice.data?.local_count ?? 0,
     meta: {
       drug: metaDrug.data ?? null,
       device_std: metaDevice.data ?? null,

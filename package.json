@@ -16,7 +16,7 @@
     "supabase:status": "npx supabase status --workdir packages/supabase",
     "supabase:reset": "npx supabase db reset --workdir packages/supabase",
     "dev:local": "npm run supabase:start && npm run dev:web",
-    "docker:web": "docker compose up web --build -d",
+    "docker:web": "node -e \"process.env.APP_VERSION=require('./apps/web/package.json').version; require('child_process').execSync('docker compose up web --build -d', {stdio:'inherit',env:process.env})\"",
     "docker:web:stop": "docker compose down",
     "docker:web:logs": "docker compose logs -f web"
   }

@@ -17,6 +17,7 @@ services:
   # ── Next.js Web Dashboard ─────────────────────────────────
   web:
     container_name: notiflow-web
+    image: notiflow-web:${APP_VERSION:-latest}
     build:
       context: ./apps/web
       dockerfile: Dockerfile

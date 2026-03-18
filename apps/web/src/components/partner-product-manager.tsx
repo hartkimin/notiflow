@@ -83,7 +83,8 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
       const q = listSearch.trim().toLowerCase();
       result = result.filter(p =>
         p.name?.toLowerCase().includes(q) ||
-        p.code?.toLowerCase().includes(q)
+        p.code?.toLowerCase().includes(q) ||
+        (p.aliases || []).some((a: { alias: string }) => a.alias.toLowerCase().includes(q))
       );
     }
 

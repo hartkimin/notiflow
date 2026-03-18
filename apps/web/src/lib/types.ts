@@ -633,3 +633,13 @@ export interface MfdsSyncMeta {
   api_total_count: number | null;
   local_count: number | null;
 }
+
+export interface PartnerProductAlias {
+  id: number;
+  partner_product_id: number;
+  alias: string;
+  alias_normalized: string;
+  match_count: number;
+  last_matched_at: string | null;
+  created_at: string;
+}

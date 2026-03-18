@@ -10,11 +10,11 @@ const MfdsSearchPanel = dynamic(
 
 export default async function ProductsPage() {
   const [existingCodes, syncStatus] = await Promise.all([
-    getExistingStandardCodes(),
-    getMfdsSyncStatus(),
+    getExistingStandardCodes().catch(() => []),
+    getMfdsSyncStatus().catch(() => null),
   ]);
 
   return (
-    <MfdsSearchPanel mode="browse" existingStandardCodes={existingCodes} syncStatus={syncStatus} />
+    <MfdsSearchPanel mode="browse" existingStandardCodes={existingCodes} syncStatus={syncStatus ?? undefined} />
   );
 }

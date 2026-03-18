@@ -1,15 +1,16 @@
 # =============================================================
-# NotiFlow Local Development — Docker Compose
+# NotiFlow — Docker Compose (Web + Cloudflare Tunnel)
 # =============================================================
 # Prerequisites:
 #   1. Start Supabase first: npx supabase start --workdir packages/supabase
-#   2. Then run: docker compose up web --build -d
+#   2. Then run: docker compose up --build -d
 #
 # Architecture:
 #   - Supabase: managed by `supabase start` CLI (separate containers)
-#   - Web: Next.js dashboard connects via host.docker.internal
-#   - Browser → localhost:54321 (Supabase API via host port)
-#   - Container → host.docker.internal:54321 (same, via Docker host)
+#   - Web: Next.js dashboard (port 3000 internal)
+#   - Cloudflared: Tunnel to notiflow.life via Cloudflare
+#   - Browser → notiflow.life → cloudflared → web:3000
+#   - Server-side → host.docker.internal:54321 (Supabase)
 # =============================================================
 
 services:
@@ -20,7 +21,7 @@ services:
       context: ./apps/web
       dockerfile: Dockerfile
       args:
-        # Baked into client JS at build time (browser uses localhost)
+        # Baked into client JS at build time
         NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0}
     ports:
@@ -28,10 +29,21 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      # Server-side runtime vars (read by server.ts / middleware.ts)
+      # Server-side runtime vars
       SUPABASE_URL: http://host.docker.internal:54321
       SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU}
       PARSE_API_SECRET: ${PARSE_API_SECRET:-local-dev-secret-12345}
+      # Supabase proxy rewrite reads this at runtime (container can't reach localhost:54321)
+      NEXT_PUBLIC_SUPABASE_URL: http://host.docker.internal:54321
       HOSTNAME: 0.0.0.0
+    restart: unless-stopped
+
+  # ── Cloudflare Tunnel ─────────────────────────────────────
+  cloudflared:
+    container_name: notiflow-tunnel
+    image: cloudflare/cloudflared:latest
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - web
     restart: unless-stopped

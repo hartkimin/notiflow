@@ -86,8 +86,8 @@ export function MessageInbox({
               startTransition(async () => {
                 try {
                   const result = await reparseMessages(Array.from(rowSelection.selected));
-                  const successCount = result.results.filter((r) => r.data && !r.error).length;
-                  const failCount = result.results.filter((r) => r.error).length;
+                  const successCount = result.results.filter((r: any) => r.status !== "unsupported" && r.status !== "not_found").length;
+                  const failCount = result.results.length - successCount;
                   toast.success(`일괄 파싱 완료: ${successCount}개 성공${failCount > 0 ? `, ${failCount}개 실패` : ""}`);
                   rowSelection.clear();
                   router.refresh();

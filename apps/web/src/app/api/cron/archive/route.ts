@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 /**
  * Weekly data retention job:
- * 1. Archive raw_messages older than 90 days
+ * 1. Archive old messages (via archive_old_messages RPC)
  * 2. Clean up old notification_logs (180 days) and audit_logs (365 days)
  *
  * Schedule: Every Sunday at 03:00 KST (Saturday 18:00 UTC)

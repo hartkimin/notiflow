@@ -66,16 +66,8 @@ export async function createManualOrder(
 
   if (itemsError) throw itemsError;
 
-  // Update message status
-  await supabase
-    .from("raw_messages")
-    .update({
-      parse_status: "parsed",
-      parse_method: "manual",
-      order_id: order.id,
-      hospital_id: hospitalId,
-    })
-    .eq("id", messageId);
+  // Note: raw_messages table was removed (migration 00030).
+  // Message status tracking is now done via captured_messages.status_id.
 
   revalidatePath("/messages");
   revalidatePath("/orders");

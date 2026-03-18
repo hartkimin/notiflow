@@ -59,7 +59,7 @@ export default async function MessagesPage({ searchParams }: Props) {
 
   return (
     <>
-      <RealtimeListener tables={["raw_messages", "captured_messages"]} />
+      <RealtimeListener tables={["captured_messages"]} />
       <MessagesView
         initialTab={initialTab}
         messages={result.messages}

@@ -220,8 +220,10 @@ export interface ProductCatalogRow {
   source_type: string;
 }
 
-// --- Raw Messages (manual/web-side messages, raw_messages table) ---
+// --- Raw Messages (DEPRECATED: raw_messages table removed in migration 00030) ---
+// Kept for backward compatibility with any remaining references.
 
+/** @deprecated Use CapturedMessage instead */
 export interface RawMessage {
   id: number;
   content: string;

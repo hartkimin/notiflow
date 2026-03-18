@@ -315,7 +315,7 @@ export async function parseMessageCore(
   if (parseResult.items.length === 0) {
     console.log(`[parseMessage] id=${messageId} | NO ITEMS PARSED → failed`);
     await supabase
-      .from("raw_messages")
+      .from("captured_messages")
       .update({
         parse_status: "failed",
         parse_method: parseResult.method,
@@ -371,7 +371,7 @@ export async function parseMessageCore(
 
   if (!shouldAutoCreate) {
     await supabase
-      .from("raw_messages")
+      .from("captured_messages")
       .update({
         parse_status: "parsed",
         parse_method: parseResult.method,
@@ -454,7 +454,7 @@ export async function parseMessageCore(
   await supabase.from("order_items").insert(orderItems);
 
   await supabase
-    .from("raw_messages")
+    .from("captured_messages")
     .update({
       parse_status: "parsed",
       parse_method: parseResult.method,

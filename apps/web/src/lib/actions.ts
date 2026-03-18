@@ -7,7 +7,7 @@ import type { SyncDiffEntry, MfdsApiSource } from "@/lib/types";
 import type { FilterChip } from "@/lib/mfds-search-utils";
 import { parseMessageCore, getAISettingsFromClient } from "@/lib/parse-service";
 
-// --- Messages (raw_messages table) ---
+// --- Messages (captured_messages table) ---
 
 export async function createMessage(data: {
   source_app: string;
@@ -15,12 +15,19 @@ export async function createMessage(data: {
   content: string;
 }) {
   const supabase = createAdminClient();
-  const { error } = await supabase.from("raw_messages").insert({
-    source_app: data.source_app,
-    sender: data.sender ?? null,
+  const id = `web-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const { error } = await supabase.from("captured_messages").insert({
+    id,
+    user_id: (await supabase.auth.getUser()).data.user?.id ?? "00000000-0000-0000-0000-000000000000",
+    app_name: data.source_app,
+    sender: data.sender ?? "unknown",
     content: data.content,
-    received_at: new Date().toISOString(),
-    parse_status: "pending",
+    source: "web",
+    received_at: Date.now(),
+    updated_at: Date.now(),
+    is_archived: false,
+    is_deleted: false,
+    is_pinned: false,
   });
   if (error) throw error;
   revalidatePath("/messages");
@@ -28,55 +35,40 @@ export async function createMessage(data: {
   return { success: true };
 }
 
-export async function deleteMessage(id: number) {
+export async function deleteMessage(id: number | string) {
   const supabase = createAdminClient();
-  const { error } = await supabase.from("raw_messages").delete().eq("id", id);
+  const { error } = await supabase
+    .from("captured_messages")
+    .update({ is_deleted: true, updated_at: Date.now() })
+    .eq("id", String(id));
   if (error) throw error;
   revalidatePath("/messages");
   revalidatePath("/notifications");
   return { success: true };
 }
 
-export async function deleteMessages(ids: number[]) {
+export async function deleteMessages(ids: (number | string)[]) {
   if (ids.length === 0) return { success: true };
   const supabase = createAdminClient();
-  const { error } = await supabase.from("raw_messages").delete().in("id", ids);
+  const { error } = await supabase
+    .from("captured_messages")
+    .update({ is_deleted: true, updated_at: Date.now() })
+    .in("id", ids.map(String));
   if (error) throw error;
   revalidatePath("/messages");
   revalidatePath("/notifications");
   return { success: true };
 }
 
-export async function reparseMessage(id: number, hospitalId?: number) {
-  const admin = createAdminClient();
-  const { data: msg } = await admin
-    .from("raw_messages")
-    .select("content")
-    .eq("id", id)
-    .single();
-  if (!msg) throw new Error("Message not found");
-  const settings = await getAISettingsFromClient(admin);
-  const result = await parseMessageCore(admin, settings, id, msg.content, hospitalId ?? null, false);
-  revalidatePath("/messages");
-  revalidatePath("/notifications");
-  return result;
+// reparseMessage and reparseMessages are no longer supported
+// (raw_messages parsing infrastructure was removed in migration 00030)
+
+export async function reparseMessage(_id: number, _hospitalId?: number) {
+  return { message_id: _id, status: "unsupported", items: 0, warnings: ["Message parsing has been removed"] };
 }
 
-export async function reparseMessages(ids: number[]) {
-  if (ids.length === 0) return { results: [] };
-  const admin = createAdminClient();
-  const settings = await getAISettingsFromClient(admin);
-  const results = await Promise.all(
-    ids.map(async (id) => {
-      const { data: msg } = await admin
-        .from("raw_messages")
-        .select("content, hospital_id")
-        .eq("id", id)
-        .single();
-      if (!msg) return { message_id: id, status: "not_found" };
-      return parseMessageCore(admin, settings, id, msg.content, (msg.hospital_id as number | null) ?? null, false);
-    }),
-  );
+export async function reparseMessages(_ids: number[]) {
+  const results = _ids.map((id) => ({ message_id: id, status: "unsupported" }));
   revalidatePath("/messages");
   revalidatePath("/notifications");
   return { results };

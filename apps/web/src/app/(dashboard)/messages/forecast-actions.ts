@@ -135,11 +135,8 @@ export async function matchForecast(forecastId: number, messageId: number) {
     .eq("id", forecastId);
   if (fErr) throw fErr;
 
-  const { error: mErr } = await supabase
-    .from("raw_messages")
-    .update({ forecast_id: forecastId })
-    .eq("id", messageId);
-  if (mErr) throw mErr;
+  // Note: raw_messages table was removed (migration 00030).
+  // forecast_id linkage via raw_messages is no longer supported.
 
   revalidatePath("/messages");
   return { success: true };
@@ -154,12 +151,8 @@ export async function unmatchForecast(forecastId: number) {
     .eq("id", forecastId)
     .single();
 
-  if (forecast?.message_id) {
-    await supabase
-      .from("raw_messages")
-      .update({ forecast_id: null })
-      .eq("id", forecast.message_id);
-  }
+  // Note: raw_messages table was removed (migration 00030).
+  // forecast_id linkage via raw_messages is no longer supported.
 
   const { error } = await supabase
     .from("order_forecasts")

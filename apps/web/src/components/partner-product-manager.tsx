@@ -15,7 +15,8 @@ import {
 import {
   getPartnerProducts, addPartnerProduct, deletePartnerProduct,
   updatePartnerProductPrice, searchMfdsItems, searchMyItems,
-  addToMyDrugs, addToMyDevices
+  addToMyDrugs, addToMyDevices,
+  addPartnerProductAlias, deletePartnerProductAlias
 } from "@/lib/actions";
 import { toast } from "sonner";
 import { formatCurrency, cn } from "@/lib/utils";

@@ -221,7 +221,7 @@ export function SettingsGeneral({ settings, displayColumns }: Props) {
       {/* ── 동기화 ── */}
       <Section icon={RefreshCw} title="자동 동기화" description="대시보드 데이터를 주기적으로 자동 갱신합니다">
         <SettingRow label="동기화 주기" description="Realtime 연결이 끊어졌을 때의 보완 역할">
-          <Select value={interval} disabled={isPending} onValueChange={(v) => { setIntervalVal(v); save("sync_interval_minutes", Number(v)); }}>
+          <Select value={interval} disabled={isPending} onValueChange={(v: string) => { setIntervalVal(v); save("sync_interval_minutes", Number(v)); }}>
             <SelectTrigger className="w-40 h-8 text-sm">
               <SelectValue />
             </SelectTrigger>

@@ -760,7 +760,7 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
                                 className="h-7 w-[70px] text-xs"
                               />
                             ) : (
-                              <Select value={item.unit_type} onValueChange={(v) => {
+                              <Select value={item.unit_type} onValueChange={(v: string) => {
                                 if (v === CUSTOM_UNIT_VALUE) updateItem(item.key, { custom_unit: true, unit_type: "" });
                                 else updateItem(item.key, { unit_type: v });
                               }}>

@@ -439,22 +439,32 @@ export async function getPartnerProducts(partnerType: "hospital" | "supplier", p
     const drugIds = mappings.filter(m => m.product_source === 'drug').map(m => m.product_id);
     const deviceIds = mappings.filter(m => m.product_source === 'device').map(m => m.product_id);
 
-    const [pRes, drRes, dvRes] = await Promise.all([
+    const ppIds = mappings.map(m => m.id);
+    const [pRes, drRes, dvRes, aliasRes] = await Promise.all([
       productIds.length > 0 ? supabase.from("products").select("id, name, standard_code").in("id", productIds) : { data: [] },
       drugIds.length > 0 ? supabase.from("my_drugs").select("id, item_name, bar_code").in("id", drugIds) : { data: [] },
       deviceIds.length > 0 ? supabase.from("my_devices").select("id, prdlst_nm, udidi_cd").in("id", deviceIds) : { data: [] },
+      supabase.from("partner_product_aliases").select("id, partner_product_id, alias").in("partner_product_id", ppIds),
     ]);
 
     const pMap = new Map((pRes.data ?? []).map((p: any) => [p.id, p]));
     const drMap = new Map((drRes.data ?? []).map((d: any) => [d.id, d]));
     const dvMap = new Map((dvRes.data ?? []).map((v: any) => [v.id, v]));
 
+    // Build alias map: partner_product_id → [{id, alias}]
+    const aliasMap = new Map<number, { id: number; alias: string }[]>();
+    for (const a of aliasRes.data ?? []) {
+      const list = aliasMap.get(a.partner_product_id) ?? [];
+      list.push({ id: a.id, alias: a.alias });
+      aliasMap.set(a.partner_product_id, list);
+    }
+
     return mappings.map(item => {
       let name = "알 수 없는 품목", code = item.standard_code || "";
       if (item.product_source === "product") { const p = pMap.get(item.product_id); if (p) { name = p.name; code = p.standard_code || code; } }
       else if (item.product_source === "drug") { const d = drMap.get(item.product_id); if (d) { name = d.item_name; code = d.bar_code || code; } }
       else if (item.product_source === "device") { const v = dvMap.get(item.product_id); if (v) { name = v.prdlst_nm; code = v.udidi_cd || code; } }
-      return { ...item, name, code };
+      return { ...item, name, code, aliases: aliasMap.get(item.id) ?? [] };
     });
   } catch (err) { return []; }
 }
@@ -497,6 +507,106 @@ export async function deletePartnerProduct(id: number) {
   const { error } = await supabase.from("partner_products").delete().eq("id", id);
   if (error) throw error;
   revalidatePath("/suppliers"); revalidatePath("/hospitals");
+  return { success: true };
+}
+
+// --- Partner Product Aliases ---
+
+/** Client-side normalization matching the DB normalize_alias() function */
+function normalizeAlias(input: string): string {
+  return input.toLowerCase().replace(/[\s\p{P}]/gu, "");
+}
+
+export async function addPartnerProductAlias(partnerProductId: number, alias: string) {
+  const trimmed = alias.trim();
+  if (!trimmed) return { success: false, error: "별칭을 입력해주세요" };
+  if (trimmed.length > 50) return { success: false, error: "별칭은 50자 이내로 입력해주세요" };
+
+  const normalized = normalizeAlias(trimmed);
+  if (!normalized) return { success: false, error: "유효한 문자를 포함한 별칭을 입력해주세요" };
+
+  const supabase = await createClient();
+
+  try {
+    // Get partner info for this partner_product
+    const { data: pp } = await supabase
+      .from("partner_products")
+      .select("id, partner_type, partner_id")
+      .eq("id", partnerProductId)
+      .single();
+    if (!pp) return { success: false, error: "품목을 찾을 수 없습니다" };
+
+    // Check alias count
+    const { count } = await supabase
+      .from("partner_product_aliases")
+      .select("id", { count: "exact", head: true })
+      .eq("partner_product_id", partnerProductId);
+    if ((count ?? 0) >= 5) return { success: false, error: "별칭은 최대 5개까지 등록할 수 있습니다" };
+
+    // Check same-item duplicate
+    const { data: sameDup } = await supabase
+      .from("partner_product_aliases")
+      .select("id")
+      .eq("partner_product_id", partnerProductId)
+      .eq("alias_normalized", normalized)
+      .maybeSingle();
+    if (sameDup) return { success: false, error: "이미 등록된 별칭입니다" };
+
+    // Check same-partner different-item duplicate
+    const { data: partnerDup } = await supabase
+      .from("partner_product_aliases")
+      .select("partner_product_id")
+      .eq("alias_normalized", normalized)
+      .neq("partner_product_id", partnerProductId);
+
+    if (partnerDup && partnerDup.length > 0) {
+      // Check if any of these belong to the same partner
+      const dupPpIds = partnerDup.map(d => d.partner_product_id);
+      const { data: samePartnerPps } = await supabase
+        .from("partner_products")
+        .select("id, standard_code")
+        .eq("partner_type", pp.partner_type)
+        .eq("partner_id", pp.partner_id)
+        .in("id", dupPpIds);
+
+      if (samePartnerPps && samePartnerPps.length > 0) {
+        const conflictCode = samePartnerPps[0].standard_code || "코드없음";
+        return {
+          success: false,
+          error: `'${trimmed}'은(는) 다른 품목(${conflictCode})에 이미 사용 중입니다`,
+        };
+      }
+    }
+
+    // Insert
+    const { data, error } = await supabase
+      .from("partner_product_aliases")
+      .insert({
+        partner_product_id: partnerProductId,
+        alias: trimmed,
+        alias_normalized: normalized,
+      })
+      .select("id, alias, alias_normalized")
+      .single();
+
+    if (error) throw error;
+    revalidatePath("/suppliers");
+    revalidatePath("/hospitals");
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+export async function deletePartnerProductAlias(aliasId: number) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("partner_product_aliases")
+    .delete()
+    .eq("id", aliasId);
+  if (error) throw error;
+  revalidatePath("/suppliers");
+  revalidatePath("/hospitals");
   return { success: true };
 }
 

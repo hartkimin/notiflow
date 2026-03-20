@@ -22,17 +22,26 @@ export interface DashboardKpis {
   unbilledOrders: number;
 }
 
-export async function getDashboardKpis(): Promise<DashboardKpis> {
+export async function getDashboardKpis(month?: string): Promise<DashboardKpis> {
   const supabase = await createClient();
 
-  const now = new Date();
-  const thisMonthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  // month format: "YYYY-MM", defaults to current month
+  let baseYear: number, baseMonth: number;
+  if (month) {
+    [baseYear, baseMonth] = month.split("-").map(Number);
+  } else {
+    const now = new Date();
+    baseYear = now.getFullYear();
+    baseMonth = now.getMonth() + 1;
+  }
+
+  const thisMonthStart = `${baseYear}-${String(baseMonth).padStart(2, "0")}-01`;
   const nextMonthStart = (() => {
-    const d = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const d = new Date(baseYear, baseMonth, 1); // baseMonth is 1-based, Date month is 0-based → next month
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
   })();
   const prevMonthStart = (() => {
-    const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const d = new Date(baseYear, baseMonth - 2, 1); // baseMonth-1 is current in 0-based, -2 is previous
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
   })();
 

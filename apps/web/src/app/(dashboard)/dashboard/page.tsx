@@ -2,10 +2,10 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   TrendingUp,
-  BarChart2,
   FileText,
   Building2,
-  ClipboardList,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -37,14 +37,31 @@ function fmt(n: number) {
   return n.toLocaleString();
 }
 
-export default async function DashboardHome() {
+function getMonthOffset(ym: string, offset: number): string {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(y, m - 1 + offset, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+interface Props {
+  searchParams: Promise<{ month?: string }>;
+}
+
+export default async function DashboardHome({ searchParams }: Props) {
+  const params = await searchParams;
+
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const selectedMonth = params.month || currentMonth;
+  const prevMonth = getMonthOffset(selectedMonth, -1);
+  const nextMonth = getMonthOffset(selectedMonth, 1);
+  const monthLabel = `${selectedMonth.slice(0, 4)}년 ${parseInt(selectedMonth.slice(5))}월`;
+  const isCurrentMonth = selectedMonth === currentMonth;
 
   const [kpis, hospitalRank, salesReps, recentOrders, recentInvoices, monthlyTrend] = await Promise.all([
-    getDashboardKpis().catch(() => null),
+    getDashboardKpis(selectedMonth).catch(() => null),
     getHospitalRanking(10).catch(() => []),
-    getSalesRepPerformance(currentMonth).catch(() => []),
+    getSalesRepPerformance(selectedMonth).catch(() => []),
     getRecentOrders(10).catch(() => []),
     getRecentInvoices(5).catch(() => []),
     getMonthlySalesTrend(6).catch(() => []),
@@ -53,27 +70,32 @@ export default async function DashboardHome() {
   return (
     <>
       <RealtimeListener tables={["orders", "tax_invoices"]} />
-      <div className="flex items-center">
-        <h1 className="text-lg font-semibold md:text-2xl">대시보드</h1>
-        <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" className="h-8 gap-1" asChild>
-            <Link href="/orders/new">
-              <ClipboardList className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">주문 추가</span>
-            </Link>
-          </Button>
-        </div>
-      </div>
+      <h1 className="text-lg font-semibold md:text-2xl">대시보드</h1>
 
-      {/* ── KPI Bar ── */}
+      {/* ── KPI Bar with month nav ── */}
       {kpis && (
         <Card>
           <CardContent className="p-3">
-            <div className="flex items-center gap-5 overflow-x-auto text-sm">
-              {/* 당월 매출 */}
+            <div className="flex items-center gap-4 overflow-x-auto text-sm">
+              {/* Month navigation */}
+              <div className="flex items-center gap-1 shrink-0">
+                <Button variant="outline" size="icon" className="h-7 w-7" asChild>
+                  <Link href={`/dashboard?month=${prevMonth}`}><ChevronLeft className="h-3.5 w-3.5" /></Link>
+                </Button>
+                {isCurrentMonth ? (
+                  <span className="text-xs font-semibold min-w-[80px] text-center">{monthLabel}</span>
+                ) : (
+                  <Link href="/dashboard" className="text-xs font-semibold min-w-[80px] text-center hover:underline">{monthLabel}</Link>
+                )}
+                <Button variant="outline" size="icon" className="h-7 w-7" asChild>
+                  <Link href={`/dashboard?month=${nextMonth}`}><ChevronRight className="h-3.5 w-3.5" /></Link>
+                </Button>
+              </div>
+              <div className="h-4 w-px bg-border shrink-0" />
+              {/* 매출 */}
               <div className="flex items-center gap-1.5 shrink-0">
                 <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
-                <span className="text-muted-foreground">당월 매출</span>
+                <span className="text-muted-foreground">매출</span>
                 <span className="font-bold">₩{fmt(kpis.monthlyRevenue)}</span>
                 {kpis.revenueGrowth >= 0 ? (
                   <span className="text-[10px] text-green-600">▲{kpis.revenueGrowth.toFixed(1)}%</span>
@@ -82,14 +104,14 @@ export default async function DashboardHome() {
                 )}
               </div>
               <div className="h-4 w-px bg-border shrink-0" />
-              {/* 당월 이익 */}
+              {/* 이익 */}
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-muted-foreground">이익</span>
                 <span className={`font-bold ${kpis.monthlyProfit < 0 ? "text-red-500" : "text-green-600"}`}>₩{fmt(kpis.monthlyProfit)}</span>
                 <span className="text-[10px] text-muted-foreground">{kpis.monthlyProfitMargin.toFixed(1)}%</span>
               </div>
               <div className="h-4 w-px bg-border shrink-0" />
-              {/* 주문 현황 */}
+              {/* 주문 */}
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-muted-foreground">주문</span>
                 <span className="font-bold">{kpis.monthlyOrderCount}건</span>
@@ -114,7 +136,7 @@ export default async function DashboardHome() {
         </Card>
       )}
 
-      {/* ── 월별 매출/이익 추이 (대표이사용) ── */}
+      {/* ── 월별 매출/이익 추이 ── */}
       {monthlyTrend.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
@@ -128,10 +150,10 @@ export default async function DashboardHome() {
       )}
 
       <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
-        {/* ── 영업담당자별 실적 (영업팀용) ── */}
-        <SalesRepChart initialData={salesReps} initialMonth={currentMonth} />
+        {/* ── 영업담당자별 실적 ── */}
+        <SalesRepChart initialData={salesReps} initialMonth={selectedMonth} />
 
-        {/* ── 거래처별 매출 Top 10 (경영진/영업용) ── */}
+        {/* ── 거래처별 매출 Top 10 ── */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">

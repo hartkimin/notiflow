@@ -127,46 +127,69 @@ export function SalesRepChart({ initialData, initialMonth }: SalesRepChartProps)
         ) : data.length === 0 ? (
           <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">해당 기간 데이터가 없습니다.</div>
         ) : (
-          <div className="space-y-3">
-            {data.map((rep) => {
+          <div className="space-y-4">
+            {data.map((rep, i) => {
               const revenueWidth = (rep.revenue / maxRevenue) * 100;
-              const profitWidth = rep.revenue > 0 ? (rep.profit / rep.revenue) * revenueWidth : 0;
+              const profitRatio = rep.revenue > 0 ? (rep.profit / rep.revenue) : 0;
+              const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : null;
               return (
-                <div key={rep.sales_rep} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium">{rep.sales_rep}</span>
-                    <span className="text-muted-foreground">{rep.order_count}건</span>
+                <div key={rep.sales_rep} className="space-y-1.5">
+                  {/* Name + stats */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {medal ? (
+                        <span className="text-sm">{medal}</span>
+                      ) : (
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">{i + 1}</span>
+                      )}
+                      <span className="text-sm font-semibold">{rep.sales_rep}</span>
+                      <span className="text-[10px] text-muted-foreground">{rep.order_count}건</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-bold tabular-nums">₩{fmt(rep.revenue)}</span>
+                    </div>
                   </div>
-                  {/* Bar chart */}
-                  <div className="relative h-6 bg-muted/50 rounded overflow-hidden">
+                  {/* Revenue bar */}
+                  <div className="relative h-7 bg-muted/40 rounded-md overflow-hidden">
                     <div
-                      className="absolute left-0 top-0 h-full bg-blue-200 rounded transition-all duration-300"
+                      className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-400 to-blue-500 rounded-md transition-all duration-500 ease-out"
                       style={{ width: `${revenueWidth}%` }}
                     />
-                    <div
-                      className="absolute left-0 top-0 h-full bg-green-400 rounded-l transition-all duration-300"
-                      style={{ width: `${Math.max(profitWidth, 0)}%` }}
-                    />
-                    <div className="absolute inset-0 flex items-center px-2">
-                      <span className="text-[10px] font-medium z-10">
-                        매출 ₩{fmt(rep.revenue)}
+                    <div className="absolute inset-0 flex items-center justify-between px-2.5">
+                      <span className="text-[11px] font-semibold text-white drop-shadow-sm z-10">매출</span>
+                      <span className={`text-[11px] font-bold z-10 ${profitRatio >= 0 ? "text-emerald-300 drop-shadow-sm" : "text-red-300"}`}>
+                        이익 ₩{fmt(rep.profit)} ({rep.margin.toFixed(1)}%)
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                    <span>매입 ₩{fmt(rep.purchase)}</span>
-                    <span className={rep.profit < 0 ? "text-red-500" : "text-green-600"}>
-                      이익 ₩{fmt(rep.profit)} ({rep.margin.toFixed(1)}%)
-                    </span>
+                  {/* Profit bar (overlay ratio) */}
+                  <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ease-out ${profitRatio >= 0.3 ? "bg-emerald-500" : profitRatio >= 0.15 ? "bg-emerald-400" : profitRatio >= 0 ? "bg-yellow-400" : "bg-red-400"}`}
+                      style={{ width: `${Math.min(Math.max(profitRatio * 100, 0), 100)}%` }}
+                      title={`이익률 ${rep.margin.toFixed(1)}%`}
+                    />
                   </div>
                 </div>
               );
             })}
-            {/* Legend */}
-            <div className="flex items-center gap-4 pt-2 border-t text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1"><span className="w-3 h-2 bg-blue-200 rounded inline-block" />매출</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-2 bg-green-400 rounded inline-block" />이익</span>
-            </div>
+            {/* Total summary */}
+            {data.length > 1 && (() => {
+              const totalRevenue = data.reduce((s, d) => s + d.revenue, 0);
+              const totalProfit = data.reduce((s, d) => s + d.profit, 0);
+              const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+              return (
+                <div className="flex items-center justify-between pt-3 border-t text-xs">
+                  <span className="font-semibold">합계</span>
+                  <div className="flex items-center gap-4">
+                    <span>매출 <strong className="tabular-nums">₩{fmt(totalRevenue)}</strong></span>
+                    <span className={totalProfit < 0 ? "text-red-500" : "text-emerald-600"}>
+                      이익 <strong className="tabular-nums">₩{fmt(totalProfit)}</strong> ({totalMargin.toFixed(1)}%)
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
       </CardContent>

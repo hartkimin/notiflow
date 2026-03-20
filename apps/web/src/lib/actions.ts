@@ -866,6 +866,30 @@ export async function applyDeviceSync(id: number, updates: any) {
   revalidatePath("/products/my"); return { success: true };
 }
 
-export async function triggerMfdsSync(sourceType: string) {
-  return { success: true, stats: { drug_added: 0, device_added: 0, device_std_added: 0 }, errors: null };
+export async function triggerMfdsSync(sourceFilter: string) {
+  const sources = sourceFilter === "all" ? ["drug", "device_std"] : [sourceFilter];
+  const results: Record<string, any> = {};
+  const errors: string[] = [];
+
+  for (const sourceType of sources) {
+    const baseUrl = typeof window === "undefined"
+      ? `http://localhost:${process.env.PORT || 3000}`
+      : "";
+    const res = await fetch(`${baseUrl}/api/sync-mfds`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sourceType, syncMode: "full" }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errors.push(`${sourceType}: ${data.error}`);
+    } else {
+      results[sourceType] = data;
+    }
+  }
+
+  if (errors.length > 0) {
+    return { success: false, stats: { drug_added: 0, device_added: 0, device_std_added: 0 }, errors };
+  }
+  return { success: true, stats: results, errors: null };
 }

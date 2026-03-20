@@ -100,14 +100,11 @@ export function MfdsSyncPanel({ stats, logs }: MfdsSyncPanelProps) {
       try {
         const result = await triggerMfdsSync("all");
         if (result.success) {
-          const s = result.stats;
-          toast.success(
-            `동기화 완료: 의약품 ${s.drug_added ?? 0}건, 의료기기 ${s.device_added ?? 0}건, UDI ${s.device_std_added ?? 0}건`,
-          );
+          toast.success("동기화가 시작되었습니다. 진행 상황은 자동으로 업데이트됩니다.");
         } else {
           const errors = result.errors as string[] | null;
           const errMsg = errors?.join("; ") ?? "알 수 없는 오류";
-          toast.error(`동기화 실패: ${errMsg}`);
+          toast.error(`동기화 시작 실패: ${errMsg}`);
         }
         router.refresh();
       } catch (err) {

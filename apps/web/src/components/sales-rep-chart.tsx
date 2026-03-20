@@ -25,19 +25,26 @@ export function SalesRepChart({ initialData, initialMonth }: SalesRepChartProps)
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (month === initialMonth) {
+    // Use cached initialData only for the exact initial month in month-mode
+    if (viewMode === "month" && month === initialMonth) {
       setData(initialData);
       return;
     }
     startTransition(async () => {
       try {
         if (viewMode === "year") {
-          // Aggregate all 12 months of the year
+          // Fetch without month filter = all data, then we don't need 12 calls
+          // But our action requires a month. So pass year's each month.
+          // Optimization: fetch all at once by passing empty month
           const year = month.slice(0, 4);
           const allData = new Map<string, SalesRepPerformance>();
-          for (let m = 1; m <= 12; m++) {
-            const ym = `${year}-${String(m).padStart(2, "0")}`;
-            const monthData = await getSalesRepByMonthAction(ym);
+          // Fetch each month that could have data (parallel)
+          const promises = Array.from({ length: 12 }, (_, i) => {
+            const ym = `${year}-${String(i + 1).padStart(2, "0")}`;
+            return getSalesRepByMonthAction(ym).catch(() => []);
+          });
+          const results = await Promise.all(promises);
+          for (const monthData of results) {
             for (const rep of monthData) {
               if (!allData.has(rep.sales_rep)) {
                 allData.set(rep.sales_rep, { ...rep });

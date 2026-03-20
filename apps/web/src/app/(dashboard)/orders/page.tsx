@@ -201,7 +201,7 @@ export default async function OrdersPage({ searchParams }: Props) {
             value: "calendar",
             label: "캘린더",
             content: (
-              <OrderCalendar calendarFrom={fromStr} calendarTo={toStr} initialView={calView} initialDate={calRef} initialOrders={calendarOrders} />
+              <OrderCalendar initialView={calView} initialDate={calRef} orders={calendarOrders} />
             ),
           },
         ]}

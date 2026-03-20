@@ -1,10 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { DataCalendar } from "@/components/data-calendar";
-import { getCalendarOrdersAction } from "@/app/(dashboard)/orders/actions";
 import type { CalendarView } from "@/lib/schedule-utils";
 import type { Order } from "@/lib/types";
 
@@ -145,32 +142,12 @@ function DetailContent({ order }: { order: Order }) {
 // --- Main component ---
 
 interface OrderCalendarProps {
-  calendarFrom: string;
-  calendarTo: string;
   initialView: CalendarView;
   initialDate: Date;
-  initialOrders?: Order[];
+  orders: Order[];
 }
 
-export function OrderCalendar({ calendarFrom, calendarTo, initialView, initialDate, initialOrders }: OrderCalendarProps) {
-  const [orders, setOrders] = useState<Order[]>(initialOrders ?? []);
-  const [loading, setLoading] = useState(!initialOrders);
-
-  useEffect(() => {
-    // Skip fetch if initialOrders were provided on this render
-    if (initialOrders && initialOrders.length > 0) {
-      setOrders(initialOrders);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    getCalendarOrdersAction(calendarFrom, calendarTo)
-      .then(setOrders)
-      .catch((err) => { console.error("Calendar fetch failed:", err); setOrders([]); })
-      .finally(() => setLoading(false));
-  }, [calendarFrom, calendarTo, initialOrders]);
-
-  if (loading) return <Skeleton className="h-[500px] w-full rounded-md" />;
+export function OrderCalendar({ initialView, initialDate, orders }: OrderCalendarProps) {
 
   return (
     <DataCalendar

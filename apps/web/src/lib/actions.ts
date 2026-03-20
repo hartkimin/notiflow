@@ -733,8 +733,8 @@ export async function getMfdsSyncStatus() {
     supabase.from("mfds_sync_logs").select("finished_at").eq("status", "completed").order("finished_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("mfds_sync_meta").select("*").eq("source_type", "drug").maybeSingle(),
     supabase.from("mfds_sync_meta").select("*").eq("source_type", "device_std").maybeSingle(),
-    supabase.from("mfds_items").select("id", { count: "estimated", head: true }).eq("source_type", "drug"),
-    supabase.from("mfds_items").select("id", { count: "estimated", head: true }).eq("source_type", "device_std"),
+    supabase.from("mfds_items").select("id", { count: "exact", head: true }).eq("source_type", "drug"),
+    supabase.from("mfds_items").select("id", { count: "exact", head: true }).eq("source_type", "device_std"),
     // Fallback: get api_total_count from latest sync log if meta is missing
     supabase.from("mfds_sync_logs").select("api_total_count").eq("source_type", "drug").not("api_total_count", "is", null).order("started_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("mfds_sync_logs").select("api_total_count").eq("source_type", "device_std").not("api_total_count", "is", null).order("started_at", { ascending: false }).limit(1).maybeSingle(),

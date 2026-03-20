@@ -729,15 +729,22 @@ export async function getMfdsSyncProgress(logId: number) {
 
 export async function getMfdsSyncStatus() {
   const supabase = await createClient();
-  const [l, metaDrug, metaDevice] = await Promise.all([
+  const [l, metaDrug, metaDevice, drugCount, deviceCount, logDrug, logDevice] = await Promise.all([
     supabase.from("mfds_sync_logs").select("finished_at").eq("status", "completed").order("finished_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("mfds_sync_meta").select("*").eq("source_type", "drug").maybeSingle(),
     supabase.from("mfds_sync_meta").select("*").eq("source_type", "device_std").maybeSingle(),
+    supabase.from("mfds_items").select("id", { count: "estimated", head: true }).eq("source_type", "drug"),
+    supabase.from("mfds_items").select("id", { count: "estimated", head: true }).eq("source_type", "device_std"),
+    // Fallback: get api_total_count from latest sync log if meta is missing
+    supabase.from("mfds_sync_logs").select("api_total_count").eq("source_type", "drug").not("api_total_count", "is", null).order("started_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("mfds_sync_logs").select("api_total_count").eq("source_type", "device_std").not("api_total_count", "is", null).order("started_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
   return {
     lastSync: l.data?.finished_at ?? null,
-    drugCount: metaDrug.data?.local_count ?? 0,
-    deviceCount: metaDevice.data?.local_count ?? 0,
+    drugCount: drugCount.count ?? 0,
+    drugApiCount: metaDrug.data?.api_total_count ?? logDrug.data?.api_total_count ?? null,
+    deviceCount: deviceCount.count ?? 0,
+    deviceApiCount: metaDevice.data?.api_total_count ?? logDevice.data?.api_total_count ?? null,
     meta: {
       drug: metaDrug.data ?? null,
       device_std: metaDevice.data ?? null,

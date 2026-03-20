@@ -57,7 +57,9 @@ interface MfdsSearchPanelProps {
   syncStatus?: {
     lastSync: string | null;
     drugCount: number;
+    drugApiCount: number | null;
     deviceCount: number;
+    deviceApiCount: number | null;
   };
 }
 
@@ -762,8 +764,30 @@ export function MfdsSearchPanel({
 
   // ── Render ────────────────────────────────────────────────────────
 
+  const drugPct = syncStatus?.drugApiCount ? Math.min(100, Math.round((syncStatus.drugCount / syncStatus.drugApiCount) * 100)) : null;
+  const devicePct = syncStatus?.deviceApiCount ? Math.min(100, Math.round((syncStatus.deviceCount / syncStatus.deviceApiCount) * 100)) : null;
+
   return (
     <div className="flex flex-col h-[calc(100vh-180px)] min-h-[400px]">
+      {/* Sync status bar */}
+      {mode === "browse" && syncStatus && (
+        <div className="flex items-center gap-4 px-3 py-1.5 rounded-md bg-muted/50 text-xs text-muted-foreground mb-1.5 shrink-0">
+          <span className="font-medium text-foreground/70">DB 현황</span>
+          <span>
+            의약품 <span className="font-mono font-medium text-foreground">{syncStatus.drugCount.toLocaleString()}</span>
+            {syncStatus.drugApiCount != null && (
+              <>/{syncStatus.drugApiCount.toLocaleString()}, <span className={`font-medium ${drugPct != null && drugPct < 90 ? "text-amber-600" : "text-green-600"}`}>{drugPct ?? 0}%</span> 동기화</>
+            )}
+          </span>
+          <span>
+            의료기기(UDI) <span className="font-mono font-medium text-foreground">{syncStatus.deviceCount.toLocaleString()}</span>
+            {syncStatus.deviceApiCount != null && (
+              <>/{syncStatus.deviceApiCount.toLocaleString()}, <span className={`font-medium ${devicePct != null && devicePct < 90 ? "text-amber-600" : "text-green-600"}`}>{devicePct ?? 0}%</span> 동기화</>
+            )}
+          </span>
+        </div>
+      )}
+
       {/* Compact top bar: search + sync + toolbar in minimal space */}
       <div className="space-y-1.5 shrink-0">
         {/* Search bar */}

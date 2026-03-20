@@ -25,10 +25,10 @@ export function MfdsMobileCard({
   isAdding,
   onAdd,
 }: MfdsMobileCardProps) {
-  const name = (tab === "drug" ? item.ITEM_NAME : item.PRDLST_NM) as string ?? "";
-  const company = (tab === "drug" ? item.ENTP_NAME : item.MNFT_IPRT_ENTP_NM) as string ?? "";
-  const code = (tab === "drug" ? item.BAR_CODE : item.UDIDI_CD) as string ?? "";
-  const status = tab === "drug" ? (item.CANCEL_NAME as string ?? "") : (item.CLSF_NO_GRAD_CD as string ?? "");
+  const name = (tab === "drug" ? item.item_name : item.prdlst_nm) as string ?? "";
+  const company = (tab === "drug" ? item.entp_name : item.mnft_iprt_entp_nm) as string ?? "";
+  const code = (tab === "drug" ? item.bar_code : item.udidi_cd) as string ?? "";
+  const status = tab === "drug" ? (item.cancel_name as string ?? "") : (item.clsf_no_grad_cd as string ?? "");
 
   return (
     <div className="border rounded-lg">

@@ -715,7 +715,7 @@ export async function searchMfdsItems(params: any) {
 
 export async function addToMyDrugs(item: Record<string, unknown>): Promise<{ success: boolean; id?: number; alreadyExists?: boolean }> {
   const supabase = await createClient();
-  const barCode = (item.bar_code as string) ?? (item.BAR_CODE as string) ?? null;
+  const barCode = (item.bar_code as string) ?? null;
   if (barCode) {
     const { data: existing } = await supabase.from("my_drugs").select("id").eq("bar_code", barCode).maybeSingle();
     if (existing) return { success: true, id: existing.id, alreadyExists: true };
@@ -736,14 +736,20 @@ export async function addToMyDrugs(item: Record<string, unknown>): Promise<{ suc
 
 export async function addToMyDevices(item: Record<string, unknown>): Promise<{ success: boolean; id?: number; alreadyExists?: boolean }> {
   const supabase = await createClient();
-  const udidiCd = (item.UDIDI_CD as string) ?? (item.udidi_cd as string) ?? null;
+  const udidiCd = (item.udidi_cd as string) ?? null;
   if (udidiCd) {
     const { data: existing } = await supabase.from("my_devices").select("id").eq("udidi_cd", udidiCd).maybeSingle();
     if (existing) return { success: true, id: existing.id, alreadyExists: true };
   }
   const row: any = {};
-  const deviceKeys = ["UDIDI_CD", "PRDLST_NM", "MNFT_IPRT_ENTP_NM", "MDEQ_CLSF_NO", "CLSF_NO_GRAD_CD", "PERMIT_NO", "PRMSN_YMD", "FOML_INFO", "PRDT_NM_INFO", "HMBD_TRSPT_MDEQ_YN", "DSPSBL_MDEQ_YN", "TRCK_MNG_TRGT_YN", "TOTAL_DEV", "CMBNMD_YN", "USE_BEFORE_STRLZT_NEED_YN", "STERILIZATION_METHOD_NM", "USE_PURPS_CONT", "STRG_CND_INFO", "CIRC_CND_INFO", "RCPRSLRY_TRGT_YN"];
-  for (const key of deviceKeys) row[key.toLowerCase()] = (item[key] as string) ?? (item[key.toLowerCase()] as string) ?? null;
+  const cols = [
+    "udidi_cd", "prdlst_nm", "mnft_iprt_entp_nm", "mdeq_clsf_no", "clsf_no_grad_cd",
+    "permit_no", "prmsn_ymd", "foml_info", "prdt_nm_info", "hmbd_trspt_mdeq_yn",
+    "dspsbl_mdeq_yn", "trck_mng_trgt_yn", "total_dev", "cmbnmd_yn",
+    "use_before_strlzt_need_yn", "sterilization_method_nm", "use_purps_cont",
+    "strg_cnd_info", "circ_cnd_info", "rcprslry_trgt_yn",
+  ];
+  for (const col of cols) row[col] = (item[col] as string) ?? null;
   const { data, error } = await supabase.from("my_devices").insert(row).select("id").single();
   if (error) { console.error("addToMyDevices error:", error); return { success: false }; }
   revalidatePath("/products"); return { success: true, id: data.id };

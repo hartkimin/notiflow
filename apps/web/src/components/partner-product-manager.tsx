@@ -137,7 +137,7 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
     startTransition(async () => {
       try {
         let finalProductId = item.id;
-        const standardCode = (item.BAR_CODE || item.bar_code || item.UDIDI_CD || item.udidi_cd) as string;
+        const standardCode = (item.bar_code || item.udidi_cd) as string;
 
         if (searchSource === "mfds") {
           const addRes = searchType === "drug"
@@ -400,8 +400,8 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
           {searchResults.length > 0 && (
             <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden divide-y divide-zinc-100 max-h-[280px] overflow-y-auto custom-scrollbar shadow-lg animate-in fade-in zoom-in-95 duration-200">
               {searchResults.map((item, idx) => {
-                const name = (item.ITEM_NAME || item.item_name || item.PRDLST_NM || item.prdlst_nm) as string;
-                const code = (item.BAR_CODE || item.bar_code || item.UDIDI_CD || item.udidi_cd) as string;
+                const name = (item.item_name || item.prdlst_nm) as string;
+                const code = (item.bar_code || item.udidi_cd) as string;
                 return (
                   <div key={idx} className="p-3 flex items-center justify-between hover:bg-zinc-50 transition-colors group/item">
                     <div className="min-w-0 mr-4">

@@ -190,7 +190,7 @@ export function MfdsSearchPanel({
           );
         }
 
-        const code = ((tab === "drug" ? item.BAR_CODE : item.UDIDI_CD) as string) ?? "";
+        const code = ((tab === "drug" ? item.bar_code : item.udidi_cd) as string) ?? "";
         const alreadyAdded = existingStandardCodes.includes(code);
 
         if (alreadyAdded) {
@@ -229,57 +229,57 @@ export function MfdsSearchPanel({
     // 의약품: 기본 8개 + 추가 16개 = 전체 24개
     const drugDataCols: ColumnDef<Record<string, unknown>>[] = [
       // ── 기본 노출 ──
-      col("ITEM_NAME", "품목명", 200),
-      col("ENTP_NAME", "업체명", 200),
-      col("ETC_OTC_CODE", "전문/일반"),
-      col("BAR_CODE", "표준코드"),
-      col("EDI_CODE", "보험코드"),
-      col("ITEM_PERMIT_DATE", "허가일자"),
-      col("MATERIAL_NAME", "성분"),
-      col("CANCEL_NAME", "상태"),
+      col("item_name", "품목명", 200),
+      col("entp_name", "업체명", 200),
+      col("etc_otc_code", "전문/일반"),
+      col("bar_code", "표준코드"),
+      col("edi_code", "보험코드"),
+      col("item_permit_date", "허가일자"),
+      col("material_name", "성분"),
+      col("cancel_name", "상태"),
       // ── 기본 숨김 (컬럼설정에서 켤 수 있음) ──
-      col("ITEM_SEQ", "품목기준코드"),
-      col("ITEM_ENG_NAME", "영문명", 200),
-      col("ENTP_NO", "업체허가번호"),
-      col("CNSGN_MANUF", "위탁제조업체", 160),
-      col("CHART", "성상", 160),
-      col("STORAGE_METHOD", "저장방법", 160),
-      col("VALID_TERM", "유효기간"),
-      col("PACK_UNIT", "포장단위"),
-      col("EE_DOC_ID", "효능효과", 200),
-      col("UD_DOC_ID", "용법용량", 200),
-      col("NB_DOC_ID", "주의사항", 200),
-      col("PERMIT_KIND_NAME", "허가구분"),
-      col("CANCEL_DATE", "취소일자"),
-      col("CHANGE_DATE", "변경일자"),
-      col("ATC_CODE", "ATC코드"),
-      col("RARE_DRUG_YN", "희귀의약품"),
+      col("item_seq", "품목기준코드"),
+      col("item_eng_name", "영문명", 200),
+      col("entp_no", "업체허가번호"),
+      col("cnsgn_manuf", "위탁제조업체", 160),
+      col("chart", "성상", 160),
+      col("storage_method", "저장방법", 160),
+      col("valid_term", "유효기간"),
+      col("pack_unit", "포장단위"),
+      col("ee_doc_id", "효능효과", 200),
+      col("ud_doc_id", "용법용량", 200),
+      col("nb_doc_id", "주의사항", 200),
+      col("permit_kind_name", "허가구분"),
+      col("cancel_date", "취소일자"),
+      col("change_date", "변경일자"),
+      col("atc_code", "ATC코드"),
+      col("rare_drug_yn", "희귀의약품"),
     ];
 
     // 의료기기: 기본 8개 + 추가 12개 = 전체 20개
     const deviceDataCols: ColumnDef<Record<string, unknown>>[] = [
       // ── 기본 노출 ──
-      col("PRDLST_NM", "품목명", 200),
-      col("MNFT_IPRT_ENTP_NM", "제조수입업체명", 200),
-      col("CLSF_NO_GRAD_CD", "등급"),
-      col("UDIDI_CD", "UDI-DI코드"),
-      col("PERMIT_NO", "품목허가번호"),
-      col("PRMSN_YMD", "허가일자"),
-      col("FOML_INFO", "모델명"),
-      col("DSPSBL_MDEQ_YN", "일회용여부"),
+      col("prdlst_nm", "품목명", 200),
+      col("mnft_iprt_entp_nm", "제조수입업체명", 200),
+      col("clsf_no_grad_cd", "등급"),
+      col("udidi_cd", "UDI-DI코드"),
+      col("permit_no", "품목허가번호"),
+      col("prmsn_ymd", "허가일자"),
+      col("foml_info", "모델명"),
+      col("dspsbl_mdeq_yn", "일회용여부"),
       // ── 기본 숨김 (컬럼설정에서 켤 수 있음) ──
-      col("PRDT_NM_INFO", "제품명", 200),
-      col("MDEQ_CLSF_NO", "분류번호"),
-      col("USE_PURPS_CONT", "사용목적", 200),
-      col("HMBD_TRSPT_MDEQ_YN", "인체이식형여부"),
-      col("TRCK_MNG_TRGT_YN", "추적관리대상"),
-      col("TOTAL_DEV", "한벌구성여부"),
-      col("CMBNMD_YN", "조합의료기기"),
-      col("RCPRSLRY_TRGT_YN", "요양급여대상"),
-      col("USE_BEFORE_STRLZT_NEED_YN", "사전멸균필요"),
-      col("STERILIZATION_METHOD_NM", "멸균방법", 160),
-      col("STRG_CND_INFO", "저장조건", 160),
-      col("CIRC_CND_INFO", "유통취급조건", 160),
+      col("prdt_nm_info", "제품명", 200),
+      col("mdeq_clsf_no", "분류번호"),
+      col("use_purps_cont", "사용목적", 200),
+      col("hmbd_trspt_mdeq_yn", "인체이식형여부"),
+      col("trck_mng_trgt_yn", "추적관리대상"),
+      col("total_dev", "한벌구성여부"),
+      col("cmbnmd_yn", "조합의료기기"),
+      col("rcprslry_trgt_yn", "요양급여대상"),
+      col("use_before_strlzt_need_yn", "사전멸균필요"),
+      col("sterilization_method_nm", "멸균방법", 160),
+      col("strg_cnd_info", "저장조건", 160),
+      col("circ_cnd_info", "유통취급조건", 160),
     ];
 
     const priceCol: ColumnDef<Record<string, unknown>> = {
@@ -592,7 +592,7 @@ export function MfdsSearchPanel({
   // ── Add handler ───────────────────────────────────────────────────
 
   function handleAdd(item: Record<string, unknown>) {
-    const code = ((tab === "drug" ? item.BAR_CODE : item.UDIDI_CD) as string) ?? "";
+    const code = ((tab === "drug" ? item.bar_code : item.udidi_cd) as string) ?? "";
     setAddingId(code);
     startTransition(async () => {
       try {
@@ -675,8 +675,8 @@ export function MfdsSearchPanel({
   function handleDelete(item: Record<string, unknown>) {
     const itemId = item.id as number;
     const name = tab === "drug"
-      ? (item.ITEM_NAME as string) ?? (item.item_name as string) ?? ""
-      : (item.PRDLST_NM as string) ?? (item.prdlst_nm as string) ?? "";
+      ? (item.item_name as string) ?? ""
+      : (item.prdlst_nm as string) ?? "";
 
     if (!confirm(`"${name}" 항목을 삭제하시겠습니까?`)) return;
 

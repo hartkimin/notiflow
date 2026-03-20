@@ -43,7 +43,7 @@ function getStandardCode(
   item: Record<string, unknown>,
   tab: MfdsApiSource,
 ): string {
-  return ((tab === "drug" ? item.BAR_CODE : item.UDIDI_CD) as string) ?? "";
+  return ((tab === "drug" ? item.bar_code : item.udidi_cd) as string) ?? "";
 }
 
 // ---------------------------------------------------------------------------

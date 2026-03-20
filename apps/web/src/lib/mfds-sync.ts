@@ -413,16 +413,20 @@ export async function cleanupStaleLogs() {
     .lt("started_at", staleThreshold);
 }
 
-export async function findPartialSync() {
+export async function findResumableSync() {
   const admin = createAdminSupabase();
   const { data } = await admin
     .from("mfds_sync_logs")
     .select("id, source_type, next_page, total_fetched, total_upserted, sync_mode")
-    .eq("status", "partial")
+    .in("status", ["partial", "error", "cancelled"])
+    .not("next_page", "is", null)
     .order("started_at", { ascending: true })
     .limit(1);
   return data?.[0] ?? null;
 }
+
+// Backward-compatible alias
+export const findPartialSync = findResumableSync;
 
 export async function detectSyncMode(
   sourceType: string,

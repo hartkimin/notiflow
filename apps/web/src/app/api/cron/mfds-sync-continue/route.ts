@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   runSync,
   cleanupStaleLogs,
-  findPartialSync,
+  findResumableSync,
   getMfdsApiKeyFromDb,
   createAdminSupabase,
 } from "@/lib/mfds-sync";
@@ -15,9 +15,9 @@ export async function GET(request: Request) {
 
   await cleanupStaleLogs();
 
-  const partial = await findPartialSync();
-  if (!partial) {
-    return NextResponse.json({ ok: true, message: "No partial syncs" });
+  const resumable = await findResumableSync();
+  if (!resumable) {
+    return NextResponse.json({ ok: true, message: "No resumable syncs" });
   }
 
   let apiKey: string;
@@ -28,27 +28,27 @@ export async function GET(request: Request) {
   }
 
   const admin = createAdminSupabase();
-  // Atomically update only if still partial
+  // Atomically update to running
   const { data: resumed, error: resumeErr } = await admin
     .from("mfds_sync_logs")
-    .update({ status: "running" })
-    .eq("id", partial.id)
-    .eq("status", "partial")
+    .update({ status: "running", error_message: null })
+    .eq("id", resumable.id)
+    .in("status", ["partial", "error", "cancelled"])
     .select("id")
     .maybeSingle();
   if (resumeErr || !resumed) {
-    return NextResponse.json({ ok: true, message: "Sync already running or no longer partial" });
+    return NextResponse.json({ ok: true, message: "Sync already running" });
   }
 
   await runSync(
-    partial.source_type,
+    resumable.source_type,
     apiKey,
-    partial.id,
-    (partial.sync_mode as "full" | "incremental") ?? "full",
-    partial.next_page ?? 1,
-    partial.total_fetched ?? 0,
-    partial.total_upserted ?? 0,
+    resumable.id,
+    (resumable.sync_mode as "full" | "incremental") ?? "full",
+    resumable.next_page ?? 1,
+    resumable.total_fetched ?? 0,
+    resumable.total_upserted ?? 0,
   );
 
-  return NextResponse.json({ ok: true, continued: partial.id });
+  return NextResponse.json({ ok: true, continued: resumable.id });
 }

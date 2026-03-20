@@ -43,34 +43,35 @@ export async function POST(req: Request) {
   let priorFetched: number;
   let priorUpserted: number;
 
-  // Check for resumable partial sync
-  const { data: partial } = await admin
+  // Check for resumable sync (partial, error, or cancelled with next_page)
+  const { data: resumable } = await admin
     .from("mfds_sync_logs")
-    .select("id, sync_mode, next_page, total_fetched, total_upserted")
+    .select("id, status, sync_mode, next_page, total_fetched, total_upserted")
     .eq("source_type", sourceType)
-    .eq("status", "partial")
+    .in("status", ["partial", "error", "cancelled"])
+    .not("next_page", "is", null)
     .order("started_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (partial) {
-    // Resume partial — atomically update only if still partial
+  if (resumable) {
+    // Resume — atomically update to running
     const { data: resumeData, error: resumeErr } = await admin
       .from("mfds_sync_logs")
-      .update({ status: "running" })
-      .eq("id", partial.id)
-      .eq("status", "partial")
+      .update({ status: "running", error_message: null })
+      .eq("id", resumable.id)
+      .in("status", ["partial", "error", "cancelled"])
       .select("id")
       .maybeSingle();
     if (resumeErr || !resumeData) {
       return NextResponse.json({ error: "이미 동기화가 진행 중입니다." }, { status: 409 });
     }
-    logId = partial.id;
-    syncMode = (partial.sync_mode as SyncMode) ?? requestedMode;
-    startPage = partial.next_page ?? 1;
-    priorFetched = partial.total_fetched ?? 0;
-    priorUpserted = partial.total_upserted ?? 0;
-    console.log(`[Sync API] Resuming logId=${logId} from page ${startPage}`);
+    logId = resumable.id;
+    syncMode = (resumable.sync_mode as SyncMode) ?? requestedMode;
+    startPage = resumable.next_page ?? 1;
+    priorFetched = resumable.total_fetched ?? 0;
+    priorUpserted = resumable.total_upserted ?? 0;
+    console.log(`[Sync API] Resuming logId=${logId} (was ${resumable.status}) from page ${startPage} (${priorFetched} fetched)`);
   } else {
     // New sync — always start at page 1 (UPSERT handles duplicates safely)
     try {
@@ -107,7 +108,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     logId,
     syncMode,
-    resuming: !!partial,
+    resuming: !!resumable,
     startPage,
     priorFetched,
   });

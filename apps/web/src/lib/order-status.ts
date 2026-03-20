@@ -1,8 +1,8 @@
 export const ORDER_STATUS_LABELS: Record<string, string> = {
-  draft: "임시",
-  confirmed: "확인됨",
-  processing: "처리중",
+  draft: "초안",
+  confirmed: "접수확인",
   delivered: "배송완료",
+  invoiced: "발행완료",
   cancelled: "취소",
 };
 
@@ -12,7 +12,7 @@ export const ORDER_STATUS_VARIANT: Record<
 > = {
   draft: "secondary",
   confirmed: "default",
-  processing: "default",
   delivered: "outline",
+  invoiced: "default",
   cancelled: "destructive",
 };

@@ -38,6 +38,8 @@ export async function getOrders(params: {
 
 export async function getOrderItems(params: {
   status?: string;
+  hospital_id?: number;
+  search?: string;
   from?: string;
   to?: string;
   limit?: number;
@@ -71,8 +73,10 @@ export async function getOrderItems(params: {
     .select(selectStr, { count: "exact" });
 
   if (params.status) query = query.eq("orders.status", params.status);
+  if (params.hospital_id) query = query.eq("orders.hospital_id", params.hospital_id);
   if (params.from) query = query.gte("orders.order_date", params.from);
   if (params.to) query = query.lte("orders.order_date", params.to);
+  if (params.search) query = query.ilike("product_name", `%${params.search}%`);
 
   query = query
     .order("order_id", { ascending: false })
@@ -195,6 +199,7 @@ export interface OrderSummaryStats {
 
 export async function getOrderSummaryStats(params: {
   status?: string;
+  hospital_id?: number;
   from?: string;
   to?: string;
 } = {}): Promise<OrderSummaryStats> {
@@ -206,6 +211,7 @@ export async function getOrderSummaryStats(params: {
     .select("id, status, supply_amount, tax_amount, total_amount");
 
   if (params.status) orderQuery = orderQuery.eq("status", params.status);
+  if (params.hospital_id) orderQuery = orderQuery.eq("hospital_id", params.hospital_id);
   if (params.from) orderQuery = orderQuery.gte("order_date", params.from);
   if (params.to) orderQuery = orderQuery.lte("order_date", params.to);
 

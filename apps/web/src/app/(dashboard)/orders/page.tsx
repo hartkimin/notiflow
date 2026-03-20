@@ -2,6 +2,7 @@ import Link from "next/link";
 import { File, PlusCircle } from "lucide-react";
 
 import { getOrderItems, getOrderSummaryStats, getLatestOrderDate, getOrdersForCalendar } from "@/lib/queries/orders";
+import { getHospitals } from "@/lib/queries/hospitals";
 import { getProductsCatalog } from "@/lib/queries/products";
 import { getOrderDisplayColumns } from "@/lib/queries/settings";
 import { getMessageById } from "@/lib/queries/messages";
@@ -22,10 +23,7 @@ import { OrderFilters } from "@/components/order-filters";
 import { Pagination } from "@/components/pagination";
 import { ClientTabs } from "@/components/client-tabs";
 import { Button } from "@/components/ui/button";
-import {
-  Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
-} from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { RealtimeListener } from "@/components/realtime-listener";
 import { toLocalDateStr } from "@/lib/schedule-utils";
 import type { CalendarView } from "@/lib/schedule-utils";
@@ -34,9 +32,12 @@ interface Props {
   searchParams: Promise<{
     tab?: string;
     status?: string;
+    hospital?: string;
+    search?: string;
     from?: string;
     to?: string;
     page?: string;
+    size?: string;
     view?: string;
     month?: string;
     create_from_message?: string;
@@ -47,11 +48,13 @@ export default async function OrdersPage({ searchParams }: Props) {
   const params = await searchParams;
   const initialTab = params.tab === "calendar" ? "calendar" : "list";
   const page = parseInt(params.page || "1", 10);
-  const status = params.status;
-  const limit = 15;
+  const limit = parseInt(params.size || "15", 10);
   const offset = (page - 1) * limit;
+  const status = params.status;
+  const hospitalId = params.hospital ? parseInt(params.hospital, 10) : undefined;
+  const search = params.search;
 
-  // Calendar month range — default to latest order month (not current month)
+  // Calendar month range
   let calYear: number, calMonth: number;
   if (params.month) {
     const parts = params.month.split("-").map(Number);
@@ -77,27 +80,30 @@ export default async function OrdersPage({ searchParams }: Props) {
     ? getMessageById(params.create_from_message)
     : Promise.resolve(null);
 
-  const [result, allProducts, displayColumns, sourceMessage, orderStats, calendarOrders] = await Promise.all([
-    getOrderItems({ status, from: params.from, to: params.to, limit, offset })
+  const [result, allProducts, displayColumns, sourceMessage, orderStats, calendarOrders, { hospitals }] = await Promise.all([
+    getOrderItems({ status, hospital_id: hospitalId, search, from: params.from, to: params.to, limit, offset })
       .catch(() => ({ items: [], total: 0 })),
     getProductsCatalog().catch(() => []),
     getOrderDisplayColumns(),
     messagePromise,
-    getOrderSummaryStats({ status, from: params.from, to: params.to }).catch(() => null),
+    getOrderSummaryStats({ status, hospital_id: hospitalId, from: params.from, to: params.to }).catch(() => null),
     getOrdersForCalendar({ from: fromStr, to: toStr }).catch(() => []),
+    getHospitals({ limit: 500 }).catch(() => ({ hospitals: [], total: 0 })),
   ]);
 
   const productOptions: ProductOption[] = allProducts.map((p) => ({
     id: p.id, name: p.official_name,
   }));
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
-
-  const initialMessageContent = sourceMessage?.content;
   const sourceMessageId = sourceMessage?.id?.toString();
+
+  const hospitalOptions = hospitals.map((h) => ({ id: h.id, name: h.name }));
 
   return (
     <>
       <RealtimeListener tables={["orders", "order_items"]} />
+
+      {/* Header */}
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">주문 관리</h1>
         <div className="ml-auto flex items-center gap-2">
@@ -114,6 +120,7 @@ export default async function OrdersPage({ searchParams }: Props) {
         </div>
       </div>
 
+      {/* Stats bar */}
       {orderStats && (
         <Card>
           <CardContent className="p-3">
@@ -165,6 +172,7 @@ export default async function OrdersPage({ searchParams }: Props) {
         </Card>
       )}
 
+      {/* Tabs: list / calendar */}
       <ClientTabs
         initialTab={initialTab}
         basePath="/orders"
@@ -173,28 +181,23 @@ export default async function OrdersPage({ searchParams }: Props) {
             value: "list",
             label: "목록",
             content: (
-              <Tabs defaultValue={status || "all"}>
-                <TabsList>
-                  <TabsTrigger value="all" asChild><Link href="/orders">전체</Link></TabsTrigger>
-                  <TabsTrigger value="confirmed" asChild><Link href="/orders?status=confirmed">확인됨</Link></TabsTrigger>
-                  <TabsTrigger value="delivered" asChild><Link href="/orders?status=delivered">배송완료</Link></TabsTrigger>
-                  <TabsTrigger value="invoiced" asChild><Link href="/orders?status=invoiced">세금계산서발행</Link></TabsTrigger>
-                </TabsList>
-                <TabsContent value={status || "all"}>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>주문 목록</CardTitle>
-                      <CardDescription><OrderFilters /></CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <OrderTable items={result.items} products={productOptions} />
-                    </CardContent>
-                    <CardFooter>
-                      <Pagination currentPage={page} totalPages={totalPages} totalCount={result.total} />
-                    </CardFooter>
-                  </Card>
-                </TabsContent>
-              </Tabs>
+              <div className="space-y-3">
+                {/* Filters */}
+                <OrderFilters hospitals={hospitalOptions} />
+
+                {/* Table */}
+                <Card>
+                  <CardContent className="p-0">
+                    <OrderTable items={result.items} products={productOptions} />
+                  </CardContent>
+                  <CardFooter className="justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      총 {result.total}건 중 {offset + 1}~{Math.min(offset + limit, result.total)}건
+                    </span>
+                    <Pagination currentPage={page} totalPages={totalPages} totalCount={result.total} />
+                  </CardFooter>
+                </Card>
+              </div>
             ),
           },
           {

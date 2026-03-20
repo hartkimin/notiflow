@@ -70,6 +70,7 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
     specification: (item.products as Record<string, unknown>)?.standard_code as string | null,
     quantity: item.quantity as number,
     unit_price: (item.unit_price as number) || 0,
+    purchase_price: (item.purchase_price as number) || null,
     supply_amount: (item.line_total as number) || 0,
     tax_amount: Math.round(((item.line_total as number) || 0) * 0.1),
   }));
@@ -178,6 +179,7 @@ export async function createConsolidatedInvoice(
       specification: (item.products as Record<string, unknown>)?.standard_code as string | null,
       quantity: item.quantity as number,
       unit_price: (item.unit_price as number) || 0,
+      purchase_price: (item.purchase_price as number) || null,
       supply_amount: (item.line_total as number) || 0,
       tax_amount: Math.round(((item.line_total as number) || 0) * 0.1),
     }));

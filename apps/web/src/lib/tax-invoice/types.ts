@@ -68,6 +68,7 @@ export interface TaxInvoiceItem {
   specification: string | null;
   quantity: number;
   unit_price: number;
+  purchase_price: number | null;
   supply_amount: number;
   tax_amount: number;
   remark: string | null;

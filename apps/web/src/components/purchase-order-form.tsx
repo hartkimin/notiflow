@@ -100,9 +100,7 @@ const OPTIONAL_COLUMNS: OptionalColumn[] = [
   { id: "standard_code", label: "표준코드", matchKeys: ["BAR_CODE", "UDIDI_CD"] },
   { id: "supplier", label: "공급사", matchKeys: ["ENTP_NAME", "MNFT_IPRT_ENTP_NM"] },
   { id: "unit", label: "단위", matchKeys: [] },
-  { id: "purchase_price", label: "매입가", matchKeys: [] },
   { id: "kpis", label: "KPIS", matchKeys: [] },
-  { id: "sales_rep", label: "영업담당자", matchKeys: [] },
 ];
 
 let _keyCounter = 0;
@@ -559,30 +557,38 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("unit", e)} />
                       </TableHead>
                     )}
-                    {visibleCols.has("purchase_price") && (
-                      <TableHead className="text-xs text-right relative" style={{ width: colWidths["purchase_price"] ?? 90 }}>
-                        매입가
-                        <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("purchase_price", e)} />
-                      </TableHead>
-                    )}
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["purchase_price"] ?? 90 }}>
+                      매입단가
+                      <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("purchase_price", e)} />
+                    </TableHead>
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["purchase_total"] ?? 100 }}>
+                      매입총액
+                      <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("purchase_total", e)} />
+                    </TableHead>
                     <TableHead className="text-xs text-right relative" style={{ width: colWidths["selling_price"] ?? 90 }}>
-                      공급가
+                      매출단가
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("selling_price", e)} />
                     </TableHead>
                     <TableHead className="text-xs text-right relative" style={{ width: colWidths["amount"] ?? 100 }}>
-                      금액
+                      매출총액
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("amount", e)} />
+                    </TableHead>
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["profit"] ?? 100 }}>
+                      매출이익
+                      <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("profit", e)} />
+                    </TableHead>
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["profit_rate"] ?? 70 }}>
+                      이익률
+                      <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("profit_rate", e)} />
+                    </TableHead>
+                    <TableHead className="text-xs relative" style={{ width: colWidths["sales_rep"] ?? 90 }}>
+                      담당자
+                      <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("sales_rep", e)} />
                     </TableHead>
                     {visibleCols.has("kpis") && (
                       <TableHead className="text-xs relative" style={{ width: colWidths["kpis"] ?? 100 }}>
                         KPIS
                         <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("kpis", e)} />
-                      </TableHead>
-                    )}
-                    {visibleCols.has("sales_rep") && (
-                      <TableHead className="text-xs relative" style={{ width: colWidths["sales_rep"] ?? 100 }}>
-                        영업담당자
-                        <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("sales_rep", e)} />
                       </TableHead>
                     )}
                     <TableHead className="text-xs w-[36px]" />
@@ -643,15 +649,17 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                             )}
                           </TableCell>
                         )}
-                        {visibleCols.has("purchase_price") && (
-                          <TableCell className="text-right">
-                            <Input
-                              type="number" min={0} value={item.purchase_price ?? ""}
-                              onChange={(e) => updateItem(item.key, { purchase_price: e.target.value ? parseFloat(e.target.value) : null })}
-                              className="h-7 w-[80px] text-xs text-right ml-auto"
-                            />
-                          </TableCell>
-                        )}
+                        <TableCell className="text-right">
+                          <Input
+                            type="number" min={0} value={item.purchase_price ?? ""}
+                            onChange={(e) => updateItem(item.key, { purchase_price: parseFloat(e.target.value) || 0 })}
+                            className="h-7 w-[80px] text-xs text-right ml-auto"
+                            placeholder="0"
+                          />
+                        </TableCell>
+                        <TableCell className="text-xs text-right font-mono">
+                          {((item.purchase_price ?? 0) * item.quantity).toLocaleString()}
+                        </TableCell>
                         <TableCell className="text-right">
                           <Input
                             type="number" min={0} value={item.selling_price ?? ""}
@@ -662,6 +670,36 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         <TableCell className="text-right text-xs tabular-nums font-medium">
                           {lineTotal.toLocaleString()}
                         </TableCell>
+                        <TableCell className="text-xs text-right font-mono">
+                          {(() => {
+                            const profit = ((item.selling_price ?? 0) - (item.purchase_price ?? 0)) * item.quantity;
+                            return <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{profit.toLocaleString()}</span>;
+                          })()}
+                        </TableCell>
+                        <TableCell className="text-xs text-right font-mono">
+                          {(() => {
+                            const revenue = (item.selling_price ?? 0) * item.quantity;
+                            const profit = ((item.selling_price ?? 0) - (item.purchase_price ?? 0)) * item.quantity;
+                            const rate = revenue > 0 ? (profit / revenue) * 100 : 0;
+                            return <span className={rate < 0 ? "text-red-500" : ""}>{rate.toFixed(1)}%</span>;
+                          })()}
+                        </TableCell>
+                        <TableCell>
+                          <div className="relative">
+                            <Input
+                              value={item.sales_rep}
+                              onChange={(e) => updateItem(item.key, { sales_rep: e.target.value.slice(0, 100) })}
+                              placeholder="담당자"
+                              className="h-7 w-[80px] text-xs"
+                              list={`sales-rep-options-${item.key}`}
+                            />
+                            {hospitalContactPerson && (
+                              <datalist id={`sales-rep-options-${item.key}`}>
+                                <option value={hospitalContactPerson} />
+                              </datalist>
+                            )}
+                          </div>
+                        </TableCell>
                         {visibleCols.has("kpis") && (
                           <TableCell>
                             <Input
@@ -670,24 +708,6 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                               placeholder="신고번호"
                               className="h-7 w-[90px] text-xs"
                             />
-                          </TableCell>
-                        )}
-                        {visibleCols.has("sales_rep") && (
-                          <TableCell>
-                            <div className="relative">
-                              <Input
-                                value={item.sales_rep}
-                                onChange={(e) => updateItem(item.key, { sales_rep: e.target.value.slice(0, 100) })}
-                                placeholder="담당자"
-                                className="h-7 w-full text-xs"
-                                list={`sales-rep-options-${item.key}`}
-                              />
-                              {hospitalContactPerson && (
-                                <datalist id={`sales-rep-options-${item.key}`}>
-                                  <option value={hospitalContactPerson} />
-                                </datalist>
-                              )}
-                            </div>
                           </TableCell>
                         )}
                         <TableCell>
@@ -708,19 +728,26 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                       {items.reduce((s, i) => s + i.quantity, 0)}
                     </TableCell>
                     {visibleCols.has("unit") && <TableCell />}
-                    {visibleCols.has("purchase_price") && (
-                      <TableCell className="text-right text-xs tabular-nums">
-                        {totalPurchase.toLocaleString()}
-                      </TableCell>
-                    )}
+                    <TableCell className="text-right text-xs tabular-nums">
+                      {totalPurchase.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right text-xs tabular-nums font-bold">
+                      {totalPurchase.toLocaleString()}원
+                    </TableCell>
                     <TableCell className="text-right text-xs tabular-nums">
                       {items.reduce((s, i) => s + (i.selling_price ?? 0), 0).toLocaleString()}
                     </TableCell>
                     <TableCell className="text-right text-xs tabular-nums font-bold">
                       {totalSelling.toLocaleString()}원
                     </TableCell>
+                    <TableCell className="text-right text-xs tabular-nums">
+                      <span className={totalMargin < 0 ? "text-red-500" : "text-green-600"}>{totalMargin.toLocaleString()}원</span>
+                    </TableCell>
+                    <TableCell className="text-right text-xs tabular-nums">
+                      <span className={marginRate < 0 ? "text-red-500" : ""}>{marginRate.toFixed(1)}%</span>
+                    </TableCell>
+                    <TableCell />
                     {visibleCols.has("kpis") && <TableCell />}
-                    {visibleCols.has("sales_rep") && <TableCell />}
                     <TableCell />
                   </TableRow>
                 </TableBody>
@@ -742,22 +769,22 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
               </div>
               <div className="md:w-[260px] space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">총 매입액</span>
-                  <span className="tabular-nums">{totalPurchase.toLocaleString()}원</span>
+                  <span className="text-muted-foreground">매입 합계</span>
+                  <span className="tabular-nums">₩{totalPurchase.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">총 공급액</span>
-                  <span className="tabular-nums font-semibold">{totalSelling.toLocaleString()}원</span>
+                  <span className="text-muted-foreground">매출 합계</span>
+                  <span className="tabular-nums font-semibold">₩{totalSelling.toLocaleString()}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">마진</span>
+                  <span className="text-muted-foreground">이익</span>
                   <span className={`tabular-nums font-semibold ${totalMargin >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                    {totalMargin.toLocaleString()}원
+                    ₩{totalMargin.toLocaleString()}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">마진율</span>
+                  <span className="text-muted-foreground">이익률</span>
                   <span className="tabular-nums">{marginRate.toFixed(1)}%</span>
                 </div>
               </div>

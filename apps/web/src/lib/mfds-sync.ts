@@ -35,7 +35,6 @@ export type SyncMode = "full" | "incremental";
 export interface SyncProgress {
   totalFetched: number;
   totalUpserted: number;
-  totalSkipped: number;
   currentPage: number;
   totalPages: number | null;
   durationMs: number;
@@ -45,7 +44,6 @@ export interface SyncProgress {
 export interface SyncResult {
   totalFetched: number;
   totalUpserted: number;
-  totalSkipped: number;
   outcome: "completed" | "partial" | "cancelled";
   nextPage: number | null;
   apiTotalCount: number | null;
@@ -228,7 +226,6 @@ export async function runSync(
   // ── Main loop ──
   let totalFetched = priorFetched;
   let totalUpserted = priorUpserted;
-  let totalSkipped = 0;
   let page = startPage;
   let apiTotalCount: number | null = null;
   const t0 = Date.now();
@@ -243,7 +240,7 @@ export async function runSync(
         .single();
       if (logStatus?.status === "cancelled") {
         console.log("[Sync] Cancelled.");
-        return { totalFetched, totalUpserted, totalSkipped, outcome: "cancelled", nextPage: page, apiTotalCount };
+        return { totalFetched, totalUpserted, outcome: "cancelled", nextPage: page, apiTotalCount };
       }
 
       // Fetch (with date filter for incremental, no filter for full)
@@ -271,7 +268,6 @@ export async function runSync(
       }
 
       const now = new Date().toISOString();
-      let pageSkipped = 0;
       let toUpsert: any[];
 
       // Both modes upsert all fetched items (incremental already filtered by date at API level)
@@ -286,8 +282,6 @@ export async function runSync(
         raw_data: row.raw_data,
         synced_at: now,
       }));
-
-      totalSkipped += pageSkipped;
 
       if (toUpsert.length > 0) {
         const { count, error } = await admin
@@ -313,7 +307,6 @@ export async function runSync(
       onProgress?.({
         totalFetched,
         totalUpserted,
-        totalSkipped,
         currentPage: page,
         totalPages,
         durationMs: Date.now() - t0,
@@ -321,8 +314,7 @@ export async function runSync(
       });
 
       const upsertInfo = toUpsert.length > 0 ? `${toUpsert.length} upsert` : "";
-      const skipInfo = pageSkipped > 0 ? `${pageSkipped} skip` : "";
-      console.log(`[Sync] Page ${page}/${totalPages ?? "?"} → ${[upsertInfo, skipInfo].filter(Boolean).join(", ")} (fetched: ${totalFetched})`);
+      console.log(`[Sync] Page ${page}/${totalPages ?? "?"} → ${upsertInfo} (fetched: ${totalFetched})`);
 
       // Done?
       if (totalPages != null && page >= totalPages) break;
@@ -356,8 +348,8 @@ export async function runSync(
         : { last_incremental_at: new Date().toISOString() }),
     }, { onConflict: "source_type" });
 
-    console.log(`[Sync] Done! ${totalFetched} fetched, ${totalUpserted} upserted, ${totalSkipped} skipped in ${Date.now() - t0}ms`);
-    return { totalFetched, totalUpserted, totalSkipped, outcome: "completed", nextPage: null, apiTotalCount };
+    console.log(`[Sync] Done! ${totalFetched} fetched, ${totalUpserted} upserted in ${Date.now() - t0}ms`);
+    return { totalFetched, totalUpserted, outcome: "completed", nextPage: null, apiTotalCount };
   } catch (err) {
     console.error("[Sync] Fatal:", err);
     // Save as partial (resumable) if we made any progress, otherwise error
@@ -373,15 +365,11 @@ export async function runSync(
     }).eq("id", logId);
     if (hasProgress) {
       console.log(`[Sync] Saved as partial at page ${page} (${totalFetched} fetched) — resumable`);
-      return { totalFetched, totalUpserted, totalSkipped, outcome: "partial" as const, nextPage: page, apiTotalCount };
+      return { totalFetched, totalUpserted, outcome: "partial" as const, nextPage: page, apiTotalCount };
     }
     throw err;
   }
 }
-
-// Backward-compatible aliases
-export const runAdvancedSync = runSync;
-export const runFullSync = runSync;
 
 // ─── Helpers for routes ──────────────────────────────────────────────
 

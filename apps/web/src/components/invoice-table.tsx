@@ -43,9 +43,9 @@ export default function InvoiceTable({ invoices }: InvoiceTableProps) {
           <TableHead>발행번호</TableHead>
           <TableHead>작성일자</TableHead>
           <TableHead>거래처</TableHead>
-          <TableHead className="text-right">공급가액</TableHead>
+          <TableHead className="text-right">공급가액(VAT별도)</TableHead>
           <TableHead className="text-right">세액</TableHead>
-          <TableHead className="text-right">합계</TableHead>
+          <TableHead className="text-right">합계(VAT포함)</TableHead>
           <TableHead>상태</TableHead>
         </TableRow>
       </TableHeader>

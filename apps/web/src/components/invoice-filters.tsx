@@ -32,8 +32,6 @@ export function InvoiceFilters({ hospitals = [] }: InvoiceFiltersProps) {
     if (hospital && hospital !== "all") params.set("hospital", hospital);
     if (search) params.set("search", search);
     if (size && size !== "25") params.set("size", size);
-    const vat = fd.get("vat") as string;
-    if (vat === "included") params.set("vat", "included");
 
     router.push(`/invoices?${params}`);
   }
@@ -93,18 +91,6 @@ export function InvoiceFilters({ hospitals = [] }: InvoiceFiltersProps) {
             <SelectItem value="25">25건</SelectItem>
             <SelectItem value="50">50건</SelectItem>
             <SelectItem value="100">100건</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <label className="text-[10px] text-muted-foreground">VAT</label>
-        <Select name="vat" defaultValue={searchParams.get("vat") || "excluded"}>
-          <SelectTrigger className="h-8 w-[100px] text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="excluded">VAT별도</SelectItem>
-            <SelectItem value="included">VAT포함</SelectItem>
           </SelectContent>
         </Select>
       </div>

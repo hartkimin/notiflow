@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ClientTabsProps {
@@ -12,9 +12,11 @@ interface ClientTabsProps {
 /**
  * Client-side tab switcher. Uses local state for instant switching
  * and updates URL via replaceState for bookmarkability.
+ * Uses a stable useId() prefix to avoid SSR/CSR hydration mismatch.
  */
 export function ClientTabs({ initialTab, basePath, tabs }: ClientTabsProps) {
   const [tab, setTab] = useState(initialTab);
+  const stableId = useId();
 
   function handleTabChange(value: string) {
     setTab(value);
@@ -23,7 +25,7 @@ export function ClientTabs({ initialTab, basePath, tabs }: ClientTabsProps) {
   }
 
   return (
-    <Tabs value={tab} onValueChange={handleTabChange}>
+    <Tabs value={tab} onValueChange={handleTabChange} id={stableId}>
       <TabsList>
         {tabs.map((t) => (
           <TabsTrigger key={t.value} value={t.value}>

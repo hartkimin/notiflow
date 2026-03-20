@@ -21,6 +21,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -87,6 +89,7 @@ fun LoginScreen(
     var loginMode by remember { mutableStateOf(LoginMode.SIGN_IN) }
     var rememberLogin by remember { mutableStateOf(appPreferences.saveCredentials) }
     var serverUrl by remember { mutableStateOf(appPreferences.supabaseUrl) }
+    var showServerSettings by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf(appPreferences.savedEmail ?: "") }
     var password by remember { mutableStateOf(appPreferences.savedPassword ?: "") }
     var confirmPassword by remember { mutableStateOf("") }
@@ -145,28 +148,72 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // 서버 주소 입력
-        OutlinedTextField(
-            value = serverUrl,
-            onValueChange = { serverUrl = it },
+        // 서버 설정 (접기/펼치기)
+        Surface(
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("서버 주소") },
-            placeholder = { Text("https://www.notiflow.life") },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Language,
-                    contentDescription = null
-                )
-            },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Uri,
-                imeAction = ImeAction.Next
-            ),
-            keyboardActions = KeyboardActions(
-                onNext = { focusManager.moveFocus(FocusDirection.Down) }
-            )
-        )
+            shape = RoundedCornerShape(8.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showServerSettings = !showServerSettings }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Language,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.padding(horizontal = 4.dp))
+                    Text(
+                        text = "서버 설정",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = serverUrl.removePrefix("https://").removePrefix("http://").take(30),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                    Icon(
+                        imageVector = if (showServerSettings) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (showServerSettings) {
+                    OutlinedTextField(
+                        value = serverUrl,
+                        onValueChange = { serverUrl = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("서버 주소") },
+                        placeholder = { Text("https://db.notiflow.life") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Language,
+                                contentDescription = null
+                            )
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Uri,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -348,7 +395,7 @@ fun LoginScreen(
                                     // URL 변경 시 임시 클라이언트로 인증 검증 후 앱 재시작
                                     val tempClient = createSupabaseClient(
                                         supabaseUrl = urlToUse,
-                                        supabaseKey = BuildConfig.SUPABASE_KEY
+                                        supabaseKey = appPreferences.supabaseKey.ifBlank { BuildConfig.SUPABASE_KEY }
                                     ) {
                                         defaultSerializer = KotlinXSerializer(Json {
                                             ignoreUnknownKeys = true
@@ -436,7 +483,7 @@ fun LoginScreen(
                                 if (urlChanged) {
                                     val tempClient = createSupabaseClient(
                                         supabaseUrl = urlToUse,
-                                        supabaseKey = BuildConfig.SUPABASE_KEY
+                                        supabaseKey = appPreferences.supabaseKey.ifBlank { BuildConfig.SUPABASE_KEY }
                                     ) {
                                         defaultSerializer = KotlinXSerializer(Json {
                                             ignoreUnknownKeys = true

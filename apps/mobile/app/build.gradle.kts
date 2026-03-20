@@ -45,12 +45,12 @@ android {
         buildConfigField(
             "String",
             "SUPABASE_URL",
-            "\"${localProps.getProperty("supabase.url", "https://www.notiflow.life")}\""
+            "\"${localProps.getProperty("supabase.url", "https://db.notiflow.life")}\""
         )
         buildConfigField(
             "String",
             "SUPABASE_KEY",
-            "\"${localProps.getProperty("supabase.key", "YOUR_LOCAL_ANON_KEY")}\""
+            "\"${localProps.getProperty("supabase.key", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0")}\""
         )
     }
 

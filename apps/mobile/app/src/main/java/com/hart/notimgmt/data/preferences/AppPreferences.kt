@@ -238,11 +238,17 @@ class AppPreferences @Inject constructor(
         }
 
     // Supabase URL (runtime-configurable, defaults to BuildConfig)
+    val defaultSupabaseUrl: String get() = com.hart.notimgmt.BuildConfig.SUPABASE_URL
+
     var supabaseUrl: String
-        get() = prefs.getString("supabase_url", com.hart.notimgmt.BuildConfig.SUPABASE_URL) ?: com.hart.notimgmt.BuildConfig.SUPABASE_URL
+        get() = prefs.getString("supabase_url", null)?.takeIf { it.isNotBlank() } ?: defaultSupabaseUrl
         set(value) {
             prefs.edit().putString("supabase_url", value).commit()
         }
+
+    fun resetServerSettings() {
+        prefs.edit().remove("supabase_url").remove("supabase_key").commit()
+    }
 
     // Supabase Key (runtime-configurable, defaults to BuildConfig)
     var supabaseKey: String

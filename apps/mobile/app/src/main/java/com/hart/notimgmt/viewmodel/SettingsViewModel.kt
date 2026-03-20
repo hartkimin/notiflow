@@ -106,11 +106,23 @@ class SettingsViewModel @Inject constructor(
     private val _loginError = MutableStateFlow<String?>(null)
     val loginError: StateFlow<String?> = _loginError.asStateFlow()
 
-    fun login(email: String, password: String, onSuccess: () -> Unit = {}) {
+    fun login(email: String, password: String, serverUrl: String? = null, onSuccess: () -> Unit = {}, onRestartRequired: () -> Unit = {}) {
         viewModelScope.launch {
             _isLoggingIn.value = true
             _loginError.value = null
             try {
+                val urlToUse = serverUrl?.ifBlank { null }
+                val urlChanged = urlToUse != null && urlToUse != appPreferences.supabaseUrl
+
+                if (urlChanged) {
+                    // URL 변경 시 저장 후 앱 재시작 필요
+                    appPreferences.supabaseUrl = urlToUse!!
+                    appPreferences.appMode = AppMode.CLOUD
+                    _appMode.value = AppMode.CLOUD
+                    onRestartRequired()
+                    return@launch
+                }
+
                 val result = authManager.signInWithEmail(email, password)
                 result.fold(
                     onSuccess = {
@@ -134,4 +146,13 @@ class SettingsViewModel @Inject constructor(
         _loginError.value = null
     }
 
+    fun getAppPreferences(): AppPreferences = appPreferences
+
+    fun saveLoginCredentials(email: String, password: String) {
+        appPreferences.saveLoginCredentials(email, password)
+    }
+
+    fun clearLoginCredentials() {
+        appPreferences.clearLoginCredentials()
+    }
 }

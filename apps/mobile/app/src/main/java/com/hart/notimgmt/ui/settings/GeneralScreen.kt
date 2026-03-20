@@ -132,10 +132,14 @@ fun GeneralScreen(
     var downloadDataSummary by remember { mutableStateOf<DataSummary?>(null) }
     var isLoadingRemoteSummary by remember { mutableStateOf(false) }
     var showSwitchToOfflineDialog by remember { mutableStateOf(false) }
+    val appPreferences = remember { settingsViewModel.getAppPreferences() }
     var showInlineLogin by remember { mutableStateOf(false) }
-    var loginEmail by remember { mutableStateOf("") }
-    var loginPassword by remember { mutableStateOf("") }
+    var loginServerUrl by remember { mutableStateOf(settingsViewModel.supabaseUrl.value) }
+    var showServerField by remember { mutableStateOf(false) }
+    var loginEmail by remember { mutableStateOf(appPreferences.savedEmail ?: "") }
+    var loginPassword by remember { mutableStateOf(appPreferences.savedPassword ?: "") }
     var loginPasswordVisible by remember { mutableStateOf(false) }
+    var rememberLogin by remember { mutableStateOf(appPreferences.saveCredentials) }
     val isLoggingIn by settingsViewModel.isLoggingIn.collectAsState()
     val loginError by settingsViewModel.loginError.collectAsState()
 
@@ -967,6 +971,63 @@ fun GeneralScreen(
                     exit = shrinkVertically()
                 ) {
                     Column(modifier = Modifier.padding(top = 12.dp)) {
+                        // 서버 주소 토글
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showServerField = !showServerField }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Cloud,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "서버: ${loginServerUrl.removePrefix("https://").removePrefix("http://").take(30)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                imageVector = if (showServerField) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        AnimatedVisibility(
+                            visible = showServerField,
+                            enter = expandVertically(),
+                            exit = shrinkVertically()
+                        ) {
+                            Column {
+                                OutlinedTextField(
+                                    value = loginServerUrl,
+                                    onValueChange = { loginServerUrl = it },
+                                    label = { Text("서버 주소") },
+                                    placeholder = { Text("https://db.notiflow.life") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = !isLoggingIn
+                                )
+                                if (loginServerUrl != appPreferences.defaultSupabaseUrl) {
+                                    TextButton(
+                                        onClick = {
+                                            appPreferences.resetServerSettings()
+                                            loginServerUrl = appPreferences.defaultSupabaseUrl
+                                        },
+                                        modifier = Modifier.align(Alignment.End)
+                                    ) {
+                                        Text("기본값 복원", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
                         OutlinedTextField(
                             value = loginEmail,
                             onValueChange = { loginEmail = it },
@@ -1005,17 +1066,60 @@ fun GeneralScreen(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        // 로그인 정보 저장 체크박스
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { rememberLogin = !rememberLogin }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Checkbox(
+                                checked = rememberLogin,
+                                onCheckedChange = { rememberLogin = it }
+                            )
+                            Text(
+                                text = "로그인 정보 저장",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = {
-                                settingsViewModel.login(loginEmail.trim(), loginPassword) {
-                                    loginEmail = ""
-                                    loginPassword = ""
-                                    showInlineLogin = false
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar("로그인 성공! 동기화를 시작합니다.")
+                                val trimmedEmail = loginEmail.trim()
+                                val trimmedPassword = loginPassword
+                                settingsViewModel.login(
+                                    email = trimmedEmail,
+                                    password = trimmedPassword,
+                                    serverUrl = loginServerUrl.trim(),
+                                    onSuccess = {
+                                        if (rememberLogin) {
+                                            settingsViewModel.saveLoginCredentials(trimmedEmail, trimmedPassword)
+                                        } else {
+                                            settingsViewModel.clearLoginCredentials()
+                                        }
+                                        loginEmail = ""
+                                        loginPassword = ""
+                                        showInlineLogin = false
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar("로그인 성공! 동기화를 시작합니다.")
+                                        }
+                                    },
+                                    onRestartRequired = {
+                                        if (rememberLogin) {
+                                            settingsViewModel.saveLoginCredentials(trimmedEmail, trimmedPassword)
+                                        }
+                                        // 서버 주소 변경 시 앱 재시작
+                                        val activity = context as android.app.Activity
+                                        val intent = context.packageManager
+                                            .getLaunchIntentForPackage(context.packageName)!!
+                                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                        context.startActivity(intent)
+                                        activity.finishAffinity()
                                     }
-                                }
+                                )
                             },
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !isLoggingIn && loginEmail.isNotBlank() && loginPassword.isNotBlank()

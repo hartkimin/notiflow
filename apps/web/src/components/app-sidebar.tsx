@@ -103,7 +103,7 @@ export function AppSidebar({ userName, collapsed = false, pinned = false, onPinT
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="p-1 rounded-lg hover:bg-zinc-100 transition-colors">
+                  <button className="p-1 rounded-lg hover:bg-zinc-100 transition-colors" suppressHydrationWarning>
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 border border-zinc-200 text-xs font-bold text-zinc-700">
                       {userInitial || <User className="h-4 w-4" />}
                     </div>

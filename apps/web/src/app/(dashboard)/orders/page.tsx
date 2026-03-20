@@ -108,72 +108,54 @@ export default async function OrdersPage({ searchParams }: Props) {
       </div>
 
       {orderStats && (
-        <div className="space-y-4">
-          {/* 프로세스 현황 */}
-          <div className="grid gap-4 md:grid-cols-5">
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">전체 주문</div>
-                <div className="text-2xl font-bold">{orderStats.total_count}건</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">접수확인</div>
-                <div className="text-2xl font-bold text-blue-600">{orderStats.status_counts.confirmed ?? 0}건</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">배송완료</div>
-                <div className="text-2xl font-bold">{orderStats.status_counts.delivered ?? 0}건</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">발행완료</div>
-                <div className="text-2xl font-bold text-green-600">{orderStats.status_counts.invoiced ?? 0}건</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">취소</div>
-                <div className="text-2xl font-bold text-red-500">{orderStats.status_counts.cancelled ?? 0}건</div>
-              </CardContent>
-            </Card>
-          </div>
-          {/* 금액 현황 */}
-          <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">매입총액</div>
-                <div className="text-2xl font-bold">₩{orderStats.total_purchase_amount.toLocaleString()}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">매출총액</div>
-                <div className="text-2xl font-bold">₩{orderStats.total_amount.toLocaleString()}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">매출이익</div>
-                <div className={`text-2xl font-bold ${orderStats.total_profit < 0 ? "text-red-500" : "text-green-600"}`}>
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex items-center gap-6 overflow-x-auto text-sm">
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-muted-foreground">전체</span>
+                <span className="font-bold">{orderStats.total_count}건</span>
+              </div>
+              <div className="h-4 w-px bg-border shrink-0" />
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-muted-foreground">접수</span>
+                <span className="font-bold text-blue-600">{orderStats.status_counts.confirmed ?? 0}</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-muted-foreground">배송완료</span>
+                <span className="font-bold">{orderStats.status_counts.delivered ?? 0}</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-muted-foreground">발행완료</span>
+                <span className="font-bold text-green-600">{orderStats.status_counts.invoiced ?? 0}</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-muted-foreground">취소</span>
+                <span className="font-bold text-red-500">{orderStats.status_counts.cancelled ?? 0}</span>
+              </div>
+              <div className="h-4 w-px bg-border shrink-0" />
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-muted-foreground">매입</span>
+                <span className="font-bold">₩{orderStats.total_purchase_amount.toLocaleString()}</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-muted-foreground">매출</span>
+                <span className="font-bold">₩{orderStats.total_amount.toLocaleString()}</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-muted-foreground">이익</span>
+                <span className={`font-bold ${orderStats.total_profit < 0 ? "text-red-500" : "text-green-600"}`}>
                   ₩{orderStats.total_profit.toLocaleString()}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">이익률</div>
-                <div className={`text-2xl font-bold ${orderStats.profit_margin < 0 ? "text-red-500" : ""}`}>
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-muted-foreground">이익률</span>
+                <span className={`font-bold ${orderStats.profit_margin < 0 ? "text-red-500" : ""}`}>
                   {orderStats.profit_margin.toFixed(1)}%
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <ClientTabs

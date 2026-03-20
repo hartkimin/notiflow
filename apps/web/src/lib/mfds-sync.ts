@@ -235,17 +235,15 @@ export async function runSync(
 
   try {
     while (true) {
-      // Check cancellation every 5 pages
-      if (page % 5 === 0) {
-        const { data: s } = await admin
-          .from("mfds_sync_logs")
-          .select("status")
-          .eq("id", logId)
-          .single();
-        if (s?.status === "cancelled") {
-          console.log("[Sync] Cancelled.");
-          return { totalFetched, totalUpserted, totalSkipped, outcome: "cancelled", nextPage: page, apiTotalCount };
-        }
+      // Check cancellation every page
+      const { data: logStatus } = await admin
+        .from("mfds_sync_logs")
+        .select("status")
+        .eq("id", logId)
+        .single();
+      if (logStatus?.status === "cancelled") {
+        console.log("[Sync] Cancelled.");
+        return { totalFetched, totalUpserted, totalSkipped, outcome: "cancelled", nextPage: page, apiTotalCount };
       }
 
       // Fetch (with date filter for incremental, no filter for full)
@@ -310,7 +308,7 @@ export async function runSync(
         next_page: page + 1,
         api_total_count: apiTotalCount,
         duration_ms: Date.now() - t0,
-      }).eq("id", logId);
+      }).eq("id", logId).eq("status", "running");
 
       onProgress?.({
         totalFetched,

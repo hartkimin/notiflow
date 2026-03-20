@@ -1,9 +1,8 @@
-import coordsData from "@/lib/map-coords.json";
+import { getMapPins } from "@/lib/queries/map-data";
 import { MapWrapper } from "./map-wrapper";
-import type { MapPin } from "@/components/partner-map";
 
-export default function MapPage() {
-  const pins = coordsData as MapPin[];
+export default async function MapPage() {
+  const pins = await getMapPins();
 
   return (
     <>

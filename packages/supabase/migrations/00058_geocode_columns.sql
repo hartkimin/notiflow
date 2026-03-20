@@ -1,0 +1,11 @@
+-- 00058_geocode_columns.sql
+-- Add lat/lng columns to hospitals, suppliers, company_settings for map coordinates
+
+ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;
+ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;
+
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;
+
+ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;
+ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;

@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { SyncDiffEntry, MfdsApiSource } from "@/lib/types";
 import type { FilterChip } from "@/lib/mfds-search-utils";
 import { parseMessageCore, getAISettingsFromClient } from "@/lib/parse-service";
+import { geocodeAddress } from "@/lib/geocode";
 
 // --- Messages (captured_messages table) ---
 
@@ -95,6 +96,14 @@ export async function createHospital(data: {
 }
 
 export async function updateHospital(id: number, data: Record<string, unknown>) {
+  // Auto-geocode when address changes
+  if (data.address && typeof data.address === "string") {
+    const coords = await geocodeAddress(data.address).catch(() => null);
+    if (coords) {
+      data.lat = coords.lat;
+      data.lng = coords.lng;
+    }
+  }
   const supabase = await createClient();
   const { error } = await supabase.from("hospitals").update(data).eq("id", id);
   if (error) throw error;
@@ -191,6 +200,14 @@ export async function createSupplier(data: {
 }
 
 export async function updateSupplier(id: number, data: Record<string, unknown>) {
+  // Auto-geocode when address changes
+  if (data.address && typeof data.address === "string") {
+    const coords = await geocodeAddress(data.address).catch(() => null);
+    if (coords) {
+      data.lat = coords.lat;
+      data.lng = coords.lng;
+    }
+  }
   const supabase = await createClient();
   const { error } = await supabase.from("suppliers").update(data).eq("id", id);
   if (error) throw error;

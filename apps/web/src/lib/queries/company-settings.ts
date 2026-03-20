@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { geocodeAddress } from "@/lib/geocode";
 import type { CompanySettings } from "@/lib/tax-invoice/types";
 
 export async function getCompanySettings(): Promise<CompanySettings | null> {
@@ -23,6 +24,15 @@ export async function upsertCompanySettings(
     .select("id")
     .limit(1)
     .single();
+
+  // Auto-geocode when address changes
+  if (settings.address && typeof settings.address === "string") {
+    const coords = await geocodeAddress(settings.address).catch(() => null);
+    if (coords) {
+      (settings as Record<string, unknown>).lat = coords.lat;
+      (settings as Record<string, unknown>).lng = coords.lng;
+    }
+  }
 
   if (existing) {
     const { data, error } = await admin

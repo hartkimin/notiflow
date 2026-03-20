@@ -504,18 +504,78 @@ export interface MfdsApiSearchResult {
   page: number;
 }
 
-/** Row from mfds_items table (DB-backed search) */
-export interface MfdsItem {
+/** Row from mfds_drugs table (의약품) */
+export interface MfdsDrug {
   id: number;
-  source_type: MfdsApiSource;
-  source_key: string;
+  item_seq: string;
   item_name: string;
-  manufacturer: string | null;
-  standard_code: string | null;
-  permit_date: string | null;
-  raw_data: Record<string, unknown>;
+  item_eng_name: string | null;
+  entp_name: string | null;
+  entp_eng_name: string | null;
+  entp_no: string | null;
+  item_permit_date: string | null;
+  cnsgn_manuf: string | null;
+  etc_otc_code: string | null;
+  chart: string | null;
+  bar_code: string | null;
+  material_name: string | null;
+  storage_method: string | null;
+  valid_term: string | null;
+  pack_unit: string | null;
+  edi_code: string | null;
+  atc_code: string | null;
+  main_item_ingr: string | null;
+  main_ingr_eng: string | null;
+  ingr_name: string | null;
+  total_content: string | null;
+  permit_kind_name: string | null;
+  make_material_flag: string | null;
+  newdrug_class_name: string | null;
+  induty_type: string | null;
+  cancel_date: string | null;
+  cancel_name: string | null;
+  change_date: string | null;
+  gbn_name: string | null;
+  narcotic_kind_code: string | null;
+  rare_drug_yn: string | null;
+  reexam_date: string | null;
+  reexam_target: string | null;
+  bizrno: string | null;
+  ee_doc_id: string | null;
+  ud_doc_id: string | null;
+  nb_doc_id: string | null;
+  insert_file: string | null;
   synced_at: string;
 }
+
+/** Row from mfds_devices table (의료기기 UDI) */
+export interface MfdsDevice {
+  id: number;
+  udidi_cd: string;
+  prdlst_nm: string;
+  prdt_nm_info: string | null;
+  mnft_iprt_entp_nm: string | null;
+  permit_no: string | null;
+  prmsn_ymd: string | null;
+  mdeq_clsf_no: string | null;
+  clsf_no_grad_cd: string | null;
+  foml_info: string | null;
+  use_purps_cont: string | null;
+  hmbd_trspt_mdeq_yn: string | null;
+  dspsbl_mdeq_yn: string | null;
+  trck_mng_trgt_yn: string | null;
+  rcprslry_trgt_yn: string | null;
+  total_dev: string | null;
+  cmbnmd_yn: string | null;
+  use_before_strlzt_need_yn: string | null;
+  sterilization_method_nm: string | null;
+  strg_cnd_info: string | null;
+  circ_cnd_info: string | null;
+  synced_at: string;
+}
+
+/** Union type for search results — each item carries _type for discrimination */
+export type MfdsItem = (MfdsDrug & { _type: "drug" }) | (MfdsDevice & { _type: "device_std" });
 
 // --- Hospital Products & Supplier Options ---
 

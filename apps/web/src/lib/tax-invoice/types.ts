@@ -105,7 +105,6 @@ export interface UnbilledOrder {
   tax_amount: number | null;
   delivery_date: string | null;
   delivered_at: string | null;
-  tax_invoice_status: string | null;
 }
 
 export interface CompanySettings {

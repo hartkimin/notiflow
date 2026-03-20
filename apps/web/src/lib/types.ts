@@ -23,7 +23,7 @@ export interface Order {
   order_date: string;
   hospital_id: number;
   hospital_name?: string;
-  status: 'draft' | 'confirmed' | 'processing' | 'delivered' | 'cancelled';
+  status: 'draft' | 'confirmed' | 'delivered' | 'invoiced' | 'cancelled';
   total_items: number;
   total_amount: number | null;
   supply_amount: number | null;
@@ -34,7 +34,6 @@ export interface Order {
   created_at: string;
   notes: string | null;
   source_message_id: string | null;
-  tax_invoice_status: 'pending' | 'partial' | 'issued' | null;
 }
 
 export interface OrderItem {

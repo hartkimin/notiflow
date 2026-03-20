@@ -322,20 +322,24 @@ export default function InvoiceDetailClient({ invoice }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-14 text-center">순번</TableHead>
-                <TableHead className="w-24">일자</TableHead>
+                <TableHead className="w-12 text-center">순번</TableHead>
+                <TableHead className="w-20">일자</TableHead>
                 <TableHead>품명</TableHead>
                 <TableHead>규격</TableHead>
-                <TableHead className="w-20 text-right">수량</TableHead>
-                <TableHead className="w-24 text-right">단가</TableHead>
-                <TableHead className="w-28 text-right">공급가액</TableHead>
-                <TableHead className="w-24 text-right">세액</TableHead>
+                <TableHead className="w-16 text-right">수량</TableHead>
+                <TableHead className="w-24 text-right">매입단가</TableHead>
+                <TableHead className="w-24 text-right">매입총액</TableHead>
+                <TableHead className="w-24 text-right">매출단가</TableHead>
+                <TableHead className="w-24 text-right">매출총액</TableHead>
+                <TableHead className="w-24 text-right">매출이익</TableHead>
+                <TableHead className="w-16 text-right">이익률</TableHead>
+                <TableHead className="w-20 text-right">세액</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {invoice.items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center text-muted-foreground">
                     품목이 없습니다.
                   </TableCell>
                 </TableRow>
@@ -350,10 +354,29 @@ export default function InvoiceDetailClient({ invoice }: Props) {
                       {item.quantity.toLocaleString("ko-KR")}
                     </TableCell>
                     <TableCell className="text-right">
+                      {item.purchase_price != null ? formatAmount(item.purchase_price) : "-"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {item.purchase_price != null ? formatAmount(item.purchase_price * item.quantity) : "-"}
+                    </TableCell>
+                    <TableCell className="text-right">
                       {formatAmount(item.unit_price)}
                     </TableCell>
                     <TableCell className="text-right">
                       {formatAmount(item.supply_amount)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {item.purchase_price != null ? (() => {
+                        const profit = (item.unit_price - item.purchase_price) * item.quantity;
+                        return <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{formatAmount(profit)}</span>;
+                      })() : "-"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {item.purchase_price != null && item.supply_amount > 0 ? (() => {
+                        const profit = (item.unit_price - item.purchase_price) * item.quantity;
+                        const rate = (profit / item.supply_amount) * 100;
+                        return <span className={rate < 0 ? "text-red-500" : ""}>{rate.toFixed(1)}%</span>;
+                      })() : "-"}
                     </TableCell>
                     <TableCell className="text-right">
                       {formatAmount(item.tax_amount)}

@@ -512,13 +512,16 @@ function OrderAccordionContent({
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs">품목</TableHead>
-                <TableHead className="text-xs text-right w-[70px]">수량</TableHead>
-                <TableHead className="text-xs text-right w-[70px]">박스</TableHead>
+                <TableHead className="text-xs text-right w-[60px]">수량</TableHead>
+                <TableHead className="text-xs text-right w-[60px]">박스</TableHead>
                 <TableHead className="text-xs w-[80px]">매입처</TableHead>
-                <TableHead className="text-xs text-right w-[80px]">단가</TableHead>
-                <TableHead className="text-xs text-right w-[80px]">매입가</TableHead>
-                <TableHead className="text-xs text-right w-[80px]">금액</TableHead>
-                <TableHead className="text-xs w-[80px]">담당자</TableHead>
+                <TableHead className="text-xs text-right w-[80px]">매입단가</TableHead>
+                <TableHead className="text-xs text-right w-[80px]">매입총액</TableHead>
+                <TableHead className="text-xs text-right w-[80px]">매출단가</TableHead>
+                <TableHead className="text-xs text-right w-[80px]">매출총액</TableHead>
+                <TableHead className="text-xs text-right w-[80px]">매출이익</TableHead>
+                <TableHead className="text-xs text-right w-[60px]">이익률</TableHead>
+                <TableHead className="text-xs w-[70px]">담당자</TableHead>
                 <TableHead className="text-xs w-[80px]">KPIS</TableHead>
               </TableRow>
             </TableHeader>
@@ -616,13 +619,30 @@ function OrderAccordionContent({
                     )}
                   </TableCell>
                   <TableCell className="text-right text-sm tabular-nums">
-                    {item.unit_price != null ? item.unit_price.toLocaleString() : "-"}
-                  </TableCell>
-                  <TableCell className="text-right text-sm tabular-nums">
                     {item.purchase_price != null ? item.purchase_price.toLocaleString() : "-"}
                   </TableCell>
                   <TableCell className="text-right text-sm tabular-nums">
+                    {item.purchase_price != null ? (item.purchase_price * item.quantity).toLocaleString() : "-"}
+                  </TableCell>
+                  <TableCell className="text-right text-sm tabular-nums">
+                    {item.unit_price != null ? item.unit_price.toLocaleString() : "-"}
+                  </TableCell>
+                  <TableCell className="text-right text-sm tabular-nums">
                     {item.unit_price != null ? (item.unit_price * item.quantity).toLocaleString() : "-"}
+                  </TableCell>
+                  <TableCell className="text-right text-sm tabular-nums">
+                    {item.unit_price != null && item.purchase_price != null ? (() => {
+                      const profit = (item.unit_price - item.purchase_price) * item.quantity;
+                      return <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{profit.toLocaleString()}</span>;
+                    })() : "-"}
+                  </TableCell>
+                  <TableCell className="text-right text-sm tabular-nums">
+                    {item.unit_price != null && item.purchase_price != null ? (() => {
+                      const revenue = item.unit_price * item.quantity;
+                      const profit = (item.unit_price - item.purchase_price) * item.quantity;
+                      const rate = revenue > 0 ? (profit / revenue) * 100 : 0;
+                      return <span className={rate < 0 ? "text-red-500" : ""}>{rate.toFixed(1)}%</span>;
+                    })() : "-"}
                   </TableCell>
                   <TableCell className="text-sm">
                     {item.sales_rep ?? "-"}

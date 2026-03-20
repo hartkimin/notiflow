@@ -44,6 +44,7 @@ import {
 import { UNIT_OPTIONS, CUSTOM_UNIT_VALUE } from "@/lib/unit-types";
 import type { OrderDisplayColumns } from "@/lib/queries/settings";
 import type { ProductSupplierOption } from "@/lib/types";
+import { matchesChosungSearch } from "@/lib/chosung";
 
 // ── Partner product (from partner_products table) ─────────
 interface PartnerProduct {
@@ -97,34 +98,6 @@ const OPTIONAL_COLUMNS: OptionalColumn[] = [
 
 let _keyCounter = 0;
 function nextKey() { return `po-${Date.now()}-${++_keyCounter}`; }
-
-// ── Korean initial consonant (초성) search ──────────────────
-const CHOSUNG = [
-  "ㄱ","ㄲ","ㄴ","ㄷ","ㄸ","ㄹ","ㅁ","ㅂ","ㅃ","ㅅ","ㅆ",
-  "ㅇ","ㅈ","ㅉ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ",
-];
-
-function getChosung(char: string): string {
-  const code = char.charCodeAt(0) - 0xAC00;
-  if (code < 0 || code > 11171) return char;
-  return CHOSUNG[Math.floor(code / 588)];
-}
-
-function isChosung(char: string): boolean {
-  return CHOSUNG.includes(char);
-}
-
-function matchesChosungSearch(text: string, query: string): boolean {
-  const lower = text.toLowerCase();
-  const qLower = query.toLowerCase();
-  // normal substring match
-  if (lower.includes(qLower)) return true;
-  // check if query is all chosung characters
-  if (![...qLower].every(isChosung)) return false;
-  // extract chosung from text and check substring match
-  const textChosung = [...text].map(getChosung).join("");
-  return textChosung.includes(qLower);
-}
 
 // ── Main Component ─────────────────────────────────────────
 

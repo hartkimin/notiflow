@@ -9,7 +9,7 @@ export async function getTodayDeliveries(): Promise<{ count: number; deliveries:
     .from("orders")
     .select("*, hospitals(name)", { count: "exact" })
     .eq("delivery_date", today)
-    .in("status", ["confirmed", "processing"])
+    .eq("status", "confirmed")
     .order("created_at");
 
   if (error) throw error;

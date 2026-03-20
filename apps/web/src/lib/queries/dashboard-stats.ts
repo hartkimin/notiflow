@@ -78,13 +78,9 @@ export async function getDashboardKpis(month?: string): Promise<DashboardKpis> {
   const prevMonthRevenue = (prevOrders ?? []).reduce((s, o) => s + Number(o.supply_amount || 0), 0);
   const revenueGrowth = prevMonthRevenue > 0 ? ((monthlyRevenue - prevMonthRevenue) / prevMonthRevenue) * 100 : 0;
 
-  // Order status counts (all time)
-  const { data: statusData } = await supabase
-    .from("orders")
-    .select("status");
-
+  // Order status counts (this month only)
   const statusCounts: Record<string, number> = {};
-  for (const o of statusData ?? []) {
+  for (const o of orders) {
     statusCounts[o.status] = (statusCounts[o.status] || 0) + 1;
   }
 

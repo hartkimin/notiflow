@@ -74,121 +74,92 @@ export default async function DashboardHome({ searchParams }: Props) {
   return (
     <>
       <RealtimeListener tables={["orders", "tax_invoices"]} />
-      <h1 className="text-lg font-semibold md:text-2xl">대시보드</h1>
 
-      {/* ── Yearly KPI Bar ── */}
-      {yearKpis && (
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-4 overflow-x-auto text-sm">
-              <div className="flex items-center gap-1 shrink-0">
-                <Button variant="outline" size="icon" className="h-7 w-7" asChild>
-                  <Link href={`/dashboard?year=${selectedYear - 1}&month=${selectedMonth}`}><ChevronLeft className="h-3.5 w-3.5" /></Link>
-                </Button>
-                <span className="text-xs font-semibold min-w-[50px] text-center">{yearKpis.year}년</span>
-                <Button variant="outline" size="icon" className="h-7 w-7" asChild>
-                  <Link href={`/dashboard?year=${selectedYear + 1}&month=${selectedMonth}`}><ChevronRight className="h-3.5 w-3.5" /></Link>
-                </Button>
-              </div>
-              <div className="h-4 w-px bg-border shrink-0" />
-              <div className="flex items-center gap-1.5 shrink-0">
-                <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
-                <span className="text-muted-foreground">연매출</span>
-                <span className="font-bold">₩{fmt(yearKpis.revenue)}</span>
-                {yearKpis.revenueGrowth >= 0 ? (
-                  <span className="text-[10px] text-green-600">▲{yearKpis.revenueGrowth.toFixed(1)}%</span>
-                ) : (
-                  <span className="text-[10px] text-red-500">▼{Math.abs(yearKpis.revenueGrowth).toFixed(1)}%</span>
-                )}
-              </div>
-              <div className="h-4 w-px bg-border shrink-0" />
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-muted-foreground">이익</span>
-                <span className={`font-bold ${yearKpis.profit < 0 ? "text-red-500" : "text-green-600"}`}>₩{fmt(yearKpis.profit)}</span>
-                <span className="text-[10px] text-muted-foreground">{yearKpis.profitMargin.toFixed(1)}%</span>
-              </div>
-              <div className="h-4 w-px bg-border shrink-0" />
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-muted-foreground">주문</span>
-                <span className="font-bold">{yearKpis.orderCount}건</span>
-              </div>
-              <div className="h-4 w-px bg-border shrink-0" />
-              <div className="flex items-center gap-1.5 shrink-0">
-                <FileText className="h-3.5 w-3.5 text-purple-500" />
-                <span className="text-muted-foreground">계산서</span>
-                <span className="font-bold">{yearKpis.invoicesIssued}건</span>
-                {yearKpis.unbilledOrders > 0 && (
-                  <span className="text-[10px] text-orange-600 font-medium">미발행 {yearKpis.unbilledOrders}건</span>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* ── KPI Bar: Year (left) | Month (right) ── */}
+      <Card>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-0 overflow-x-auto text-sm">
+            {/* ── Year section ── */}
+            {yearKpis && (
+              <>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
+                    <Link href={`/dashboard?year=${selectedYear - 1}&month=${selectedMonth}`}><ChevronLeft className="h-3 w-3" /></Link>
+                  </Button>
+                  <span className="text-[11px] font-bold min-w-[40px] text-center">{yearKpis.year}</span>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
+                    <Link href={`/dashboard?year=${selectedYear + 1}&month=${selectedMonth}`}><ChevronRight className="h-3 w-3" /></Link>
+                  </Button>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-muted-foreground text-xs">매출</span>
+                  <span className="font-bold text-xs">₩{fmt(yearKpis.revenue)}</span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0 ml-2">
+                  <span className="text-muted-foreground text-xs">이익</span>
+                  <span className={`font-bold text-xs ${yearKpis.profit < 0 ? "text-red-500" : "text-green-600"}`}>₩{fmt(yearKpis.profit)}</span>
+                  <span className="text-[10px] text-muted-foreground">{yearKpis.profitMargin.toFixed(1)}%</span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0 ml-2">
+                  <span className="text-muted-foreground text-xs">주문</span>
+                  <span className="font-bold text-xs">{yearKpis.orderCount}건</span>
+                </div>
+              </>
+            )}
 
-      {/* ── Monthly KPI Bar ── */}
-      {kpis && (
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-4 overflow-x-auto text-sm">
-              {/* Month navigation */}
-              <div className="flex items-center gap-1 shrink-0">
-                <Button variant="outline" size="icon" className="h-7 w-7" asChild>
-                  <Link href={`/dashboard?month=${prevMonth}`}><ChevronLeft className="h-3.5 w-3.5" /></Link>
-                </Button>
-                {isCurrentMonth ? (
-                  <span className="text-xs font-semibold min-w-[80px] text-center">{monthLabel}</span>
-                ) : (
-                  <Link href="/dashboard" className="text-xs font-semibold min-w-[80px] text-center hover:underline">{monthLabel}</Link>
-                )}
-                <Button variant="outline" size="icon" className="h-7 w-7" asChild>
-                  <Link href={`/dashboard?month=${nextMonth}`}><ChevronRight className="h-3.5 w-3.5" /></Link>
-                </Button>
-              </div>
-              <div className="h-4 w-px bg-border shrink-0" />
-              {/* 매출 */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
-                <span className="text-muted-foreground">매출</span>
-                <span className="font-bold">₩{fmt(kpis.monthlyRevenue)}</span>
-                {kpis.revenueGrowth >= 0 ? (
-                  <span className="text-[10px] text-green-600">▲{kpis.revenueGrowth.toFixed(1)}%</span>
-                ) : (
-                  <span className="text-[10px] text-red-500">▼{Math.abs(kpis.revenueGrowth).toFixed(1)}%</span>
-                )}
-              </div>
-              <div className="h-4 w-px bg-border shrink-0" />
-              {/* 이익 */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-muted-foreground">이익</span>
-                <span className={`font-bold ${kpis.monthlyProfit < 0 ? "text-red-500" : "text-green-600"}`}>₩{fmt(kpis.monthlyProfit)}</span>
-                <span className="text-[10px] text-muted-foreground">{kpis.monthlyProfitMargin.toFixed(1)}%</span>
-              </div>
-              <div className="h-4 w-px bg-border shrink-0" />
-              {/* 주문 */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-muted-foreground">주문</span>
-                <span className="font-bold">{kpis.monthlyOrderCount}건</span>
-                <span className="text-[10px] text-muted-foreground">
-                  접수 {kpis.ordersConfirmed} · 배송 {kpis.ordersDelivered} · 발행 {kpis.ordersInvoiced}
-                </span>
-              </div>
-              <div className="h-4 w-px bg-border shrink-0" />
-              {/* 세금계산서 */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <FileText className="h-3.5 w-3.5 text-purple-500" />
-                <span className="text-muted-foreground">계산서</span>
-                <span className="font-bold">{kpis.invoicesIssued}건</span>
-                {kpis.unbilledOrders > 0 && (
-                  <Link href="/invoices/new" className="text-[10px] text-orange-600 font-medium hover:underline">
-                    미발행 {kpis.unbilledOrders}건 →
-                  </Link>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            <div className="h-4 w-px bg-border shrink-0 mx-3" />
+
+            {/* ── Month section ── */}
+            {kpis && (
+              <>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
+                    <Link href={`/dashboard?month=${prevMonth}&year=${selectedYear}`}><ChevronLeft className="h-3 w-3" /></Link>
+                  </Button>
+                  {isCurrentMonth ? (
+                    <span className="text-[11px] font-bold min-w-[35px] text-center">{parseInt(selectedMonth.slice(5))}월</span>
+                  ) : (
+                    <Link href="/dashboard" className="text-[11px] font-bold min-w-[35px] text-center hover:underline">{parseInt(selectedMonth.slice(5))}월</Link>
+                  )}
+                  <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
+                    <Link href={`/dashboard?month=${nextMonth}&year=${selectedYear}`}><ChevronRight className="h-3 w-3" /></Link>
+                  </Button>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-muted-foreground text-xs">매출</span>
+                  <span className="font-bold text-xs">₩{fmt(kpis.monthlyRevenue)}</span>
+                  {kpis.revenueGrowth >= 0 ? (
+                    <span className="text-[10px] text-green-600">▲{kpis.revenueGrowth.toFixed(1)}%</span>
+                  ) : (
+                    <span className="text-[10px] text-red-500">▼{Math.abs(kpis.revenueGrowth).toFixed(1)}%</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0 ml-2">
+                  <span className="text-muted-foreground text-xs">이익</span>
+                  <span className={`font-bold text-xs ${kpis.monthlyProfit < 0 ? "text-red-500" : "text-green-600"}`}>₩{fmt(kpis.monthlyProfit)}</span>
+                  <span className="text-[10px] text-muted-foreground">{kpis.monthlyProfitMargin.toFixed(1)}%</span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0 ml-2">
+                  <span className="text-muted-foreground text-xs">주문</span>
+                  <span className="font-bold text-xs">{kpis.monthlyOrderCount}건</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    접수{kpis.ordersConfirmed} 배송{kpis.ordersDelivered} 발행{kpis.ordersInvoiced}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0 ml-2">
+                  <FileText className="h-3 w-3 text-purple-500" />
+                  <span className="font-bold text-xs">{kpis.invoicesIssued}건</span>
+                  {kpis.unbilledOrders > 0 && (
+                    <Link href="/invoices/new" className="text-[10px] text-orange-600 font-medium hover:underline">
+                      미발행{kpis.unbilledOrders} →
+                    </Link>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* ── 월별 매출/이익 추이 ── */}
       {monthlyTrend.length > 0 && (

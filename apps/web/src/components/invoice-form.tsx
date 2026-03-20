@@ -32,11 +32,10 @@ import {
   createConsolidatedInvoice,
 } from "@/lib/tax-invoice/service";
 import type { UnbilledOrder } from "@/lib/tax-invoice/types";
-import type { Hospital } from "@/lib/types";
 
 interface InvoiceFormProps {
   orders: UnbilledOrder[];
-  hospitals: Hospital[];
+  hospitals: { id: number; name: string }[];
 }
 
 export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {

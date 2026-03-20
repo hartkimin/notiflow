@@ -1,15 +1,21 @@
 import { getUnbilledOrders } from "@/lib/queries/invoices";
-import { getHospitals } from "@/lib/queries/hospitals";
 import InvoiceForm from "@/components/invoice-form";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 export default async function NewInvoicePage() {
-  const [orders, { hospitals }] = await Promise.all([
-    getUnbilledOrders(),
-    getHospitals({ limit: 200 }),
-  ]);
+  const orders = await getUnbilledOrders();
+
+  // Extract unique hospitals from unbilled orders only
+  const hospitalMap = new Map<number, string>();
+  for (const o of orders) {
+    if (o.hospital_id && !hospitalMap.has(o.hospital_id)) {
+      hospitalMap.set(o.hospital_id, o.hospital_name ?? `거래처 #${o.hospital_id}`);
+    }
+  }
+  const hospitals = Array.from(hospitalMap, ([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <>

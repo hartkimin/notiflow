@@ -46,9 +46,43 @@ export async function getOrderItems(params: {
   offset?: number;
 } = {}): Promise<{ items: OrderItemFlat[]; total: number }> {
   const supabase = await createClient();
+  const limit = params.limit || 15;
+  const offset = params.offset || 0;
 
-  // Supabase PostgREST: select from order_items with nested joins
-  const selectStr = [
+  // Step 1: Get paginated ORDER IDs (not items)
+  let orderQuery = supabase
+    .from("orders")
+    .select("id", { count: "exact" });
+
+  if (params.status) orderQuery = orderQuery.eq("status", params.status);
+  if (params.hospital_id) orderQuery = orderQuery.eq("hospital_id", params.hospital_id);
+  if (params.from) orderQuery = orderQuery.gte("order_date", params.from);
+  if (params.to) orderQuery = orderQuery.lte("order_date", params.to);
+
+  // If searching by product name, find matching order IDs first
+  if (params.search) {
+    const { data: matchItems } = await supabase
+      .from("order_items")
+      .select("order_id")
+      .ilike("product_name", `%${params.search}%`);
+    const matchOrderIds = [...new Set((matchItems ?? []).map((i) => i.order_id))];
+    if (matchOrderIds.length === 0) return { items: [], total: 0 };
+    orderQuery = orderQuery.in("id", matchOrderIds);
+  }
+
+  orderQuery = orderQuery
+    .order("order_date", { ascending: false })
+    .order("id", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  const { data: orderRows, count: orderCount, error: orderErr } = await orderQuery;
+  if (orderErr) throw orderErr;
+  if (!orderRows?.length) return { items: [], total: orderCount ?? 0 };
+
+  const orderIds = orderRows.map((o) => o.id);
+
+  // Step 2: Get ALL items for those orders
+  const itemSelectStr = [
     "id",
     "order_id",
     "product_id",
@@ -68,22 +102,13 @@ export async function getOrderItems(params: {
     "kpis_reports(report_status, notes)",
   ].join(",");
 
-  let query = supabase
+  const { data, error } = await supabase
     .from("order_items")
-    .select(selectStr, { count: "exact" });
-
-  if (params.status) query = query.eq("orders.status", params.status);
-  if (params.hospital_id) query = query.eq("orders.hospital_id", params.hospital_id);
-  if (params.from) query = query.gte("orders.order_date", params.from);
-  if (params.to) query = query.lte("orders.order_date", params.to);
-  if (params.search) query = query.ilike("product_name", `%${params.search}%`);
-
-  query = query
+    .select(itemSelectStr)
+    .in("order_id", orderIds)
     .order("order_id", { ascending: false })
-    .order("id", { ascending: true })
-    .range(params.offset || 0, (params.offset || 0) + (params.limit || 25) - 1);
+    .order("id", { ascending: true });
 
-  const { data, count, error } = await query;
   if (error) throw error;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -94,7 +119,6 @@ export async function getOrderItems(params: {
     const boxSpec = row.product_box_specs;
     const kpis = Array.isArray(row.kpis_reports) ? row.kpis_reports[0] : row.kpis_reports;
 
-    // Calculate box quantity: if box_spec exists use its qty_per_box, else null
     const qtyPerBox = boxSpec?.qty_per_box ?? null;
     let boxQuantity: number | null = null;
     if (qtyPerBox && qtyPerBox > 0) {
@@ -131,7 +155,7 @@ export async function getOrderItems(params: {
     };
   });
 
-  return { items, total: count ?? 0 };
+  return { items, total: orderCount ?? 0 };
 }
 
 export async function getOrder(id: number): Promise<OrderDetail> {

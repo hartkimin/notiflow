@@ -1,18 +1,17 @@
-import { getMapMarkers } from "@/lib/queries/map-data";
+import coordsData from "@/lib/map-coords.json";
 import { MapWrapper } from "./map-wrapper";
+import type { MapPin } from "@/components/partner-map";
 
-export default async function MapPage() {
-  const markers = await getMapMarkers();
+export default function MapPage() {
+  const pins = coordsData as MapPin[];
 
   return (
     <>
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold md:text-2xl">파트너 지도</h1>
-        <span className="text-sm text-muted-foreground">
-          {markers.length}개 업체 (주소 등록된 업체만 표시)
-        </span>
+        <span className="text-sm text-muted-foreground">{pins.length}개 업체</span>
       </div>
-      <MapWrapper markers={markers} />
+      <MapWrapper pins={pins} />
     </>
   );
 }

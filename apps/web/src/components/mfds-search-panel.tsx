@@ -92,8 +92,8 @@ export function MfdsSearchPanel({
   const [isLoading, setIsLoading] = useState(false);
 
   // Columns hidden by default (toggle-able via column settings)
-  const DRUG_HIDDEN = ["ITEM_SEQ", "ITEM_ENG_NAME", "ENTP_NO", "CNSGN_MANUF", "CHART", "STORAGE_METHOD", "VALID_TERM", "PACK_UNIT", "EE_DOC_ID", "UD_DOC_ID", "NB_DOC_ID", "PERMIT_KIND_NAME", "CANCEL_DATE", "CHANGE_DATE", "ATC_CODE", "RARE_DRUG_YN"];
-  const DEVICE_HIDDEN = ["PRDT_NM_INFO", "MDEQ_CLSF_NO", "USE_PURPS_CONT", "HMBD_TRSPT_MDEQ_YN", "TRCK_MNG_TRGT_YN", "TOTAL_DEV", "CMBNMD_YN", "RCPRSLRY_TRGT_YN", "USE_BEFORE_STRLZT_NEED_YN", "STERILIZATION_METHOD_NM", "STRG_CND_INFO", "CIRC_CND_INFO"];
+  const DRUG_HIDDEN = ["item_seq", "item_eng_name", "entp_no", "cnsgn_manuf", "chart", "storage_method", "valid_term", "pack_unit", "ee_doc_id", "ud_doc_id", "nb_doc_id", "permit_kind_name", "cancel_date", "change_date", "atc_code", "rare_drug_yn"];
+  const DEVICE_HIDDEN = ["prdt_nm_info", "mdeq_clsf_no", "use_purps_cont", "hmbd_trspt_mdeq_yn", "trck_mng_trgt_yn", "total_dev", "cmbnmd_yn", "rcprslry_trgt_yn", "use_before_strlzt_need_yn", "sterilization_method_nm", "strg_cnd_info", "circ_cnd_info"];
 
   function getDefaultVisibility(source: MfdsApiSource): VisibilityState {
     const hidden = source === "drug" ? DRUG_HIDDEN : DEVICE_HIDDEN;

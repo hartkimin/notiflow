@@ -56,7 +56,7 @@ export async function getInvoice(id: number): Promise<TaxInvoiceDetail> {
     items: items ?? [],
     linked_orders: (linkedOrders ?? []).map((lo) => ({
       order_id: lo.order_id,
-      order_number: (lo.orders as { order_number: string } | null)?.order_number ?? "",
+      order_number: (lo.orders as unknown as { order_number: string } | null)?.order_number ?? "",
       amount: lo.amount,
     })),
   } as TaxInvoiceDetail;
@@ -112,7 +112,7 @@ export async function getUnbilledOrders(hospitalId?: number): Promise<UnbilledOr
 
   return (data ?? []).map((row) => ({
     ...row,
-    hospital_name: (row.hospitals as { name: string } | null)?.name,
+    hospital_name: (row.hospitals as unknown as { name: string } | null)?.name,
     hospitals: undefined,
   })) as UnbilledOrder[];
 }

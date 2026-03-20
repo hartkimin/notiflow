@@ -4,23 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-NotiFlow is a medical supply order notification management system. It captures notifications/SMS from Android devices, parses them with AI (Claude API + regex fallback), manages orders, and integrates with Korean MFDS regulatory APIs. The system consists of a Next.js web dashboard, an Android mobile app, and a Supabase backend.
+NotiFlow is a medical supply order notification management system for Korean hemodialysis clinics. It captures notifications/SMS from Android devices, parses them with AI (Claude API + regex fallback), manages orders, and integrates with Korean MFDS regulatory APIs. The system consists of a Next.js web dashboard, an Android mobile app, and a Supabase backend.
 
 ## Monorepo Structure
 
-- `apps/web/` — Next.js 16 (App Router) dashboard (TypeScript, React 19, shadcn/ui, Tailwind CSS 4)
+- `apps/web/` — Next.js 16 (App Router) dashboard (TypeScript strict mode, React 19, shadcn/ui, Tailwind CSS 4)
 - `apps/mobile/` — Android app (Kotlin, Jetpack Compose, Material 3, Hilt, Room, MediaPipe Gemma 3N)
 - `packages/supabase/` — Backend: PostgreSQL migrations, Edge Functions, seed data
-- `docs/` — API reference, setup guide, testing guide
+- `docs/` — API reference (`API.md`), setup guide (`SETUP.md`), testing guide (`TESTING_GUIDE.md`)
 - `scripts/` — Deployment and utility scripts
 
 ## Commands
 
 ### Web Dashboard
 ```bash
-npm run dev:web          # Dev server (localhost:3000)
-npm run build:web        # Production build
-npm run lint:web         # ESLint
+npm run dev:web          # Dev server (localhost:3000, uses Turbopack)
+npm run build:web        # Production build (standalone output for Docker/Vercel)
+npm run lint:web         # ESLint 9 (flat config, Next.js core-web-vitals + TypeScript)
 ```
 
 ### Supabase Backend
@@ -37,7 +37,7 @@ npm run dev:local        # Supabase + web dev server together
 
 ### Docker
 ```bash
-npm run docker:web       # Build and run web in container (:3002)
+npm run docker:web       # Build and run web in container (:3002 → :3000 internal)
 npm run docker:web:stop  # Stop container
 ```
 
@@ -46,6 +46,12 @@ npm run docker:web:stop  # Stop container
 cd apps/mobile
 ./gradlew assembleDebug        # Build debug APK
 ./gradlew testDebugUnitTest    # Run unit tests
+```
+
+### shadcn/ui Components
+```bash
+cd apps/web
+npx shadcn@latest add <component>   # Add a new shadcn component
 ```
 
 ## Architecture
@@ -67,11 +73,24 @@ Web Dashboard ← Server Actions ← Claude AI parse (confidence ≥ 0.7) / rege
 - `mfds-sync.ts` / `mfds-search-utils.ts` — MFDS regulatory data sync and search
 - `queries/` — Supabase data query functions
 - `supabase/` — Client factories (server, client, admin)
-- `schedule-utils.ts` — Calendar/schedule view helpers (shared with mobile via Supabase tables)
+- `schedule-utils.ts` — Calendar/schedule view helpers
 - `types.ts` — Shared TypeScript interfaces
 
 ### Web App Path Alias
 `@/*` maps to `apps/web/src/*`
+
+### Dashboard Routes (`apps/web/src/app/(dashboard)/`)
+Protected route group containing: dashboard, orders (list/detail/new), messages, notifications, hospitals, suppliers, products (all/my), devices, users, settings (general/devices/users), help
+
+### API Routes (`apps/web/src/app/api/`)
+- Search endpoints: `drug-search`, `device-search`, `device-standard-search`, `ai-product-search`, `ai-supplier-search`
+- `manual-parse` — Manual message parsing trigger
+- `orders/[id]` — Order retrieval
+- `mfds-sync/` — MFDS sync status and cancellation
+- `cron/` — Scheduled jobs (archive, daily/monthly reports, MFDS sync continuation)
+
+### Supabase Proxy
+`/supabase-proxy/[...path]` rewrites Supabase API calls, needed for Docker where the container can't reach `localhost:54321` directly.
 
 ### Mobile Architecture (MVVM)
 - `data/db/` — Room entities and DAOs
@@ -83,7 +102,7 @@ Web Dashboard ← Server Actions ← Claude AI parse (confidence ≥ 0.7) / rege
 - `viewmodel/` — StateFlow-based ViewModels
 
 ### Backend
-- 41 SQL migrations in `packages/supabase/migrations/`
+- SQL migrations in `packages/supabase/migrations/`
 - Edge Functions: `ai-product-search`, `manage-users`, `send-push`, `sync-mfds`, `trigger-sync`
 - RLS policies enforce row-level security on all tables
 - Vercel Cron jobs: daily report (14:50 UTC), monthly report (16:00 1st), archive (18:00 Sun), MFDS sync (19:00 daily)
@@ -98,29 +117,34 @@ Web Dashboard ← Server Actions ← Claude AI parse (confidence ≥ 0.7) / rege
 
 ## Environment Variables
 
-See `.env.example`. Required:
+See `apps/web/.env.example`. Required:
 - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase connection
 - `SUPABASE_SERVICE_ROLE_KEY` — Admin access for Edge Functions
 - `ANTHROPIC_API_KEY` — Claude AI for message parsing
 - `FCM_SERVICE_ACCOUNT` — Firebase push notifications
 - `CRON_SECRET` — Vercel cron job authentication
 
+Mobile reads `SUPABASE_URL`, `SUPABASE_KEY`, and `HUGGING_FACE_TOKEN` from `apps/mobile/local.properties`.
+
 ## Development Notes
 
-- Node.js 22+ required
-- Web CI runs `npm ci` from `apps/web/` (not root) — the CI uses workspace-level install
+- Node.js 22+ required (CI uses Node 22)
+- Korean language content throughout (UI labels, messages, docs)
 - Order status workflow: `draft` → `confirmed` → `processing` → `delivered`
 - AI parsing uses confidence threshold of 0.7; below that falls back to regex parser
-- Korean language content throughout (UI labels, messages, docs)
+- Next.js standalone output mode — important for Docker and Vercel deployment
+- Tailwind CSS 4 via `@tailwindcss/postcss` plugin (no separate tailwind.config)
+- Mobile: minSDK 26 (Android 8.0), targetSDK 35, namespace `com.hart.notimgmt`, appId `com.hart.notiflow`
 
 ## CI/CD
 
-GitHub Actions (`.github/workflows/ci.yml`) uses path-based detection:
-- **Mobile changes** → build debug APK + run unit tests
-- **Web changes** → lint + production build (Node 22, placeholder env vars)
+GitHub Actions (`.github/workflows/ci.yml`) triggers on push/PR to `main` with path-based detection:
+- **Mobile changes** (`apps/mobile/**`) → JDK 17, build debug APK + run unit tests
+- **Web changes** (`apps/web/**`) → Node 22, `npm ci` + lint + production build (uses placeholder Supabase env vars)
 
 ## Deployment
 
-- **Web**: Vercel (standalone Next.js output)
+- **Web**: Vercel (standalone Next.js output, security headers configured in `next.config.ts`)
 - **Mobile**: Google Play Store
 - **Backend**: Supabase Cloud
+- **Tunnel**: Cloudflare Tunnel to `notiflow.life` (via docker-compose)

@@ -205,7 +205,7 @@ async function recomputeOrderInvoiceStatus(supabase: Awaited<ReturnType<typeof c
 
   const activeInvoices = (links ?? []).filter(
     (l) => {
-      const inv = l.tax_invoices as { status: string } | null;
+      const inv = l.tax_invoices as unknown as { status: string } | null;
       return inv && inv.status !== "cancelled";
     }
   );
@@ -213,7 +213,7 @@ async function recomputeOrderInvoiceStatus(supabase: Awaited<ReturnType<typeof c
   let newStatus = "pending";
   if (activeInvoices.length > 0) {
     const allIssued = activeInvoices.every((l) => {
-      const inv = l.tax_invoices as { status: string };
+      const inv = l.tax_invoices as unknown as { status: string };
       return inv.status === "issued" || inv.status === "sent";
     });
     newStatus = allIssued ? "issued" : "partial";

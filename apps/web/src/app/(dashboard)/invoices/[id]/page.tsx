@@ -11,10 +11,8 @@ export default async function InvoiceDetailPage({ params }: Props) {
   const invoiceId = Number(id);
   if (isNaN(invoiceId)) notFound();
 
-  try {
-    const invoice = await getInvoice(invoiceId);
-    return <InvoiceDetailClient invoice={invoice} />;
-  } catch {
-    notFound();
-  }
+  const invoice = await getInvoice(invoiceId).catch(() => null);
+  if (!invoice) notFound();
+
+  return <InvoiceDetailClient invoice={invoice} />;
 }

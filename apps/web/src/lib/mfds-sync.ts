@@ -15,7 +15,9 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 const PAGE_SIZE = 500;
 const SAFE_WINDOW_DAYS = 30;
 const MAX_RETRIES = 3;
+const MAX_RETRIES_429 = 10;
 const RETRY_BASE_MS = 2_000;
+const RETRY_429_MS = 60_000; // 429 rate limit: wait 60s before retry
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -183,13 +185,45 @@ async function fetchPage(
   }
 
   let lastErr: Error | null = null;
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+  let rateLimitRetries = 0;
+  let normalRetries = 0;
+
+  while (true) {
     try {
       const res = await fetch(`${config.url}?${params}`);
+
+      // 429 rate limit: long wait and retry separately
+      if (res.status === 429) {
+        rateLimitRetries++;
+        if (rateLimitRetries > MAX_RETRIES_429) {
+          throw new Error(`API 429: rate limit exceeded after ${MAX_RETRIES_429} retries`);
+        }
+        console.warn(`[Sync] Page ${page} rate limited (429), waiting ${RETRY_429_MS / 1000}s (attempt ${rateLimitRetries}/${MAX_RETRIES_429})`);
+        await sleep(RETRY_429_MS);
+        continue;
+      }
+
       if (!res.ok) throw new Error(`API ${res.status}`);
 
       const json = await res.json();
-      const body = json?.body;
+
+      // Korean data.go.kr APIs return errors as HTTP 200 with error code in header
+      const header = json?.header ?? json?.response?.header;
+      if (header && header.resultCode && header.resultCode !== "00") {
+        // Rate limit can also come as resultCode in header
+        if (header.resultCode === "22" || (header.resultMsg || "").includes("LIMITED")) {
+          rateLimitRetries++;
+          if (rateLimitRetries > MAX_RETRIES_429) {
+            throw new Error(`API error: ${header.resultCode} ${header.resultMsg || ""} (after ${MAX_RETRIES_429} retries)`);
+          }
+          console.warn(`[Sync] Page ${page} API rate limited (${header.resultCode}), waiting ${RETRY_429_MS / 1000}s (attempt ${rateLimitRetries}/${MAX_RETRIES_429})`);
+          await sleep(RETRY_429_MS);
+          continue;
+        }
+        throw new Error(`API error: ${header.resultCode} ${header.resultMsg || ""}`);
+      }
+
+      const body = json?.body ?? json?.response?.body;
       if (!body) return { items: [], totalCount: 0 };
 
       let items = body.items;
@@ -202,11 +236,13 @@ async function fetchPage(
       return { items, totalCount: body.totalCount || 0 };
     } catch (err) {
       lastErr = err as Error;
-      if (attempt < MAX_RETRIES) {
-        const delay = RETRY_BASE_MS * Math.pow(2, attempt - 1);
-        console.warn(`[Sync] Page ${page} attempt ${attempt} failed, retry in ${delay}ms`);
-        await sleep(delay);
+      normalRetries++;
+      if (normalRetries >= MAX_RETRIES) {
+        break;
       }
+      const delay = RETRY_BASE_MS * Math.pow(2, normalRetries - 1);
+      console.warn(`[Sync] Page ${page} attempt ${normalRetries} failed: ${lastErr.message}, retry in ${delay}ms`);
+      await sleep(delay);
     }
   }
   throw lastErr!;
@@ -375,6 +411,9 @@ export async function runSync(
       // Done?
       if (totalPages != null && page >= totalPages) break;
       page++;
+
+      // Rate limit protection: small delay between pages
+      await sleep(200);
     }
 
     // ── Complete ──
@@ -468,15 +507,19 @@ export async function cleanupStaleLogs() {
     .lt("started_at", staleThreshold);
 }
 
-export async function findResumableSync() {
+export async function findResumableSync(sourceType?: string) {
   const admin = createAdminSupabase();
-  const { data } = await admin
+  let query = admin
     .from("mfds_sync_logs")
     .select("id, source_type, next_page, total_fetched, total_upserted, sync_mode")
     .in("status", ["partial", "error", "cancelled"])
     .not("next_page", "is", null)
-    .order("started_at", { ascending: true })
+    .order("started_at", { ascending: false })
     .limit(1);
+  if (sourceType) {
+    query = query.eq("source_type", sourceType);
+  }
+  const { data } = await query;
   return data?.[0] ?? null;
 }
 

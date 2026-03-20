@@ -72,6 +72,14 @@ export async function POST(req: Request) {
     priorFetched = resumable.total_fetched ?? 0;
     priorUpserted = resumable.total_upserted ?? 0;
     console.log(`[Sync API] Resuming logId=${logId} (was ${resumable.status}) from page ${startPage} (${priorFetched} fetched)`);
+
+    // Clean up older stale partial/error logs for the same source_type
+    await admin
+      .from("mfds_sync_logs")
+      .update({ status: "superseded", finished_at: new Date().toISOString() })
+      .eq("source_type", sourceType)
+      .in("status", ["partial", "error"])
+      .neq("id", resumable.id);
   } else {
     // New sync — always start at page 1 (UPSERT handles duplicates safely)
     try {

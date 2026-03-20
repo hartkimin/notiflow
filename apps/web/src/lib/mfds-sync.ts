@@ -209,6 +209,20 @@ export async function runSync(
     }
   }
 
+  // If resuming an incremental sync, restore saved date params from sync log
+  if (syncMode === "incremental" && startPage > 1 && !startDate) {
+    const { data: logData } = await admin
+      .from("mfds_sync_logs")
+      .select("sync_start_date, sync_end_date")
+      .eq("id", logId)
+      .single();
+    if (logData?.sync_start_date && logData?.sync_end_date) {
+      startDate = logData.sync_start_date;
+      endDate = logData.sync_end_date;
+      console.log(`[Sync] Restored date range from log: ${startDate} ~ ${endDate}`);
+    }
+  }
+
   console.log(`[Sync] ${syncMode} sync — key: ${config.sourceKeyField}${startDate ? ` (date filter: ${startDate}~${endDate})` : " (no date filter)"}`);
 
   // ── Main loop ──

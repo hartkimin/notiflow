@@ -25,6 +25,7 @@ export function OrderFilters({ hospitals = [] }: OrderFiltersProps) {
     const hospital = fd.get("hospital") as string;
     const search = fd.get("search") as string;
     const size = fd.get("size") as string;
+    const vat = fd.get("vat") as string;
 
     if (from) params.set("from", from);
     if (to) params.set("to", to);
@@ -32,6 +33,7 @@ export function OrderFilters({ hospitals = [] }: OrderFiltersProps) {
     if (hospital && hospital !== "all") params.set("hospital", hospital);
     if (search) params.set("search", search);
     if (size && size !== "15") params.set("size", size);
+    if (vat === "included") params.set("vat", "included");
 
     router.push(`/orders?${params}`);
   }
@@ -93,6 +95,18 @@ export function OrderFilters({ hospitals = [] }: OrderFiltersProps) {
             <SelectItem value="30">30건</SelectItem>
             <SelectItem value="50">50건</SelectItem>
             <SelectItem value="100">100건</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <label className="text-[10px] text-muted-foreground">VAT</label>
+        <Select name="vat" defaultValue={searchParams.get("vat") || "excluded"}>
+          <SelectTrigger className="h-8 w-[100px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="excluded">VAT별도</SelectItem>
+            <SelectItem value="included">VAT포함</SelectItem>
           </SelectContent>
         </Select>
       </div>

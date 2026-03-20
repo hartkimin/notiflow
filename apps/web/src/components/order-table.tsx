@@ -116,9 +116,11 @@ function formatMMDD(dateStr: string | null): string {
 export function OrderTable({
   items,
   products = [],
+  vatMultiplier = 1,
 }: {
   items: OrderItemFlat[];
   products?: ProductOption[];
+  vatMultiplier?: number;
 }) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
@@ -205,6 +207,7 @@ export function OrderTable({
                     onToggle={() => toggleExpand(group.order_id)}
                     onToggleSelect={() => rowSelection.toggle(group.order_id)}
                     colCount={colCount}
+                    vatMultiplier={vatMultiplier}
                   />
                 );
               })
@@ -231,6 +234,7 @@ const OrderGroupRow = memo(function OrderGroupRow({
   onToggle,
   onToggleSelect,
   colCount,
+  vatMultiplier = 1,
 }: {
   group: OrderGroup;
   products: ProductOption[];
@@ -239,6 +243,7 @@ const OrderGroupRow = memo(function OrderGroupRow({
   onToggle: () => void;
   onToggleSelect: () => void;
   colCount: number;
+  vatMultiplier?: number;
 }) {
   return (
     <>
@@ -278,8 +283,9 @@ const OrderGroupRow = memo(function OrderGroupRow({
           {group.items.length}
         </TableCell>
         {(() => {
-          const purchaseTotal = group.items.reduce((s, i) => s + (i.purchase_price ?? 0) * i.quantity, 0);
-          const salesTotal = group.items.reduce((s, i) => s + (i.unit_price ?? 0) * i.quantity, 0);
+          const v = vatMultiplier;
+          const purchaseTotal = Math.round(group.items.reduce((s, i) => s + (i.purchase_price ?? 0) * i.quantity, 0) * v);
+          const salesTotal = Math.round(group.items.reduce((s, i) => s + (i.unit_price ?? 0) * i.quantity, 0) * v);
           const profit = salesTotal - purchaseTotal;
           const margin = salesTotal > 0 ? (profit / salesTotal) * 100 : 0;
           const reps = [...new Set(group.items.map((i) => i.sales_rep).filter(Boolean))];

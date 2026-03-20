@@ -30,6 +30,7 @@ export default async function InvoicesPage({
     from?: string;
     to?: string;
     size?: string;
+    vat?: string;
     month?: string;
     view?: string;
   }>;
@@ -42,6 +43,9 @@ export default async function InvoicesPage({
   const offset = (page - 1) * limit;
   const hospitalId = params.hospital ? parseInt(params.hospital, 10) : undefined;
   const search = params.search;
+  const vatIncluded = params.vat === "included";
+  const vatMultiplier = vatIncluded ? 1.1 : 1;
+  const vatLabel = vatIncluded ? "VAT포함" : "VAT별도";
 
   // Calendar month range
   let calYear: number, calMonth: number;
@@ -104,25 +108,25 @@ export default async function InvoicesPage({
           <CardContent className="p-3">
             <div className="flex items-center gap-6 overflow-x-auto text-sm">
               <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-muted-foreground">전체</span>
+                <span className="text-muted-foreground">전체({vatLabel})</span>
                 <span className="font-bold">{stats.by_status.all.count}건</span>
-                <span className="text-xs text-muted-foreground">₩{stats.by_status.all.total_amount.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground">₩{Math.round(stats.by_status.all.total_amount * vatMultiplier).toLocaleString()}</span>
               </div>
               <div className="h-4 w-px bg-border shrink-0" />
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-muted-foreground">임시</span>
                 <span className="font-bold text-gray-600">{stats.by_status.draft.count}건</span>
-                <span className="text-xs text-muted-foreground">₩{stats.by_status.draft.total_amount.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground">₩{Math.round(stats.by_status.draft.total_amount * vatMultiplier).toLocaleString()}</span>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-muted-foreground">발행</span>
                 <span className="font-bold text-green-600">{stats.by_status.issued.count}건</span>
-                <span className="text-xs text-muted-foreground">₩{stats.by_status.issued.total_amount.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground">₩{Math.round(stats.by_status.issued.total_amount * vatMultiplier).toLocaleString()}</span>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-muted-foreground">취소</span>
                 <span className="font-bold text-red-500">{stats.by_status.cancelled.count}건</span>
-                <span className="text-xs text-muted-foreground">₩{stats.by_status.cancelled.total_amount.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground">₩{Math.round(stats.by_status.cancelled.total_amount * vatMultiplier).toLocaleString()}</span>
               </div>
               <div className="h-4 w-px bg-border shrink-0" />
               <Link href="/invoices/new" className="flex items-center gap-1.5 shrink-0 hover:underline">

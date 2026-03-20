@@ -512,9 +512,13 @@ function OrderAccordionContent({
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs">품목</TableHead>
-                <TableHead className="text-xs text-right w-[70px]">수량/개</TableHead>
-                <TableHead className="text-xs text-right w-[70px]">수량/박스</TableHead>
+                <TableHead className="text-xs text-right w-[70px]">수량</TableHead>
+                <TableHead className="text-xs text-right w-[70px]">박스</TableHead>
                 <TableHead className="text-xs w-[80px]">매입처</TableHead>
+                <TableHead className="text-xs text-right w-[80px]">단가</TableHead>
+                <TableHead className="text-xs text-right w-[80px]">매입가</TableHead>
+                <TableHead className="text-xs text-right w-[80px]">금액</TableHead>
+                <TableHead className="text-xs w-[80px]">담당자</TableHead>
                 <TableHead className="text-xs w-[80px]">KPIS</TableHead>
               </TableRow>
             </TableHeader>
@@ -610,6 +614,18 @@ function OrderAccordionContent({
                     ) : (
                       item.supplier_name ?? "-"
                     )}
+                  </TableCell>
+                  <TableCell className="text-right text-sm tabular-nums">
+                    {item.unit_price != null ? item.unit_price.toLocaleString() : "-"}
+                  </TableCell>
+                  <TableCell className="text-right text-sm tabular-nums">
+                    {item.purchase_price != null ? item.purchase_price.toLocaleString() : "-"}
+                  </TableCell>
+                  <TableCell className="text-right text-sm tabular-nums">
+                    {item.unit_price != null ? (item.unit_price * item.quantity).toLocaleString() : "-"}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {item.sales_rep ?? "-"}
                   </TableCell>
                   <TableCell>
                     {kpisEditId === item.id ? (

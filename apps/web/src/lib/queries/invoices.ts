@@ -126,6 +126,46 @@ export async function getUnbilledOrders(hospitalId?: number): Promise<UnbilledOr
   })) as UnbilledOrder[];
 }
 
+/** Get invoices with items for a date range (calendar view) */
+export async function getInvoicesForCalendar(params: {
+  from: string;
+  to: string;
+}): Promise<TaxInvoiceDetail[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tax_invoices")
+    .select("*, tax_invoice_items(*), tax_invoice_orders(order_id, amount, orders(order_number))")
+    .gte("issue_date", params.from)
+    .lt("issue_date", params.to)
+    .order("issue_date", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    ...row,
+    items: (row.tax_invoice_items ?? []),
+    tax_invoice_items: undefined,
+    linked_orders: (row.tax_invoice_orders ?? []).map((lo: Record<string, unknown>) => ({
+      order_id: lo.order_id,
+      order_number: (lo.orders as unknown as { order_number: string } | null)?.order_number ?? "",
+      amount: lo.amount,
+    })),
+    tax_invoice_orders: undefined,
+  })) as TaxInvoiceDetail[];
+}
+
+/** Get the most recent invoice issue_date */
+export async function getLatestInvoiceDate(): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("tax_invoices")
+    .select("issue_date")
+    .order("issue_date", { ascending: false })
+    .limit(1)
+    .single();
+  return data?.issue_date ?? null;
+}
+
 export async function getInvoicesForOrder(orderId: number): Promise<TaxInvoice[]> {
   const supabase = await createClient();
 

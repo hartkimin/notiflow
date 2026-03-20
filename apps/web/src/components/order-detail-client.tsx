@@ -66,7 +66,20 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { MessageSquareText } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { MfdsSearchPanel } from "@/components/mfds-search-panel";
+import { createInvoiceFromOrder } from "@/lib/tax-invoice/service";
+import type { TaxInvoice } from "@/lib/tax-invoice/types";
 import type { OrderDetail, OrderComment, Product } from "@/lib/types";
 import { ORDER_STATUS_LABELS as STATUS_LABELS } from "@/lib/order-status";
 
@@ -102,9 +115,17 @@ interface OrderDetailClientProps {
   products: Product[];
   suppliers?: SupplierOption[];
   comments?: OrderComment[];
+  linkedInvoices?: TaxInvoice[];
 }
 
-export function OrderDetailClient({ order, products, suppliers = [], comments = [] }: OrderDetailClientProps) {
+const INVOICE_STATUS_BADGE: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; label: string }> = {
+  draft: { variant: "secondary", label: "임시" },
+  issued: { variant: "default", label: "발행" },
+  sent: { variant: "default", label: "전송" },
+  cancelled: { variant: "destructive", label: "취소" },
+};
+
+export function OrderDetailClient({ order, products, suppliers = [], comments = [], linkedInvoices = [] }: OrderDetailClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const { widths, onMouseDown } = useResizableColumns("order-detail", DETAIL_COL_DEFAULTS);
@@ -121,8 +142,13 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
   const [deliveredAt, setDeliveredAt] = useState(
     order.delivered_at ? order.delivered_at.slice(0, 10) : "",
   );
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [invoiceIssueDate, setInvoiceIssueDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
 
   const isEditable = !["delivered", "cancelled"].includes(order.status);
+  const canCreateInvoice = ["confirmed", "processing", "delivered"].includes(order.status);
 
   // --- Status actions ---
 
@@ -287,6 +313,21 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
     });
   }
 
+  // --- Invoice creation ---
+
+  function handleCreateInvoice() {
+    startTransition(async () => {
+      try {
+        await createInvoiceFromOrder(order.id, invoiceIssueDate);
+        toast.success("세금계산서가 생성되었습니다.");
+        setInvoiceDialogOpen(false);
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "세금계산서 생성에 실패했습니다.");
+      }
+    });
+  }
+
   // --- Computed totals ---
 
   const visibleItems = order.items.filter((item) => !deletedIds.has(item.id));
@@ -352,6 +393,12 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
         >
           {STATUS_LABELS[order.status] || order.status}
         </Badge>
+        {order.tax_invoice_status === "partial" && (
+          <Badge variant="outline" className="text-sm">일부발행</Badge>
+        )}
+        {order.tax_invoice_status === "issued" && (
+          <Badge variant="default" className="text-sm">발행완료</Badge>
+        )}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Hash className="h-3.5 w-3.5" />
           <span>{order.items.length}건</span>
@@ -741,6 +788,66 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                 {(supplyTotal + taxTotal).toLocaleString("ko-KR")}원
               </span>
             </div>
+          </div>
+        </>
+      )}
+
+      {/* Tax invoice section */}
+      {canCreateInvoice && (
+        <>
+          <Separator className="print:hidden" />
+          <div className="space-y-3 print:hidden">
+            <h4 className="text-sm font-medium">세금계산서</h4>
+            {linkedInvoices.length > 0 ? (
+              <div className="space-y-2">
+                {linkedInvoices.map((inv) => {
+                  const badge = INVOICE_STATUS_BADGE[inv.status] ?? { variant: "secondary" as const, label: inv.status };
+                  return (
+                    <div key={inv.id} className="flex items-center gap-3 text-sm border rounded-md p-2.5">
+                      <Link href={`/invoices/${inv.id}`} className="font-medium text-primary hover:underline">
+                        {inv.invoice_number}
+                      </Link>
+                      <Badge variant={badge.variant} className="text-xs">{badge.label}</Badge>
+                      <span className="text-muted-foreground">{inv.issue_date}</span>
+                      <span className="ml-auto tabular-nums font-medium">
+                        {inv.total_amount.toLocaleString("ko-KR")}원
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline">세금계산서 발행</Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[360px]">
+                  <DialogHeader>
+                    <DialogTitle>세금계산서 발행</DialogTitle>
+                    <DialogDescription>
+                      주문 {order.order_number}에 대한 세금계산서를 생성합니다.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-2 py-2">
+                    <Label htmlFor="invoice-issue-date">작성일자</Label>
+                    <Input
+                      id="invoice-issue-date"
+                      type="date"
+                      value={invoiceIssueDate}
+                      onChange={(e) => setInvoiceIssueDate(e.target.value)}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      onClick={handleCreateInvoice}
+                      disabled={isPending || !invoiceIssueDate}
+                    >
+                      {isPending ? "생성중..." : "생성"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </>
       )}

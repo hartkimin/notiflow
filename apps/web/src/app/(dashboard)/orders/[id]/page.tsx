@@ -6,6 +6,7 @@ import { getOrder } from "@/lib/queries/orders";
 import { getProductsCatalog } from "@/lib/queries/products";
 import { getSuppliers } from "@/lib/queries/suppliers";
 import { getOrderComments } from "@/lib/actions";
+import { getInvoicesForOrder } from "@/lib/queries/invoices";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -31,12 +32,14 @@ export default async function OrderDetailPage({ params }: Props) {
   let products;
   let supplierOptions;
   let comments;
+  let linkedInvoices;
   try {
-    const [orderData, prodData, suppData, commentsData] = await Promise.all([
+    const [orderData, prodData, suppData, commentsData, invoicesData] = await Promise.all([
       getOrder(orderId),
       getProductsCatalog(),
       getSuppliers({ limit: 500 }),
       getOrderComments(orderId),
+      getInvoicesForOrder(orderId),
     ]);
     order = orderData;
     // products_catalog VIEW returns a subset of Product fields; cast for backward compat
@@ -44,6 +47,7 @@ export default async function OrderDetailPage({ params }: Props) {
     products = prodData as any;
     supplierOptions = suppData.suppliers.map((s) => ({ id: s.id, name: s.name }));
     comments = commentsData;
+    linkedInvoices = invoicesData;
   } catch {
     notFound();
   }
@@ -98,7 +102,7 @@ export default async function OrderDetailPage({ params }: Props) {
           <CardTitle className="text-base">주문 정보</CardTitle>
         </CardHeader>
         <CardContent>
-          <OrderDetailClient order={order} products={products} suppliers={supplierOptions} comments={comments} />
+          <OrderDetailClient order={order} products={products} suppliers={supplierOptions} comments={comments} linkedInvoices={linkedInvoices} />
         </CardContent>
       </Card>
 

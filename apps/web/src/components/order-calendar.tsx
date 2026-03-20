@@ -149,19 +149,26 @@ interface OrderCalendarProps {
   calendarTo: string;
   initialView: CalendarView;
   initialDate: Date;
+  initialOrders?: Order[];
 }
 
-export function OrderCalendar({ calendarFrom, calendarTo, initialView, initialDate }: OrderCalendarProps) {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+export function OrderCalendar({ calendarFrom, calendarTo, initialView, initialDate, initialOrders }: OrderCalendarProps) {
+  const [orders, setOrders] = useState<Order[]>(initialOrders ?? []);
+  const [loading, setLoading] = useState(!initialOrders);
 
   useEffect(() => {
+    // Skip fetch if initialOrders were provided on this render
+    if (initialOrders && initialOrders.length > 0) {
+      setOrders(initialOrders);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     getCalendarOrdersAction(calendarFrom, calendarTo)
       .then(setOrders)
-      .catch(() => setOrders([]))
+      .catch((err) => { console.error("Calendar fetch failed:", err); setOrders([]); })
       .finally(() => setLoading(false));
-  }, [calendarFrom, calendarTo]);
+  }, [calendarFrom, calendarTo, initialOrders]);
 
   if (loading) return <Skeleton className="h-[500px] w-full rounded-md" />;
 

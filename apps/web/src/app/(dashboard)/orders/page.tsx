@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { File, PlusCircle } from "lucide-react";
 
-import { getOrderItems, getOrderSummaryStats, getLatestOrderDate } from "@/lib/queries/orders";
+import { getOrderItems, getOrderSummaryStats, getLatestOrderDate, getOrdersForCalendar } from "@/lib/queries/orders";
 import { getProductsCatalog } from "@/lib/queries/products";
 import { getOrderDisplayColumns } from "@/lib/queries/settings";
 import { getMessageById } from "@/lib/queries/messages";
@@ -77,13 +77,14 @@ export default async function OrdersPage({ searchParams }: Props) {
     ? getMessageById(params.create_from_message)
     : Promise.resolve(null);
 
-  const [result, allProducts, displayColumns, sourceMessage, orderStats] = await Promise.all([
+  const [result, allProducts, displayColumns, sourceMessage, orderStats, calendarOrders] = await Promise.all([
     getOrderItems({ status, from: params.from, to: params.to, limit, offset })
       .catch(() => ({ items: [], total: 0 })),
     getProductsCatalog().catch(() => []),
     getOrderDisplayColumns(),
     messagePromise,
     getOrderSummaryStats({ status, from: params.from, to: params.to }).catch(() => null),
+    getOrdersForCalendar({ from: fromStr, to: toStr }).catch(() => []),
   ]);
 
   const productOptions: ProductOption[] = allProducts.map((p) => ({
@@ -200,7 +201,7 @@ export default async function OrdersPage({ searchParams }: Props) {
             value: "calendar",
             label: "캘린더",
             content: (
-              <OrderCalendar calendarFrom={fromStr} calendarTo={toStr} initialView={calView} initialDate={calRef} />
+              <OrderCalendar calendarFrom={fromStr} calendarTo={toStr} initialView={calView} initialDate={calRef} initialOrders={calendarOrders} />
             ),
           },
         ]}

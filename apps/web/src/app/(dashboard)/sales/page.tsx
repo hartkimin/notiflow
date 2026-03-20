@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getDashboardKpis, getYearlyKpis } from "@/lib/queries/dashboard-stats";
 import { getSalesRepDetail, getSalesRepHospitalDetail, getHospitalDetail, getHospitalItemDetail, getOrderDetail, getProductPerformance } from "@/lib/queries/sales-stats";
+import { ClientTabs } from "@/components/client-tabs";
 import { SalesRepSection } from "@/components/sales/sales-rep-section";
 import { HospitalSection } from "@/components/sales/hospital-section";
 import { ProductSection } from "@/components/sales/product-section";
@@ -121,11 +122,33 @@ export default async function SalesPage({ searchParams }: Props) {
         </CardContent>
       </Card>
 
-      {/* ── Sections ── */}
-      <SalesRepSection initialData={salesReps} initialHospitalData={repHospitals} initialMonth={selectedMonth} />
-      <HospitalSection initialData={hospitals} initialItemData={hospItems} initialMonth={selectedMonth} />
-      <ProductSection initialData={products} initialMonth={selectedMonth} />
-      <OrderSection initialData={orders} initialMonth={selectedMonth} />
+      {/* ── Sections as tabs ── */}
+      <ClientTabs
+        initialTab="rep"
+        basePath="/sales"
+        tabs={[
+          {
+            value: "rep",
+            label: "영업담당자",
+            content: <SalesRepSection initialData={salesReps} initialHospitalData={repHospitals} initialMonth={selectedMonth} />,
+          },
+          {
+            value: "hospital",
+            label: "거래처별",
+            content: <HospitalSection initialData={hospitals} initialItemData={hospItems} initialMonth={selectedMonth} />,
+          },
+          {
+            value: "product",
+            label: "품목별",
+            content: <ProductSection initialData={products} initialMonth={selectedMonth} />,
+          },
+          {
+            value: "order",
+            label: "주문별",
+            content: <OrderSection initialData={orders} initialMonth={selectedMonth} />,
+          },
+        ]}
+      />
     </>
   );
 }

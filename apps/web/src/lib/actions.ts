@@ -650,7 +650,7 @@ export async function searchMfdsItems(params: any) {
   const supabase = await createClient();
   const q = query.trim();
   const from = (page - 1) * pageSize, to = from + pageSize - 1;
-  let dbQuery = supabase.from("mfds_items").select("*", { count: "estimated" }).eq("source_type", sourceType);
+  let dbQuery = supabase.from("mfds_items").select("*", { count: "exact" }).eq("source_type", sourceType);
 
   if (q) dbQuery = dbQuery.or(`item_name.ilike.%${q}%,manufacturer.ilike.%${q}%,standard_code.ilike.%${q}%`);
   for (const chip of filters) dbQuery = dbQuery.filter(`raw_data->>${chip.field}`, "ilike", `%${chip.value}%`);

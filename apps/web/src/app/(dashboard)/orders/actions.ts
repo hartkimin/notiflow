@@ -202,6 +202,7 @@ export async function createOrderWithDetailsAction(data: {
     purchase_price: number | null;
     unit_price: number | null;
     kpis_reference_number: string | null;
+    sales_rep: string | null;
   }>;
 }) {
   const { createClient } = await import("@/lib/supabase/server");
@@ -242,6 +243,7 @@ export async function createOrderWithDetailsAction(data: {
       unit_price: item.unit_price,
       purchase_price: item.purchase_price,
       line_total: item.unit_price ? item.unit_price * item.quantity : null,
+      sales_rep: item.sales_rep,
     }));
 
     const { data: insertedItems, error: itemsErr } = await supabase
@@ -266,4 +268,102 @@ export async function createOrderWithDetailsAction(data: {
   revalidatePath("/orders");
   revalidatePath("/dashboard");
   return { success: true, orderId: order.id, orderNumber };
+}
+
+export async function getRecentHospitalsAction() {
+  const { createClient } = await import("@/lib/supabase/server");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("orders")
+    .select("hospital_id, hospitals!inner(id, name)")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) return [];
+  const seen = new Set<number>();
+  const result: Array<{ id: number; name: string }> = [];
+  for (const row of data ?? []) {
+    const h = row.hospitals as unknown as { id: number; name: string };
+    if (!seen.has(h.id)) {
+      seen.add(h.id);
+      result.push({ id: h.id, name: h.name });
+      if (result.length >= 10) break;
+    }
+  }
+  return result;
+}
+
+export async function getRecentPartnerProductsAction(hospitalId: number) {
+  const { createClient } = await import("@/lib/supabase/server");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("order_items")
+    .select("product_name, product_id, order_id, orders!inner(hospital_id)")
+    .eq("orders.hospital_id", hospitalId)
+    .not("product_name", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) return [];
+  const seen = new Set<string>();
+  const result: Array<{ id: number; product_source: "product"; product_id: number; name: string; code: string; unit_price: number | null }> = [];
+  for (const row of data ?? []) {
+    const key = `${row.product_id ?? row.product_name}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push({
+        id: 0,
+        product_source: "product",
+        product_id: row.product_id ?? 0,
+        name: row.product_name ?? "",
+        code: "",
+        unit_price: null,
+      });
+      if (result.length >= 10) break;
+    }
+  }
+  return result;
+}
+
+export async function searchMfdsItemsAction(query: string) {
+  if (!query || query.length < 1) return [];
+  const { createClient } = await import("@/lib/supabase/server");
+  const supabase = await createClient();
+  const q = query.trim();
+  const { data, error } = await supabase
+    .from("mfds_items")
+    .select("id, source_type, item_name, standard_code, manufacturer")
+    .or(`item_name.ilike.%${q}%,standard_code.ilike.%${q}%,manufacturer.ilike.%${q}%`)
+    .limit(30);
+  if (error) return [];
+  return (data ?? []).map((item) => ({
+    id: item.id,
+    name: item.item_name ?? "",
+    code: item.standard_code ?? "",
+    source_type: item.source_type as "drug" | "device_std",
+    manufacturer: item.manufacturer,
+  }));
+}
+
+export async function getRecentMfdsItemsAction() {
+  const { createClient } = await import("@/lib/supabase/server");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("order_items")
+    .select("product_name")
+    .is("product_id", null)
+    .not("product_name", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) return [];
+  const seen = new Set<string>();
+  const result: Array<{ id: number; name: string; code: string; source_type: "drug" | "device_std" }> = [];
+  for (const row of data ?? []) {
+    if (row.product_name && !seen.has(row.product_name)) {
+      seen.add(row.product_name);
+      // Note: source_type is unknown from order_items alone; default to "drug".
+      // This is acceptable since recent items are just a convenience shortcut.
+      result.push({ id: 0, name: row.product_name, code: "", source_type: "drug" });
+      if (result.length >= 10) break;
+    }
+  }
+  return result;
 }

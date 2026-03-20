@@ -286,6 +286,7 @@ export function PurchaseOrderForm({ displayColumns, sourceMessageId }: Props) {
           purchase_price: i.purchase_price,
           unit_price: i.selling_price,
           kpis_reference_number: i.kpis_number || null,
+          sales_rep: null,
         })),
       });
       toast.success(`주문이 생성되었습니다 (${result.orderNumber})`);

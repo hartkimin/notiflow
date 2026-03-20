@@ -1,12 +1,13 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import type { TaxInvoice } from "./types";
 import { validateForIssue } from "./validator";
 
 export async function createInvoiceFromOrder(orderId: number, issueDate: string) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: order, error: orderErr } = await supabase
     .from("orders")
@@ -96,7 +97,7 @@ export async function createConsolidatedInvoice(
 ) {
   if (orderIds.length === 0) throw new Error("주문을 선택해주세요.");
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: orders, error: ordersErr } = await supabase
     .from("orders")
@@ -200,7 +201,8 @@ export async function createConsolidatedInvoice(
 }
 
 export async function issueInvoice(invoiceId: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
+  const userClient = await createClient();
 
   const { data: invoice } = await supabase
     .from("tax_invoices")
@@ -220,7 +222,7 @@ export async function issueInvoice(invoiceId: number) {
     throw new Error(validation.errors.join("\n"));
   }
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await userClient.auth.getUser();
 
   const { error } = await supabase
     .from("tax_invoices")
@@ -252,8 +254,9 @@ export async function issueInvoice(invoiceId: number) {
 }
 
 export async function cancelInvoice(invoiceId: number, reason: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const supabase = createAdminClient();
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
 
   const { error } = await supabase
     .from("tax_invoices")
@@ -285,7 +288,7 @@ export async function cancelInvoice(invoiceId: number, reason: string) {
 }
 
 export async function deleteInvoice(invoiceId: number) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: invoice } = await supabase
     .from("tax_invoices")

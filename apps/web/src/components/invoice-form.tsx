@@ -225,9 +225,11 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
                     <TableHead className="text-xs">품목명</TableHead>
                     <TableHead className="text-xs text-right w-14">수량</TableHead>
                     <TableHead className="text-xs text-right w-20">매입단가</TableHead>
+                    <TableHead className="text-xs text-right w-20">매입총액</TableHead>
                     <TableHead className="text-xs text-right w-20">매출단가</TableHead>
-                    <TableHead className="text-xs text-right w-20">매출액</TableHead>
+                    <TableHead className="text-xs text-right w-20">매출총액</TableHead>
                     <TableHead className="text-xs text-right w-20">이익</TableHead>
+                    <TableHead className="text-xs text-right w-14">이익률</TableHead>
                     <TableHead className="text-xs w-16">담당자</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -236,16 +238,21 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
                     const purchaseTotal = (item.purchase_price ?? 0) * item.quantity;
                     const salesTotal = (item.unit_price ?? 0) * item.quantity;
                     const profit = salesTotal - purchaseTotal;
+                    const margin = salesTotal > 0 ? (profit / salesTotal) * 100 : 0;
                     return (
                       <TableRow key={`${item.id}-${idx}`}>
                         <TableCell className="text-xs text-muted-foreground">{item.order_number}</TableCell>
                         <TableCell className="text-xs">{item.product_name || "-"}</TableCell>
                         <TableCell className="text-xs text-right tabular-nums">{item.quantity}</TableCell>
                         <TableCell className="text-xs text-right tabular-nums">{item.purchase_price?.toLocaleString() ?? "-"}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">{purchaseTotal.toLocaleString()}</TableCell>
                         <TableCell className="text-xs text-right tabular-nums">{item.unit_price?.toLocaleString() ?? "-"}</TableCell>
                         <TableCell className="text-xs text-right tabular-nums">{salesTotal.toLocaleString()}</TableCell>
                         <TableCell className={`text-xs text-right tabular-nums ${profit < 0 ? "text-red-500" : "text-green-600"}`}>
                           {profit.toLocaleString()}
+                        </TableCell>
+                        <TableCell className={`text-xs text-right tabular-nums ${margin < 0 ? "text-red-500" : ""}`}>
+                          {margin.toFixed(1)}%
                         </TableCell>
                         <TableCell className="text-xs">{item.sales_rep || "-"}</TableCell>
                       </TableRow>

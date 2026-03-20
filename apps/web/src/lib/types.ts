@@ -35,11 +35,20 @@ export interface OrderItem {
   id: number;
   order_id: number;
   product_id: number | null;
+  product_name: string | null;
   supplier_id: number | null;
   quantity: number;
   unit_type: string;
   unit_price: number | null;
+  purchase_price: number | null;
   line_total: number | null;
+  sales_rep: string | null;
+  original_text: string | null;
+  match_status: string | null;
+  created_at: string;
+  // Joined fields (from getOrder query)
+  products?: { name?: string; official_name?: string } | null;
+  suppliers?: { name?: string } | null;
 }
 
 export interface OrderDetail extends Order {
@@ -66,9 +75,12 @@ export interface OrderItemFlat {
   product_name: string;
   quantity: number;
   unit_type: string;
+  unit_price: number | null;
+  purchase_price: number | null;
   box_quantity: number | null;
   supplier_id: number | null;
   supplier_name: string | null;
+  sales_rep: string | null;
   kpis_status: string | null;
   kpis_notes: string | null;
   status: string;

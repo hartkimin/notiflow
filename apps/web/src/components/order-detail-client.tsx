@@ -521,10 +521,8 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
             <TableBody>
               {order.items.map((item, idx) => {
                 const isDeleted = deletedIds.has(item.id);
-                const itemAny = item as unknown as Record<string, unknown>;
-                const productsJoin = itemAny.products as { name?: string; official_name?: string } | null;
-                const productName = productsJoin?.official_name || productsJoin?.name
-                  || (itemAny.product_name as string | null)
+                const productName = item.products?.official_name || item.products?.name
+                  || item.product_name
                   || `제품 #${item.product_id ?? "미매칭"}`;
 
                 const edit = editItems[item.id];
@@ -653,11 +651,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                           </PopoverContent>
                         </Popover>
                       ) : (
-                        (() => {
-                          const itemAny2 = item as unknown as Record<string, unknown>;
-                          const supplierObj = itemAny2.suppliers as { name: string } | null;
-                          return supplierObj?.name ?? "-";
-                        })()
+                        item.suppliers?.name ?? "-"
                       )}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">

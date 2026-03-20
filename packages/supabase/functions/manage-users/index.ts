@@ -171,11 +171,12 @@ async function handlePost(
     return errorResponse(`Invalid role. Must be one of: ${validRoles.join(", ")}`);
   }
 
-  // Create auth user
+  // Create auth user (store name and role in user_metadata for bidirectional sync)
   const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
+    user_metadata: { name, role },
   });
 
   if (createError) {
@@ -274,14 +275,23 @@ async function handlePatch(
     }
   }
 
-  // Update auth password if provided
-  if (password) {
-    const { error: pwError } = await supabase.auth.admin.updateUserById(id, {
-      password,
-    });
-
-    if (pwError) {
-      return errorResponse(`Failed to update password: ${pwError.message}`, 500);
+  // Sync auth user: password and/or user_metadata (name, role)
+  const authUpdate: Record<string, unknown> = {};
+  if (password) authUpdate.password = password;
+  if (name !== undefined || role !== undefined) {
+    // Merge with existing metadata
+    const { data: { users } } = await supabase.auth.admin.listUsers();
+    const existingMeta = (users ?? []).find((u) => u.id === id)?.user_metadata ?? {};
+    authUpdate.user_metadata = {
+      ...existingMeta,
+      ...(name !== undefined ? { name } : {}),
+      ...(role !== undefined ? { role } : {}),
+    };
+  }
+  if (Object.keys(authUpdate).length > 0) {
+    const { error: authUpdateError } = await supabase.auth.admin.updateUserById(id, authUpdate);
+    if (authUpdateError) {
+      return errorResponse(`Failed to update auth user: ${authUpdateError.message}`, 500);
     }
   }
 

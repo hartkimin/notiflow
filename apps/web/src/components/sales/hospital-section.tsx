@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -115,9 +115,8 @@ export function HospitalSection({ initialData, initialItemData, initialMonth }: 
                 const isExpanded = expandedId === h.hospital_id;
                 const hospItems = itemData.filter((i) => i.hospital_id === h.hospital_id);
                 return (
-                  <>
+                  <React.Fragment key={h.hospital_id}>
                     <TableRow
-                      key={h.hospital_id}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => setExpandedId(isExpanded ? null : h.hospital_id)}
                     >
@@ -145,7 +144,7 @@ export function HospitalSection({ initialData, initialItemData, initialMonth }: 
                         <TableCell className="text-right tabular-nums text-xs">{item.margin.toFixed(1)}%</TableCell>
                       </TableRow>
                     ))}
-                  </>
+                  </React.Fragment>
                 );
               })}
               <TableRow className="font-bold border-t-2">

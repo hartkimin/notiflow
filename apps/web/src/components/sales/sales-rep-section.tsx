@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -129,9 +129,8 @@ export function SalesRepSection({ initialData, initialHospitalData, initialMonth
                 const isExpanded = expandedRep === rep.sales_rep;
                 const repHosps = hospData.filter((h) => h.sales_rep === rep.sales_rep);
                 return (
-                  <>
+                  <React.Fragment key={rep.sales_rep}>
                     <TableRow
-                      key={rep.sales_rep}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => setExpandedRep(isExpanded ? null : rep.sales_rep)}
                     >
@@ -158,7 +157,7 @@ export function SalesRepSection({ initialData, initialHospitalData, initialMonth
                         <TableCell className="text-right tabular-nums text-xs">{h.margin.toFixed(1)}%</TableCell>
                       </TableRow>
                     ))}
-                  </>
+                  </React.Fragment>
                 );
               })}
               <TableRow className="font-bold border-t-2">

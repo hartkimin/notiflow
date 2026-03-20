@@ -83,14 +83,26 @@ export interface TaxInvoiceDetail extends TaxInvoice {
   }[];
 }
 
+export interface TaxInvoiceStatusAmount {
+  count: number;
+  total_amount: number;
+}
+
 export interface TaxInvoiceStats {
   total_count: number;
   issued_count: number;
   draft_count: number;
+  cancelled_count: number;
   total_supply_amount: number;
   total_tax_amount: number;
   total_amount: number;
   unbilled_order_count: number;
+  by_status: {
+    all: TaxInvoiceStatusAmount;
+    draft: TaxInvoiceStatusAmount;
+    issued: TaxInvoiceStatusAmount;
+    cancelled: TaxInvoiceStatusAmount;
+  };
 }
 
 /** Order with hospital_name resolved — returned by getUnbilledOrders */

@@ -77,6 +77,10 @@ export async function getInvoiceStats(params: {
 
   const rows = data ?? [];
   const activeRows = rows.filter((r) => r.status === "issued" || r.status === "sent");
+  const draftRows = rows.filter((r) => r.status === "draft");
+  const cancelledRows = rows.filter((r) => r.status === "cancelled");
+
+  const sumAmount = (arr: typeof rows) => arr.reduce((s, r) => s + Number(r.total_amount), 0);
 
   const { count: unbilledCount } = await supabase
     .from("orders")
@@ -85,12 +89,19 @@ export async function getInvoiceStats(params: {
 
   return {
     total_count: rows.length,
-    issued_count: rows.filter((r) => r.status === "issued").length,
-    draft_count: rows.filter((r) => r.status === "draft").length,
+    issued_count: activeRows.length,
+    draft_count: draftRows.length,
+    cancelled_count: cancelledRows.length,
     total_supply_amount: activeRows.reduce((s, r) => s + Number(r.supply_amount), 0),
     total_tax_amount: activeRows.reduce((s, r) => s + Number(r.tax_amount), 0),
     total_amount: activeRows.reduce((s, r) => s + Number(r.total_amount), 0),
     unbilled_order_count: unbilledCount ?? 0,
+    by_status: {
+      all: { count: rows.length, total_amount: sumAmount(rows) },
+      draft: { count: draftRows.length, total_amount: sumAmount(draftRows) },
+      issued: { count: activeRows.length, total_amount: sumAmount(activeRows) },
+      cancelled: { count: cancelledRows.length, total_amount: sumAmount(cancelledRows) },
+    },
   };
 }
 

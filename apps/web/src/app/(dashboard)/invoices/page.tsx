@@ -44,27 +44,37 @@ export default async function InvoicesPage({
         </div>
       </div>
       {stats && (
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-5">
           <Card>
             <CardContent className="p-4">
               <div className="text-sm text-muted-foreground">전체</div>
-              <div className="text-2xl font-bold">{stats.total_count}건</div>
+              <div className="text-2xl font-bold">{stats.by_status.all.count}건</div>
+              <div className="text-xs text-muted-foreground mt-1">₩{stats.by_status.all.total_amount.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-sm text-muted-foreground">임시 (초안)</div>
+              <div className="text-2xl font-bold text-gray-600">{stats.by_status.draft.count}건</div>
+              <div className="text-xs text-muted-foreground mt-1">₩{stats.by_status.draft.total_amount.toLocaleString()}</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
               <div className="text-sm text-muted-foreground">발행 완료</div>
-              <div className="text-2xl font-bold">{stats.issued_count}건</div>
+              <div className="text-2xl font-bold text-green-600">{stats.by_status.issued.count}건</div>
+              <div className="text-xs text-muted-foreground mt-1">₩{stats.by_status.issued.total_amount.toLocaleString()}</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
-              <div className="text-sm text-muted-foreground">합계 금액</div>
-              <div className="text-2xl font-bold">₩{stats.total_amount.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">취소</div>
+              <div className="text-2xl font-bold text-red-500">{stats.by_status.cancelled.count}건</div>
+              <div className="text-xs text-muted-foreground mt-1">₩{stats.by_status.cancelled.total_amount.toLocaleString()}</div>
             </CardContent>
           </Card>
           <Link href="/invoices/new">
-            <Card className="hover:border-orange-300 transition-colors cursor-pointer">
+            <Card className="hover:border-orange-300 transition-colors cursor-pointer h-full">
               <CardContent className="p-4">
                 <div className="text-sm text-muted-foreground">미발행 주문</div>
                 <div className="text-2xl font-bold text-orange-600">{stats.unbilled_order_count}건</div>

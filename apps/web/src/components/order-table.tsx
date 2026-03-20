@@ -80,7 +80,7 @@ export interface ProductOption {
 
 const ORDER_COL_DEFAULTS: Record<string, number> = {
   checkbox: 36, expand: 28, order_number: 120, order_date: 70, delivery_date: 70,
-  hospital: 150, item_count: 60, status: 80, actions: 40,
+  hospital: 120, item_count: 50, purchase_total: 90, sales_total: 90, profit: 80, margin: 55, sales_rep: 70, status: 75, actions: 36,
 };
 
 const KPIS_LABEL: Record<string, string> = {
@@ -152,7 +152,7 @@ export function OrderTable({
     setExpandedId((prev) => (prev === orderId ? null : orderId));
   }
 
-  const colCount = 9;
+  const colCount = 14;
 
   return (
     <>
@@ -173,6 +173,11 @@ export function OrderTable({
               <ResizableTh width={widths.delivery_date} colKey="delivery_date" onResizeStart={onMouseDown}>배송일</ResizableTh>
               <ResizableTh width={widths.hospital} colKey="hospital" onResizeStart={onMouseDown}>거래처</ResizableTh>
               <ResizableTh width={widths.item_count} colKey="item_count" onResizeStart={onMouseDown} className="text-right">품목수</ResizableTh>
+              <ResizableTh width={widths.purchase_total} colKey="purchase_total" onResizeStart={onMouseDown} className="text-right">매입총액</ResizableTh>
+              <ResizableTh width={widths.sales_total} colKey="sales_total" onResizeStart={onMouseDown} className="text-right">매출총액</ResizableTh>
+              <ResizableTh width={widths.profit} colKey="profit" onResizeStart={onMouseDown} className="text-right">매출이익</ResizableTh>
+              <ResizableTh width={widths.margin} colKey="margin" onResizeStart={onMouseDown} className="text-right">이익률</ResizableTh>
+              <ResizableTh width={widths.sales_rep} colKey="sales_rep" onResizeStart={onMouseDown}>담당자</ResizableTh>
               <ResizableTh width={widths.status} colKey="status" onResizeStart={onMouseDown}>상태</ResizableTh>
               <ResizableTh width={widths.actions} colKey="actions" onResizeStart={onMouseDown} />
             </TableRow>
@@ -272,6 +277,36 @@ const OrderGroupRow = memo(function OrderGroupRow({
         <TableCell className="text-right text-sm tabular-nums">
           {group.items.length}
         </TableCell>
+        {(() => {
+          const purchaseTotal = group.items.reduce((s, i) => s + (i.purchase_price ?? 0) * i.quantity, 0);
+          const salesTotal = group.items.reduce((s, i) => s + (i.unit_price ?? 0) * i.quantity, 0);
+          const profit = salesTotal - purchaseTotal;
+          const margin = salesTotal > 0 ? (profit / salesTotal) * 100 : 0;
+          const reps = [...new Set(group.items.map((i) => i.sales_rep).filter(Boolean))];
+          return (
+            <>
+              <TableCell className="text-right text-sm tabular-nums">
+                {purchaseTotal > 0 ? purchaseTotal.toLocaleString() : "-"}
+              </TableCell>
+              <TableCell className="text-right text-sm tabular-nums">
+                {salesTotal > 0 ? salesTotal.toLocaleString() : "-"}
+              </TableCell>
+              <TableCell className="text-right text-sm tabular-nums">
+                {purchaseTotal > 0 || salesTotal > 0 ? (
+                  <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{profit.toLocaleString()}</span>
+                ) : "-"}
+              </TableCell>
+              <TableCell className="text-right text-sm tabular-nums">
+                {purchaseTotal > 0 || salesTotal > 0 ? (
+                  <span className={margin < 0 ? "text-red-500" : ""}>{margin.toFixed(1)}%</span>
+                ) : "-"}
+              </TableCell>
+              <TableCell className="text-sm truncate" title={reps.join(", ")}>
+                {reps.length > 0 ? reps.join(", ") : "-"}
+              </TableCell>
+            </>
+          );
+        })()}
         <TableCell>
           <Badge
             variant={STATUS_VARIANT[group.status] ?? "secondary"}

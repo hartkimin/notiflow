@@ -62,6 +62,72 @@ export async function getSalesRepDetail(month: string): Promise<SalesRepDetail[]
   })).sort((a, b) => b.revenue - a.revenue);
 }
 
+// ─── Sales Rep per Hospital ───
+
+export interface SalesRepHospitalDetail {
+  sales_rep: string;
+  hospital_id: number;
+  hospital_name: string;
+  order_count: number;
+  revenue: number;
+  purchase: number;
+  profit: number;
+  margin: number;
+}
+
+export async function getSalesRepHospitalDetail(month: string): Promise<SalesRepHospitalDetail[]> {
+  const supabase = await createClient();
+  const { start, end } = monthRange(month);
+
+  const { data: orders } = await supabase
+    .from("orders")
+    .select("id, hospital_id, hospitals(name)")
+    .gte("order_date", start)
+    .lt("order_date", end)
+    .not("status", "eq", "cancelled");
+
+  if (!orders?.length) return [];
+
+  const orderIds = orders.map((o) => o.id);
+  const orderHospMap = new Map<number, { hid: number; name: string }>();
+  for (const o of orders) {
+    orderHospMap.set(o.id, {
+      hid: o.hospital_id,
+      name: (o.hospitals as unknown as { name: string } | null)?.name ?? "",
+    });
+  }
+
+  const { data: items } = await supabase
+    .from("order_items")
+    .select("order_id, sales_rep, quantity, unit_price, purchase_price")
+    .in("order_id", orderIds);
+
+  // key: "rep|hospital_id"
+  const map = new Map<string, { rep: string; hid: number; hname: string; orderIds: Set<number>; revenue: number; purchase: number }>();
+  for (const item of items ?? []) {
+    const hosp = orderHospMap.get(item.order_id);
+    if (!hosp) continue;
+    const rep = item.sales_rep || "미배정";
+    const key = `${rep}|${hosp.hid}`;
+    if (!map.has(key)) map.set(key, { rep, hid: hosp.hid, hname: hosp.name, orderIds: new Set(), revenue: 0, purchase: 0 });
+    const e = map.get(key)!;
+    e.orderIds.add(item.order_id);
+    e.revenue += (item.unit_price ?? 0) * item.quantity;
+    e.purchase += (item.purchase_price ?? 0) * item.quantity;
+  }
+
+  return Array.from(map.values()).map((e) => ({
+    sales_rep: e.rep,
+    hospital_id: e.hid,
+    hospital_name: e.hname,
+    order_count: e.orderIds.size,
+    revenue: e.revenue,
+    purchase: e.purchase,
+    profit: e.revenue - e.purchase,
+    margin: e.revenue > 0 ? ((e.revenue - e.purchase) / e.revenue) * 100 : 0,
+  })).sort((a, b) => a.sales_rep.localeCompare(b.sales_rep) || b.revenue - a.revenue);
+}
+
 // ─── Hospital Detail ───
 
 export interface HospitalDetail {

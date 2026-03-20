@@ -4,10 +4,10 @@ import { useState, useEffect, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Download, Users } from "lucide-react";
-import { getSalesRepDetailAction } from "@/app/(dashboard)/sales/actions";
+import { ChevronLeft, ChevronRight, ChevronDown, Download, Users } from "lucide-react";
+import { getSalesRepDetailAction, getSalesRepHospitalDetailAction } from "@/app/(dashboard)/sales/actions";
 import { downloadExcel } from "./excel-download";
-import type { SalesRepDetail } from "@/lib/queries/sales-stats";
+import type { SalesRepDetail, SalesRepHospitalDetail } from "@/lib/queries/sales-stats";
 
 function fmt(n: number) {
   if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)}억`;
@@ -15,23 +15,40 @@ function fmt(n: number) {
   return n.toLocaleString();
 }
 
-export function SalesRepSection({ initialData, initialMonth }: { initialData: SalesRepDetail[]; initialMonth: string }) {
+interface Props {
+  initialData: SalesRepDetail[];
+  initialHospitalData: SalesRepHospitalDetail[];
+  initialMonth: string;
+}
+
+export function SalesRepSection({ initialData, initialHospitalData, initialMonth }: Props) {
   const [data, setData] = useState(initialData);
+  const [hospData, setHospData] = useState(initialHospitalData);
   const [month, setMonth] = useState(initialMonth);
+  const [expandedRep, setExpandedRep] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (month === initialMonth) { setData(initialData); return; }
+    if (month === initialMonth) {
+      setData(initialData);
+      setHospData(initialHospitalData);
+      return;
+    }
     startTransition(async () => {
-      const result = await getSalesRepDetailAction(month).catch(() => []);
-      setData(result);
+      const [reps, hosps] = await Promise.all([
+        getSalesRepDetailAction(month).catch(() => []),
+        getSalesRepHospitalDetailAction(month).catch(() => []),
+      ]);
+      setData(reps);
+      setHospData(hosps);
     });
-  }, [month, initialMonth, initialData]);
+  }, [month, initialMonth, initialData, initialHospitalData]);
 
   function navigate(dir: -1 | 1) {
     const [y, m] = month.split("-").map(Number);
     const d = new Date(y, m - 1 + dir, 1);
     setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+    setExpandedRep(null);
   }
 
   const label = `${month.slice(0, 4)}년 ${parseInt(month.slice(5))}월`;
@@ -41,10 +58,36 @@ export function SalesRepSection({ initialData, initialMonth }: { initialData: Sa
   const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
   function handleDownload() {
-    downloadExcel(data as unknown as Record<string, unknown>[], `영업담당자실적_${month}`, {
-      sales_rep: "담당자", order_count: "주문건수", item_count: "품목수",
-      revenue: "매출", purchase: "매입", profit: "이익", margin: "이익률(%)",
-    });
+    // Export both summary and hospital detail
+    const rows: Record<string, unknown>[] = [];
+    for (const rep of data) {
+      rows.push({
+        구분: "담당자 합계",
+        담당자: rep.sales_rep,
+        거래처: "",
+        주문건수: rep.order_count,
+        품목수: rep.item_count,
+        매출: rep.revenue,
+        매입: rep.purchase,
+        이익: rep.profit,
+        "이익률(%)": Number(rep.margin.toFixed(1)),
+      });
+      const repHosps = hospData.filter((h) => h.sales_rep === rep.sales_rep);
+      for (const h of repHosps) {
+        rows.push({
+          구분: "거래처별",
+          담당자: rep.sales_rep,
+          거래처: h.hospital_name,
+          주문건수: h.order_count,
+          품목수: "",
+          매출: h.revenue,
+          매입: h.purchase,
+          이익: h.profit,
+          "이익률(%)": Number(h.margin.toFixed(1)),
+        });
+      }
+    }
+    downloadExcel(rows, `영업담당자실적_${month}`);
   }
 
   return (
@@ -71,7 +114,7 @@ export function SalesRepSection({ initialData, initialMonth }: { initialData: Sa
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-8">#</TableHead>
+                <TableHead className="w-8" />
                 <TableHead>담당자</TableHead>
                 <TableHead className="text-right">주문</TableHead>
                 <TableHead className="text-right">품목</TableHead>
@@ -82,20 +125,45 @@ export function SalesRepSection({ initialData, initialMonth }: { initialData: Sa
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((rep, i) => (
-                <TableRow key={rep.sales_rep}>
-                  <TableCell className="text-muted-foreground font-bold">{i + 1}</TableCell>
-                  <TableCell className="font-medium">{rep.sales_rep}</TableCell>
-                  <TableCell className="text-right tabular-nums">{rep.order_count}건</TableCell>
-                  <TableCell className="text-right tabular-nums">{rep.item_count}</TableCell>
-                  <TableCell className="text-right tabular-nums font-medium">₩{fmt(rep.revenue)}</TableCell>
-                  <TableCell className="text-right tabular-nums">₩{fmt(rep.purchase)}</TableCell>
-                  <TableCell className={`text-right tabular-nums font-medium ${rep.profit < 0 ? "text-red-500" : "text-green-600"}`}>₩{fmt(rep.profit)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{rep.margin.toFixed(1)}%</TableCell>
-                </TableRow>
-              ))}
+              {data.map((rep) => {
+                const isExpanded = expandedRep === rep.sales_rep;
+                const repHosps = hospData.filter((h) => h.sales_rep === rep.sales_rep);
+                return (
+                  <>
+                    <TableRow
+                      key={rep.sales_rep}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setExpandedRep(isExpanded ? null : rep.sales_rep)}
+                    >
+                      <TableCell className="px-2">
+                        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-0" : "-rotate-90"}`} />
+                      </TableCell>
+                      <TableCell className="font-semibold">{rep.sales_rep}</TableCell>
+                      <TableCell className="text-right tabular-nums">{rep.order_count}건</TableCell>
+                      <TableCell className="text-right tabular-nums">{rep.item_count}</TableCell>
+                      <TableCell className="text-right tabular-nums font-medium">₩{fmt(rep.revenue)}</TableCell>
+                      <TableCell className="text-right tabular-nums">₩{fmt(rep.purchase)}</TableCell>
+                      <TableCell className={`text-right tabular-nums font-medium ${rep.profit < 0 ? "text-red-500" : "text-green-600"}`}>₩{fmt(rep.profit)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{rep.margin.toFixed(1)}%</TableCell>
+                    </TableRow>
+                    {isExpanded && repHosps.map((h) => (
+                      <TableRow key={`${rep.sales_rep}-${h.hospital_id}`} className="bg-muted/30">
+                        <TableCell />
+                        <TableCell className="text-xs pl-6 text-muted-foreground">{h.hospital_name}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">{h.order_count}건</TableCell>
+                        <TableCell className="text-right text-xs">-</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">₩{fmt(h.revenue)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">₩{fmt(h.purchase)}</TableCell>
+                        <TableCell className={`text-right tabular-nums text-xs ${h.profit < 0 ? "text-red-500" : "text-green-600"}`}>₩{fmt(h.profit)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">{h.margin.toFixed(1)}%</TableCell>
+                      </TableRow>
+                    ))}
+                  </>
+                );
+              })}
               <TableRow className="font-bold border-t-2">
-                <TableCell colSpan={2}>합계</TableCell>
+                <TableCell />
+                <TableCell>합계</TableCell>
                 <TableCell className="text-right tabular-nums">{data.reduce((s, d) => s + d.order_count, 0)}건</TableCell>
                 <TableCell className="text-right tabular-nums">{data.reduce((s, d) => s + d.item_count, 0)}</TableCell>
                 <TableCell className="text-right tabular-nums">₩{fmt(totalRevenue)}</TableCell>

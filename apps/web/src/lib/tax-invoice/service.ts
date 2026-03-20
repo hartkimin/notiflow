@@ -77,14 +77,19 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
   }));
 
   if (items.length > 0) {
-    await supabase.from("tax_invoice_items").insert(items);
+    const { error: itemsErr } = await supabase.from("tax_invoice_items").insert(items);
+    if (itemsErr) {
+      console.error("Failed to insert invoice items:", itemsErr);
+      throw new Error(`품목 저장 실패: ${itemsErr.message}`);
+    }
   }
 
-  await supabase.from("tax_invoice_orders").insert({
+  const { error: linkErr } = await supabase.from("tax_invoice_orders").insert({
     invoice_id: invoice.id,
     order_id: orderId,
     amount: order.total_amount,
   });
+  if (linkErr) throw linkErr;
 
   revalidatePath("/invoices");
   revalidatePath("/orders");
@@ -185,14 +190,19 @@ export async function createConsolidatedInvoice(
       tax_amount: Math.round(((item.line_total as number) || 0) * 0.1),
     }));
     if (items.length > 0) {
-      await supabase.from("tax_invoice_items").insert(items);
+      const { error: itemsErr } = await supabase.from("tax_invoice_items").insert(items);
+      if (itemsErr) {
+        console.error("Failed to insert consolidated invoice items:", itemsErr);
+        throw new Error(`품목 저장 실패: ${itemsErr.message}`);
+      }
     }
 
-    await supabase.from("tax_invoice_orders").insert({
+    const { error: linkErr } = await supabase.from("tax_invoice_orders").insert({
       invoice_id: invoice.id,
       order_id: order.id,
       amount: order.total_amount,
     });
+    if (linkErr) throw linkErr;
   }
 
   revalidatePath("/invoices");

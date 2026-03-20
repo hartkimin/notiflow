@@ -182,15 +182,15 @@ async function handlePost(
     return errorResponse(`Failed to create user: ${createError.message}`);
   }
 
-  // Insert user_profiles row
+  // Upsert user_profiles row (trigger may have already created a default row)
   const { error: profileInsertError } = await supabase
     .from("user_profiles")
-    .insert({
+    .upsert({
       id: newUser.user.id,
       name,
       role,
       is_active: true,
-    });
+    }, { onConflict: "id" });
 
   if (profileInsertError) {
     // Rollback: delete the auth user we just created

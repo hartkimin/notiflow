@@ -1,9 +1,8 @@
-import { PlusCircle, Users, UserCheck, ShieldCheck, Eye } from "lucide-react";
+import { Users, UserCheck, ShieldCheck, Eye } from "lucide-react";
 
 import { getUsers } from "@/lib/queries/users";
 import { UserTable } from "@/components/user-list";
 import { StatCard } from "@/components/stat-card";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -26,14 +25,6 @@ export default async function SettingsUsersPage() {
   return (
     <>
       <RealtimeListener tables={["user_profiles"]} />
-      <div className="flex items-center justify-end">
-        <Button size="sm" className="h-8 gap-1">
-          <PlusCircle className="h-3.5 w-3.5" />
-          <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-            사용자 추가
-          </span>
-        </Button>
-      </div>
 
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
         <StatCard

@@ -6,6 +6,9 @@ import {
   Shield,
   Building2,
   Package,
+  TrendingUp,
+  BarChart2,
+  FileText
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -36,14 +39,18 @@ const TrendChart = dynamic(
   () => import("@/components/trend-chart").then(m => ({ default: m.TrendChart })),
   { loading: () => <Skeleton className="h-[250px] w-full rounded-md" /> },
 );
-import { getDailyStats, getTrendStats, getHospitalStats, getProductStats } from "@/lib/queries/stats";
+import { SalesTrendChart } from "@/components/sales-trend-chart";
+import { InvoiceTrendChart } from "@/components/invoice-trend-chart";
+import { SalesRepTable } from "@/components/sales-rep-table";
+
+import { getDailyStats, getTrendStats, getHospitalStats, getProductStats, getMonthlySalesTrend, getSalesRepStats } from "@/lib/queries/stats";
 import { getOrders } from "@/lib/queries/orders";
 import { getTodayDeliveries } from "@/lib/queries/deliveries";
 import { getPendingKpis } from "@/lib/queries/reports";
 import { ORDER_STATUS_LABELS as STATUS_LABELS } from "@/lib/order-status";
 
 export default async function DashboardHome() {
-  const [stats, ordersRes, deliveriesRes, kpisRes, trend, hospitals, products] = await Promise.all([
+  const [stats, ordersRes, deliveriesRes, kpisRes, trend, hospitals, products, monthlyTrend, salesRepStats] = await Promise.all([
     getDailyStats().catch(() => ({
       date: "",
       orders_created: 0,
@@ -54,7 +61,17 @@ export default async function DashboardHome() {
     getTrendStats().catch(() => []),
     getHospitalStats().catch(() => []),
     getProductStats().catch(() => []),
+    getMonthlySalesTrend().catch(() => []),
+    getSalesRepStats().catch(() => []),
   ]);
+
+  const currentMonth = monthlyTrend[0] || {
+    order_count: 0,
+    supply_amount: 0,
+    profit_amount: 0,
+    profit_margin: 0,
+    unissued_tax_invoices: 0
+  };
 
   return (
     <>
@@ -71,44 +88,71 @@ export default async function DashboardHome() {
           </Button>
         </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-3">
+      
+      <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
         <StatCard
-          title="오늘 주문"
-          value={`${stats.orders_created}건`}
-          description="오늘 생성된 주문"
-          icon={ClipboardList}
+          title="당월 매출액"
+          value={`${Number(currentMonth.supply_amount).toLocaleString("ko-KR")}원`}
+          description="이번 달 총 매출"
+          icon={TrendingUp}
           color="blue"
         />
         <StatCard
-          title="오늘 배송"
-          value={`${deliveriesRes.count}건`}
-          description="배송 예정"
+          title="당월 매출 이익"
+          value={`${Number(currentMonth.profit_amount).toLocaleString("ko-KR")}원`}
+          description={`이익률: ${currentMonth.profit_margin}%`}
+          icon={BarChart2}
+          color="green"
+        />
+        <StatCard
+          title="세금계산서 미발행"
+          value={`${currentMonth.unissued_tax_invoices}건`}
+          description="발행 대기 중인 주문"
+          icon={FileText}
+          color="red"
+        />
+        <StatCard
+          title="오늘 주문 / 배송"
+          value={`${stats.orders_created}건 / ${deliveriesRes.count}건`}
+          description="금일 발생 건수"
           icon={Truck}
           color="amber"
         />
-        <StatCard
-          title="KPIS 미신고"
-          value={`${kpisRes.count}건`}
-          description="신고 대기중"
-          icon={Shield}
-          color="red"
-        />
       </div>
 
-      {/* 30일 트렌드 차트 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>30일 트렌드</CardTitle>
-          <CardDescription>최근 30일간 메시지, 주문, 매출 추이</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {trend.length > 0 ? (
-            <TrendChart data={trend} />
-          ) : (
-            <EmptyState icon={ClipboardList} title="트렌드 데이터가 없습니다." />
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 md:gap-8 lg:grid-cols-3">
+        <div className="lg:col-span-2 flex flex-col gap-4 md:gap-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>월별 배송완료 및 이익 추이</CardTitle>
+              <CardDescription>최근 6개월간의 배송완료 금액과 이익률 변동 추이입니다.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {monthlyTrend.length > 0 ? (
+                <SalesTrendChart data={monthlyTrend} />
+              ) : (
+                <EmptyState icon={BarChart2} title="매출 데이터가 없습니다." />
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>세금계산서 발행 현황</CardTitle>
+              <CardDescription>배송 완료된 주문 대비 세금계산서 발행 및 미발행 금액입니다.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {monthlyTrend.length > 0 ? (
+                <InvoiceTrendChart data={monthlyTrend} />
+              ) : (
+                <EmptyState icon={FileText} title="계산서 데이터가 없습니다." />
+              )}
+            </CardContent>
+          </Card>
+        </div>
+        <div className="lg:col-span-1">
+          <SalesRepTable data={salesRepStats} />
+        </div>
+      </div>
 
       <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3">
         <Card className="xl:col-span-2">
@@ -189,7 +233,6 @@ export default async function DashboardHome() {
         </Card>
       </div>
 
-      {/* 거래처별 / 제품별 TOP 5 */}
       <div className="grid gap-4 md:gap-8 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center">

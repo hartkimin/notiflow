@@ -64,3 +64,48 @@ export const getTrendStats = unstable_cache(
   ["trend-stats"],
   { revalidate: 60, tags: ["stats"] },
 );
+
+export interface MonthlySalesTrend {
+  month: string;
+  order_count: number;
+  supply_amount: number;
+  profit_amount: number;
+  profit_margin: number;
+  unissued_tax_invoices: number;
+  delivered_amount: number;
+  invoiced_amount: number;
+  uninvoiced_amount: number;
+}
+
+export interface SalesRepStat {
+  sales_rep: string;
+  sales_amount: number;
+  profit_amount: number;
+  profit_margin: number;
+}
+
+export const getMonthlySalesTrend = unstable_cache(
+  async (monthsLimit: number = 6): Promise<MonthlySalesTrend[]> => {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("get_monthly_sales_trend", {
+      months_limit: monthsLimit,
+    });
+    if (error) throw error;
+    return data as MonthlySalesTrend[];
+  },
+  ["monthly-sales-trend"],
+  { revalidate: 60, tags: ["stats"] },
+);
+
+export const getSalesRepStats = unstable_cache(
+  async (targetMonth?: string): Promise<SalesRepStat[]> => {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("get_sales_rep_stats", {
+      target_month: targetMonth || null, // null defaults to current month in RPC
+    });
+    if (error) throw error;
+    return data as SalesRepStat[];
+  },
+  ["sales-rep-stats"],
+  { revalidate: 60, tags: ["stats"] },
+);

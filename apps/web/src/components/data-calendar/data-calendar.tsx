@@ -59,12 +59,12 @@ export function DataCalendar<T>({
     // Different month → server navigation to fetch new data
     if (date.getMonth() !== loadedMonth || date.getFullYear() !== loadedYear) {
       const m = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      router.push(`${basePath}?tab=${tabParam}&month=${m}`);
+      router.push(`${basePath}?tab=${tabParam}&month=${m}&view=${view}`);
       return;
     }
     // Same month → instant client-side state update
     setReferenceDate(date);
-  }, [loadedMonth, loadedYear, router, basePath, tabParam]);
+  }, [loadedMonth, loadedYear, router, basePath, tabParam, view]);
 
   const handleToday = useCallback(() => {
     const today = new Date();

@@ -5,7 +5,6 @@ import { getOrderItems } from "@/lib/queries/orders";
 import { getProductsCatalog } from "@/lib/queries/products";
 import { getOrderDisplayColumns } from "@/lib/queries/settings";
 import { getMessageById } from "@/lib/queries/messages";
-import { OrderInlineForm } from "@/components/order-inline-form";
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
 

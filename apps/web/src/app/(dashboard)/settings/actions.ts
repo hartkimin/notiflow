@@ -14,6 +14,7 @@ const ALLOWED_SETTING_KEYS = new Set([
   "ai_api_key_openai",
   "drug_api_service_key",
   "order_display_columns",
+  "order_column_widths",
 ]);
 
 export async function updateSettingAction(key: string, value: unknown) {
@@ -30,5 +31,11 @@ export async function updateOrderDisplayColumnsAction(value: { drug: string[]; d
   await requireAdmin();
   await updateSetting("order_display_columns", value);
   revalidatePath("/settings");
+  revalidatePath("/orders");
+}
+
+// No requireAdmin() — column widths are a shared layout preference, not a security setting
+export async function saveColumnWidthsAction(widths: Record<string, number>) {
+  await updateSetting("order_column_widths", widths);
   revalidatePath("/orders");
 }

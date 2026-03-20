@@ -92,6 +92,18 @@ export async function getOrderDisplayColumns(): Promise<OrderDisplayColumns> {
   return { ...defaults, ...val };
 }
 
+export async function getOrderColumnWidths(): Promise<Record<string, number>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "order_column_widths")
+    .single();
+
+  if (!data?.value) return {};
+  return typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+}
+
 export async function updateSetting(key: string, value: unknown) {
   const supabase = await createClient();
   const { error } = await supabase

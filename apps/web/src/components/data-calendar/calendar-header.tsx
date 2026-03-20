@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   formatWeekLabel, formatMonthLabel, formatDayLabel, getWeekMonday,
@@ -26,10 +27,19 @@ export function CalendarHeader({
     onNavigate(d);
   }
 
+  function handleMonthInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value; // "YYYY-MM"
+    if (!val) return;
+    const [y, m] = val.split("-").map(Number);
+    if (y && m) onNavigate(new Date(y, m - 1, 1));
+  }
+
   const label =
     view === "day" ? formatDayLabel(referenceDate) :
     view === "week" ? formatWeekLabel(getWeekMonday(referenceDate)) :
     formatMonthLabel(referenceDate);
+
+  const monthValue = `${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, "0")}`;
 
   return (
     <div className="flex items-center gap-2 py-2">
@@ -44,6 +54,13 @@ export function CalendarHeader({
       </Button>
 
       <span className="text-sm font-semibold ml-2">{label}</span>
+
+      <Input
+        type="month"
+        value={monthValue}
+        onChange={handleMonthInput}
+        className="h-8 w-36 text-xs ml-1"
+      />
 
       <div className="ml-auto flex items-center gap-1 rounded-lg border p-0.5">
         {(["day", "week", "month"] as CalendarView[]).map((v) => (

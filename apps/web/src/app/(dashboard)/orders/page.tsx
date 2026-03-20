@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { File, PlusCircle } from "lucide-react";
 
-import { getOrderItems, getOrderSummaryStats } from "@/lib/queries/orders";
+import { getOrderItems, getOrderSummaryStats, getLatestOrderDate } from "@/lib/queries/orders";
 import { getProductsCatalog } from "@/lib/queries/products";
 import { getOrderDisplayColumns } from "@/lib/queries/settings";
 import { getMessageById } from "@/lib/queries/messages";
@@ -51,14 +51,20 @@ export default async function OrdersPage({ searchParams }: Props) {
   const limit = 15;
   const offset = (page - 1) * limit;
 
-  // Calendar month range
+  // Calendar month range — default to latest order month (not current month)
   let calYear: number, calMonth: number;
   if (params.month) {
     const parts = params.month.split("-").map(Number);
     calYear = parts[0]; calMonth = parts[1] - 1;
   } else {
-    const now = new Date();
-    calYear = now.getFullYear(); calMonth = now.getMonth();
+    const latestDate = await getLatestOrderDate().catch(() => null);
+    if (latestDate) {
+      const parts = latestDate.split("-").map(Number);
+      calYear = parts[0]; calMonth = parts[1] - 1;
+    } else {
+      const now = new Date();
+      calYear = now.getFullYear(); calMonth = now.getMonth();
+    }
   }
   const today = new Date();
   const isCurrentMonth = calYear === today.getFullYear() && calMonth === today.getMonth();

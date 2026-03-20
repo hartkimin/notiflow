@@ -249,6 +249,18 @@ export async function getOrderSummaryStats(params: {
   };
 }
 
+/** Get the most recent order date — used to default calendar to the right month */
+export async function getLatestOrderDate(): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("orders")
+    .select("order_date")
+    .order("order_date", { ascending: false })
+    .limit(1)
+    .single();
+  return data?.order_date ?? null;
+}
+
 /**
  * Get all orders in a date range (no pagination) for calendar view.
  */

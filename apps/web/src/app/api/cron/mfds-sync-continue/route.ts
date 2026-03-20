@@ -28,9 +28,17 @@ export async function GET(request: Request) {
   }
 
   const admin = createAdminSupabase();
-  await admin.from("mfds_sync_logs")
+  // Atomically update only if still partial
+  const { data: resumed, error: resumeErr } = await admin
+    .from("mfds_sync_logs")
     .update({ status: "running" })
-    .eq("id", partial.id);
+    .eq("id", partial.id)
+    .eq("status", "partial")
+    .select("id")
+    .maybeSingle();
+  if (resumeErr || !resumed) {
+    return NextResponse.json({ ok: true, message: "Sync already running or no longer partial" });
+  }
 
   await runSync(
     partial.source_type,

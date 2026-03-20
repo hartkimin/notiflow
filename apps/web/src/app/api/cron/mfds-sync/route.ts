@@ -31,7 +31,16 @@ export async function GET(request: Request) {
   for (const sourceType of Object.keys(MFDS_API_CONFIGS)) {
     try {
       const { mode, reason } = await detectSyncMode(sourceType, apiKey);
-      const logId = await createSyncLog("cron", sourceType, mode);
+      let logId: number;
+      try {
+        logId = await createSyncLog("cron", sourceType, mode);
+      } catch (err: any) {
+        if (err?.code === "23505") {
+          results[sourceType] = { outcome: "skipped", reason: "이미 동기화 진행 중" };
+          continue;
+        }
+        throw err;
+      }
       const result = await runSync(sourceType, apiKey, logId, mode);
       results[sourceType] = { mode, reason, outcome: result.outcome };
     } catch (err) {

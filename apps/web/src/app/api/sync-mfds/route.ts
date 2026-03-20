@@ -37,19 +37,13 @@ export async function POST(req: Request) {
   // Clean up stale logs first
   await cleanupStaleLogs();
 
-  // Check if there's already a running sync
-  const { data: running } = await admin
-    .from("mfds_sync_logs")
-    .select("id")
-    .eq("status", "running")
-    .limit(1)
-    .maybeSingle();
+  let logId: number;
+  let syncMode: SyncMode;
+  let startPage: number;
+  let priorFetched: number;
+  let priorUpserted: number;
 
-  if (running) {
-    return NextResponse.json({ error: "이미 동기화가 진행 중입니다.", logId: running.id }, { status: 409 });
-  }
-
-  // Auto-detect partial sync for this source type
+  // Check for resumable partial sync
   const { data: partial } = await admin
     .from("mfds_sync_logs")
     .select("id, sync_mode, next_page, total_fetched, total_upserted")
@@ -59,34 +53,39 @@ export async function POST(req: Request) {
     .limit(1)
     .maybeSingle();
 
-  let logId: number;
-  let syncMode: SyncMode;
-  let startPage: number;
-  let priorFetched: number;
-  let priorUpserted: number;
-
   if (partial) {
+    // Resume partial — atomically update only if still partial
+    const { data: resumeData, error: resumeErr } = await admin
+      .from("mfds_sync_logs")
+      .update({ status: "running" })
+      .eq("id", partial.id)
+      .eq("status", "partial")
+      .select("id")
+      .maybeSingle();
+    if (resumeErr || !resumeData) {
+      return NextResponse.json({ error: "이미 동기화가 진행 중입니다." }, { status: 409 });
+    }
     logId = partial.id;
     syncMode = (partial.sync_mode as SyncMode) ?? requestedMode;
     startPage = partial.next_page ?? 1;
     priorFetched = partial.total_fetched ?? 0;
     priorUpserted = partial.total_upserted ?? 0;
-    await admin.from("mfds_sync_logs").update({ status: "running" }).eq("id", logId);
-    console.log(`[Sync API] Resuming logId=${logId} from page ${startPage} (${priorFetched} fetched)`);
+    console.log(`[Sync API] Resuming logId=${logId} from page ${startPage}`);
   } else {
-    const { count: existingCount } = await admin
-      .from("mfds_items")
-      .select("id", { count: "exact", head: true })
-      .eq("source_type", sourceType);
-
-    const alreadyFetched = existingCount ?? 0;
-    startPage = alreadyFetched > 0 ? Math.floor(alreadyFetched / 500) + 1 : 1;
-
-    logId = await createSyncLog("manual", sourceType, requestedMode);
+    // New sync — always start at page 1 (UPSERT handles duplicates safely)
+    try {
+      logId = await createSyncLog("manual", sourceType, requestedMode);
+    } catch (err: any) {
+      if (err?.code === "23505") {
+        return NextResponse.json({ error: "이미 동기화가 진행 중입니다." }, { status: 409 });
+      }
+      throw err;
+    }
     syncMode = requestedMode;
+    startPage = 1;
     priorFetched = 0;
     priorUpserted = 0;
-    console.log(`[Sync API] New ${syncMode} sync logId=${logId} — DB has ${alreadyFetched} items, starting page ${startPage}`);
+    console.log(`[Sync API] New ${syncMode} sync logId=${logId}, starting page 1`);
   }
 
   // Fire-and-forget: run sync in background, independent of HTTP connection

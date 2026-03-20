@@ -12,7 +12,7 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
     .from("orders")
     .select("*, hospitals(*), order_items(*, products(name, standard_code))")
     .eq("id", orderId)
-    .in("status", ["confirmed", "processing", "delivered"])
+    .in("status", ["confirmed", "delivered"])
     .single();
   if (orderErr || !order) throw new Error("발행 가능한 주문을 찾을 수 없습니다.");
 
@@ -101,7 +101,7 @@ export async function createConsolidatedInvoice(
     .from("orders")
     .select("*, hospitals(*), order_items(*, products(name, standard_code))")
     .in("id", orderIds)
-    .in("status", ["confirmed", "processing", "delivered"]);
+    .in("status", ["confirmed", "delivered"]);
   if (ordersErr || !orders?.length) throw new Error("발행 가능한 주문을 찾을 수 없습니다.");
 
   const hospitalIds = [...new Set(orders.map((o) => o.hospital_id))];
@@ -197,34 +197,6 @@ export async function createConsolidatedInvoice(
   return { invoiceId: invoice.id, invoiceNumber: invoice.invoice_number };
 }
 
-async function recomputeOrderInvoiceStatus(supabase: Awaited<ReturnType<typeof createClient>>, orderId: number) {
-  const { data: links } = await supabase
-    .from("tax_invoice_orders")
-    .select("invoice_id, tax_invoices(status)")
-    .eq("order_id", orderId);
-
-  const activeInvoices = (links ?? []).filter(
-    (l) => {
-      const inv = l.tax_invoices as unknown as { status: string } | null;
-      return inv && inv.status !== "cancelled";
-    }
-  );
-
-  let newStatus = "pending";
-  if (activeInvoices.length > 0) {
-    const allIssued = activeInvoices.every((l) => {
-      const inv = l.tax_invoices as unknown as { status: string };
-      return inv.status === "issued" || inv.status === "sent";
-    });
-    newStatus = allIssued ? "issued" : "partial";
-  }
-
-  await supabase
-    .from("orders")
-    .update({ tax_invoice_status: newStatus })
-    .eq("id", orderId);
-}
-
 export async function issueInvoice(invoiceId: number) {
   const supabase = await createClient();
 
@@ -263,8 +235,13 @@ export async function issueInvoice(invoiceId: number) {
     .select("order_id")
     .eq("invoice_id", invoiceId);
 
+  // Transition linked orders: delivered → invoiced
   for (const lo of linkedOrders ?? []) {
-    await recomputeOrderInvoiceStatus(supabase, lo.order_id);
+    await supabase
+      .from("orders")
+      .update({ status: "invoiced" })
+      .eq("id", lo.order_id)
+      .eq("status", "delivered");
   }
 
   revalidatePath("/invoices");
@@ -293,7 +270,11 @@ export async function cancelInvoice(invoiceId: number, reason: string) {
     .eq("invoice_id", invoiceId);
 
   for (const lo of linkedOrders ?? []) {
-    await recomputeOrderInvoiceStatus(supabase, lo.order_id);
+    await supabase
+      .from("orders")
+      .update({ status: "delivered" })
+      .eq("id", lo.order_id)
+      .eq("status", "invoiced");
   }
 
   revalidatePath("/invoices");
@@ -325,7 +306,11 @@ export async function deleteInvoice(invoiceId: number) {
   if (error) throw error;
 
   for (const lo of linkedOrders ?? []) {
-    await recomputeOrderInvoiceStatus(supabase, lo.order_id);
+    await supabase
+      .from("orders")
+      .update({ status: "delivered" })
+      .eq("id", lo.order_id)
+      .eq("status", "invoiced");
   }
 
   revalidatePath("/invoices");

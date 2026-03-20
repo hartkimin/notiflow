@@ -328,19 +328,27 @@ export async function searchMfdsItemsAction(query: string) {
   const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
   const q = query.trim();
-  const { data, error } = await supabase
-    .from("mfds_items")
-    .select("id, source_type, item_name, standard_code, manufacturer")
-    .or(`item_name.ilike.%${q}%,standard_code.ilike.%${q}%,manufacturer.ilike.%${q}%`)
-    .limit(30);
-  if (error) return [];
-  return (data ?? []).map((item) => ({
-    id: item.id,
-    name: item.item_name ?? "",
-    code: item.standard_code ?? "",
-    source_type: item.source_type as "drug" | "device_std",
-    manufacturer: item.manufacturer,
-  }));
+
+  const [drugs, devices] = await Promise.all([
+    supabase.from("mfds_drugs")
+      .select("id, item_name, bar_code, entp_name")
+      .or(`item_name.ilike.%${q}%,bar_code.ilike.%${q}%,entp_name.ilike.%${q}%`)
+      .limit(15),
+    supabase.from("mfds_devices")
+      .select("id, prdlst_nm, udidi_cd, mnft_iprt_entp_nm")
+      .or(`prdlst_nm.ilike.%${q}%,udidi_cd.ilike.%${q}%,mnft_iprt_entp_nm.ilike.%${q}%`)
+      .limit(15),
+  ]);
+
+  const results = [
+    ...(drugs.data ?? []).map((d) => ({
+      id: d.id, name: d.item_name, code: d.bar_code ?? "", source_type: "drug" as const, manufacturer: d.entp_name,
+    })),
+    ...(devices.data ?? []).map((d) => ({
+      id: d.id, name: d.prdlst_nm, code: d.udidi_cd ?? "", source_type: "device_std" as const, manufacturer: d.mnft_iprt_entp_nm,
+    })),
+  ];
+  return results.slice(0, 30);
 }
 
 export async function getRecentMfdsItemsAction() {

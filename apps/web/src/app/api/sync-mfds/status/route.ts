@@ -16,10 +16,10 @@ export async function GET() {
     .limit(1)
     .maybeSingle();
 
-  // Get counts per source type
+  // Get counts per table
   const [drug, device] = await Promise.all([
-    admin.from("mfds_items").select("id", { count: "exact", head: true }).eq("source_type", "drug"),
-    admin.from("mfds_items").select("id", { count: "exact", head: true }).eq("source_type", "device_std"),
+    admin.from("mfds_drugs").select("id", { count: "exact", head: true }),
+    admin.from("mfds_devices").select("id", { count: "exact", head: true }),
   ]);
 
   // Get meta

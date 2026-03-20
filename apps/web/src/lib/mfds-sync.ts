@@ -257,9 +257,10 @@ export async function runSync(
       .limit(1)
       .single();
 
-    if (latestRow?.[permitDateColumn]) {
+    const latestRowAny = latestRow as Record<string, unknown> | null;
+    if (latestRowAny?.[permitDateColumn]) {
       // Go back SAFE_WINDOW_DAYS for safety (items may be added retroactively)
-      const latest = (latestRow[permitDateColumn] as string).replace(/\D/g, ""); // normalize to YYYYMMDD
+      const latest = (latestRowAny[permitDateColumn] as string).replace(/\D/g, ""); // normalize to YYYYMMDD
       const d = new Date(
         parseInt(latest.slice(0, 4)),
         parseInt(latest.slice(4, 6)) - 1,

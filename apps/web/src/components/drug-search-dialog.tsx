@@ -16,7 +16,6 @@ import {
 import { Loader2, Search, Plus, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { toast } from "sonner";
 import { createProduct, searchMfdsItems } from "@/lib/actions";
-import type { MfdsItem } from "@/lib/types";
 
 // Normalized product info returned by onSelect (fill mode)
 export interface MedicalProductFill {
@@ -37,21 +36,22 @@ interface DrugSearchDialogProps {
   mode?: "create" | "fill";
 }
 
-function rd(item: MfdsItem, ...keys: string[]): string | null {
-  const data = item.raw_data as Record<string, unknown>;
-  for (const k of keys) {
-    const v = data[k];
-    if (v != null && String(v).trim() !== "") return String(v);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mfdsItemToFill(item: any): MedicalProductFill {
+  if (item._type === "drug" || item.item_seq) {
+    return {
+      official_name: item.item_name,
+      manufacturer: item.entp_name,
+      ingredient: item.main_item_ingr ?? null,
+      standard_code: item.bar_code,
+      mfds_item_id: item.id,
+    };
   }
-  return null;
-}
-
-function mfdsItemToFill(item: MfdsItem): MedicalProductFill {
   return {
-    official_name: item.item_name,
-    manufacturer: item.manufacturer,
-    ingredient: rd(item, "MAIN_ITEM_INGR", "USE_PURPS_CONT"),
-    standard_code: item.standard_code,
+    official_name: item.prdlst_nm,
+    manufacturer: item.mnft_iprt_entp_nm,
+    ingredient: item.use_purps_cont ?? null,
+    standard_code: item.udidi_cd,
     mfds_item_id: item.id,
   };
 }
@@ -72,7 +72,8 @@ export function DrugSearchDialog({
 }: DrugSearchDialogProps) {
   const [tab, setTab] = useState<SearchTab>("drug");
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<MfdsItem[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [results, setResults] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
   const [isSearching, setIsSearching] = useState(false);
@@ -96,7 +97,7 @@ export function DrugSearchDialog({
     setIsSearching(true);
     try {
       const result = await searchMfdsItems({ sourceType: searchTab as "drug" | "device_std", query: searchQuery.trim(), page: pageNo, pageSize });
-      setResults(result.items as unknown as MfdsItem[]);
+      setResults(result.items);
       setTotalCount(result.totalCount);
       setPage(pageNo);
     } catch (err) {
@@ -116,7 +117,8 @@ export function DrugSearchDialog({
     search(tab, query, newPage);
   }
 
-  function handleSelectItem(item: MfdsItem) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function handleSelectItem(item: any) {
     if (mode === "fill") {
       onSelect?.(mfdsItemToFill(item));
       onClose();
@@ -124,16 +126,18 @@ export function DrugSearchDialog({
     }
     startTransition(async () => {
       try {
+        const isDrug = item._type === "drug" || item.item_seq;
+        const fill = mfdsItemToFill(item);
         const result = await createProduct({
-          official_name: item.item_name,
-          manufacturer: item.manufacturer ?? undefined,
-          ingredient: rd(item, "MAIN_ITEM_INGR", "USE_PURPS_CONT") ?? undefined,
-          efficacy: rd(item, "USE_PURPS_CONT") ?? undefined,
-          standard_code: item.standard_code ?? undefined,
+          official_name: fill.official_name,
+          manufacturer: fill.manufacturer ?? undefined,
+          ingredient: fill.ingredient ?? undefined,
+          efficacy: (isDrug ? item.main_item_ingr : item.use_purps_cont) ?? undefined,
+          standard_code: fill.standard_code ?? undefined,
           mfds_item_id: item.id,
-          category: item.source_type === "drug" ? "medication" : "equipment",
+          category: isDrug ? "medication" : "equipment",
         });
-        toast.success(`"${item.item_name}" 품목이 생성되었습니다.`);
+        toast.success(`"${fill.official_name}" 품목이 생성되었습니다.`);
         onProductCreated?.(result.id);
         onClose();
       } catch (err) {
@@ -249,15 +253,15 @@ export function DrugSearchDialog({
                           <TableCell className="text-sm">
                             <div>
                               <p className="font-medium truncate max-w-[280px]">{item.item_name}</p>
-                              {rd(item, "RARE_DRUG_YN") === "Y" && (
+                              {item.rare_drug_yn === "Y" && (
                                 <Badge variant="outline" className="text-xs mt-0.5">희귀</Badge>
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="text-xs">{item.manufacturer}</TableCell>
-                          <TableCell className="text-xs font-mono">{rd(item, "EDI_CODE") || "-"}</TableCell>
+                          <TableCell className="text-xs">{item.entp_name}</TableCell>
+                          <TableCell className="text-xs font-mono">{item.edi_code || "-"}</TableCell>
                           <TableCell className="text-xs truncate max-w-[140px]">
-                            {rd(item, "MAIN_ITEM_INGR") || "-"}
+                            {item.main_item_ingr || "-"}
                           </TableCell>
                           <TableCell>
                             <Button
@@ -300,21 +304,21 @@ export function DrugSearchDialog({
                         <TableRow key={item.id}>
                           <TableCell className="text-sm">
                             <div>
-                              <p className="font-medium truncate max-w-[220px]">{item.item_name}</p>
-                              {rd(item, "PRDT_NM_INFO") && (
-                                <p className="text-xs text-muted-foreground truncate max-w-[220px]">{rd(item, "PRDT_NM_INFO")}</p>
+                              <p className="font-medium truncate max-w-[220px]">{item.prdlst_nm}</p>
+                              {item.prdt_nm_info && (
+                                <p className="text-xs text-muted-foreground truncate max-w-[220px]">{item.prdt_nm_info}</p>
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="text-xs">{item.manufacturer}</TableCell>
-                          <TableCell className="text-xs font-mono">{rd(item, "MEDDEV_ITEM_NO") || "-"}</TableCell>
+                          <TableCell className="text-xs">{item.mnft_iprt_entp_nm}</TableCell>
+                          <TableCell className="text-xs font-mono">{item.permit_no || "-"}</TableCell>
                           <TableCell className="text-xs text-center">
-                            {rd(item, "CLSF_NO_GRAD_CD") ? (
-                              <Badge variant="outline" className="text-xs">{rd(item, "CLSF_NO_GRAD_CD")}등급</Badge>
+                            {item.clsf_no_grad_cd ? (
+                              <Badge variant="outline" className="text-xs">{item.clsf_no_grad_cd}등급</Badge>
                             ) : "-"}
                           </TableCell>
                           <TableCell className="text-xs truncate max-w-[120px]">
-                            {rd(item, "USE_PURPS_CONT") || "-"}
+                            {item.use_purps_cont || "-"}
                           </TableCell>
                           <TableCell>
                             <Button
@@ -359,39 +363,39 @@ export function DrugSearchDialog({
                           <TableRow key={item.id}>
                             <TableCell className="text-sm">
                               <div>
-                                <p className="font-medium truncate max-w-[200px]">{item.item_name}</p>
-                                {rd(item, "FOML_INFO") && (
-                                  <p className="text-xs text-muted-foreground truncate max-w-[200px]">{rd(item, "FOML_INFO")}</p>
+                                <p className="font-medium truncate max-w-[200px]">{item.prdlst_nm}</p>
+                                {item.foml_info && (
+                                  <p className="text-xs text-muted-foreground truncate max-w-[200px]">{item.foml_info}</p>
                                 )}
-                                {rd(item, "PRDT_NM_INFO") && rd(item, "PRDT_NM_INFO") !== rd(item, "FOML_INFO") && (
-                                  <p className="text-xs text-muted-foreground/70 truncate max-w-[200px]">{rd(item, "PRDT_NM_INFO")}</p>
+                                {item.prdt_nm_info && item.prdt_nm_info !== item.foml_info && (
+                                  <p className="text-xs text-muted-foreground/70 truncate max-w-[200px]">{item.prdt_nm_info}</p>
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="text-xs">{item.manufacturer || "-"}</TableCell>
-                            <TableCell className="text-xs font-mono break-all">{item.standard_code || "-"}</TableCell>
-                            <TableCell className="text-xs font-mono">{rd(item, "PERMIT_NO") || "-"}</TableCell>
+                            <TableCell className="text-xs">{item.mnft_iprt_entp_nm || "-"}</TableCell>
+                            <TableCell className="text-xs font-mono break-all">{item.udidi_cd || "-"}</TableCell>
+                            <TableCell className="text-xs font-mono">{item.permit_no || "-"}</TableCell>
                             <TableCell className="text-xs text-center">
-                              {rd(item, "CLSF_NO_GRAD_CD") ? (
-                                <Badge variant="outline" className="text-xs">{rd(item, "CLSF_NO_GRAD_CD")}</Badge>
+                              {item.clsf_no_grad_cd ? (
+                                <Badge variant="outline" className="text-xs">{item.clsf_no_grad_cd}</Badge>
                               ) : "-"}
                             </TableCell>
                             <TableCell>
                               <div className="flex flex-wrap gap-0.5">
-                                {isYes(rd(item, "HMBD_TRSPT_MDEQ_YN")) && (
+                                {isYes(item.hmbd_trspt_mdeq_yn) && (
                                   <Badge variant="destructive" className="text-[10px] px-1 py-0">이식</Badge>
                                 )}
-                                {isYes(rd(item, "DSPSBL_MDEQ_YN")) && (
+                                {isYes(item.dspsbl_mdeq_yn) && (
                                   <Badge variant="secondary" className="text-[10px] px-1 py-0">1회용</Badge>
                                 )}
-                                {isYes(rd(item, "RCPRSLRY_TRGT_YN")) && (
+                                {isYes(item.rcprslry_trgt_yn) && (
                                   <Badge className="text-[10px] px-1 py-0 bg-blue-100 text-blue-700 hover:bg-blue-100">급여</Badge>
                                 )}
-                                {isYes(rd(item, "TRCK_MNG_TRGT_YN")) && (
+                                {isYes(item.trck_mng_trgt_yn) && (
                                   <Badge variant="outline" className="text-[10px] px-1 py-0">추적</Badge>
                                 )}
                               </div>
-                              {(rd(item, "USE_PURPS_CONT") || rd(item, "STRG_CND_INFO") || rd(item, "STERILIZATION_METHOD_NM")) && (
+                              {(item.use_purps_cont || item.strg_cnd_info || item.sterilization_method_nm) && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <button type="button" className="mt-0.5">
@@ -399,10 +403,10 @@ export function DrugSearchDialog({
                                     </button>
                                   </TooltipTrigger>
                                   <TooltipContent side="left" className="max-w-xs text-xs space-y-1">
-                                    {rd(item, "USE_PURPS_CONT") && <p><span className="font-semibold">사용목적:</span> {rd(item, "USE_PURPS_CONT")}</p>}
-                                    {rd(item, "STERILIZATION_METHOD_NM") && <p><span className="font-semibold">멸균방법:</span> {rd(item, "STERILIZATION_METHOD_NM")}</p>}
-                                    {rd(item, "STRG_CND_INFO") && <p><span className="font-semibold">저장조건:</span> {rd(item, "STRG_CND_INFO")}</p>}
-                                    {rd(item, "CIRC_CND_INFO") && <p><span className="font-semibold">유통조건:</span> {rd(item, "CIRC_CND_INFO")}</p>}
+                                    {item.use_purps_cont && <p><span className="font-semibold">사용목적:</span> {item.use_purps_cont}</p>}
+                                    {item.sterilization_method_nm && <p><span className="font-semibold">멸균방법:</span> {item.sterilization_method_nm}</p>}
+                                    {item.strg_cnd_info && <p><span className="font-semibold">저장조건:</span> {item.strg_cnd_info}</p>}
+                                    {item.circ_cnd_info && <p><span className="font-semibold">유통조건:</span> {item.circ_cnd_info}</p>}
                                   </TooltipContent>
                                 </Tooltip>
                               )}

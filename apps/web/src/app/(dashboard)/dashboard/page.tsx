@@ -47,7 +47,7 @@ export default async function DashboardHome() {
   const [kpis, hospitalRank, salesReps, recentOrders, recentInvoices, monthlyTrend] = await Promise.all([
     getDashboardKpis().catch(() => null),
     getHospitalRanking(10).catch(() => []),
-    getSalesRepPerformance().catch(() => []),
+    getSalesRepPerformance(currentMonth).catch(() => []),
     getRecentOrders(10).catch(() => []),
     getRecentInvoices(5).catch(() => []),
     getMonthlySalesTrend(6).catch(() => []),

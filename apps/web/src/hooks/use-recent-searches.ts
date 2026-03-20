@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 
 const STORAGE_KEY = "mfds-recent-searches";
 const MAX_ITEMS = 5;
@@ -12,19 +12,15 @@ export interface RecentSearch {
 }
 
 export function useRecentSearches() {
-  const [items, setItems] = useState<RecentSearch[]>([]);
-
-  // Hydrate from localStorage on mount (avoids SSR mismatch)
-  useEffect(() => {
+  const [items, setItems] = useState<RecentSearch[]>(() => {
+    if (typeof window === "undefined") return [];
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        setItems(JSON.parse(raw) as RecentSearch[]);
-      }
+      return raw ? (JSON.parse(raw) as RecentSearch[]) : [];
     } catch {
-      // ignore corrupt data
+      return [];
     }
-  }, []);
+  });
 
   const persist = useCallback((next: RecentSearch[]) => {
     try {

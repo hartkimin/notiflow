@@ -203,14 +203,16 @@ function MessageDetailContent({ msg }: { msg: RawMessage }) {
   } | null;
 
   const [candidates, setCandidates] = useState<OrderForecast[]>([]);
-  const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [loadingCandidates, setLoadingCandidates] = useState(true);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (msg.forecast_id) return;
-    if (!msg.hospital_id) return;
+    if (msg.forecast_id || !msg.hospital_id) {
+      // No need to fetch — already matched or no hospital
+      queueMicrotask(() => setLoadingCandidates(false));
+      return;
+    }
 
-    setLoadingCandidates(true);
     getMatchingForecasts(msg.hospital_id, msg.received_at)
       .then(setCandidates)
       .catch(() => setCandidates([]))
@@ -340,7 +342,6 @@ function ForecastDetailContent({ forecast }: { forecast: OrderForecast }) {
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    setLoading(true);
     getForecastDetail(forecast.id)
       .then((detail) => setItems(detail?.items ?? []))
       .catch(() => setItems([]))

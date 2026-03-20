@@ -72,14 +72,14 @@ export function AutoRefreshProvider({
 }
 
 function useTimeAgo(date: Date) {
-  const [, setTick] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    const timer = setInterval(() => setTick((t) => t + 1), 10000);
+    const timer = setInterval(() => setNow(Date.now()), 10000);
     return () => clearInterval(timer);
   }, []);
 
-  const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+  const diff = Math.floor((now - date.getTime()) / 1000);
   if (diff < 10) return "방금 전";
   if (diff < 60) return `${diff}초 전`;
   const mins = Math.floor(diff / 60);

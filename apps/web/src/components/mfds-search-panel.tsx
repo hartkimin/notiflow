@@ -25,8 +25,6 @@ import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2, Dat
 import {
   searchMfdsItems,
   searchMyItems,
-  getMfdsSyncProgress,
-  getActiveSyncLog,
   addToMyDrugs,
   addToMyDevices,
   syncMyDrug,
@@ -69,8 +67,8 @@ export function MfdsSearchPanel({
   mode,
   onSelect,
   existingStandardCodes = [],
-  myDrugs,
-  myDevices,
+  myDrugs: _myDrugs,
+  myDevices: _myDevices,
   syncStatus,
 }: MfdsSearchPanelProps) {
   const router = useRouter();

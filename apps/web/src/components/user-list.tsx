@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useTransition } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -377,11 +377,6 @@ function UserFormDialog({
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const isEdit = mode === "edit";
-
-  // Sync role state when user prop changes
-  useEffect(() => {
-    if (user) setRole(user.role);
-  }, [user]);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

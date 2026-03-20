@@ -6,6 +6,7 @@ import { MessagesView } from "@/components/messages-view";
 import { RealtimeListener } from "@/components/realtime-listener";
 import { toLocalDateStr } from "@/lib/schedule-utils";
 import type { CalendarView } from "@/lib/schedule-utils";
+import type { Product } from "@/lib/types";
 
 interface Props {
   searchParams: Promise<{
@@ -64,7 +65,7 @@ export default async function MessagesPage({ searchParams }: Props) {
         initialTab={initialTab}
         messages={result.messages}
         hospitals={hospitalsResult.hospitals}
-        products={productsResult as any}
+        products={productsResult as Product[]}
         currentPage={page}
         totalPages={totalPages}
         totalCount={result.total}

@@ -12,7 +12,6 @@ import { callAI, callAIStructured } from "@/lib/ai-client";
 import type { AISettings } from "@/lib/ai-client";
 import {
   regexParse,
-  buildParsePrompt,
   buildSystemPrompt,
   buildUserPrompt,
   matchProductsBulk,

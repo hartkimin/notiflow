@@ -64,13 +64,13 @@ export function DataCalendar<T>({
     }
     // Same month → instant client-side state update
     setReferenceDate(date);
-  }, [loadedMonth, loadedYear, router, basePath, tabParam, view]);
+  }, [loadedMonth, loadedYear, router, basePath, tabParam, view, setReferenceDate]);
 
   const handleToday = useCallback(() => {
     const today = new Date();
     setView("day");
     navigateToDate(today);
-  }, [navigateToDate]);
+  }, [navigateToDate, setView]);
 
   const handleItemClick = useCallback((item: T) => {
     setSelectedItem(item);
@@ -79,7 +79,7 @@ export function DataCalendar<T>({
   const handleDateClick = useCallback((date: Date) => {
     setView("day");
     navigateToDate(date);
-  }, [navigateToDate]);
+  }, [navigateToDate, setView]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-12rem)]">

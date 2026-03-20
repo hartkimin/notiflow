@@ -34,8 +34,8 @@ export async function GET(request: Request) {
       let logId: number;
       try {
         logId = await createSyncLog("cron", sourceType, mode);
-      } catch (err: any) {
-        if (err?.code === "23505") {
+      } catch (err) {
+        if ((err as { code?: string })?.code === "23505") {
           results[sourceType] = { outcome: "skipped", reason: "이미 동기화 진행 중" };
           continue;
         }

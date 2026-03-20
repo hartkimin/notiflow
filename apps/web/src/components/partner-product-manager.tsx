@@ -3,8 +3,8 @@
 import { useState, useEffect, useTransition, useCallback, useMemo, useRef } from "react";
 import {
   Plus, Search, Trash2, History, Loader2,
-  Check, ChevronDown, ChevronUp, Calculator,
-  Database, Globe, Clock, Sparkles, Pill, Stethoscope, X
+  ChevronUp, Calculator,
+  Database, Clock, Pill, Stethoscope, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,8 +32,19 @@ interface PartnerProductManagerProps {
 
 type FilterType = "all" | "drug" | "device";
 
+interface PartnerProduct {
+  id: number;
+  name: string;
+  code: string;
+  product_source: string;
+  unit_price?: number | null;
+  aliases?: { id: number; alias: string }[];
+  price_history?: { price: number; reason?: string; changed_at: string }[];
+  [key: string]: unknown;
+}
+
 export function PartnerProductManager({ partnerType, partnerId }: PartnerProductManagerProps) {
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<PartnerProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
 
@@ -46,11 +57,11 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
   const [searchQuery, setSearchQuery] = useState("");
   const [searchSource, setSearchSource] = useState<"my" | "mfds">("my");
   const [searchType, setSearchType] = useState<MfdsApiSource>("drug");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<Record<string, unknown>[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
   // History dialog
-  const [historyItem, setHistoryItem] = useState<any | null>(null);
+  const [historyItem, setHistoryItem] = useState<PartnerProduct | null>(null);
 
   // Alias management
   const [addingAliasFor, setAddingAliasFor] = useState<number | null>(null);
@@ -109,7 +120,7 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
         pageSize: 30,
       });
       setSearchResults(res.items);
-    } catch (err) {
+    } catch {
       if (!isInitial) toast.error("검색 실패");
     } finally {
       setIsSearching(false);
@@ -125,18 +136,18 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
     setIsLoading(true);
     try {
       const data = await getPartnerProducts(partnerType, partnerId);
-      setProducts(data);
-    } catch (err) {
+      setProducts(data as PartnerProduct[]);
+    } catch {
       toast.error("품목 목록 로드 실패");
     } finally {
       setIsLoading(false);
     }
   }
 
-  async function handleAdd(item: any) {
+  async function handleAdd(item: Record<string, unknown>) {
     startTransition(async () => {
       try {
-        let finalProductId = item.id;
+        let finalProductId = item.id as number | string | undefined;
         const standardCode = (item.bar_code || item.udidi_cd) as string;
 
         if (searchSource === "mfds") {
@@ -186,7 +197,7 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
       await deletePartnerProduct(id);
       toast.success("삭제되었습니다.");
       loadProducts();
-    } catch (err) {
+    } catch {
       toast.error("삭제 실패");
     }
   }
@@ -205,7 +216,7 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
       await updatePartnerProductPrice(id, newPrice);
       toast.success("가격이 업데이트되었습니다.");
       loadProducts();
-    } catch (err) {
+    } catch {
       toast.error("가격 업데이트 실패");
     }
   }
@@ -231,7 +242,7 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
       } else {
         setAliasError(res.error || "별칭 추가 실패");
       }
-    } catch (err) {
+    } catch {
       setAliasError("별칭 추가 실패");
     } finally {
       setIsAliasSubmitting(false);
@@ -375,7 +386,7 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
           <div className="flex gap-2">
             <select
               value={searchType}
-              onChange={(e) => setSearchType(e.target.value as any)}
+              onChange={(e) => setSearchType(e.target.value as MfdsApiSource)}
               className="text-[11px] font-bold border rounded-lg px-2.5 bg-white outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
             >
               <option value="drug">의약품</option>
@@ -582,7 +593,7 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
               <Table>
                 <TableBody>
                   {Array.isArray(historyItem.price_history) && historyItem.price_history.length > 0 ? (
-                    [...historyItem.price_history].reverse().map((entry: any, i: number) => (
+                    [...historyItem.price_history].reverse().map((entry, i) => (
                       <TableRow key={i} className="hover:bg-transparent border-none">
                         <TableCell className="py-4 pl-0">
                           <p className="text-[12px] font-black text-zinc-950">{formatCurrency(entry.price)}</p>

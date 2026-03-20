@@ -145,7 +145,7 @@ export async function matchForecast(forecastId: number, messageId: number) {
 export async function unmatchForecast(forecastId: number) {
   const supabase = await createClient();
 
-  const { data: forecast } = await supabase
+  await supabase
     .from("order_forecasts")
     .select("message_id")
     .eq("id", forecastId)

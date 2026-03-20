@@ -3,9 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { SyncDiffEntry, MfdsApiSource } from "@/lib/types";
-import type { FilterChip } from "@/lib/mfds-search-utils";
-import { parseMessageCore, getAISettingsFromClient } from "@/lib/parse-service";
 import { geocodeAddress } from "@/lib/geocode";
 
 // --- Messages (captured_messages table) ---
@@ -509,9 +506,9 @@ export async function getPartnerProducts(partnerType: "hospital" | "supplier", p
       supabase.from("partner_product_aliases").select("id, partner_product_id, alias").in("partner_product_id", ppIds),
     ]);
 
-    const pMap = new Map((pRes.data ?? []).map((p: any) => [p.id, p]));
-    const drMap = new Map((drRes.data ?? []).map((d: any) => [d.id, d]));
-    const dvMap = new Map((dvRes.data ?? []).map((v: any) => [v.id, v]));
+    const pMap = new Map((pRes.data ?? []).map((p: { id: number; name: string; standard_code?: string }) => [p.id, p]));
+    const drMap = new Map((drRes.data ?? []).map((d: { id: number; item_name: string; bar_code?: string }) => [d.id, d]));
+    const dvMap = new Map((dvRes.data ?? []).map((v: { id: number; prdlst_nm: string; udidi_cd?: string }) => [v.id, v]));
 
     // Build alias map: partner_product_id → [{id, alias}]
     const aliasMap = new Map<number, { id: number; alias: string }[]>();
@@ -528,10 +525,10 @@ export async function getPartnerProducts(partnerType: "hospital" | "supplier", p
       else if (item.product_source === "device") { const v = dvMap.get(item.product_id); if (v) { name = v.prdlst_nm; code = v.udidi_cd || code; } }
       return { ...item, name, code, aliases: aliasMap.get(item.id) ?? [] };
     });
-  } catch (err) { return []; }
+  } catch { return []; }
 }
 
-export async function addPartnerProduct(params: { partnerType: "hospital" | "supplier", partnerId: number, productSource: "product" | "drug" | "device", productId: any, standardCode?: string, unitPrice?: number }) {
+export async function addPartnerProduct(params: { partnerType: "hospital" | "supplier", partnerId: number, productSource: "product" | "drug" | "device", productId: number | string, standardCode?: string, unitPrice?: number }) {
   const supabase = await createClient();
   const { partnerType, partnerId, productSource, standardCode, unitPrice } = params;
   const productId = typeof params.productId === 'string' ? parseInt(params.productId, 10) : params.productId;
@@ -678,7 +675,7 @@ export async function deletePartnerProductAlias(aliasId: number) {
 
 // --- My Products ---
 
-export async function searchMyItems(params: any) {
+export async function searchMyItems(params: { query: string; sourceType: string; page?: number; pageSize?: number; filters?: { field: string; operator: string; value: string }[]; sortBy?: string; sortOrder?: string; searchField?: string }) {
   const { query, sourceType, page = 1, pageSize = 30, filters = [], sortBy, sortOrder = "asc" } = params;
   const supabase = await createClient();
   const q = query.trim();
@@ -699,7 +696,7 @@ export async function searchMyItems(params: any) {
 
   const { data, count, error } = await dbQuery;
   if (error) throw error;
-  const items = (data ?? []).map((row: any) => {
+  const items = (data ?? []).map((row: Record<string, unknown>) => {
     const mapped = { ...row };
     Object.entries(row).forEach(([k, v]) => { if (!["id", "unit_price", "added_at", "synced_at"].includes(k)) mapped[k.toUpperCase()] = v; });
     return mapped;
@@ -707,8 +704,8 @@ export async function searchMyItems(params: any) {
   return { items, totalCount: count ?? 0, page };
 }
 
-export async function searchMfdsItems(params: any) {
-  const { query, sourceType, page = 1, pageSize = 30, filters = [], sortBy, sortOrder = "asc" } = params;
+export async function searchMfdsItems(params: { query: string; sourceType: string; page?: number; pageSize?: number; filters?: { field: string; value: string }[]; sortOrder?: string; searchField?: string }) {
+  const { query, sourceType, page = 1, pageSize = 30, filters = [], sortOrder = "asc" } = params;
   const supabase = await createClient();
   const q = query.trim();
   const from = (page - 1) * pageSize, to = from + pageSize - 1;
@@ -726,7 +723,7 @@ export async function searchMfdsItems(params: any) {
 
   const { data, count, error } = await dbQuery;
   if (error) throw error;
-  const items = (data ?? []).map((row: any) => ({ ...row, _type: sourceType }));
+  const items = (data ?? []).map((row: Record<string, unknown>) => ({ ...row, _type: sourceType }));
   return { items, totalCount: count ?? 0, page };
 }
 
@@ -737,7 +734,7 @@ export async function addToMyDrugs(item: Record<string, unknown>): Promise<{ suc
     const { data: existing } = await supabase.from("my_drugs").select("id").eq("bar_code", barCode).maybeSingle();
     if (existing) return { success: true, id: existing.id, alreadyExists: true };
   }
-  const row: any = {};
+  const row: Record<string, string | null> = {};
   const cols = [
     "item_seq", "item_name", "item_eng_name", "entp_name", "entp_no",
     "item_permit_date", "cnsgn_manuf", "etc_otc_code", "chart", "bar_code",
@@ -758,7 +755,7 @@ export async function addToMyDevices(item: Record<string, unknown>): Promise<{ s
     const { data: existing } = await supabase.from("my_devices").select("id").eq("udidi_cd", udidiCd).maybeSingle();
     if (existing) return { success: true, id: existing.id, alreadyExists: true };
   }
-  const row: any = {};
+  const row: Record<string, string | null> = {};
   const cols = [
     "udidi_cd", "prdlst_nm", "mnft_iprt_entp_nm", "mdeq_clsf_no", "clsf_no_grad_cd",
     "permit_no", "prmsn_ymd", "foml_info", "prdt_nm_info", "hmbd_trspt_mdeq_yn",
@@ -891,7 +888,7 @@ export async function deleteProductAlias(productId: number, aliasId: number) {
   return { success: true };
 }
 
-export async function searchMfdsDrug(filters: any, page = 1) {
+export async function searchMfdsDrug(filters: Record<string, string>, page = 1) {
   const key = await getMfdsApiKey();
   const p = new URLSearchParams({ serviceKey: key, pageNo: String(page), numOfRows: "25", type: "json" });
   for (const [k, v] of Object.entries(filters)) if ((v as string).trim()) p.set(k, (v as string).trim());
@@ -901,7 +898,7 @@ export async function searchMfdsDrug(filters: any, page = 1) {
   return { items: parseMfdsApiItems(j?.body), totalCount: j?.body?.totalCount ?? 0, page };
 }
 
-export async function searchMfdsDevice(filters: any, page = 1) {
+export async function searchMfdsDevice(filters: Record<string, string>, page = 1) {
   const key = await getMfdsApiKey();
   const p = new URLSearchParams({ serviceKey: key, pageNo: String(page), numOfRows: "25", type: "json" });
   for (const [k, v] of Object.entries(filters)) if ((v as string).trim()) p.set(k, (v as string).trim());
@@ -917,10 +914,11 @@ export async function syncMyDrug(id: number) {
   if (!d?.item_seq) return { found: false, changes: [] };
   const r = await searchMfdsDrug({ ITEM_SEQ: d.item_seq });
   if (r.items.length === 0) return { found: false, changes: [] };
-  const api = r.items[0] as any;
-  const changes: any[] = [];
+  const api = r.items[0] as Record<string, string>;
+  const labelMap: Record<string, string> = { item_name: "품목명", entp_name: "업체명", bar_code: "바코드" };
+  const changes: { column: string; label: string; oldValue: string; newValue: string }[] = [];
   const keys = ["ITEM_NAME", "ENTP_NAME", "BAR_CODE"];
-  for (const k of keys) if (d[k.toLowerCase()] !== api[k]) changes.push({ column: k.toLowerCase(), oldValue: d[k.toLowerCase()], newValue: api[k] });
+  for (const k of keys) if (d[k.toLowerCase()] !== api[k]) changes.push({ column: k.toLowerCase(), label: labelMap[k.toLowerCase()] ?? k, oldValue: d[k.toLowerCase()] ?? "", newValue: api[k] ?? "" });
   return { found: true, changes };
 }
 
@@ -930,20 +928,21 @@ export async function syncMyDevice(id: number) {
   if (!d?.udidi_cd) return { found: false, changes: [] };
   const r = await searchMfdsDevice({ UDIDI_CD: d.udidi_cd });
   if (r.items.length === 0) return { found: false, changes: [] };
-  const api = r.items[0] as any;
-  const changes: any[] = [];
+  const api = r.items[0] as Record<string, string>;
+  const labelMap: Record<string, string> = { prdlst_nm: "품목명", mnft_iprt_entp_nm: "업체명", udidi_cd: "UDI코드" };
+  const changes: { column: string; label: string; oldValue: string; newValue: string }[] = [];
   const keys = ["PRDLST_NM", "MNFT_IPRT_ENTP_NM", "UDIDI_CD"];
-  for (const k of keys) if (d[k.toLowerCase()] !== api[k]) changes.push({ column: k.toLowerCase(), oldValue: d[k.toLowerCase()], newValue: api[k] });
+  for (const k of keys) if (d[k.toLowerCase()] !== api[k]) changes.push({ column: k.toLowerCase(), label: labelMap[k.toLowerCase()] ?? k, oldValue: d[k.toLowerCase()] ?? "", newValue: api[k] ?? "" });
   return { found: true, changes };
 }
 
-export async function applyDrugSync(id: number, updates: any) {
+export async function applyDrugSync(id: number, updates: Record<string, string>) {
   const supabase = await createClient();
   await supabase.from("my_drugs").update({ ...updates, synced_at: new Date().toISOString() }).eq("id", id);
   revalidatePath("/products/my"); return { success: true };
 }
 
-export async function applyDeviceSync(id: number, updates: any) {
+export async function applyDeviceSync(id: number, updates: Record<string, string>) {
   const supabase = await createClient();
   await supabase.from("my_devices").update({ ...updates, synced_at: new Date().toISOString() }).eq("id", id);
   revalidatePath("/products/my"); return { success: true };
@@ -951,7 +950,7 @@ export async function applyDeviceSync(id: number, updates: any) {
 
 export async function triggerMfdsSync(sourceFilter: string) {
   const sources = sourceFilter === "all" ? ["drug", "device_std"] : [sourceFilter];
-  const results: Record<string, any> = {};
+  const results: Record<string, unknown> = {};
   const errors: string[] = [];
 
   for (const sourceType of sources) {

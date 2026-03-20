@@ -14,12 +14,12 @@ import { memo, useMemo } from "react";
 import type { TrendPoint } from "@/lib/types";
 
 export const TrendChart = memo(function TrendChart({ data }: { data: TrendPoint[] }) {
-  if (data.length === 0) return null;
-
   const formatted = useMemo(
     () => data.map((d) => ({ ...d, label: d.date.slice(5) })),
     [data],
   );
+
+  if (data.length === 0) return null;
 
   return (
     <ResponsiveContainer width="100%" height={250}>

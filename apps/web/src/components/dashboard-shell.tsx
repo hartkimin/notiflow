@@ -11,7 +11,7 @@ interface DashboardShellProps {
 }
 
 export function DashboardShell({ userName, children }: DashboardShellProps) {
-  const { collapsed, toggle } = useSidebarCollapse();
+  const { toggle } = useSidebarCollapse();
   const [pinned, setPinned] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 

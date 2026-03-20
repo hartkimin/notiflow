@@ -84,8 +84,8 @@ export async function POST(req: Request) {
     // New sync — always start at page 1 (UPSERT handles duplicates safely)
     try {
       logId = await createSyncLog("manual", sourceType, requestedMode);
-    } catch (err: any) {
-      if (err?.code === "23505") {
+    } catch (err) {
+      if ((err as { code?: string })?.code === "23505") {
         return NextResponse.json({ error: "이미 동기화가 진행 중입니다." }, { status: 409 });
       }
       throw err;

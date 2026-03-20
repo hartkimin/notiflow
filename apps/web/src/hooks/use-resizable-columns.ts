@@ -1,17 +1,15 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 
 export function useResizableColumns(storageKey: string, defaultWidths: Record<string, number>) {
-  const [widths, setWidths] = useState<Record<string, number>>(defaultWidths);
-
-  // Restore persisted widths after hydration to avoid SSR mismatch
-  useEffect(() => {
+  const [widths, setWidths] = useState<Record<string, number>>(() => {
     try {
-      const stored = localStorage.getItem(`col-widths-${storageKey}`);
-      if (stored) setWidths((prev) => ({ ...prev, ...JSON.parse(stored) }));
+      const stored = typeof window !== "undefined" && localStorage.getItem(`col-widths-${storageKey}`);
+      if (stored) return { ...defaultWidths, ...JSON.parse(stored) };
     } catch { /* ignore */ }
-  }, [storageKey]);
+    return defaultWidths;
+  });
 
   const dragRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
 

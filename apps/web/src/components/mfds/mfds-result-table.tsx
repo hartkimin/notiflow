@@ -3,14 +3,11 @@
 import { Fragment, useState } from "react";
 import { flexRender, type Table as TanTable } from "@tanstack/react-table";
 import {
-  ChevronDown,
-  ChevronRight,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
   Search,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { MfdsRowDetail } from "./mfds-row-detail";

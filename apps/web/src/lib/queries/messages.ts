@@ -14,7 +14,7 @@ export interface UnifiedMessage extends RawMessage {
 function mapCaptured(m: CapturedMessage): UnifiedMessage {
   return {
     // RawMessage legacy fields (defaults for removed raw_messages table)
-    id: m.id as any,
+    id: Number(m.id),
     content: m.content,
     received_at: new Date(m.received_at).toISOString(),
     sender: m.sender,
@@ -69,7 +69,7 @@ export async function getMessages(params: {
 
   if (error) console.error("captured_messages query error:", JSON.stringify(error, null, 2));
 
-  const messages = (data ?? []).map((m: any) => mapCaptured(m as CapturedMessage));
+  const messages = (data ?? [] as CapturedMessage[]).map((m) => mapCaptured(m as CapturedMessage));
 
   return { messages, total: count ?? 0 };
 }
@@ -109,5 +109,5 @@ export async function getMessagesForCalendar(params: {
 
   if (error) console.error("captured_messages calendar query error:", JSON.stringify(error, null, 2));
 
-  return (data ?? []).map((m: any) => mapCaptured(m as CapturedMessage));
+  return (data ?? [] as CapturedMessage[]).map((m) => mapCaptured(m as CapturedMessage));
 }

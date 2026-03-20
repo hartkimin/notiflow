@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type {
   StatusStep,
   MessageLocalData,
@@ -49,26 +49,24 @@ function writeJSON(key: string, value: unknown): void {
 }
 
 export function useMessageLocalState() {
-  const [steps, setSteps] = useState<StatusStep[]>(DEFAULT_STEPS);
-  const [states, setStates] = useState<MessageLocalStateMap>({});
-  const [hydrated, setHydrated] = useState(false);
+  const [steps, setSteps] = useState<StatusStep[]>(() => readJSON(STEPS_KEY, DEFAULT_STEPS));
+  const [states, setStates] = useState<MessageLocalStateMap>(() => readJSON(STATES_KEY, {}));
+  const hydrated = useRef(false);
 
-  // Hydrate from localStorage on mount
+  // Mark as hydrated after mount
   useEffect(() => {
-    setSteps(readJSON(STEPS_KEY, DEFAULT_STEPS));
-    setStates(readJSON(STATES_KEY, {}));
-    setHydrated(true);
+    hydrated.current = true;
   }, []);
 
   // Persist steps
   useEffect(() => {
-    if (hydrated) writeJSON(STEPS_KEY, steps);
-  }, [steps, hydrated]);
+    if (hydrated.current) writeJSON(STEPS_KEY, steps);
+  }, [steps]);
 
   // Persist states
   useEffect(() => {
-    if (hydrated) writeJSON(STATES_KEY, states);
-  }, [states, hydrated]);
+    if (hydrated.current) writeJSON(STATES_KEY, states);
+  }, [states]);
 
   const sortedSteps = useMemo(
     () => [...steps].sort((a, b) => a.orderIndex - b.orderIndex),

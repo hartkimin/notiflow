@@ -172,7 +172,7 @@ async function fetchPage(
   page: number,
   startDate?: string,
   endDate?: string,
-): Promise<{ items: any[]; totalCount: number }> {
+): Promise<{ items: Record<string, unknown>[]; totalCount: number }> {
   const params = new URLSearchParams({
     serviceKey: apiKey,
     pageNo: String(page),
@@ -528,7 +528,7 @@ export const findPartialSync = findResumableSync;
 
 export async function detectSyncMode(
   sourceType: string,
-  apiKey: string,
+  _apiKey: string,
 ): Promise<{ mode: SyncMode; reason: string }> {
   const admin = createAdminSupabase();
   const config = MFDS_API_CONFIGS[sourceType];

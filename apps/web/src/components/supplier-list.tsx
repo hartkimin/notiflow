@@ -62,8 +62,6 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
   const allIds = useMemo(() => suppliers.map((s) => s.id), [suppliers]);
   const rowSelection = useRowSelection(allIds);
 
-  const PanelGroup = ResizablePanelGroup as any;
-
   function switchView(v: "list" | "grid") {
     setView(v);
     rowSelection.clear();
@@ -149,7 +147,7 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
       </div>
 
       <div className="flex-1 min-h-0 border rounded-2xl overflow-hidden bg-background shadow-sm">
-        <PanelGroup direction="horizontal">
+        <ResizablePanelGroup orientation="horizontal">
           <ResizablePanel defaultSize={selectedSupplier ? 65 : 100} minSize={30}>
             {suppliers.length === 0 ? (
               <div className="text-center py-24 bg-zinc-50/30">
@@ -385,7 +383,7 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
               </Tabs>
             )}
           </ResizableDetailPanel>
-        </PanelGroup>
+        </ResizablePanelGroup>
       </div>
 
       <BulkActionBar
@@ -462,7 +460,7 @@ function SupplierInlineForm({
       if (s.business_type) setBusinessType(s.business_type);
       if (s.business_category) setBusinessCategory(s.business_category);
       toast.success("AI 정보를 업데이트했습니다.");
-    } catch (err) {
+    } catch {
       toast.error("AI 검색 실패");
     } finally {
       setIsAiSearching(false);
@@ -480,7 +478,7 @@ function SupplierInlineForm({
         await updateSupplier(supplier.id, data);
         toast.success("저장되었습니다.");
         onSuccess({ ...supplier, ...data });
-      } catch (err) {
+      } catch {
         toast.error("저장 실패");
       }
     });

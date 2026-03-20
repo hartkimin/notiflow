@@ -539,7 +539,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
             </div>
             <MfdsSearchPanel
               mode="pick"
-              onSelect={(productId) => {
+              onSelect={(_productId) => {
                 setShowMfdsSearch(false);
                 toast.success("품목이 추가되었습니다. 주문 항목에서 선택할 수 있습니다.");
                 router.refresh();

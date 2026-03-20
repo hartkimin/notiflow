@@ -72,8 +72,6 @@ export function HospitalTable({ hospitals }: { hospitals: Hospital[] }) {
   const allIds = useMemo(() => hospitals.map((h) => h.id), [hospitals]);
   const rowSelection = useRowSelection(allIds);
 
-  const PanelGroup = ResizablePanelGroup as any;
-
   function switchView(v: "list" | "grid") {
     setView(v);
     rowSelection.clear();
@@ -159,7 +157,7 @@ export function HospitalTable({ hospitals }: { hospitals: Hospital[] }) {
       </div>
 
       <div className="flex-1 min-h-0 border rounded-2xl overflow-hidden bg-background shadow-sm">
-        <PanelGroup direction="horizontal">
+        <ResizablePanelGroup orientation="horizontal">
           <ResizablePanel defaultSize={selectedHospital ? 65 : 100} minSize={30}>
             {hospitals.length === 0 ? (
               <div className="text-center py-24 bg-zinc-50/30">
@@ -410,7 +408,7 @@ export function HospitalTable({ hospitals }: { hospitals: Hospital[] }) {
               </Tabs>
             )}
           </ResizableDetailPanel>
-        </PanelGroup>
+        </ResizablePanelGroup>
       </div>
 
       <BulkActionBar
@@ -472,7 +470,7 @@ function HospitalInlineForm({
         await updateHospital(hospital.id, data);
         toast.success("저장되었습니다.");
         onSuccess({ ...hospital, ...data });
-      } catch (err) {
+      } catch {
         toast.error("저장 실패");
       }
     });
@@ -495,7 +493,7 @@ function HospitalInlineForm({
             <Label className="text-[11px] font-black text-zinc-400">유형</Label>
             <select 
               value={hospitalType} 
-              onChange={(e) => setHospitalType(e.target.value as any)}
+              onChange={(e) => setHospitalType(e.target.value)}
               className="w-full h-10 rounded-xl border bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
             >
               {Object.entries(TYPE_LABEL).map(([key, label]) => (

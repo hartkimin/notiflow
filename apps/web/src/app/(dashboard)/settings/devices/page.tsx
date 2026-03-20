@@ -19,6 +19,7 @@ export default async function SettingsDevicesPage() {
   const activeCount = devices.filter((d) => d.is_active).length;
   const uniqueUsers = new Set(devices.map((d) => d.user_id)).size;
 
+  // eslint-disable-next-line react-hooks/purity -- server component, Date.now() is fine
   const now = Date.now();
   const onlineCount = devices.filter((d) => {
     const diff = (now - new Date(d.last_sync_at).getTime()) / 60000;

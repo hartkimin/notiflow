@@ -29,11 +29,7 @@ export function HospitalSection({ initialData, initialItemData, initialMonth }: 
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (month === initialMonth) {
-      setData(initialData);
-      setItemData(initialItemData);
-      return;
-    }
+    if (month === initialMonth) return;
     startTransition(async () => {
       const [hosps, items] = await Promise.all([
         getHospitalDetailAction(month).catch(() => []),
@@ -42,7 +38,7 @@ export function HospitalSection({ initialData, initialItemData, initialMonth }: 
       setData(hosps);
       setItemData(items);
     });
-  }, [month, initialMonth, initialData, initialItemData]);
+  }, [month, initialMonth]);
 
   function navigate(dir: -1 | 1) {
     const [y, m] = month.split("-").map(Number);

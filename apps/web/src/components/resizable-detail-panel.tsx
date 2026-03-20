@@ -7,8 +7,6 @@ import {
   ResizableHandle,
   ResizablePanel,
 } from "@/components/ui/resizable";
-import { cn } from "@/lib/utils";
-
 interface ResizableDetailPanelProps {
   isOpen: boolean;
   onClose: () => void;

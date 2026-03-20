@@ -21,12 +21,12 @@ export function ProductSection({ initialData, initialMonth }: { initialData: Pro
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (month === initialMonth) { setData(initialData); return; }
+    if (month === initialMonth) return;
     startTransition(async () => {
       const result = await getProductPerformanceAction(month).catch(() => []);
       setData(result);
     });
-  }, [month, initialMonth, initialData]);
+  }, [month, initialMonth]);
 
   function navigate(dir: -1 | 1) {
     const [y, m] = month.split("-").map(Number);

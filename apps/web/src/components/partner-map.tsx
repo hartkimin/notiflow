@@ -73,7 +73,7 @@ export function PartnerMap({ pins }: PartnerMapProps) {
 
   return (
     <div className="space-y-2">
-      <div className="rounded-lg border overflow-hidden" style={{ height: "calc(100vh - 14rem)" }}>
+      <div className="rounded-lg border overflow-hidden relative z-0" style={{ height: "calc(100vh - 14rem)" }}>
         <MapContainer
           center={defaultCenter}
           zoom={7}

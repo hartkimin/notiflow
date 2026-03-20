@@ -73,7 +73,6 @@ export function MessageDetailPanel({ message, localState }: DetailPanelProps) {
 
   const msg = message;
   const msgLocal = localState.getState(msg.id);
-  const statusStep = localState.steps.find((s) => s.id === msgLocal.statusId);
   const displayContent = msgLocal.editedContent ?? msg.content;
 
   function handleStartEdit() {

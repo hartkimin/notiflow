@@ -29,11 +29,7 @@ export function SalesRepSection({ initialData, initialHospitalData, initialMonth
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (month === initialMonth) {
-      setData(initialData);
-      setHospData(initialHospitalData);
-      return;
-    }
+    if (month === initialMonth) return;
     startTransition(async () => {
       const [reps, hosps] = await Promise.all([
         getSalesRepDetailAction(month).catch(() => []),
@@ -42,7 +38,7 @@ export function SalesRepSection({ initialData, initialHospitalData, initialMonth
       setData(reps);
       setHospData(hosps);
     });
-  }, [month, initialMonth, initialData, initialHospitalData]);
+  }, [month, initialMonth]);
 
   function navigate(dir: -1 | 1) {
     const [y, m] = month.split("-").map(Number);

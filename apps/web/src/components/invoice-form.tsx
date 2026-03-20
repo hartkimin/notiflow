@@ -85,10 +85,12 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
   );
 
   // Lock to same hospital once first order is selected
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const lockedHospitalId = useMemo(() => {
-    if (selectedOrders.length === 0) return null;
-    return selectedOrders[0].hospital_id;
-  }, [selectedOrders]);
+    if (selectedIds.size === 0) return null;
+    const firstSelected = orders.find((o) => selectedIds.has(o.id));
+    return firstSelected?.hospital_id ?? null;
+  }, [orders, selectedIds]);
 
   const summary = useMemo(() => {
     return selectedOrders.reduce(

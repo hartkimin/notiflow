@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TrendingUp, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getDashboardKpis, getYearlyKpis } from "@/lib/queries/dashboard-stats";

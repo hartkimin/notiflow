@@ -2,7 +2,6 @@
 
 import {
   Bar,
-  BarChart,
   ResponsiveContainer,
   XAxis,
   YAxis,
@@ -56,7 +55,7 @@ export function SalesTrendChart({ data }: { data: MonthlySalesTrend[] }) {
             dx={10}
           />
           <Tooltip 
-            formatter={(value: any, name: any) => {
+            formatter={(value, name) => {
               if (name === "profit_margin") return [`${value}%`, "이익률"];
               return [`${Number(value).toLocaleString()}원`, name === "delivered_amount" ? "배송완료금액" : "매출이익"];
             }}

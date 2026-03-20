@@ -36,7 +36,8 @@ export async function getUsers(): Promise<{ users: UserProfile[]; total: number 
   }
 
   // Merge email into profiles
-  const users: UserProfile[] = profiles.map((p: any) => ({
+  type ProfileRow = Omit<UserProfile, "email">;
+  const users: UserProfile[] = (profiles as ProfileRow[]).map((p) => ({
     ...p,
     email: emailMap.get(p.id) ?? "",
   }));

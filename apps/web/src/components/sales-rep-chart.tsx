@@ -25,11 +25,7 @@ export function SalesRepChart({ initialData, initialMonth }: SalesRepChartProps)
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    // Use cached initialData only for the exact initial month in month-mode
-    if (viewMode === "month" && month === initialMonth) {
-      setData(initialData);
-      return;
-    }
+    if (viewMode === "month" && month === initialMonth) return;
     startTransition(async () => {
       try {
         if (viewMode === "year") {
@@ -70,7 +66,7 @@ export function SalesRepChart({ initialData, initialMonth }: SalesRepChartProps)
         setData([]);
       }
     });
-  }, [month, viewMode, initialMonth, initialData]);
+  }, [month, viewMode, initialMonth]);
 
   function navigate(dir: -1 | 1) {
     if (viewMode === "year") {

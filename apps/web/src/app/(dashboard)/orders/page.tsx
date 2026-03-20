@@ -84,7 +84,7 @@ export default async function OrdersPage({ searchParams }: Props) {
     ? getMessageById(params.create_from_message)
     : Promise.resolve(null);
 
-  const [result, allProducts, displayColumns, sourceMessage, orderStats, calendarOrders, { hospitals }] = await Promise.all([
+  const [result, allProducts, , sourceMessage, orderStats, calendarOrders, { hospitals }] = await Promise.all([
     getOrderItems({ status, hospital_id: hospitalId, search, from: params.from, to: params.to, limit, offset })
       .catch(() => ({ items: [], total: 0 })),
     getProductsCatalog().catch(() => []),

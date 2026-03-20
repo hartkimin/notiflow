@@ -43,7 +43,7 @@ export function InvoiceTrendChart({ data }: { data: MonthlySalesTrend[] }) {
             dx={-10}
           />
           <Tooltip 
-            formatter={(value: any, name: any) => {
+            formatter={(value, name) => {
               const label = name === "invoiced_amount" ? "발행 완료" : "미발행 금액";
               return [`${Number(value).toLocaleString()}원`, label];
             }}

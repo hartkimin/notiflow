@@ -1,9 +1,7 @@
 import Link from "next/link";
 import {
   ArrowUpRight,
-  TrendingUp,
   FileText,
-  Building2,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -57,7 +55,6 @@ export default async function DashboardHome({ searchParams }: Props) {
   const selectedMonth = params.month || currentMonth;
   const prevMonth = getMonthOffset(selectedMonth, -1);
   const nextMonth = getMonthOffset(selectedMonth, 1);
-  const monthLabel = `${selectedMonth.slice(0, 4)}년 ${parseInt(selectedMonth.slice(5))}월`;
   const isCurrentMonth = selectedMonth === currentMonth;
 
   const selectedYear = params.year ? parseInt(params.year) : now.getFullYear();

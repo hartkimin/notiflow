@@ -118,8 +118,8 @@ export default async function OrdersPage({ searchParams }: Props) {
                 <TabsList>
                   <TabsTrigger value="all" asChild><Link href="/orders">전체</Link></TabsTrigger>
                   <TabsTrigger value="confirmed" asChild><Link href="/orders?status=confirmed">확인됨</Link></TabsTrigger>
-                  <TabsTrigger value="processing" asChild><Link href="/orders?status=processing">처리중</Link></TabsTrigger>
                   <TabsTrigger value="delivered" asChild><Link href="/orders?status=delivered">배송완료</Link></TabsTrigger>
+                  <TabsTrigger value="invoiced" asChild><Link href="/orders?status=invoiced">세금계산서발행</Link></TabsTrigger>
                 </TabsList>
                 <TabsContent value={status || "all"}>
                   <Card>

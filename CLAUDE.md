@@ -130,7 +130,7 @@ Mobile reads `SUPABASE_URL`, `SUPABASE_KEY`, and `HUGGING_FACE_TOKEN` from `apps
 
 - Node.js 22+ required (CI uses Node 22)
 - Korean language content throughout (UI labels, messages, docs)
-- Order status workflow: `draft` → `confirmed` → `processing` → `delivered`
+- Order status workflow: `draft` → `confirmed` → `delivered` → `invoiced` (tax invoice issued)
 - AI parsing uses confidence threshold of 0.7; below that falls back to regex parser
 - Next.js standalone output mode — important for Docker and Vercel deployment
 - Tailwind CSS 4 via `@tailwindcss/postcss` plugin (no separate tailwind.config)

@@ -251,7 +251,7 @@ export async function requestAllDevicesSync() {
   return data as { success: boolean; fcm_sent: number; fcm_failed: number; realtime_updated: number };
 }
 
-// --- Users (via manage-users Edge Function) ---
+// --- Users (direct admin client — no Edge Function dependency) ---
 
 export async function createUser(data: {
   email: string;
@@ -259,32 +259,14 @@ export async function createUser(data: {
   name: string;
   role?: string;
 }) {
-  const supabase = await createClient();
-  
-  try {
-    // 1. Try Edge Function first
-    const { data: result, error: funcError } = await supabase.functions.invoke("manage-users", {
-      body: { _action: "create", ...data },
-    });
-
-    if (!funcError) {
-      revalidatePath("/users");
-      return result;
-    }
-
-    console.warn("manage-users edge function failed, attempting direct admin creation:", funcError.message);
-  } catch (e) {
-    console.warn("Edge function invoke error, falling back to direct admin client");
-  }
-
-  // 2. Direct Admin Client Fallback (more reliable for local dev)
   const admin = createAdminClient();
+  const role = data.role || "viewer";
 
   const { data: newUser, error: createError } = await admin.auth.admin.createUser({
     email: data.email,
     password: data.password,
     email_confirm: true,
-    user_metadata: { name: data.name, role: data.role || "viewer" },
+    user_metadata: { name: data.name, role },
   });
 
   if (createError) {
@@ -297,7 +279,7 @@ export async function createUser(data: {
     .upsert({
       id: newUser.user.id,
       name: data.name,
-      role: data.role || "viewer",
+      role,
       is_active: true,
     }, { onConflict: "id" });
 
@@ -307,38 +289,99 @@ export async function createUser(data: {
   }
 
   revalidatePath("/users");
-  return { 
-    user: { 
-      id: newUser.user.id, 
-      email: newUser.user.email, 
-      name: data.name, 
-      role: data.role || "viewer" 
-    } 
+  return {
+    user: {
+      id: newUser.user.id,
+      email: newUser.user.email,
+      name: data.name,
+      role,
+    },
   };
 }
 
 export async function updateUser(id: string, data: Record<string, unknown>) {
-  const supabase = await createClient();
-  const { data: result, error } = await supabase.functions.invoke("manage-users", {
-    body: { _action: "update", id, ...data },
-  });
-  if (error) {
-    return { error: result?.error ?? error.message ?? "사용자 수정 실패" };
+  const admin = createAdminClient();
+  const { name, role, is_active, password } = data as {
+    name?: string; role?: string; is_active?: boolean; password?: string;
+  };
+
+  // Last admin protection
+  if (role !== undefined || is_active === false) {
+    const { data: current } = await admin.from("user_profiles").select("role").eq("id", id).single();
+    if (current?.role === "admin") {
+      const changingRole = role !== undefined && role !== "admin";
+      if (changingRole || is_active === false) {
+        const { count } = await admin.from("user_profiles").select("*", { count: "exact", head: true }).eq("role", "admin").eq("is_active", true);
+        if ((count || 0) <= 1) {
+          return { error: "마지막 관리자는 변경할 수 없습니다." };
+        }
+      }
+    }
   }
+
+  // Update user_profiles
+  const profileUpdate: Record<string, unknown> = {};
+  if (name !== undefined) profileUpdate.name = name;
+  if (role !== undefined) profileUpdate.role = role;
+  if (is_active !== undefined) profileUpdate.is_active = is_active;
+
+  if (Object.keys(profileUpdate).length > 0) {
+    const { error } = await admin.from("user_profiles").update(profileUpdate).eq("id", id);
+    if (error) return { error: `프로필 수정 실패: ${error.message}` };
+  }
+
+  // Sync to auth: password and/or user_metadata
+  const authUpdate: Record<string, unknown> = {};
+  if (password) authUpdate.password = password;
+  if (name !== undefined || role !== undefined) {
+    const { data: { user } } = await admin.auth.admin.getUserById(id);
+    authUpdate.user_metadata = {
+      ...(user?.user_metadata ?? {}),
+      ...(name !== undefined ? { name } : {}),
+      ...(role !== undefined ? { role } : {}),
+    };
+  }
+  if (Object.keys(authUpdate).length > 0) {
+    const { error } = await admin.auth.admin.updateUserById(id, authUpdate);
+    if (error) return { error: `인증 사용자 수정 실패: ${error.message}` };
+  }
+
+  // Return updated profile
+  const { data: updated } = await admin.from("user_profiles").select("*").eq("id", id).single();
+  const { data: { user: authUser } } = await admin.auth.admin.getUserById(id);
+
   revalidatePath("/users");
-  return result;
+  return {
+    user: {
+      id,
+      email: authUser?.email ?? null,
+      name: updated?.name ?? null,
+      role: updated?.role ?? "viewer",
+      is_active: updated?.is_active ?? true,
+      created_at: authUser?.created_at ?? null,
+      updated_at: updated?.updated_at ?? null,
+    },
+  };
 }
 
 export async function deleteUser(id: string) {
-  const supabase = await createClient();
-  const { data: result, error } = await supabase.functions.invoke("manage-users", {
-    body: { _action: "delete", id },
-  });
-  if (error) {
-    return { error: result?.error ?? error.message ?? "사용자 비활성화 실패" };
+  const admin = createAdminClient();
+
+  // Last admin protection
+  const { data: target } = await admin.from("user_profiles").select("role").eq("id", id).single();
+  if (target?.role === "admin") {
+    const { count } = await admin.from("user_profiles").select("*", { count: "exact", head: true }).eq("role", "admin").eq("is_active", true);
+    if ((count || 0) <= 1) {
+      return { error: "마지막 관리자는 변경할 수 없습니다." };
+    }
   }
+
+  // Soft delete
+  const { error } = await admin.from("user_profiles").update({ is_active: false }).eq("id", id);
+  if (error) return { error: `사용자 비활성화 실패: ${error.message}` };
+
   revalidatePath("/users");
-  return result;
+  return { success: true, id };
 }
 
 // --- KPIS Reports ---

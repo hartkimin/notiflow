@@ -119,6 +119,83 @@ export async function getDashboardKpis(month?: string): Promise<DashboardKpis> {
   };
 }
 
+// ─── 1b. 연간 KPI ───
+
+export interface YearlyKpis {
+  year: number;
+  revenue: number;
+  purchase: number;
+  profit: number;
+  profitMargin: number;
+  orderCount: number;
+  invoicesIssued: number;
+  unbilledOrders: number;
+  prevYearRevenue: number;
+  revenueGrowth: number;
+}
+
+export async function getYearlyKpis(year?: number): Promise<YearlyKpis> {
+  const supabase = await createClient();
+  const y = year ?? new Date().getFullYear();
+  const yearStart = `${y}-01-01`;
+  const yearEnd = `${y + 1}-01-01`;
+  const prevYearStart = `${y - 1}-01-01`;
+
+  // This year orders
+  const { data: orders } = await supabase
+    .from("orders")
+    .select("id, status, supply_amount")
+    .gte("order_date", yearStart)
+    .lt("order_date", yearEnd);
+
+  const rows = orders ?? [];
+  const orderIds = rows.map((o) => o.id);
+  const revenue = rows.reduce((s, o) => s + Number(o.supply_amount || 0), 0);
+
+  let purchase = 0;
+  if (orderIds.length > 0) {
+    const { data: items } = await supabase
+      .from("order_items")
+      .select("quantity, purchase_price")
+      .in("order_id", orderIds);
+    purchase = (items ?? []).reduce((s, i) => s + (i.purchase_price ?? 0) * i.quantity, 0);
+  }
+
+  // Prev year revenue
+  const { data: prevOrders } = await supabase
+    .from("orders")
+    .select("supply_amount")
+    .gte("order_date", prevYearStart)
+    .lt("order_date", yearStart);
+  const prevYearRevenue = (prevOrders ?? []).reduce((s, o) => s + Number(o.supply_amount || 0), 0);
+
+  // Status counts & invoices
+  const statusCounts: Record<string, number> = {};
+  for (const o of rows) statusCounts[o.status] = (statusCounts[o.status] || 0) + 1;
+
+  const { data: invoices } = await supabase
+    .from("tax_invoices")
+    .select("status")
+    .gte("issue_date", yearStart)
+    .lt("issue_date", yearEnd);
+  const invoicesIssued = (invoices ?? []).filter((i) => i.status === "issued" || i.status === "sent").length;
+
+  const profit = revenue - purchase;
+
+  return {
+    year: y,
+    revenue,
+    purchase,
+    profit,
+    profitMargin: revenue > 0 ? (profit / revenue) * 100 : 0,
+    orderCount: rows.length,
+    invoicesIssued,
+    unbilledOrders: statusCounts.delivered ?? 0,
+    prevYearRevenue,
+    revenueGrowth: prevYearRevenue > 0 ? ((revenue - prevYearRevenue) / prevYearRevenue) * 100 : 0,
+  };
+}
+
 // ─── 2. 거래처별 매출 Top 10 ───
 
 export interface HospitalRanking {

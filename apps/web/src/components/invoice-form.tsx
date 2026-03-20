@@ -233,7 +233,9 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
                 </TableHeader>
                 <TableBody>
                   {allItems.map((item, idx) => {
-                    const profit = ((item.unit_price ?? 0) - (item.purchase_price ?? 0)) * item.quantity;
+                    const purchaseTotal = (item.purchase_price ?? 0) * item.quantity;
+                    const salesTotal = (item.unit_price ?? 0) * item.quantity;
+                    const profit = salesTotal - purchaseTotal;
                     return (
                       <TableRow key={`${item.id}-${idx}`}>
                         <TableCell className="text-xs text-muted-foreground">{item.order_number}</TableCell>
@@ -241,7 +243,7 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
                         <TableCell className="text-xs text-right tabular-nums">{item.quantity}</TableCell>
                         <TableCell className="text-xs text-right tabular-nums">{item.purchase_price?.toLocaleString() ?? "-"}</TableCell>
                         <TableCell className="text-xs text-right tabular-nums">{item.unit_price?.toLocaleString() ?? "-"}</TableCell>
-                        <TableCell className="text-xs text-right tabular-nums">{item.line_total?.toLocaleString() ?? "-"}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">{salesTotal.toLocaleString()}</TableCell>
                         <TableCell className={`text-xs text-right tabular-nums ${profit < 0 ? "text-red-500" : "text-green-600"}`}>
                           {profit.toLocaleString()}
                         </TableCell>

@@ -105,7 +105,7 @@ function DayItem({ order }: { order: OrderDetail }) {
                   <TableCell className="text-[11px] py-0.5 text-right tabular-nums">{item.quantity}</TableCell>
                   <TableCell className="text-[11px] py-0.5 text-right tabular-nums">{item.purchase_price?.toLocaleString() ?? "-"}</TableCell>
                   <TableCell className="text-[11px] py-0.5 text-right tabular-nums">{item.unit_price?.toLocaleString() ?? "-"}</TableCell>
-                  <TableCell className="text-[11px] py-0.5 text-right tabular-nums">{item.line_total?.toLocaleString() ?? "-"}</TableCell>
+                  <TableCell className="text-[11px] py-0.5 text-right tabular-nums">{((item.unit_price ?? 0) * item.quantity).toLocaleString()}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -204,7 +204,7 @@ function DetailContent({ order }: { order: OrderDetail }) {
                       <TableCell className="text-xs py-1 text-right tabular-nums">{item.quantity}</TableCell>
                       <TableCell className="text-xs py-1 text-right tabular-nums">{item.purchase_price?.toLocaleString() ?? "-"}</TableCell>
                       <TableCell className="text-xs py-1 text-right tabular-nums">{item.unit_price?.toLocaleString() ?? "-"}</TableCell>
-                      <TableCell className="text-xs py-1 text-right tabular-nums">{item.line_total?.toLocaleString() ?? "-"}</TableCell>
+                      <TableCell className="text-xs py-1 text-right tabular-nums">{((item.unit_price ?? 0) * item.quantity).toLocaleString()}</TableCell>
                       <TableCell className={`text-xs py-1 text-right tabular-nums ${itemProfit < 0 ? "text-red-500" : "text-green-600"}`}>{itemProfit.toLocaleString()}</TableCell>
                       <TableCell className="text-xs py-1">{item.sales_rep || "-"}</TableCell>
                     </TableRow>

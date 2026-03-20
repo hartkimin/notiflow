@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { File, PlusCircle } from "lucide-react";
 
-import { getOrderItems } from "@/lib/queries/orders";
+import { getOrderItems, getOrderSummaryStats } from "@/lib/queries/orders";
 import { getProductsCatalog } from "@/lib/queries/products";
 import { getOrderDisplayColumns } from "@/lib/queries/settings";
 import { getMessageById } from "@/lib/queries/messages";
@@ -71,12 +71,13 @@ export default async function OrdersPage({ searchParams }: Props) {
     ? getMessageById(params.create_from_message)
     : Promise.resolve(null);
 
-  const [result, allProducts, displayColumns, sourceMessage] = await Promise.all([
+  const [result, allProducts, displayColumns, sourceMessage, orderStats] = await Promise.all([
     getOrderItems({ status, from: params.from, to: params.to, limit, offset })
       .catch(() => ({ items: [], total: 0 })),
     getProductsCatalog().catch(() => []),
     getOrderDisplayColumns(),
     messagePromise,
+    getOrderSummaryStats({ status, from: params.from, to: params.to }).catch(() => null),
   ]);
 
   const productOptions: ProductOption[] = allProducts.map((p) => ({
@@ -105,6 +106,35 @@ export default async function OrdersPage({ searchParams }: Props) {
           </Button>
         </div>
       </div>
+
+      {orderStats && (
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-sm text-muted-foreground">주문 건수</div>
+              <div className="text-2xl font-bold">{orderStats.total_count}건</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-sm text-muted-foreground">공급가액</div>
+              <div className="text-2xl font-bold">₩{orderStats.total_supply_amount.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-sm text-muted-foreground">세액</div>
+              <div className="text-2xl font-bold">₩{orderStats.total_tax_amount.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-sm text-muted-foreground">합계금액</div>
+              <div className="text-2xl font-bold">₩{orderStats.total_amount.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <ClientTabs
         initialTab={initialTab}

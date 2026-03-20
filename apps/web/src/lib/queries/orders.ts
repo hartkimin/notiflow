@@ -182,6 +182,47 @@ export async function generateOrderNumber(): Promise<string> {
   return data as string;
 }
 
+export interface OrderSummaryStats {
+  total_count: number;
+  total_supply_amount: number;
+  total_tax_amount: number;
+  total_amount: number;
+  status_counts: Record<string, number>;
+}
+
+export async function getOrderSummaryStats(params: {
+  status?: string;
+  from?: string;
+  to?: string;
+} = {}): Promise<OrderSummaryStats> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("orders")
+    .select("status, supply_amount, tax_amount, total_amount");
+
+  if (params.status) query = query.eq("status", params.status);
+  if (params.from) query = query.gte("order_date", params.from);
+  if (params.to) query = query.lte("order_date", params.to);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const rows = data ?? [];
+  const statusCounts: Record<string, number> = {};
+  for (const r of rows) {
+    statusCounts[r.status] = (statusCounts[r.status] || 0) + 1;
+  }
+
+  return {
+    total_count: rows.length,
+    total_supply_amount: rows.reduce((s, r) => s + Number(r.supply_amount || 0), 0),
+    total_tax_amount: rows.reduce((s, r) => s + Number(r.tax_amount || 0), 0),
+    total_amount: rows.reduce((s, r) => s + Number(r.total_amount || 0), 0),
+    status_counts: statusCounts,
+  };
+}
+
 /**
  * Get all orders in a date range (no pagination) for calendar view.
  */

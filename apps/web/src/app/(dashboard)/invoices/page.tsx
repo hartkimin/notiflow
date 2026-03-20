@@ -63,12 +63,15 @@ export default async function InvoicesPage({
               <div className="text-2xl font-bold">₩{stats.total_amount.toLocaleString()}</div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-sm text-muted-foreground">미발행 주문</div>
-              <div className="text-2xl font-bold text-orange-600">{stats.unbilled_order_count}건</div>
-            </CardContent>
-          </Card>
+          <Link href="/invoices/new">
+            <Card className="hover:border-orange-300 transition-colors cursor-pointer">
+              <CardContent className="p-4">
+                <div className="text-sm text-muted-foreground">미발행 주문</div>
+                <div className="text-2xl font-bold text-orange-600">{stats.unbilled_order_count}건</div>
+                <div className="text-xs text-muted-foreground mt-1">클릭하여 발행 →</div>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       )}
       <Tabs defaultValue={status || "all"}>

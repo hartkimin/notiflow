@@ -7,6 +7,7 @@ import {
   Search,
   BookmarkCheck,
   MessageSquare,
+  FileText,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -31,6 +32,7 @@ export const navGroups: NavGroup[] = [
       { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
       { href: "/notifications", label: "수신 메시지", icon: MessageSquare },
       { href: "/orders", label: "주문 현황", icon: ClipboardList },
+      { href: "/invoices", label: "세금계산서", icon: FileText },
     ],
   },
   {

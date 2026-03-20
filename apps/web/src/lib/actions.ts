@@ -695,28 +695,40 @@ export async function searchMfdsItems(params: any) {
   const supabase = await createClient();
   const q = query.trim();
   const from = (page - 1) * pageSize, to = from + pageSize - 1;
-  let dbQuery = supabase.from("mfds_items").select("*", { count: "exact" }).eq("source_type", sourceType);
 
-  if (q) dbQuery = dbQuery.or(`item_name.ilike.%${q}%,manufacturer.ilike.%${q}%,standard_code.ilike.%${q}%`);
-  for (const chip of filters) dbQuery = dbQuery.filter(`raw_data->>${chip.field}`, "ilike", `%${chip.value}%`);
-  dbQuery = dbQuery.order("item_name", { ascending: sortOrder === "asc" }).range(from, to);
+  const tableName = sourceType === "drug" ? "mfds_drugs" : "mfds_devices";
+  const nameCol = sourceType === "drug" ? "item_name" : "prdlst_nm";
+  const mfrCol = sourceType === "drug" ? "entp_name" : "mnft_iprt_entp_nm";
+  const codeCol = sourceType === "drug" ? "bar_code" : "udidi_cd";
+
+  let dbQuery = supabase.from(tableName).select("*", { count: "exact" });
+
+  if (q) dbQuery = dbQuery.or(`${nameCol}.ilike.%${q}%,${mfrCol}.ilike.%${q}%,${codeCol}.ilike.%${q}%`);
+  for (const chip of filters) dbQuery = dbQuery.filter(chip.field.toLowerCase(), "ilike", `%${chip.value}%`);
+  dbQuery = dbQuery.order(nameCol, { ascending: sortOrder === "asc" }).range(from, to);
 
   const { data, count, error } = await dbQuery;
   if (error) throw error;
-  const items = (data ?? []).map((row: any) => ({ ...row.raw_data, id: row.source_key, MFDS_ID: row.id }));
+  const items = (data ?? []).map((row: any) => ({ ...row, _type: sourceType }));
   return { items, totalCount: count ?? 0, page };
 }
 
 export async function addToMyDrugs(item: Record<string, unknown>): Promise<{ success: boolean; id?: number; alreadyExists?: boolean }> {
   const supabase = await createClient();
-  const barCode = (item.BAR_CODE as string) ?? (item.bar_code as string) ?? null;
+  const barCode = (item.bar_code as string) ?? (item.BAR_CODE as string) ?? null;
   if (barCode) {
     const { data: existing } = await supabase.from("my_drugs").select("id").eq("bar_code", barCode).maybeSingle();
     if (existing) return { success: true, id: existing.id, alreadyExists: true };
   }
   const row: any = {};
-  const drugKeys = ["ITEM_SEQ", "ITEM_NAME", "ITEM_ENG_NAME", "ENTP_NAME", "ENTP_NO", "ITEM_PERMIT_DATE", "CNSGN_MANUF", "ETC_OTC_CODE", "CHART", "BAR_CODE", "MATERIAL_NAME", "EE_DOC_ID", "UD_DOC_ID", "NB_DOC_ID", "STORAGE_METHOD", "VALID_TERM", "PACK_UNIT", "EDI_CODE", "PERMIT_KIND_NAME", "CANCEL_DATE", "CANCEL_NAME", "CHANGE_DATE", "ATC_CODE", "RARE_DRUG_YN"];
-  for (const key of drugKeys) row[key.toLowerCase()] = (item[key] as string) ?? (item[key.toLowerCase()] as string) ?? null;
+  const cols = [
+    "item_seq", "item_name", "item_eng_name", "entp_name", "entp_no",
+    "item_permit_date", "cnsgn_manuf", "etc_otc_code", "chart", "bar_code",
+    "material_name", "ee_doc_id", "ud_doc_id", "nb_doc_id", "storage_method",
+    "valid_term", "pack_unit", "edi_code", "permit_kind_name", "cancel_date",
+    "cancel_name", "change_date", "atc_code", "rare_drug_yn",
+  ];
+  for (const col of cols) row[col] = (item[col] as string) ?? null;
   const { data, error } = await supabase.from("my_drugs").insert(row).select("id").single();
   if (error) { console.error("addToMyDrugs error:", error); return { success: false }; }
   revalidatePath("/products"); return { success: true, id: data.id };
@@ -778,9 +790,8 @@ export async function getMfdsSyncStatus() {
     supabase.from("mfds_sync_logs").select("finished_at").eq("status", "completed").order("finished_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("mfds_sync_meta").select("*").eq("source_type", "drug").maybeSingle(),
     supabase.from("mfds_sync_meta").select("*").eq("source_type", "device_std").maybeSingle(),
-    supabase.from("mfds_items").select("id", { count: "exact", head: true }).eq("source_type", "drug"),
-    supabase.from("mfds_items").select("id", { count: "exact", head: true }).eq("source_type", "device_std"),
-    // Fallback: get api_total_count from latest sync log if meta is missing
+    supabase.from("mfds_drugs").select("id", { count: "exact", head: true }),
+    supabase.from("mfds_devices").select("id", { count: "exact", head: true }),
     supabase.from("mfds_sync_logs").select("api_total_count").eq("source_type", "drug").not("api_total_count", "is", null).order("started_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("mfds_sync_logs").select("api_total_count").eq("source_type", "device_std").not("api_total_count", "is", null).order("started_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
@@ -790,10 +801,7 @@ export async function getMfdsSyncStatus() {
     drugApiCount: metaDrug.data?.api_total_count ?? logDrug.data?.api_total_count ?? null,
     deviceCount: deviceCount.count ?? 0,
     deviceApiCount: metaDevice.data?.api_total_count ?? logDevice.data?.api_total_count ?? null,
-    meta: {
-      drug: metaDrug.data ?? null,
-      device_std: metaDevice.data ?? null,
-    },
+    meta: { drug: metaDrug.data ?? null, device_std: metaDevice.data ?? null },
   };
 }
 

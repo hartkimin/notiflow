@@ -26,16 +26,22 @@ export async function getDashboardKpis(): Promise<DashboardKpis> {
   const supabase = await createClient();
 
   const now = new Date();
-  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+  const thisMonthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  const nextMonthStart = (() => {
+    const d = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  })();
+  const prevMonthStart = (() => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  })();
 
   // Current month orders
   const { data: thisMonthOrders } = await supabase
     .from("orders")
     .select("id, status, supply_amount")
-    .gte("order_date", `${thisMonth}-01`)
-    .lt("order_date", `${thisMonth}-32`);
+    .gte("order_date", thisMonthStart)
+    .lt("order_date", nextMonthStart);
 
   const orders = thisMonthOrders ?? [];
 
@@ -57,8 +63,8 @@ export async function getDashboardKpis(): Promise<DashboardKpis> {
   const { data: prevOrders } = await supabase
     .from("orders")
     .select("supply_amount")
-    .gte("order_date", `${prevMonth}-01`)
-    .lt("order_date", `${prevMonth}-32`);
+    .gte("order_date", prevMonthStart)
+    .lt("order_date", thisMonthStart);
 
   const prevMonthRevenue = (prevOrders ?? []).reduce((s, o) => s + Number(o.supply_amount || 0), 0);
   const revenueGrowth = prevMonthRevenue > 0 ? ((monthlyRevenue - prevMonthRevenue) / prevMonthRevenue) * 100 : 0;
@@ -184,11 +190,14 @@ export async function getSalesRepPerformance(month?: string): Promise<SalesRepPe
   // If month specified (YYYY-MM), filter orders by that month
   let orderIds: number[] | null = null;
   if (month) {
+    const [y, m] = month.split("-").map(Number);
+    const nextMonth = new Date(y, m, 1); // m is already 1-based, Date uses 0-based → gives next month
+    const nextMonthStr = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, "0")}-01`;
     const { data: orders } = await supabase
       .from("orders")
       .select("id")
       .gte("order_date", `${month}-01`)
-      .lt("order_date", `${month}-32`);
+      .lt("order_date", nextMonthStr);
     orderIds = (orders ?? []).map((o) => o.id);
     if (orderIds.length === 0) return [];
   }

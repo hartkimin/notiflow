@@ -187,6 +187,9 @@ export interface OrderSummaryStats {
   total_supply_amount: number;
   total_tax_amount: number;
   total_amount: number;
+  total_purchase_amount: number;
+  total_profit: number;
+  profit_margin: number;
   status_counts: Record<string, number>;
 }
 
@@ -197,28 +200,51 @@ export async function getOrderSummaryStats(params: {
 } = {}): Promise<OrderSummaryStats> {
   const supabase = await createClient();
 
-  let query = supabase
+  // Fetch orders
+  let orderQuery = supabase
     .from("orders")
-    .select("status, supply_amount, tax_amount, total_amount");
+    .select("id, status, supply_amount, tax_amount, total_amount");
 
-  if (params.status) query = query.eq("status", params.status);
-  if (params.from) query = query.gte("order_date", params.from);
-  if (params.to) query = query.lte("order_date", params.to);
+  if (params.status) orderQuery = orderQuery.eq("status", params.status);
+  if (params.from) orderQuery = orderQuery.gte("order_date", params.from);
+  if (params.to) orderQuery = orderQuery.lte("order_date", params.to);
 
-  const { data, error } = await query;
-  if (error) throw error;
+  const { data: orders, error: orderError } = await orderQuery;
+  if (orderError) throw orderError;
 
-  const rows = data ?? [];
+  const rows = orders ?? [];
+  const orderIds = rows.map((r) => r.id);
+
+  // Fetch order items for purchase/profit calculation
+  let totalPurchase = 0;
+  let totalSales = 0;
+  if (orderIds.length > 0) {
+    const { data: items } = await supabase
+      .from("order_items")
+      .select("order_id, quantity, unit_price, purchase_price")
+      .in("order_id", orderIds);
+
+    for (const item of items ?? []) {
+      totalPurchase += (item.purchase_price ?? 0) * item.quantity;
+      totalSales += (item.unit_price ?? 0) * item.quantity;
+    }
+  }
+
   const statusCounts: Record<string, number> = {};
   for (const r of rows) {
     statusCounts[r.status] = (statusCounts[r.status] || 0) + 1;
   }
+
+  const profit = totalSales - totalPurchase;
 
   return {
     total_count: rows.length,
     total_supply_amount: rows.reduce((s, r) => s + Number(r.supply_amount || 0), 0),
     total_tax_amount: rows.reduce((s, r) => s + Number(r.tax_amount || 0), 0),
     total_amount: rows.reduce((s, r) => s + Number(r.total_amount || 0), 0),
+    total_purchase_amount: totalPurchase,
+    total_profit: profit,
+    profit_margin: totalSales > 0 ? (profit / totalSales) * 100 : 0,
     status_counts: statusCounts,
   };
 }

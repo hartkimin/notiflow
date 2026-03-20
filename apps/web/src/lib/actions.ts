@@ -279,25 +279,27 @@ export async function createUser(data: {
 
   // 2. Direct Admin Client Fallback (more reliable for local dev)
   const admin = createAdminClient();
-  
+
   const { data: newUser, error: createError } = await admin.auth.admin.createUser({
     email: data.email,
     password: data.password,
     email_confirm: true,
+    user_metadata: { name: data.name, role: data.role || "viewer" },
   });
 
   if (createError) {
     return { error: `인증 사용자 생성 실패: ${createError.message}` };
   }
 
+  // Upsert: trigger may have already created a default profile row
   const { error: profileError } = await admin
     .from("user_profiles")
-    .insert({
+    .upsert({
       id: newUser.user.id,
       name: data.name,
       role: data.role || "viewer",
       is_active: true,
-    });
+    }, { onConflict: "id" });
 
   if (profileError) {
     await admin.auth.admin.deleteUser(newUser.user.id);

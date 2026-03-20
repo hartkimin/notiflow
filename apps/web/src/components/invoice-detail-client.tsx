@@ -327,10 +327,10 @@ export default function InvoiceDetailClient({ invoice }: Props) {
                 <TableHead>품명</TableHead>
                 <TableHead>규격</TableHead>
                 <TableHead className="w-16 text-right">수량</TableHead>
-                <TableHead className="w-24 text-right">매입단가</TableHead>
-                <TableHead className="w-24 text-right">매입총액</TableHead>
-                <TableHead className="w-24 text-right">매출단가</TableHead>
-                <TableHead className="w-24 text-right">매출총액</TableHead>
+                <TableHead className="w-24 text-right">매입단가(VAT별도)</TableHead>
+                <TableHead className="w-24 text-right">매입총액(VAT별도)</TableHead>
+                <TableHead className="w-24 text-right">매출단가(VAT별도)</TableHead>
+                <TableHead className="w-24 text-right">매출총액(VAT별도)</TableHead>
                 <TableHead className="w-24 text-right">매출이익</TableHead>
                 <TableHead className="w-16 text-right">이익률</TableHead>
                 <TableHead className="w-20 text-right">세액</TableHead>

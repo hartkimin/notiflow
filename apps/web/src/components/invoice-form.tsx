@@ -224,10 +224,10 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
                     <TableHead className="text-xs">주문번호</TableHead>
                     <TableHead className="text-xs">품목명</TableHead>
                     <TableHead className="text-xs text-right w-14">수량</TableHead>
-                    <TableHead className="text-xs text-right w-20">매입단가</TableHead>
-                    <TableHead className="text-xs text-right w-20">매입총액</TableHead>
-                    <TableHead className="text-xs text-right w-20">매출단가</TableHead>
-                    <TableHead className="text-xs text-right w-20">매출총액</TableHead>
+                    <TableHead className="text-xs text-right w-20">매입단가(VAT별도)</TableHead>
+                    <TableHead className="text-xs text-right w-20">매입총액(VAT별도)</TableHead>
+                    <TableHead className="text-xs text-right w-20">매출단가(VAT별도)</TableHead>
+                    <TableHead className="text-xs text-right w-20">매출총액(VAT별도)</TableHead>
                     <TableHead className="text-xs text-right w-20">이익</TableHead>
                     <TableHead className="text-xs text-right w-14">이익률</TableHead>
                     <TableHead className="text-xs w-16">담당자</TableHead>

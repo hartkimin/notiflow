@@ -93,8 +93,8 @@ function DayItem({ order }: { order: OrderDetail }) {
               <TableRow className="bg-muted/30">
                 <TableHead className="text-[10px] py-1 h-auto">품목</TableHead>
                 <TableHead className="text-[10px] py-1 h-auto text-right w-12">수량</TableHead>
-                <TableHead className="text-[10px] py-1 h-auto text-right w-16">매입가</TableHead>
-                <TableHead className="text-[10px] py-1 h-auto text-right w-16">매출가</TableHead>
+                <TableHead className="text-[10px] py-1 h-auto text-right w-16">매입가(VAT별도)</TableHead>
+                <TableHead className="text-[10px] py-1 h-auto text-right w-16">매출가(VAT별도)</TableHead>
                 <TableHead className="text-[10px] py-1 h-auto text-right w-16">매출액</TableHead>
               </TableRow>
             </TableHeader>
@@ -188,8 +188,8 @@ function DetailContent({ order }: { order: OrderDetail }) {
                 <TableRow className="bg-muted/30">
                   <TableHead className="text-xs py-1 h-auto">품목명</TableHead>
                   <TableHead className="text-xs py-1 h-auto text-right w-14">수량</TableHead>
-                  <TableHead className="text-xs py-1 h-auto text-right w-20">매입단가</TableHead>
-                  <TableHead className="text-xs py-1 h-auto text-right w-20">매출단가</TableHead>
+                  <TableHead className="text-xs py-1 h-auto text-right w-20">매입단가(VAT별도)</TableHead>
+                  <TableHead className="text-xs py-1 h-auto text-right w-20">매출단가(VAT별도)</TableHead>
                   <TableHead className="text-xs py-1 h-auto text-right w-20">매출액</TableHead>
                   <TableHead className="text-xs py-1 h-auto text-right w-20">이익</TableHead>
                   <TableHead className="text-xs py-1 h-auto w-16">담당자</TableHead>

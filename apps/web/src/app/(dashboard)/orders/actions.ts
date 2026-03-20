@@ -79,7 +79,7 @@ export async function searchHospitalsAction(query: string) {
   if (!query || query.length < 1) return [];
   const { getHospitals } = await import("@/lib/queries/hospitals");
   const { hospitals } = await getHospitals({ search: query, limit: 20 });
-  return hospitals.map((h) => ({ id: h.id, name: h.name }));
+  return hospitals.map((h) => ({ id: h.id, name: h.name, contact_person: h.contact_person ?? null }));
 }
 
 export async function searchSuppliersAction(query: string) {
@@ -275,17 +275,17 @@ export async function getRecentHospitalsAction() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("orders")
-    .select("hospital_id, hospitals!inner(id, name)")
+    .select("hospital_id, hospitals!inner(id, name, contact_person)")
     .order("created_at", { ascending: false })
     .limit(100);
   if (error) return [];
   const seen = new Set<number>();
-  const result: Array<{ id: number; name: string }> = [];
+  const result: Array<{ id: number; name: string; contact_person: string | null }> = [];
   for (const row of data ?? []) {
-    const h = row.hospitals as unknown as { id: number; name: string };
+    const h = row.hospitals as unknown as { id: number; name: string; contact_person: string | null };
     if (!seen.has(h.id)) {
       seen.add(h.id);
-      result.push({ id: h.id, name: h.name });
+      result.push({ id: h.id, name: h.name, contact_person: h.contact_person ?? null });
       if (result.length >= 10) break;
     }
   }

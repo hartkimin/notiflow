@@ -96,6 +96,7 @@ export function OrderInlineForm({
   // ── Header state ──
   const [hospitalId, setHospitalId] = useState<number | null>(null);
   const [hospitalName, setHospitalName] = useState("");
+  const [hospitalContactPerson, setHospitalContactPerson] = useState<string | null>(null);
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
   const [deliveryDate, setDeliveryDate] = useState("");
   const [deliveredAt, setDeliveredAt] = useState("");
@@ -190,7 +191,7 @@ export function OrderInlineForm({
       quantity: 1,
       unit_price: pp.unit_price,
       kpis_number: "",
-      sales_rep: "",
+      sales_rep: hospitalContactPerson ?? "",
     }]);
   }
 
@@ -212,7 +213,7 @@ export function OrderInlineForm({
       quantity: 1,
       unit_price: null,
       kpis_number: "",
-      sales_rep: "",
+      sales_rep: hospitalContactPerson ?? "",
     }]);
   }
 
@@ -351,7 +352,7 @@ export function OrderInlineForm({
                 {hospitalId ? (
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary" className="text-sm py-0.5 px-2">{hospitalName}</Badge>
-                    <button type="button" onClick={() => { setHospitalId(null); setHospitalName(""); setPartnerProducts([]); }} className="text-muted-foreground hover:text-foreground">
+                    <button type="button" onClick={() => { setHospitalId(null); setHospitalName(""); setHospitalContactPerson(null); setPartnerProducts([]); }} className="text-muted-foreground hover:text-foreground">
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -360,7 +361,7 @@ export function OrderInlineForm({
                     placeholder="거래처 검색..."
                     fetchRecent={getRecentHospitalsAction}
                     searchAction={searchHospitalsAction}
-                    onSelect={(h) => { setHospitalId(h.id); setHospitalName(h.name); }}
+                    onSelect={(h: any) => { setHospitalId(h.id); setHospitalName(h.name); setHospitalContactPerson(h.contact_person ?? null); }}
                     className="w-full"
                   />
                 )}
@@ -560,12 +561,20 @@ export function OrderInlineForm({
                             )}
                             {visibleCols.has("sales_rep") && (
                               <TableCell>
-                                <Input
-                                  value={item.sales_rep}
-                                  onChange={(e) => updateItem(item.key, { sales_rep: e.target.value.slice(0, 100) })}
-                                  placeholder="담당자"
-                                  className="h-7 w-full text-xs"
-                                />
+                                <div className="relative">
+                                  <Input
+                                    value={item.sales_rep}
+                                    onChange={(e) => updateItem(item.key, { sales_rep: e.target.value.slice(0, 100) })}
+                                    placeholder="담당자"
+                                    className="h-7 w-full text-xs"
+                                    list={`sales-rep-options-${item.key}`}
+                                  />
+                                  {hospitalContactPerson && (
+                                    <datalist id={`sales-rep-options-${item.key}`}>
+                                      <option value={hospitalContactPerson} />
+                                    </datalist>
+                                  )}
+                                </div>
                               </TableCell>
                             )}
                             <TableCell>

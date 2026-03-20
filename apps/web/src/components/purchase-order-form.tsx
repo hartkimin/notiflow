@@ -116,6 +116,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
   // ── Header state ──
   const [hospitalId, setHospitalId] = useState<number | null>(null);
   const [hospitalName, setHospitalName] = useState("");
+  const [hospitalContactPerson, setHospitalContactPerson] = useState<string | null>(null);
 
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
   const [deliveryDate, setDeliveryDate] = useState("");
@@ -223,7 +224,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
       selling_price: pp.unit_price,
       kpis_number: "",
       source_type: pp.product_source,
-      sales_rep: "",
+      sales_rep: hospitalContactPerson ?? "",
     }]);
   }
 
@@ -314,7 +315,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
       selling_price: null,
       kpis_number: "",
       source_type: sourceType as "drug" | "device",
-      sales_rep: "",
+      sales_rep: hospitalContactPerson ?? "",
     }]);
   }
 
@@ -393,7 +394,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                     </Badge>
                     <button
                       type="button"
-                      onClick={() => { setHospitalId(null); setHospitalName(""); setPartnerProducts([]); }}
+                      onClick={() => { setHospitalId(null); setHospitalName(""); setHospitalContactPerson(null); setPartnerProducts([]); }}
                       className="text-muted-foreground hover:text-foreground"
                     >
                       <X className="h-4 w-4" />
@@ -405,7 +406,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                       placeholder="거래처명을 입력하세요..."
                       fetchRecent={getRecentHospitalsAction}
                       searchAction={searchHospitalsAction}
-                      onSelect={(h) => { setHospitalId(h.id); setHospitalName(h.name); }}
+                      onSelect={(h: any) => { setHospitalId(h.id); setHospitalName(h.name); setHospitalContactPerson(h.contact_person ?? null); }}
                     />
                   </div>
                 )}
@@ -673,12 +674,20 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         )}
                         {visibleCols.has("sales_rep") && (
                           <TableCell>
-                            <Input
-                              value={item.sales_rep}
-                              onChange={(e) => updateItem(item.key, { sales_rep: e.target.value.slice(0, 100) })}
-                              placeholder="담당자"
-                              className="h-7 w-full text-xs"
-                            />
+                            <div className="relative">
+                              <Input
+                                value={item.sales_rep}
+                                onChange={(e) => updateItem(item.key, { sales_rep: e.target.value.slice(0, 100) })}
+                                placeholder="담당자"
+                                className="h-7 w-full text-xs"
+                                list={`sales-rep-options-${item.key}`}
+                              />
+                              {hospitalContactPerson && (
+                                <datalist id={`sales-rep-options-${item.key}`}>
+                                  <option value={hospitalContactPerson} />
+                                </datalist>
+                              )}
+                            </div>
                           </TableCell>
                         )}
                         <TableCell>

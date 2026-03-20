@@ -2,13 +2,10 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   TrendingUp,
-  TrendingDown,
   BarChart2,
   FileText,
-  Truck,
   Building2,
   ClipboardList,
-  AlertCircle,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -68,78 +65,51 @@ export default async function DashboardHome() {
         </div>
       </div>
 
-      {/* ── KPI Cards (대표이사/경영진용) ── */}
+      {/* ── KPI Bar ── */}
       {kpis && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">당월 매출</span>
-                <TrendingUp className="h-4 w-4 text-blue-500" />
-              </div>
-              <div className="text-2xl font-bold mt-1">₩{fmt(kpis.monthlyRevenue)}</div>
-              <div className="flex items-center gap-2 mt-1">
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex items-center gap-5 overflow-x-auto text-sm">
+              {/* 당월 매출 */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
+                <span className="text-muted-foreground">당월 매출</span>
+                <span className="font-bold">₩{fmt(kpis.monthlyRevenue)}</span>
                 {kpis.revenueGrowth >= 0 ? (
-                  <span className="text-xs text-green-600 flex items-center gap-0.5"><TrendingUp className="h-3 w-3" />{kpis.revenueGrowth.toFixed(1)}%</span>
+                  <span className="text-[10px] text-green-600">▲{kpis.revenueGrowth.toFixed(1)}%</span>
                 ) : (
-                  <span className="text-xs text-red-500 flex items-center gap-0.5"><TrendingDown className="h-3 w-3" />{kpis.revenueGrowth.toFixed(1)}%</span>
+                  <span className="text-[10px] text-red-500">▼{Math.abs(kpis.revenueGrowth).toFixed(1)}%</span>
                 )}
-                <span className="text-xs text-muted-foreground">전월 대비</span>
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">당월 이익</span>
-                <BarChart2 className="h-4 w-4 text-green-500" />
+              <div className="h-4 w-px bg-border shrink-0" />
+              {/* 당월 이익 */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-muted-foreground">이익</span>
+                <span className={`font-bold ${kpis.monthlyProfit < 0 ? "text-red-500" : "text-green-600"}`}>₩{fmt(kpis.monthlyProfit)}</span>
+                <span className="text-[10px] text-muted-foreground">{kpis.monthlyProfitMargin.toFixed(1)}%</span>
               </div>
-              <div className={`text-2xl font-bold mt-1 ${kpis.monthlyProfit < 0 ? "text-red-500" : "text-green-600"}`}>
-                ₩{fmt(kpis.monthlyProfit)}
+              <div className="h-4 w-px bg-border shrink-0" />
+              {/* 주문 현황 */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-muted-foreground">주문</span>
+                <span className="font-bold">{kpis.monthlyOrderCount}건</span>
+                <span className="text-[10px] text-muted-foreground">
+                  접수 {kpis.ordersConfirmed} · 배송 {kpis.ordersDelivered} · 발행 {kpis.ordersInvoiced}
+                </span>
               </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                이익률 {kpis.monthlyProfitMargin.toFixed(1)}% · 주문 {kpis.monthlyOrderCount}건
+              <div className="h-4 w-px bg-border shrink-0" />
+              {/* 세금계산서 */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <FileText className="h-3.5 w-3.5 text-purple-500" />
+                <span className="text-muted-foreground">계산서</span>
+                <span className="font-bold">{kpis.invoicesIssued}건</span>
+                {kpis.unbilledOrders > 0 && (
+                  <Link href="/invoices/new" className="text-[10px] text-orange-600 font-medium hover:underline">
+                    미발행 {kpis.unbilledOrders}건 →
+                  </Link>
+                )}
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">세금계산서</span>
-                <FileText className="h-4 w-4 text-purple-500" />
-              </div>
-              <div className="text-2xl font-bold mt-1">{kpis.invoicesIssued}건 발행</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                임시 {kpis.invoicesDraft}건 · <span className="text-orange-600 font-medium">미발행 {kpis.unbilledOrders}건</span>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">주문 현황</span>
-                <Truck className="h-4 w-4 text-amber-500" />
-              </div>
-              <div className="text-2xl font-bold mt-1">{kpis.ordersConfirmed + kpis.ordersDelivered + kpis.ordersInvoiced}건</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                접수 {kpis.ordersConfirmed} · 배송완료 {kpis.ordersDelivered} · 발행완료 {kpis.ordersInvoiced}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* ── 미발행 알림 ── */}
-      {kpis && kpis.unbilledOrders > 0 && (
-        <Card className="border-orange-200 bg-orange-50/50">
-          <CardContent className="p-3 flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 text-orange-500 shrink-0" />
-            <span className="text-sm">
-              배송 완료 후 세금계산서 미발행 주문이 <strong className="text-orange-600">{kpis.unbilledOrders}건</strong> 있습니다.
-            </span>
-            <Button size="sm" variant="outline" className="ml-auto h-7 text-xs" asChild>
-              <Link href="/invoices/new">발행하기 →</Link>
-            </Button>
+            </div>
           </CardContent>
         </Card>
       )}

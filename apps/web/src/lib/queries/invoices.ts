@@ -110,7 +110,7 @@ export async function getUnbilledOrders(hospitalId?: number): Promise<UnbilledOr
 
   let query = supabase
     .from("orders")
-    .select("id, order_number, order_date, hospital_id, status, total_amount, supply_amount, tax_amount, delivery_date, delivered_at, hospitals(name)")
+    .select("id, order_number, order_date, hospital_id, status, total_amount, supply_amount, tax_amount, delivery_date, delivered_at, hospitals(name), order_items(id, product_name, quantity, unit_price, purchase_price, line_total, sales_rep)")
     .eq("status", "delivered")
     .order("order_date", { ascending: false });
 
@@ -123,6 +123,8 @@ export async function getUnbilledOrders(hospitalId?: number): Promise<UnbilledOr
     ...row,
     hospital_name: (row.hospitals as unknown as { name: string } | null)?.name,
     hospitals: undefined,
+    items: (row.order_items ?? []) as UnbilledOrder["items"],
+    order_items: undefined,
   })) as UnbilledOrder[];
 }
 

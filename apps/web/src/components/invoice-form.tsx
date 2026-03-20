@@ -69,11 +69,8 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
   function toggleOne(id: number) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -91,6 +88,12 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
         total: acc.total + (o.total_amount || 0),
       }),
       { supply: 0, tax: 0, total: 0 },
+    );
+  }, [selectedOrders]);
+
+  const allItems = useMemo(() => {
+    return selectedOrders.flatMap((o) =>
+      (o.items ?? []).map((item) => ({ ...item, order_number: o.order_number }))
     );
   }, [selectedOrders]);
 
@@ -122,6 +125,7 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
 
   return (
     <div className="space-y-4">
+      {/* Order selection */}
       <Card>
         <CardHeader>
           <CardTitle>미발행 주문 선택</CardTitle>
@@ -158,6 +162,7 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
                   <TableHead>주문번호</TableHead>
                   <TableHead>주문일</TableHead>
                   <TableHead>병원</TableHead>
+                  <TableHead className="text-right">품목수</TableHead>
                   <TableHead className="text-right">금액</TableHead>
                 </TableRow>
               </TableHeader>
@@ -173,6 +178,7 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
                     <TableCell className="font-medium">{order.order_number}</TableCell>
                     <TableCell>{order.order_date}</TableCell>
                     <TableCell>{order.hospital_name || "-"}</TableCell>
+                    <TableCell className="text-right">{order.items?.length ?? 0}</TableCell>
                     <TableCell className="text-right">
                       ₩{(order.total_amount || 0).toLocaleString()}
                     </TableCell>
@@ -184,6 +190,53 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
         </CardContent>
       </Card>
 
+      {/* Selected items preview */}
+      {allItems.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>발행 품목 내역 ({allItems.length}건)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="border rounded overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="text-xs">주문번호</TableHead>
+                    <TableHead className="text-xs">품목명</TableHead>
+                    <TableHead className="text-xs text-right w-14">수량</TableHead>
+                    <TableHead className="text-xs text-right w-20">매입단가</TableHead>
+                    <TableHead className="text-xs text-right w-20">매출단가</TableHead>
+                    <TableHead className="text-xs text-right w-20">매출액</TableHead>
+                    <TableHead className="text-xs text-right w-20">이익</TableHead>
+                    <TableHead className="text-xs w-16">담당자</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allItems.map((item, idx) => {
+                    const profit = ((item.unit_price ?? 0) - (item.purchase_price ?? 0)) * item.quantity;
+                    return (
+                      <TableRow key={`${item.id}-${idx}`}>
+                        <TableCell className="text-xs text-muted-foreground">{item.order_number}</TableCell>
+                        <TableCell className="text-xs">{item.product_name || "-"}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">{item.quantity}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">{item.purchase_price?.toLocaleString() ?? "-"}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">{item.unit_price?.toLocaleString() ?? "-"}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">{item.line_total?.toLocaleString() ?? "-"}</TableCell>
+                        <TableCell className={`text-xs text-right tabular-nums ${profit < 0 ? "text-red-500" : "text-green-600"}`}>
+                          {profit.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-xs">{item.sales_rep || "-"}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Issue info */}
       <Card>
         <CardHeader>
           <CardTitle>발행 정보</CardTitle>
@@ -205,7 +258,7 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
           <div className="rounded-md border p-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">선택 건수</span>
-              <span className="font-medium">{selectedIds.size}건</span>
+              <span className="font-medium">{selectedIds.size}건 ({allItems.length}품목)</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">공급가액</span>

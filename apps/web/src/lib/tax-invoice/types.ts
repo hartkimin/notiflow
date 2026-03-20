@@ -105,7 +105,17 @@ export interface TaxInvoiceStats {
   };
 }
 
-/** Order with hospital_name resolved — returned by getUnbilledOrders */
+export interface UnbilledOrderItem {
+  id: number;
+  product_name: string | null;
+  quantity: number;
+  unit_price: number | null;
+  purchase_price: number | null;
+  line_total: number | null;
+  sales_rep: string | null;
+}
+
+/** Order with hospital_name + items resolved — returned by getUnbilledOrders */
 export interface UnbilledOrder {
   id: number;
   order_number: string;
@@ -118,6 +128,7 @@ export interface UnbilledOrder {
   tax_amount: number | null;
   delivery_date: string | null;
   delivered_at: string | null;
+  items: UnbilledOrderItem[];
 }
 
 export interface CompanySettings {

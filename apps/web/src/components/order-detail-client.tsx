@@ -89,8 +89,8 @@ const STATUS_VARIANT: Record<
 > = {
   draft: "secondary",
   confirmed: "default",
-  processing: "default",
   delivered: "outline",
+  invoiced: "default",
   cancelled: "destructive",
 };
 
@@ -147,8 +147,8 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
     new Date().toISOString().slice(0, 10),
   );
 
-  const isEditable = !["delivered", "cancelled"].includes(order.status);
-  const canCreateInvoice = ["confirmed", "processing", "delivered"].includes(order.status);
+  const isEditable = !["delivered", "invoiced", "cancelled"].includes(order.status);
+  const canCreateInvoice = order.status === "delivered";
 
   // --- Status actions ---
 
@@ -393,12 +393,6 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
         >
           {STATUS_LABELS[order.status] || order.status}
         </Badge>
-        {order.tax_invoice_status === "partial" && (
-          <Badge variant="outline" className="text-sm">일부발행</Badge>
-        )}
-        {order.tax_invoice_status === "issued" && (
-          <Badge variant="default" className="text-sm">발행완료</Badge>
-        )}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Hash className="h-3.5 w-3.5" />
           <span>{order.items.length}건</span>
@@ -427,22 +421,23 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
           </>
         )}
         {order.status === "confirmed" && (
-          <Button
-            size="sm"
-            onClick={() => handleStatusChange("processing")}
-            disabled={isPending}
-          >
-            {isPending ? "처리중..." : "처리 시작 →"}
-          </Button>
-        )}
-        {order.status === "processing" && (
-          <Button
-            size="sm"
-            onClick={() => handleStatusChange("delivered")}
-            disabled={isPending}
-          >
-            {isPending ? "처리중..." : "배송 완료 →"}
-          </Button>
+          <>
+            <Button
+              size="sm"
+              onClick={() => handleStatusChange("delivered")}
+              disabled={isPending}
+            >
+              {isPending ? "처리중..." : "배송 완료"}
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => handleStatusChange("cancelled")}
+              disabled={isPending}
+            >
+              주문 취소
+            </Button>
+          </>
         )}
 
         {/* Delete */}
@@ -793,12 +788,12 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
       )}
 
       {/* Tax invoice section */}
-      {canCreateInvoice && (
+      {(canCreateInvoice || order.status === "invoiced") && (
         <>
           <Separator className="print:hidden" />
           <div className="space-y-3 print:hidden">
             <h4 className="text-sm font-medium">세금계산서</h4>
-            {linkedInvoices.length > 0 ? (
+            {linkedInvoices.length > 0 && (
               <div className="space-y-2">
                 {linkedInvoices.map((inv) => {
                   const badge = INVOICE_STATUS_BADGE[inv.status] ?? { variant: "secondary" as const, label: inv.status };
@@ -816,7 +811,8 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                   );
                 })}
               </div>
-            ) : (
+            )}
+            {canCreateInvoice && linkedInvoices.length === 0 && (
               <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" variant="outline">세금계산서 발행</Button>

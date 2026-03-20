@@ -7,7 +7,7 @@
  * - Page-by-page: fetch 500 items → UPSERT to DB → next page
  * - No time budget (Docker, not serverless)
  * - Resume: saves next_page after each page → restart continues from there
- * - No duplicates: UPSERT on UNIQUE(source_type, source_key)
+ * - No duplicates: UPSERT on table-specific unique column (item_seq / udidi_cd)
  * - Retry: 3 attempts per page with exponential backoff
  */
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
@@ -19,15 +19,22 @@ const RETRY_BASE_MS = 2_000;
 
 // ─── Types ───────────────────────────────────────────────────────────
 
+interface FieldMapping {
+  apiField: string;
+  dbColumn: string;
+}
+
 interface ApiConfig {
   url: string;
+  tableName: string;
+  uniqueColumn: string;
   sourceKeyField: string;
   itemNameField: string;
   manufacturerField: string;
-  standardCodeField: string;
   permitDateField: string;
   startDateParam: string;
   endDateParam: string;
+  fieldMappings: FieldMapping[];
 }
 
 export type SyncMode = "full" | "incremental";
@@ -54,23 +61,87 @@ export interface SyncResult {
 export const MFDS_API_CONFIGS: Record<string, ApiConfig> = {
   drug: {
     url: "https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService07/getDrugPrdtPrmsnDtlInq06",
+    tableName: "mfds_drugs",
+    uniqueColumn: "item_seq",
     sourceKeyField: "ITEM_SEQ",
     itemNameField: "ITEM_NAME",
     manufacturerField: "ENTP_NAME",
-    standardCodeField: "BAR_CODE",
     permitDateField: "ITEM_PERMIT_DATE",
     startDateParam: "prmsn_dt_start",
     endDateParam: "prmsn_dt_end",
+    fieldMappings: [
+      { apiField: "ITEM_SEQ", dbColumn: "item_seq" },
+      { apiField: "ITEM_NAME", dbColumn: "item_name" },
+      { apiField: "ITEM_ENG_NAME", dbColumn: "item_eng_name" },
+      { apiField: "ENTP_NAME", dbColumn: "entp_name" },
+      { apiField: "ENTP_ENG_NAME", dbColumn: "entp_eng_name" },
+      { apiField: "ENTP_NO", dbColumn: "entp_no" },
+      { apiField: "ITEM_PERMIT_DATE", dbColumn: "item_permit_date" },
+      { apiField: "CNSGN_MANUF", dbColumn: "cnsgn_manuf" },
+      { apiField: "ETC_OTC_CODE", dbColumn: "etc_otc_code" },
+      { apiField: "CHART", dbColumn: "chart" },
+      { apiField: "BAR_CODE", dbColumn: "bar_code" },
+      { apiField: "MATERIAL_NAME", dbColumn: "material_name" },
+      { apiField: "STORAGE_METHOD", dbColumn: "storage_method" },
+      { apiField: "VALID_TERM", dbColumn: "valid_term" },
+      { apiField: "PACK_UNIT", dbColumn: "pack_unit" },
+      { apiField: "EDI_CODE", dbColumn: "edi_code" },
+      { apiField: "ATC_CODE", dbColumn: "atc_code" },
+      { apiField: "MAIN_ITEM_INGR", dbColumn: "main_item_ingr" },
+      { apiField: "MAIN_INGR_ENG", dbColumn: "main_ingr_eng" },
+      { apiField: "INGR_NAME", dbColumn: "ingr_name" },
+      { apiField: "TOTAL_CONTENT", dbColumn: "total_content" },
+      { apiField: "PERMIT_KIND_NAME", dbColumn: "permit_kind_name" },
+      { apiField: "MAKE_MATERIAL_FLAG", dbColumn: "make_material_flag" },
+      { apiField: "NEWDRUG_CLASS_NAME", dbColumn: "newdrug_class_name" },
+      { apiField: "INDUTY_TYPE", dbColumn: "induty_type" },
+      { apiField: "CANCEL_DATE", dbColumn: "cancel_date" },
+      { apiField: "CANCEL_NAME", dbColumn: "cancel_name" },
+      { apiField: "CHANGE_DATE", dbColumn: "change_date" },
+      { apiField: "GBN_NAME", dbColumn: "gbn_name" },
+      { apiField: "NARCOTIC_KIND_CODE", dbColumn: "narcotic_kind_code" },
+      { apiField: "RARE_DRUG_YN", dbColumn: "rare_drug_yn" },
+      { apiField: "REEXAM_DATE", dbColumn: "reexam_date" },
+      { apiField: "REEXAM_TARGET", dbColumn: "reexam_target" },
+      { apiField: "BIZRNO", dbColumn: "bizrno" },
+      { apiField: "EE_DOC_ID", dbColumn: "ee_doc_id" },
+      { apiField: "UD_DOC_ID", dbColumn: "ud_doc_id" },
+      { apiField: "NB_DOC_ID", dbColumn: "nb_doc_id" },
+      { apiField: "INSERT_FILE", dbColumn: "insert_file" },
+    ],
   },
   device_std: {
     url: "https://apis.data.go.kr/1471000/MdeqStdCdPrdtInfoService03/getMdeqStdCdPrdtInfoInq03",
+    tableName: "mfds_devices",
+    uniqueColumn: "udidi_cd",
     sourceKeyField: "UDIDI_CD",
     itemNameField: "PRDLST_NM",
     manufacturerField: "MNFT_IPRT_ENTP_NM",
-    standardCodeField: "UDIDI_CD",
     permitDateField: "PRMSN_YMD",
     startDateParam: "prmsn_ymd_start",
     endDateParam: "prmsn_ymd_end",
+    fieldMappings: [
+      { apiField: "UDIDI_CD", dbColumn: "udidi_cd" },
+      { apiField: "PRDLST_NM", dbColumn: "prdlst_nm" },
+      { apiField: "PRDT_NM_INFO", dbColumn: "prdt_nm_info" },
+      { apiField: "MNFT_IPRT_ENTP_NM", dbColumn: "mnft_iprt_entp_nm" },
+      { apiField: "PERMIT_NO", dbColumn: "permit_no" },
+      { apiField: "PRMSN_YMD", dbColumn: "prmsn_ymd" },
+      { apiField: "MDEQ_CLSF_NO", dbColumn: "mdeq_clsf_no" },
+      { apiField: "CLSF_NO_GRAD_CD", dbColumn: "clsf_no_grad_cd" },
+      { apiField: "FOML_INFO", dbColumn: "foml_info" },
+      { apiField: "USE_PURPS_CONT", dbColumn: "use_purps_cont" },
+      { apiField: "HMBD_TRSPT_MDEQ_YN", dbColumn: "hmbd_trspt_mdeq_yn" },
+      { apiField: "DSPSBL_MDEQ_YN", dbColumn: "dspsbl_mdeq_yn" },
+      { apiField: "TRCK_MNG_TRGT_YN", dbColumn: "trck_mng_trgt_yn" },
+      { apiField: "RCPRSLRY_TRGT_YN", dbColumn: "rcprslry_trgt_yn" },
+      { apiField: "TOTAL_DEV", dbColumn: "total_dev" },
+      { apiField: "CMBNMD_YN", dbColumn: "cmbnmd_yn" },
+      { apiField: "USE_BEFORE_STRLZT_NEED_YN", dbColumn: "use_before_strlzt_need_yn" },
+      { apiField: "STERILIZATION_METHOD_NM", dbColumn: "sterilization_method_nm" },
+      { apiField: "STRG_CND_INFO", dbColumn: "strg_cnd_info" },
+      { apiField: "CIRC_CND_INFO", dbColumn: "circ_cnd_info" },
+    ],
   },
 };
 
@@ -144,13 +215,14 @@ async function fetchPage(
 // ─── Core Sync ───────────────────────────────────────────────────────
 
 /**
- * Sync items from MFDS API to mfds_items table.
+ * Sync items from MFDS API to mfds_drugs or mfds_devices table.
  *
  * How it works:
  * 1. Fetch page N from API (500 items)
- * 2. UPSERT to DB (unique on source_type + source_key → no duplicates)
- * 3. Save progress (next_page = N+1) to sync log
- * 4. Repeat until last page
+ * 2. Map API fields to DB columns via config.fieldMappings
+ * 3. UPSERT to config.tableName (unique on config.uniqueColumn → no duplicates)
+ * 4. Save progress (next_page = N+1) to sync log
+ * 5. Repeat until last page
  *
  * On interruption: next call with same logId resumes from saved next_page.
  * On restart from scratch: next_page=1, re-fetches all (UPSERT = idempotent).
@@ -176,18 +248,18 @@ export async function runSync(
 
   if (syncMode === "incremental" && startPage <= 1) {
     // Find the latest permit_date in DB for this source type to use as start filter
+    const permitDateColumn = config.permitDateField.toLowerCase();
     const { data: latestRow } = await admin
-      .from("mfds_items")
-      .select("permit_date")
-      .eq("source_type", sourceType)
-      .not("permit_date", "is", null)
-      .order("permit_date", { ascending: false })
+      .from(config.tableName)
+      .select(permitDateColumn)
+      .not(permitDateColumn, "is", null)
+      .order(permitDateColumn, { ascending: false })
       .limit(1)
       .single();
 
-    if (latestRow?.permit_date) {
+    if (latestRow?.[permitDateColumn]) {
       // Go back SAFE_WINDOW_DAYS for safety (items may be added retroactively)
-      const latest = latestRow.permit_date.replace(/\D/g, ""); // normalize to YYYYMMDD
+      const latest = (latestRow[permitDateColumn] as string).replace(/\D/g, ""); // normalize to YYYYMMDD
       const d = new Date(
         parseInt(latest.slice(0, 4)),
         parseInt(latest.slice(4, 6)) - 1,
@@ -250,43 +322,26 @@ export async function runSync(
 
       totalFetched += items.length;
 
-      // Transform → deduplicate within page
+      // Transform API items → DB rows using field mappings
+      const now = new Date().toISOString();
       const seen = new Set<string>();
-      const apiRows: { source_key: string; item_name: string; manufacturer: string; standard_code: string; permit_date: string; raw_data: any }[] = [];
+      const toUpsert: Record<string, unknown>[] = [];
       for (const item of items) {
         const key = String(item[config.sourceKeyField] || "");
         if (!key || seen.has(key)) continue;
         seen.add(key);
-        apiRows.push({
-          source_key: key,
-          item_name: String(item[config.itemNameField] || ""),
-          manufacturer: String(item[config.manufacturerField] || ""),
-          standard_code: String(item[config.standardCodeField] || ""),
-          permit_date: String(item[config.permitDateField] || ""),
-          raw_data: item,
-        });
+        const row: Record<string, unknown> = { synced_at: now };
+        for (const { apiField, dbColumn } of config.fieldMappings) {
+          const val = item[apiField];
+          row[dbColumn] = val != null ? String(val) : null;
+        }
+        toUpsert.push(row);
       }
-
-      const now = new Date().toISOString();
-      let toUpsert: any[];
-
-      // Both modes upsert all fetched items (incremental already filtered by date at API level)
-      // UPSERT on UNIQUE(source_type, source_key) handles duplicates safely
-      toUpsert = apiRows.map(row => ({
-        source_type: sourceType,
-        source_key: row.source_key,
-        item_name: row.item_name,
-        manufacturer: row.manufacturer,
-        standard_code: row.standard_code,
-        permit_date: row.permit_date,
-        raw_data: row.raw_data,
-        synced_at: now,
-      }));
 
       if (toUpsert.length > 0) {
         const { count, error } = await admin
-          .from("mfds_items")
-          .upsert(toUpsert, { onConflict: "source_type,source_key", count: "exact" });
+          .from(config.tableName)
+          .upsert(toUpsert, { onConflict: config.uniqueColumn, count: "exact" });
         if (error) {
           console.error(`[Sync] Upsert error page ${page}:`, error.message);
         } else {
@@ -334,9 +389,8 @@ export async function runSync(
 
     // Update meta
     const { count: localCount } = await admin
-      .from("mfds_items")
-      .select("id", { count: "exact", head: true })
-      .eq("source_type", sourceType);
+      .from(config.tableName)
+      .select("id", { count: "exact", head: true });
 
     await admin.from("mfds_sync_meta").upsert({
       source_type: sourceType,
@@ -447,9 +501,8 @@ export async function detectSyncMode(
   }
 
   const { count: localCount } = await admin
-    .from("mfds_items")
-    .select("id", { count: "exact", head: true })
-    .eq("source_type", sourceType);
+    .from(config?.tableName ?? "mfds_drugs")
+    .select("id", { count: "exact", head: true });
 
   if (meta.api_total_count && localCount != null) {
     const ratio = localCount / meta.api_total_count;

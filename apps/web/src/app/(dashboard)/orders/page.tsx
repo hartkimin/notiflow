@@ -153,7 +153,7 @@ export default async function OrdersPage({ searchParams }: Props) {
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-muted-foreground">매출</span>
-                <span className="font-bold">₩{orderStats.total_amount.toLocaleString()}</span>
+                <span className="font-bold">₩{orderStats.total_supply_amount.toLocaleString()}</span>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-muted-foreground">이익</span>

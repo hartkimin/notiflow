@@ -245,18 +245,16 @@ export async function getOrderSummaryStats(params: {
   const rows = orders ?? [];
   const orderIds = rows.map((r) => r.id);
 
-  // Fetch order items for purchase/profit calculation
+  // Fetch order items for purchase total
   let totalPurchase = 0;
-  let totalSales = 0;
   if (orderIds.length > 0) {
     const { data: items } = await supabase
       .from("order_items")
-      .select("order_id, quantity, unit_price, purchase_price")
+      .select("order_id, quantity, purchase_price")
       .in("order_id", orderIds);
 
     for (const item of items ?? []) {
       totalPurchase += (item.purchase_price ?? 0) * item.quantity;
-      totalSales += (item.unit_price ?? 0) * item.quantity;
     }
   }
 
@@ -265,16 +263,18 @@ export async function getOrderSummaryStats(params: {
     statusCounts[r.status] = (statusCounts[r.status] || 0) + 1;
   }
 
-  const profit = totalSales - totalPurchase;
+  // 매출 = supply_amount (공급가액, 세금 미포함)
+  const totalSupply = rows.reduce((s, r) => s + Number(r.supply_amount || 0), 0);
+  const profit = totalSupply - totalPurchase;
 
   return {
     total_count: rows.length,
-    total_supply_amount: rows.reduce((s, r) => s + Number(r.supply_amount || 0), 0),
+    total_supply_amount: totalSupply,
     total_tax_amount: rows.reduce((s, r) => s + Number(r.tax_amount || 0), 0),
     total_amount: rows.reduce((s, r) => s + Number(r.total_amount || 0), 0),
     total_purchase_amount: totalPurchase,
     total_profit: profit,
-    profit_margin: totalSales > 0 ? (profit / totalSales) * 100 : 0,
+    profit_margin: totalSupply > 0 ? (profit / totalSupply) * 100 : 0,
     status_counts: statusCounts,
   };
 }

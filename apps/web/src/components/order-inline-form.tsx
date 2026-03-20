@@ -86,7 +86,6 @@ function nextKey() { return `oi-${Date.now()}-${++_keyCounter}`; }
 // ── Main Component ─────────────────────────────────────────
 
 export function OrderInlineForm({
-  displayColumns,
   columnWidths,
   initialNotes,
   sourceMessageId,

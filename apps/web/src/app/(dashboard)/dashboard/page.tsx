@@ -7,7 +7,6 @@ import {
   FileText,
   Truck,
   Building2,
-  Users,
   ClipboardList,
   AlertCircle,
 } from "lucide-react";
@@ -26,6 +25,7 @@ import {
   getRecentInvoices,
 } from "@/lib/queries/dashboard-stats";
 import { getMonthlySalesTrend } from "@/lib/queries/stats";
+import { SalesRepChart } from "@/components/sales-rep-chart";
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -41,6 +41,9 @@ function fmt(n: number) {
 }
 
 export default async function DashboardHome() {
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
   const [kpis, hospitalRank, salesReps, recentOrders, recentInvoices, monthlyTrend] = await Promise.all([
     getDashboardKpis().catch(() => null),
     getHospitalRanking(10).catch(() => []),
@@ -156,38 +159,7 @@ export default async function DashboardHome() {
 
       <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
         {/* ── 영업담당자별 실적 (영업팀용) ── */}
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" />영업담당자 실적</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {salesReps.length === 0 ? (
-              <div className="text-sm text-muted-foreground text-center py-4">데이터가 없습니다.</div>
-            ) : (
-              <div className="space-y-3">
-                {salesReps.map((rep, i) => (
-                  <div key={rep.sales_rep} className="flex items-center gap-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                      {i + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{rep.sales_rep}</p>
-                      <p className="text-xs text-muted-foreground">{rep.order_count}건</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold">₩{fmt(rep.revenue)}</p>
-                      <p className={`text-xs ${rep.profit < 0 ? "text-red-500" : "text-green-600"}`}>
-                        이익 ₩{fmt(rep.profit)} ({rep.margin.toFixed(1)}%)
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <SalesRepChart initialData={salesReps} initialMonth={currentMonth} />
 
         {/* ── 거래처별 매출 Top 10 (경영진/영업용) ── */}
         <Card className="lg:col-span-2">

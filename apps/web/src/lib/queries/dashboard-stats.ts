@@ -178,12 +178,30 @@ export interface SalesRepPerformance {
   margin: number;
 }
 
-export async function getSalesRepPerformance(): Promise<SalesRepPerformance[]> {
+export async function getSalesRepPerformance(month?: string): Promise<SalesRepPerformance[]> {
   const supabase = await createClient();
 
-  const { data: items } = await supabase
+  // If month specified (YYYY-MM), filter orders by that month
+  let orderIds: number[] | null = null;
+  if (month) {
+    const { data: orders } = await supabase
+      .from("orders")
+      .select("id")
+      .gte("order_date", `${month}-01`)
+      .lt("order_date", `${month}-32`);
+    orderIds = (orders ?? []).map((o) => o.id);
+    if (orderIds.length === 0) return [];
+  }
+
+  let query = supabase
     .from("order_items")
     .select("sales_rep, quantity, unit_price, purchase_price, order_id");
+
+  if (orderIds) {
+    query = query.in("order_id", orderIds);
+  }
+
+  const { data: items } = await query;
 
   if (!items?.length) return [];
 

@@ -4,10 +4,10 @@ import { useState, useEffect, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Download, Building2 } from "lucide-react";
-import { getHospitalDetailAction } from "@/app/(dashboard)/sales/actions";
+import { ChevronLeft, ChevronRight, ChevronDown, Download, Building2 } from "lucide-react";
+import { getHospitalDetailAction, getHospitalItemDetailAction } from "@/app/(dashboard)/sales/actions";
 import { downloadExcel } from "./excel-download";
-import type { HospitalDetail } from "@/lib/queries/sales-stats";
+import type { HospitalDetail, HospitalItemDetail } from "@/lib/queries/sales-stats";
 
 function fmt(n: number) {
   if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)}억`;
@@ -15,23 +15,40 @@ function fmt(n: number) {
   return n.toLocaleString();
 }
 
-export function HospitalSection({ initialData, initialMonth }: { initialData: HospitalDetail[]; initialMonth: string }) {
+interface Props {
+  initialData: HospitalDetail[];
+  initialItemData: HospitalItemDetail[];
+  initialMonth: string;
+}
+
+export function HospitalSection({ initialData, initialItemData, initialMonth }: Props) {
   const [data, setData] = useState(initialData);
+  const [itemData, setItemData] = useState(initialItemData);
   const [month, setMonth] = useState(initialMonth);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (month === initialMonth) { setData(initialData); return; }
+    if (month === initialMonth) {
+      setData(initialData);
+      setItemData(initialItemData);
+      return;
+    }
     startTransition(async () => {
-      const result = await getHospitalDetailAction(month).catch(() => []);
-      setData(result);
+      const [hosps, items] = await Promise.all([
+        getHospitalDetailAction(month).catch(() => []),
+        getHospitalItemDetailAction(month).catch(() => []),
+      ]);
+      setData(hosps);
+      setItemData(items);
     });
-  }, [month, initialMonth, initialData]);
+  }, [month, initialMonth, initialData, initialItemData]);
 
   function navigate(dir: -1 | 1) {
     const [y, m] = month.split("-").map(Number);
     const d = new Date(y, m - 1 + dir, 1);
     setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+    setExpandedId(null);
   }
 
   const label = `${month.slice(0, 4)}년 ${parseInt(month.slice(5))}월`;
@@ -41,10 +58,21 @@ export function HospitalSection({ initialData, initialMonth }: { initialData: Ho
   const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
   function handleDownload() {
-    downloadExcel(data as unknown as Record<string, unknown>[], `거래처별실적_${month}`, {
-      hospital_name: "거래처", sales_rep: "담당자", order_count: "주문건수", item_count: "품목수",
-      revenue: "매출", purchase: "매입", profit: "이익", margin: "이익률(%)",
-    });
+    const rows: Record<string, unknown>[] = [];
+    for (const h of data) {
+      rows.push({
+        구분: "거래처 합계", 거래처: h.hospital_name, 담당자: h.sales_rep, 품목명: "",
+        주문건수: h.order_count, 수량: "", 매출: h.revenue, 매입: h.purchase, 이익: h.profit, "이익률(%)": Number(h.margin.toFixed(1)),
+      });
+      const hospItems = itemData.filter((i) => i.hospital_id === h.hospital_id);
+      for (const item of hospItems) {
+        rows.push({
+          구분: "품목별", 거래처: h.hospital_name, 담당자: "", 품목명: item.product_name,
+          주문건수: "", 수량: item.quantity, 매출: item.revenue, 매입: item.purchase, 이익: item.profit, "이익률(%)": Number(item.margin.toFixed(1)),
+        });
+      }
+    }
+    downloadExcel(rows, `거래처별실적_${month}`);
   }
 
   return (
@@ -71,7 +99,7 @@ export function HospitalSection({ initialData, initialMonth }: { initialData: Ho
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-8">#</TableHead>
+                <TableHead className="w-8" />
                 <TableHead>거래처</TableHead>
                 <TableHead>담당자</TableHead>
                 <TableHead className="text-right">주문</TableHead>
@@ -83,21 +111,46 @@ export function HospitalSection({ initialData, initialMonth }: { initialData: Ho
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((h, i) => (
-                <TableRow key={h.hospital_id}>
-                  <TableCell className="text-muted-foreground font-bold">{i + 1}</TableCell>
-                  <TableCell className="font-medium truncate max-w-[150px]">{h.hospital_name}</TableCell>
-                  <TableCell className="text-xs">{h.sales_rep}</TableCell>
-                  <TableCell className="text-right tabular-nums">{h.order_count}건</TableCell>
-                  <TableCell className="text-right tabular-nums">{h.item_count}</TableCell>
-                  <TableCell className="text-right tabular-nums font-medium">₩{fmt(h.revenue)}</TableCell>
-                  <TableCell className="text-right tabular-nums">₩{fmt(h.purchase)}</TableCell>
-                  <TableCell className={`text-right tabular-nums font-medium ${h.profit < 0 ? "text-red-500" : "text-green-600"}`}>₩{fmt(h.profit)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{h.margin.toFixed(1)}%</TableCell>
-                </TableRow>
-              ))}
+              {data.map((h) => {
+                const isExpanded = expandedId === h.hospital_id;
+                const hospItems = itemData.filter((i) => i.hospital_id === h.hospital_id);
+                return (
+                  <>
+                    <TableRow
+                      key={h.hospital_id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setExpandedId(isExpanded ? null : h.hospital_id)}
+                    >
+                      <TableCell className="px-2">
+                        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-0" : "-rotate-90"}`} />
+                      </TableCell>
+                      <TableCell className="font-semibold truncate max-w-[150px]">{h.hospital_name}</TableCell>
+                      <TableCell className="text-xs">{h.sales_rep}</TableCell>
+                      <TableCell className="text-right tabular-nums">{h.order_count}건</TableCell>
+                      <TableCell className="text-right tabular-nums">{h.item_count}</TableCell>
+                      <TableCell className="text-right tabular-nums font-medium">₩{fmt(h.revenue)}</TableCell>
+                      <TableCell className="text-right tabular-nums">₩{fmt(h.purchase)}</TableCell>
+                      <TableCell className={`text-right tabular-nums font-medium ${h.profit < 0 ? "text-red-500" : "text-green-600"}`}>₩{fmt(h.profit)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{h.margin.toFixed(1)}%</TableCell>
+                    </TableRow>
+                    {isExpanded && hospItems.map((item, idx) => (
+                      <TableRow key={`${h.hospital_id}-${idx}`} className="bg-muted/30">
+                        <TableCell />
+                        <TableCell colSpan={2} className="text-xs pl-6 text-muted-foreground truncate max-w-[200px]">{item.product_name}</TableCell>
+                        <TableCell className="text-right text-xs">-</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">{item.quantity.toLocaleString()}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">₩{fmt(item.revenue)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">₩{fmt(item.purchase)}</TableCell>
+                        <TableCell className={`text-right tabular-nums text-xs ${item.profit < 0 ? "text-red-500" : "text-green-600"}`}>₩{fmt(item.profit)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">{item.margin.toFixed(1)}%</TableCell>
+                      </TableRow>
+                    ))}
+                  </>
+                );
+              })}
               <TableRow className="font-bold border-t-2">
-                <TableCell colSpan={3}>합계 ({data.length}개 거래처)</TableCell>
+                <TableCell />
+                <TableCell colSpan={2}>합계 ({data.length}개 거래처)</TableCell>
                 <TableCell className="text-right tabular-nums">{data.reduce((s, d) => s + d.order_count, 0)}건</TableCell>
                 <TableCell className="text-right tabular-nums">{data.reduce((s, d) => s + d.item_count, 0)}</TableCell>
                 <TableCell className="text-right tabular-nums">₩{fmt(totalRevenue)}</TableCell>

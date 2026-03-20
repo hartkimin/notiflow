@@ -3,9 +3,10 @@ import { TrendingUp, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getDashboardKpis, getYearlyKpis } from "@/lib/queries/dashboard-stats";
-import { getSalesRepDetail, getSalesRepHospitalDetail, getHospitalDetail, getOrderDetail } from "@/lib/queries/sales-stats";
+import { getSalesRepDetail, getSalesRepHospitalDetail, getHospitalDetail, getHospitalItemDetail, getOrderDetail, getProductPerformance } from "@/lib/queries/sales-stats";
 import { SalesRepSection } from "@/components/sales/sales-rep-section";
 import { HospitalSection } from "@/components/sales/hospital-section";
+import { ProductSection } from "@/components/sales/product-section";
 import { OrderSection } from "@/components/sales/order-section";
 
 function fmt(n: number) {
@@ -34,12 +35,14 @@ export default async function SalesPage({ searchParams }: Props) {
   const isCurrentMonth = selectedMonth === currentMonth;
   const selectedYear = params.year ? parseInt(params.year) : now.getFullYear();
 
-  const [kpis, yearKpis, salesReps, repHospitals, hospitals, orders] = await Promise.all([
+  const [kpis, yearKpis, salesReps, repHospitals, hospitals, hospItems, products, orders] = await Promise.all([
     getDashboardKpis(selectedMonth).catch(() => null),
     getYearlyKpis(selectedYear).catch(() => null),
     getSalesRepDetail(selectedMonth).catch(() => []),
     getSalesRepHospitalDetail(selectedMonth).catch(() => []),
     getHospitalDetail(selectedMonth).catch(() => []),
+    getHospitalItemDetail(selectedMonth).catch(() => []),
+    getProductPerformance(selectedMonth).catch(() => []),
     getOrderDetail(selectedMonth).catch(() => []),
   ]);
 
@@ -120,7 +123,8 @@ export default async function SalesPage({ searchParams }: Props) {
 
       {/* ── Sections ── */}
       <SalesRepSection initialData={salesReps} initialHospitalData={repHospitals} initialMonth={selectedMonth} />
-      <HospitalSection initialData={hospitals} initialMonth={selectedMonth} />
+      <HospitalSection initialData={hospitals} initialItemData={hospItems} initialMonth={selectedMonth} />
+      <ProductSection initialData={products} initialMonth={selectedMonth} />
       <OrderSection initialData={orders} initialMonth={selectedMonth} />
     </>
   );

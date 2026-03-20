@@ -198,6 +198,124 @@ export async function getHospitalDetail(month: string): Promise<HospitalDetail[]
   })).sort((a, b) => b.revenue - a.revenue);
 }
 
+// ─── Product Performance ───
+
+export interface ProductPerformance {
+  product_name: string;
+  order_count: number;
+  total_quantity: number;
+  revenue: number;
+  purchase: number;
+  profit: number;
+  margin: number;
+}
+
+export async function getProductPerformance(month: string): Promise<ProductPerformance[]> {
+  const supabase = await createClient();
+  const { start, end } = monthRange(month);
+
+  const { data: orders } = await supabase
+    .from("orders")
+    .select("id")
+    .gte("order_date", start)
+    .lt("order_date", end)
+    .not("status", "eq", "cancelled");
+
+  const orderIds = (orders ?? []).map((o) => o.id);
+  if (orderIds.length === 0) return [];
+
+  const { data: items } = await supabase
+    .from("order_items")
+    .select("order_id, product_name, quantity, unit_price, purchase_price")
+    .in("order_id", orderIds);
+
+  const map = new Map<string, { orderIds: Set<number>; qty: number; revenue: number; purchase: number }>();
+  for (const item of items ?? []) {
+    const name = item.product_name || "미지정";
+    if (!map.has(name)) map.set(name, { orderIds: new Set(), qty: 0, revenue: 0, purchase: 0 });
+    const e = map.get(name)!;
+    e.orderIds.add(item.order_id);
+    e.qty += item.quantity;
+    e.revenue += (item.unit_price ?? 0) * item.quantity;
+    e.purchase += (item.purchase_price ?? 0) * item.quantity;
+  }
+
+  return Array.from(map, ([name, e]) => ({
+    product_name: name,
+    order_count: e.orderIds.size,
+    total_quantity: e.qty,
+    revenue: e.revenue,
+    purchase: e.purchase,
+    profit: e.revenue - e.purchase,
+    margin: e.revenue > 0 ? ((e.revenue - e.purchase) / e.revenue) * 100 : 0,
+  })).sort((a, b) => b.revenue - a.revenue);
+}
+
+// ─── Hospital Items Detail ───
+
+export interface HospitalItemDetail {
+  hospital_id: number;
+  hospital_name: string;
+  product_name: string;
+  quantity: number;
+  revenue: number;
+  purchase: number;
+  profit: number;
+  margin: number;
+}
+
+export async function getHospitalItemDetail(month: string): Promise<HospitalItemDetail[]> {
+  const supabase = await createClient();
+  const { start, end } = monthRange(month);
+
+  const { data: orders } = await supabase
+    .from("orders")
+    .select("id, hospital_id, hospitals(name)")
+    .gte("order_date", start)
+    .lt("order_date", end)
+    .not("status", "eq", "cancelled");
+
+  if (!orders?.length) return [];
+
+  const orderIds = orders.map((o) => o.id);
+  const orderHospMap = new Map<number, { hid: number; name: string }>();
+  for (const o of orders) {
+    orderHospMap.set(o.id, {
+      hid: o.hospital_id,
+      name: (o.hospitals as unknown as { name: string } | null)?.name ?? "",
+    });
+  }
+
+  const { data: items } = await supabase
+    .from("order_items")
+    .select("order_id, product_name, quantity, unit_price, purchase_price")
+    .in("order_id", orderIds);
+
+  const map = new Map<string, { hid: number; hname: string; pname: string; qty: number; revenue: number; purchase: number }>();
+  for (const item of items ?? []) {
+    const hosp = orderHospMap.get(item.order_id);
+    if (!hosp) continue;
+    const pname = item.product_name || "미지정";
+    const key = `${hosp.hid}|${pname}`;
+    if (!map.has(key)) map.set(key, { hid: hosp.hid, hname: hosp.name, pname, qty: 0, revenue: 0, purchase: 0 });
+    const e = map.get(key)!;
+    e.qty += item.quantity;
+    e.revenue += (item.unit_price ?? 0) * item.quantity;
+    e.purchase += (item.purchase_price ?? 0) * item.quantity;
+  }
+
+  return Array.from(map.values()).map((e) => ({
+    hospital_id: e.hid,
+    hospital_name: e.hname,
+    product_name: e.pname,
+    quantity: e.qty,
+    revenue: e.revenue,
+    purchase: e.purchase,
+    profit: e.revenue - e.purchase,
+    margin: e.revenue > 0 ? ((e.revenue - e.purchase) / e.revenue) * 100 : 0,
+  })).sort((a, b) => a.hospital_name.localeCompare(b.hospital_name) || b.revenue - a.revenue);
+}
+
 // ─── Order Detail ───
 
 export interface OrderDetailRow {

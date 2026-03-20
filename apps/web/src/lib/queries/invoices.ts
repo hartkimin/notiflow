@@ -4,6 +4,7 @@ import type { TaxInvoice, TaxInvoiceDetail, TaxInvoiceStats, UnbilledOrder } fro
 export async function getInvoices(params: {
   status?: string;
   hospital_id?: number;
+  search?: string;
   from?: string;
   to?: string;
   limit?: number;
@@ -19,6 +20,9 @@ export async function getInvoices(params: {
   if (params.hospital_id) query = query.eq("hospital_id", params.hospital_id);
   if (params.from) query = query.gte("issue_date", params.from);
   if (params.to) query = query.lte("issue_date", params.to);
+  if (params.search) {
+    query = query.or(`invoice_number.ilike.%${params.search}%,buyer_name.ilike.%${params.search}%`);
+  }
 
   query = query
     .order("created_at", { ascending: false })

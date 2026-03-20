@@ -24,6 +24,7 @@ import {
 } from "@/lib/queries/dashboard-stats";
 import { getMonthlySalesTrend } from "@/lib/queries/stats";
 import { SalesRepChart } from "@/components/sales-rep-chart";
+import { HospitalRankChart } from "@/components/hospital-rank-chart";
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -64,7 +65,7 @@ export default async function DashboardHome({ searchParams }: Props) {
   const [kpis, yearKpis, hospitalRank, salesReps, recentOrders, recentInvoices, monthlyTrend] = await Promise.all([
     getDashboardKpis(selectedMonth).catch(() => null),
     getYearlyKpis(selectedYear).catch(() => null),
-    getHospitalRanking(10).catch(() => []),
+    getHospitalRanking(10, selectedMonth).catch(() => []),
     getSalesRepPerformance(selectedMonth).catch(() => []),
     getRecentOrders(10).catch(() => []),
     getRecentInvoices(5).catch(() => []),
@@ -179,46 +180,9 @@ export default async function DashboardHome({ searchParams }: Props) {
         <SalesRepChart initialData={salesReps} initialMonth={selectedMonth} />
 
         {/* ── 거래처별 매출 Top 10 ── */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2"><Building2 className="h-4 w-4" />거래처별 매출 Top 10</CardTitle>
-              <Button size="sm" variant="ghost" className="h-7 text-xs" asChild>
-                <Link href="/hospitals">전체 보기 <ArrowUpRight className="h-3 w-3 ml-1" /></Link>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {hospitalRank.length === 0 ? (
-              <div className="text-sm text-muted-foreground text-center py-4">데이터가 없습니다.</div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-8">#</TableHead>
-                    <TableHead>거래처</TableHead>
-                    <TableHead className="text-right">주문</TableHead>
-                    <TableHead className="text-right">매출</TableHead>
-                    <TableHead className="text-right">이익</TableHead>
-                    <TableHead className="text-right w-14">이익률</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {hospitalRank.map((h, i) => (
-                    <TableRow key={h.hospital_id}>
-                      <TableCell className="font-bold text-muted-foreground">{i + 1}</TableCell>
-                      <TableCell className="font-medium truncate max-w-[150px]">{h.hospital_name}</TableCell>
-                      <TableCell className="text-right tabular-nums">{h.order_count}건</TableCell>
-                      <TableCell className="text-right tabular-nums">₩{fmt(h.revenue)}</TableCell>
-                      <TableCell className={`text-right tabular-nums ${h.profit < 0 ? "text-red-500" : "text-green-600"}`}>₩{fmt(h.profit)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{h.margin.toFixed(1)}%</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        <div className="lg:col-span-2">
+          <HospitalRankChart initialData={hospitalRank} initialMonth={selectedMonth} />
+        </div>
       </div>
 
       <div className="grid gap-4 md:gap-6 lg:grid-cols-2">

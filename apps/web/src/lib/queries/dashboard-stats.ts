@@ -204,13 +204,22 @@ export interface HospitalRanking {
   margin: number;
 }
 
-export async function getHospitalRanking(limit = 10): Promise<HospitalRanking[]> {
+export async function getHospitalRanking(limit = 10, month?: string): Promise<HospitalRanking[]> {
   const supabase = await createClient();
 
-  const { data: orders } = await supabase
+  let query = supabase
     .from("orders")
     .select("id, hospital_id, supply_amount, hospitals(name)")
     .not("status", "eq", "cancelled");
+
+  if (month) {
+    const [y, m] = month.split("-").map(Number);
+    const nextMonth = new Date(y, m, 1);
+    const nextMonthStr = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, "0")}-01`;
+    query = query.gte("order_date", `${month}-01`).lt("order_date", nextMonthStr);
+  }
+
+  const { data: orders } = await query;
 
   if (!orders?.length) return [];
 

@@ -9,10 +9,10 @@ import type { CalendarView } from "@/lib/schedule-utils";
 import type { Order } from "@/lib/types";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  draft: { label: "임시", variant: "secondary" },
-  confirmed: { label: "확인됨", variant: "default" },
-  processing: { label: "처리중", variant: "default" },
+  draft: { label: "초안", variant: "secondary" },
+  confirmed: { label: "접수확인", variant: "default" },
   delivered: { label: "배송완료", variant: "outline" },
+  invoiced: { label: "발행완료", variant: "default" },
   cancelled: { label: "취소", variant: "destructive" },
 };
 

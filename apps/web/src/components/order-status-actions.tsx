@@ -8,9 +8,9 @@ import { confirmOrderAction, updateOrderStatusAction } from "@/app/(dashboard)/o
 
 const NEXT_STATUS: Record<string, { label: string; status: string } | null> = {
   draft: { label: "주문 확인", status: "confirmed" },
-  confirmed: { label: "처리 시작", status: "processing" },
-  processing: { label: "배송 완료", status: "delivered" },
+  confirmed: { label: "배송 완료", status: "delivered" },
   delivered: null,
+  invoiced: null,
   cancelled: null,
 };
 

@@ -40,10 +40,10 @@ export function OrderFilters() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">전체</SelectItem>
-            <SelectItem value="draft">임시</SelectItem>
-            <SelectItem value="confirmed">확인됨</SelectItem>
-            <SelectItem value="processing">처리중</SelectItem>
+            <SelectItem value="draft">초안</SelectItem>
+            <SelectItem value="confirmed">접수확인</SelectItem>
             <SelectItem value="delivered">배송완료</SelectItem>
+            <SelectItem value="invoiced">발행완료</SelectItem>
             <SelectItem value="cancelled">취소</SelectItem>
           </SelectContent>
         </Select>

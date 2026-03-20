@@ -44,14 +44,22 @@ draft, confirmed, delivered, invoiced, cancelled
 | `draft` | `cancelled` | Manual: "주문 취소" button | `updateOrderStatusAction` |
 | `confirmed` | `delivered` | Manual: "배송 완료" button | `updateOrderStatusAction` |
 | `confirmed` | `cancelled` | Manual: "주문 취소" button | `updateOrderStatusAction` |
-| `delivered` | `invoiced` | Automatic: when `issueInvoice()` confirms all linked invoices | `issueInvoice` in `tax-invoice/service.ts` |
-| `invoiced` | `delivered` | Automatic: when `cancelInvoice()` reverts invoice | `cancelInvoice` in `tax-invoice/service.ts` |
+| `delivered` | `invoiced` | Automatic: when `issueInvoice()` confirms linked invoice | `issueInvoice` in `tax-invoice/service.ts` |
+| `invoiced` | `delivered` | Automatic: when `cancelInvoice()` or `deleteInvoice()` reverts | `cancelInvoice` / `deleteInvoice` in `tax-invoice/service.ts` |
 
 ### Terminal States
 - `invoiced` — order fully complete (delivered + tax invoice issued)
 - `cancelled` — order cancelled
 
+### Partial Invoicing
+
+When an order has multiple invoices (e.g., split across months), the order stays `delivered` until ALL linked non-cancelled invoices are `issued`. Cancelling one invoice of a multi-invoice order rolls back the order from `invoiced` to `delivered` only if no other active issued invoice remains.
+
 ## 4. DB Migration
+
+File: `packages/supabase/migrations/00054_order_status_simplify.sql`
+
+All steps run within a single migration (Supabase runs migrations in transactions).
 
 ### 4.1 Migrate existing data
 
@@ -64,10 +72,19 @@ UPDATE orders SET status = 'invoiced'
 WHERE status = 'delivered' AND tax_invoice_status = 'issued';
 ```
 
-### 4.2 Replace enum
+### 4.2 Drop tax_invoice_status column
+
+Must happen AFTER step 2 (which reads this column).
 
 ```sql
--- Step 3: Replace order_status_enum (remove processing, add invoiced)
+-- Step 3: Drop the now-redundant column
+ALTER TABLE orders DROP COLUMN IF EXISTS tax_invoice_status;
+```
+
+### 4.3 Replace enum
+
+```sql
+-- Step 4: Replace order_status_enum (remove processing, add invoiced)
 ALTER TYPE order_status_enum RENAME TO order_status_enum_old;
 
 CREATE TYPE order_status_enum AS ENUM (
@@ -82,17 +99,11 @@ ALTER TABLE orders
 DROP TYPE order_status_enum_old;
 ```
 
-### 4.3 Drop tax_invoice_status column
-
-The `tax_invoice_status` column on orders becomes redundant — `order.status === 'invoiced'` replaces it.
-
-```sql
-ALTER TABLE orders DROP COLUMN IF EXISTS tax_invoice_status;
-```
+Note: This runs within a transaction. No existing PostgreSQL functions reference `order_status_enum` as a parameter type (the column is typed, not function params), so the rename is safe.
 
 ## 5. TypeScript Type Changes
 
-### Order interface
+### Order interface (`apps/web/src/lib/types.ts`)
 
 ```typescript
 // Before
@@ -104,17 +115,41 @@ status: 'draft' | 'confirmed' | 'delivered' | 'invoiced' | 'cancelled';
 // tax_invoice_status removed
 ```
 
+### UnbilledOrder interface (`apps/web/src/lib/tax-invoice/types.ts`)
+
+```typescript
+// Before
+export interface UnbilledOrder {
+  ...
+  tax_invoice_status: string | null;
+}
+
+// After — remove tax_invoice_status, no longer needed
+// getUnbilledOrders() filters by status === 'delivered' instead
+export interface UnbilledOrder {
+  id: number;
+  order_number: string;
+  order_date: string;
+  hospital_id: number;
+  hospital_name: string | undefined;
+  status: string;
+  total_amount: number | null;
+  supply_amount: number | null;
+  tax_amount: number | null;
+  delivery_date: string | null;
+  delivered_at: string | null;
+}
+```
+
 ## 6. Service Layer Changes
 
 ### 6.1 issueInvoice() — automatic delivered → invoiced
 
-When a tax invoice is issued, check if ALL linked orders have all their invoices issued. If so, transition each order to `invoiced`.
+When a tax invoice is issued, transition each linked order to `invoiced` (only if currently `delivered`).
 
 ```typescript
 // In issueInvoice(), after setting invoice status to 'issued':
 for (const lo of linkedOrders) {
-  // Check if order has any remaining non-issued invoices
-  // If all invoices for this order are issued → set order status to 'invoiced'
   await supabase
     .from("orders")
     .update({ status: "invoiced" })
@@ -125,7 +160,7 @@ for (const lo of linkedOrders) {
 
 ### 6.2 cancelInvoice() — automatic invoiced → delivered
 
-When a tax invoice is cancelled, roll back the linked orders from `invoiced` to `delivered`.
+When a tax invoice is cancelled, roll back linked orders from `invoiced` to `delivered`.
 
 ```typescript
 // In cancelInvoice(), after setting invoice status to 'cancelled':
@@ -138,9 +173,53 @@ for (const lo of linkedOrders) {
 }
 ```
 
-### 6.3 Remove recomputeOrderInvoiceStatus()
+### 6.3 deleteInvoice() — same rollback as cancel
 
-This function managed `tax_invoice_status` (pending/partial/issued) which is now replaced by `order.status`. Remove it and replace calls with direct status transitions above.
+When a draft invoice is deleted, roll back linked orders the same way.
+
+```typescript
+// In deleteInvoice(), before deleting (CASCADE removes links):
+for (const lo of linkedOrders) {
+  await supabase
+    .from("orders")
+    .update({ status: "delivered" })
+    .eq("id", lo.order_id)
+    .eq("status", "invoiced");
+}
+```
+
+### 6.4 Remove recomputeOrderInvoiceStatus()
+
+Delete this function entirely. Replace all call sites in `issueInvoice()`, `cancelInvoice()`, and `deleteInvoice()` with the direct transitions above.
+
+### 6.5 Update status filters in createInvoiceFromOrder() and createConsolidatedInvoice()
+
+Both functions currently filter: `.in("status", ["confirmed", "processing", "delivered"])`.
+
+Change to: `.in("status", ["confirmed", "delivered"])` — remove `processing` reference.
+
+### 6.6 Update getUnbilledOrders() in queries/invoices.ts
+
+```typescript
+// Before
+.in("status", ["confirmed", "processing", "delivered"])
+.eq("tax_invoice_status", "pending")
+
+// After — orders eligible for invoicing are simply status === "delivered"
+.eq("status", "delivered")
+// No tax_invoice_status filter (column removed)
+```
+
+### 6.7 Update getInvoiceStats() in queries/invoices.ts
+
+```typescript
+// Before: unbilled count
+.eq("status", "delivered")
+.eq("tax_invoice_status", "pending")
+
+// After — "delivered" orders ARE the unbilled ones (invoiced orders have status "invoiced")
+.eq("status", "delivered")
+```
 
 ## 7. UI Changes
 
@@ -156,36 +235,61 @@ This function managed `tax_invoice_status` (pending/partial/issued) which is now
 | `invoiced` | (none — final state) | View linked invoice link |
 | `cancelled` | (none — final state) | — |
 
-**Remove:**
-- All `processing` references (buttons, conditions, labels)
-- `tax_invoice_status` badge display (replaced by `invoiced` status)
+**Update logic:**
+- `isEditable`: `!["delivered", "invoiced", "cancelled"].includes(order.status)`
+- `canCreateInvoice`: `order.status === "delivered"` (only delivered orders can create invoices)
+- Remove all `processing` references
+- Remove `tax_invoice_status` badge display
 
 ### 7.2 Order Status Actions (order-status-actions.tsx)
 
-Update `NEXT_STATUS` map:
-
 ```typescript
-const NEXT_STATUS = {
+const NEXT_STATUS: Record<string, { label: string; status: string } | null> = {
   draft:     { label: "주문 확인",   status: "confirmed" },
   confirmed: { label: "배송 완료",   status: "delivered" },
-  delivered: null,  // invoice action is in detail page, not inline
-  invoiced:  null,
-  cancelled: null,
+  delivered: null,  // invoice action is in detail page
+  invoiced:  null,  // terminal state
+  cancelled: null,  // terminal state
 };
 ```
 
-### 7.3 Order Table (order-table.tsx)
+### 7.3 Order Status Labels & Badge (order-status.ts)
 
-- Remove `processing` from status filter/badge
+Update the canonical status label/variant registry:
+
+```typescript
+// Remove processing, add invoiced
+export const ORDER_STATUS_LABELS: Record<string, string> = {
+  draft: "초안",
+  confirmed: "접수확인",
+  delivered: "배송완료",
+  invoiced: "발행완료",
+  cancelled: "취소",
+};
+```
+
+Badge variant for `invoiced`: green (or a custom class like `bg-green-100 text-green-800`).
+
+### 7.4 Order Filters (order-filters.tsx)
+
+Remove `<SelectItem value="processing">처리중</SelectItem>`.
+Add `<SelectItem value="invoiced">발행완료</SelectItem>`.
+
+### 7.5 Order Calendar (order-calendar.tsx)
+
+Update local `STATUS_MAP`: remove `processing`, add `invoiced`.
+
+### 7.6 Order Table (order-table.tsx)
+
+- Remove `processing` from status badges
 - Add `invoiced` badge (green, "발행완료")
 - Remove `tax_invoice_status` column/badge if displayed
 
-### 7.4 Order List Page (orders/page.tsx)
+### 7.7 Order List Page (orders/page.tsx)
 
-- Update status tabs: 전체, 초안, 접수, 배송완료, 발행완료, 취소
-- Remove any `processing` tab
+Update status tabs: 전체, 초안, 접수확인, 배송완료, 발행완료, 취소. Remove `processing` tab.
 
-### 7.5 Status Badge Colors
+### 7.8 Status Badge Colors
 
 | Status | Label | Color |
 |---|---|---|
@@ -202,21 +306,28 @@ const NEXT_STATUS = {
 
 ### Types
 - Modify: `apps/web/src/lib/types.ts` — update Order status union, remove tax_invoice_status
+- Modify: `apps/web/src/lib/tax-invoice/types.ts` — remove tax_invoice_status from UnbilledOrder
 
-### Service
-- Modify: `apps/web/src/lib/tax-invoice/service.ts` — replace recomputeOrderInvoiceStatus with direct transitions
+### Service & Queries
+- Modify: `apps/web/src/lib/tax-invoice/service.ts` — remove recomputeOrderInvoiceStatus, add direct transitions in issue/cancel/delete, update status filters in create functions
+- Modify: `apps/web/src/lib/queries/invoices.ts` — update getUnbilledOrders (filter by status=delivered), update getInvoiceStats (remove tax_invoice_status filter)
 - Modify: `apps/web/src/lib/queries/orders.ts` — remove processing references
+- Modify: `apps/web/src/lib/queries/deliveries.ts` — remove processing from getTodayDeliveries filter
 
-### UI
-- Modify: `apps/web/src/components/order-detail-client.tsx` — update buttons, remove processing
+### UI Components
+- Modify: `apps/web/src/components/order-detail-client.tsx` — update buttons, isEditable, canCreateInvoice, remove processing/tax_invoice_status
 - Modify: `apps/web/src/components/order-status-actions.tsx` — update NEXT_STATUS map
-- Modify: `apps/web/src/components/order-table.tsx` — update badges, remove processing
-- Modify: `apps/web/src/components/order-detail.tsx` — if it references processing
+- Modify: `apps/web/src/components/order-table.tsx` — update badges
+- Modify: `apps/web/src/components/order-detail.tsx` — remove processing references
+- Modify: `apps/web/src/components/order-filters.tsx` — remove processing, add invoiced
+- Modify: `apps/web/src/components/order-calendar.tsx` — update STATUS_MAP
+- Modify: `apps/web/src/lib/order-status.ts` — update labels/variants
+
+### Pages
 - Modify: `apps/web/src/app/(dashboard)/orders/page.tsx` — update status tabs
 
-### Queries
-- Modify: `apps/web/src/lib/queries/invoices.ts` — remove tax_invoice_status references in getUnbilledOrders
-- Modify: `apps/web/src/lib/tax-invoice/types.ts` — remove UnbilledOrder.tax_invoice_status or update
+### Documentation
+- Modify: `CLAUDE.md` — update order status workflow description
 
 ## 9. What Does NOT Change
 

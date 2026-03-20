@@ -151,7 +151,7 @@ fun LoginScreen(
             onValueChange = { serverUrl = it },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("서버 주소") },
-            placeholder = { Text("https://your-server.supabase.co") },
+            placeholder = { Text("https://www.notiflow.life") },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Language,

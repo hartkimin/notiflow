@@ -45,7 +45,7 @@ android {
         buildConfigField(
             "String",
             "SUPABASE_URL",
-            "\"${localProps.getProperty("supabase.url", "https://YOUR_NGROK_URL.ngrok-free.app")}\""
+            "\"${localProps.getProperty("supabase.url", "https://www.notiflow.life")}\""
         )
         buildConfigField(
             "String",

@@ -67,7 +67,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MessageSquareText } from "lucide-react";
 import { toast } from "sonner";
 import { MfdsSearchPanel } from "@/components/mfds-search-panel";
-import type { OrderDetail, OrderComment, Product, Supplier } from "@/lib/types";
+import type { OrderDetail, OrderComment, Product } from "@/lib/types";
 import { ORDER_STATUS_LABELS as STATUS_LABELS } from "@/lib/order-status";
 
 const STATUS_VARIANT: Record<

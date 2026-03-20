@@ -406,7 +406,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                       placeholder="거래처명을 입력하세요..."
                       fetchRecent={getRecentHospitalsAction}
                       searchAction={searchHospitalsAction}
-                      onSelect={(h: any) => { setHospitalId(h.id); setHospitalName(h.name); setHospitalContactPerson(h.contact_person ?? null); }}
+                      onSelect={(h: { id: number; name: string; contact_person?: string | null }) => { setHospitalId(h.id); setHospitalName(h.name); setHospitalContactPerson(h.contact_person ?? null); }}
                     />
                   </div>
                 )}

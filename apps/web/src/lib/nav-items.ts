@@ -9,6 +9,7 @@ import {
   MessageSquare,
   FileText,
   BarChart3,
+  MapPin,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -51,6 +52,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { href: "/hospitals", label: "병원(거래처)", icon: Building2 },
       { href: "/suppliers", label: "제조/공급사", icon: Factory },
+      { href: "/map", label: "지도", icon: MapPin },
     ],
   },
 ];

@@ -10,6 +10,11 @@ export interface Hospital {
   payment_terms: string | null;
   lead_time_days: number;
   is_active: boolean;
+  ceo_name: string | null;
+  biz_type: string | null;
+  biz_item: string | null;
+  email: string | null;
+  fax: string | null;
 }
 
 export interface Order {
@@ -29,6 +34,7 @@ export interface Order {
   created_at: string;
   notes: string | null;
   source_message_id: string | null;
+  tax_invoice_status: 'pending' | 'partial' | 'issued' | null;
 }
 
 export interface OrderItem {

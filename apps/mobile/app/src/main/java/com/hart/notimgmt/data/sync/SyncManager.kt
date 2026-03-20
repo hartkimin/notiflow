@@ -270,7 +270,7 @@ class SyncManager @Inject constructor(
     }
 
     /**
-     * 수동 동기화 (강제 - 양방향)
+     * 수동 동기화 (업로드 전용 — 로컬 → 원격)
      * @param clearRequest 웹 대시보드에서 요청한 동기화 플래그(sync_requested_at)를 클리어할지 여부
      */
     fun forceSync(clearRequest: Boolean = false) {
@@ -346,7 +346,7 @@ class SyncManager @Inject constructor(
     }
 
     /**
-     * 복원 전용 (원격 → 로컬)
+     * 복원 전용 (원격 → 로컬). 데이터 복구 시에만 사용.
      */
     fun forceDownload(options: DownloadOptions = DownloadOptions()) {
         if (!isCloudMode) { addLog("⚠️ 오프라인 모드"); return }
@@ -377,7 +377,7 @@ class SyncManager @Inject constructor(
     }
 
     /**
-     * 동기화 리스너 시작 (로그인 후 호출)
+     * 동기화 시작 (로그인 후 호출) — 업로드 전용
      */
     fun startListening() {
         if (!isCloudMode) return
@@ -388,17 +388,13 @@ class SyncManager @Inject constructor(
         }
 
         isListening = true
-        Log.d(TAG, "Starting Supabase realtime listeners for user: $userId")
+        Log.d(TAG, "Starting upload sync for user: $userId")
 
         scope.launch {
             try {
-                // Initial sync - fetch all data from Supabase
                 initialSync()
-
-                // Subscribe to realtime changes
-                subscribeToRealtimeChanges(userId)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to start listening", e)
+                Log.e(TAG, "Failed to start sync", e)
                 _syncStatus.value = SyncStatus.ERROR
             }
         }
@@ -408,16 +404,9 @@ class SyncManager @Inject constructor(
         _syncStatus.value = SyncStatus.SYNCING
         _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.SYNCING)
         resetTableStatuses()
-        addLog("동기화 시작...")
+        addLog("업로드 동기화 시작...")
 
         var hasError = false
-        try {
-            syncPull()
-        } catch (e: Exception) {
-            Log.e(TAG, "Pull sync failed: ${e.message}", e)
-            addLog("⚠️ 데이터 가져오기 중 일부 실패: ${e.message}")
-            hasError = true
-        }
         try {
             syncPush()
         } catch (e: Exception) {
@@ -441,10 +430,10 @@ class SyncManager @Inject constructor(
 
         if (hasError) {
             addLog("⚠️ 동기화 완료 (일부 오류 발생, 다음 동기화 시 재시도)")
-            markSyncSuccess() // 부분 성공도 timestamp 업데이트
+            markSyncSuccess()
         } else {
             markSyncSuccess()
-            addLog("✅ 동기화 완료!")
+            addLog("✅ 업로드 완료!")
         }
     }
 

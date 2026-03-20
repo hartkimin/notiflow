@@ -244,6 +244,13 @@ class AppPreferences @Inject constructor(
             prefs.edit().putString("supabase_url", value).commit()
         }
 
+    // Supabase Key (runtime-configurable, defaults to BuildConfig)
+    var supabaseKey: String
+        get() = prefs.getString("supabase_key", com.hart.notimgmt.BuildConfig.SUPABASE_KEY) ?: com.hart.notimgmt.BuildConfig.SUPABASE_KEY
+        set(value) {
+            prefs.edit().putString("supabase_key", value).commit()
+        }
+
     // FCM token
     var fcmToken: String?
         get() = prefs.getString("fcm_token", null)

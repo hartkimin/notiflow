@@ -28,7 +28,7 @@ object SupabaseModule {
         val url = appPreferences.supabaseUrl.ifBlank { BuildConfig.SUPABASE_URL }
         return createSupabaseClient(
             supabaseUrl = url,
-            supabaseKey = BuildConfig.SUPABASE_KEY
+            supabaseKey = appPreferences.supabaseKey.ifBlank { BuildConfig.SUPABASE_KEY }
         ) {
             defaultSerializer = KotlinXSerializer(Json {
                 ignoreUnknownKeys = true

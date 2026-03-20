@@ -363,7 +363,8 @@ data class MessageDto(
     val is_pinned: Boolean = false,
     val snooze_at: Long? = null,
     val original_content: String? = null,
-    val room_name: String? = null
+    val room_name: String? = null,
+    val is_read: Boolean = false
 ) {
     fun toEntity() = CapturedMessageEntity(
         id = id,
@@ -387,7 +388,8 @@ data class MessageDto(
         isPinned = is_pinned,
         snoozeAt = snooze_at,
         originalContent = original_content,
-        roomName = room_name
+        roomName = room_name,
+        isRead = is_read
     )
 }
 
@@ -517,7 +519,8 @@ private fun CapturedMessageEntity.toSupabaseDto(userId: String, deviceId: String
     is_pinned = isPinned,
     snooze_at = snoozeAt,
     original_content = originalContent,
-    room_name = roomName
+    room_name = roomName,
+    is_read = isRead
 )
 
 private fun CategoryEntity.toSupabaseDto(userId: String) = CategoryDto(

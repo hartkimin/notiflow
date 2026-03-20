@@ -262,16 +262,16 @@ export async function getLatestOrderDate(): Promise<string | null> {
 }
 
 /**
- * Get all orders in a date range (no pagination) for calendar view.
+ * Get all orders in a date range with items (no pagination) for calendar view.
  */
 export async function getOrdersForCalendar(params: {
   from: string;  // ISO date string "YYYY-MM-DD"
   to: string;    // ISO date string "YYYY-MM-DD"
-}): Promise<Order[]> {
+}): Promise<OrderDetail[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("orders")
-    .select("*, hospitals(name)")
+    .select("*, hospitals(name), order_items(id, product_name, quantity, unit_price, purchase_price, line_total, sales_rep, suppliers(name))")
     .gte("order_date", params.from)
     .lt("order_date", params.to)
     .order("order_date", { ascending: false })
@@ -281,5 +281,7 @@ export async function getOrdersForCalendar(params: {
     ...row,
     hospital_name: (row.hospitals as { name: string } | null)?.name,
     hospitals: undefined,
-  })) as Order[];
+    items: (row.order_items ?? []) as OrderItem[],
+    order_items: undefined,
+  })) as OrderDetail[];
 }

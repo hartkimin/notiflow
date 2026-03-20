@@ -62,7 +62,12 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filteredOrders.map((o) => o.id)));
+      // Only select orders from the same hospital as the first in the list
+      const targetHospital = lockedHospitalId ?? filteredOrders[0]?.hospital_id;
+      const sameHospitalOrders = targetHospital
+        ? filteredOrders.filter((o) => o.hospital_id === targetHospital)
+        : filteredOrders;
+      setSelectedIds(new Set(sameHospitalOrders.map((o) => o.id)));
     }
   }
 
@@ -79,6 +84,12 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
     () => orders.filter((o) => selectedIds.has(o.id)),
     [orders, selectedIds],
   );
+
+  // Lock to same hospital once first order is selected
+  const lockedHospitalId = useMemo(() => {
+    if (selectedOrders.length === 0) return null;
+    return selectedOrders[0].hospital_id;
+  }, [selectedOrders]);
 
   const summary = useMemo(() => {
     return selectedOrders.reduce(
@@ -167,12 +178,15 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.map((order) => (
-                  <TableRow key={order.id}>
+                {filteredOrders.map((order) => {
+                  const isDisabled = lockedHospitalId !== null && order.hospital_id !== lockedHospitalId;
+                  return (
+                  <TableRow key={order.id} className={isDisabled ? "opacity-50" : ""}>
                     <TableCell>
                       <Checkbox
                         checked={selectedIds.has(order.id)}
                         onCheckedChange={() => toggleOne(order.id)}
+                        disabled={isDisabled}
                       />
                     </TableCell>
                     <TableCell className="font-medium">{order.order_number}</TableCell>
@@ -183,9 +197,16 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
                       ₩{(order.total_amount || 0).toLocaleString()}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
+          )}
+
+          {lockedHospitalId && (
+            <p className="text-xs text-muted-foreground mt-2">
+              ※ 같은 거래처의 주문만 합산 발행할 수 있습니다. 다른 거래처 주문은 선택 해제 후 선택하세요.
+            </p>
           )}
         </CardContent>
       </Card>

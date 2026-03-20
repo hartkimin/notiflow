@@ -82,10 +82,18 @@ export async function getInvoiceStats(params: {
 
   const sumAmount = (arr: typeof rows) => arr.reduce((s, r) => s + Number(r.total_amount), 0);
 
-  const { count: unbilledCount } = await supabase
+  // Count truly unbilled orders (delivered + no active invoice linked)
+  const { data: billedOrderIds } = await supabase
+    .from("tax_invoice_orders")
+    .select("order_id, tax_invoices!inner(status)")
+    .neq("tax_invoices.status", "cancelled");
+  const billedIds = new Set((billedOrderIds ?? []).map((l) => l.order_id));
+
+  const { data: deliveredOrders } = await supabase
     .from("orders")
-    .select("id", { count: "exact", head: true })
+    .select("id")
     .eq("status", "delivered");
+  const unbilledCount = (deliveredOrders ?? []).filter((o) => !billedIds.has(o.id)).length;
 
   return {
     total_count: rows.length,
@@ -108,6 +116,14 @@ export async function getInvoiceStats(params: {
 export async function getUnbilledOrders(hospitalId?: number): Promise<UnbilledOrder[]> {
   const supabase = await createClient();
 
+  // Get order IDs that already have a non-cancelled tax invoice linked
+  const { data: linkedOrderIds } = await supabase
+    .from("tax_invoice_orders")
+    .select("order_id, tax_invoices!inner(status)")
+    .neq("tax_invoices.status", "cancelled");
+
+  const excludeIds = [...new Set((linkedOrderIds ?? []).map((l) => l.order_id))];
+
   let query = supabase
     .from("orders")
     .select("id, order_number, order_date, hospital_id, status, total_amount, supply_amount, tax_amount, delivery_date, delivered_at, hospitals(name), order_items(id, product_name, quantity, unit_price, purchase_price, line_total, sales_rep)")
@@ -115,6 +131,10 @@ export async function getUnbilledOrders(hospitalId?: number): Promise<UnbilledOr
     .order("order_date", { ascending: false });
 
   if (hospitalId) query = query.eq("hospital_id", hospitalId);
+  if (excludeIds.length > 0) {
+    // Supabase PostgREST: NOT IN filter
+    query = query.not("id", "in", `(${excludeIds.join(",")})`);
+  }
 
   const { data, error } = await query;
   if (error) throw error;

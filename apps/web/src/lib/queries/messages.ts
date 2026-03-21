@@ -88,19 +88,25 @@ export async function getMessageById(id: string): Promise<UnifiedMessage | null>
 export async function getMessagesForCalendar(params: {
   from: string;
   to: string;
+  source_app?: string;
 }): Promise<UnifiedMessage[]> {
   const supabase = await createClient();
 
   const fromMs = new Date(params.from).getTime();
   const toMs = new Date(params.to).getTime();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("captured_messages")
     .select("*")
     .gte("received_at", fromMs)
     .lt("received_at", toMs)
-    .eq("is_deleted", false)
-    .limit(200);
+    .eq("is_deleted", false);
+
+  if (params.source_app) {
+    query = query.eq("app_name", params.source_app);
+  }
+
+  const { data, error } = await query.limit(200);
 
   if (error) console.error("captured_messages calendar query error:", JSON.stringify(error, null, 2));
 

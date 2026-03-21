@@ -19,6 +19,7 @@ import {
 } from "@/lib/schedule-utils";
 import type { CalendarView } from "@/lib/schedule-utils";
 import type { RawMessage, Hospital, Product, OrderForecast } from "@/lib/types";
+import type { UnifiedMessage } from "@/lib/queries/messages";
 
 // ─── Types ──────────────────────────────────────
 
@@ -27,7 +28,7 @@ type TabValue = "list" | "calendar";
 interface MessagesViewProps {
   initialTab: TabValue;
   // List data
-  messages: RawMessage[];
+  messages: UnifiedMessage[];
   hospitals: Hospital[];
   products: Product[];
   currentPage: number;
@@ -116,19 +117,15 @@ export function MessagesView({
     formatMonthLabel(calDate);
 
   // ─── List filter submit ─────────────────────────
-  const pendingCount = 0;
-
   function handleFilterSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const params = new URLSearchParams();
     const from = fd.get("from") as string;
     const to = fd.get("to") as string;
-    const parse_status = fd.get("parse_status") as string;
     const source_app = fd.get("source_app") as string;
     if (from) params.set("from", from);
     if (to) params.set("to", to);
-    if (parse_status && parse_status !== "all") params.set("parse_status", parse_status);
     if (source_app && source_app !== "all") params.set("source_app", source_app);
     router.push(`/messages?${params}`);
   }
@@ -167,18 +164,6 @@ export function MessagesView({
           <form onSubmit={handleFilterSubmit} className="flex items-center gap-2 flex-1 min-w-0">
             <Input type="date" name="from" defaultValue={searchParams.get("from") || ""} className="h-8 w-[120px] text-xs" />
             <Input type="date" name="to" defaultValue={searchParams.get("to") || ""} className="h-8 w-[120px] text-xs" />
-            <Select name="parse_status" defaultValue={searchParams.get("parse_status") || "all"}>
-              <SelectTrigger className="h-8 w-[100px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">전체 상태</SelectItem>
-                <SelectItem value="parsed">파싱완료</SelectItem>
-                <SelectItem value="pending">대기</SelectItem>
-                <SelectItem value="failed">실패</SelectItem>
-                <SelectItem value="skipped">건너뜀</SelectItem>
-              </SelectContent>
-            </Select>
             <Select name="source_app" defaultValue={searchParams.get("source_app") || "all"}>
               <SelectTrigger className="h-8 w-[100px] text-xs">
                 <SelectValue />
@@ -196,9 +181,6 @@ export function MessagesView({
             </Button>
             <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap">
               <span>전체 <strong className="text-foreground">{totalCount}</strong>건</span>
-              {pendingCount > 0 && (
-                <span>· 미처리 <strong className="text-orange-600">{pendingCount}</strong>건</span>
-              )}
             </div>
           </form>
         ) : (
@@ -249,8 +231,6 @@ export function MessagesView({
       {tab === "list" ? (
         <MessageInbox
           messages={messages}
-          hospitals={hospitals}
-          products={products}
           currentPage={currentPage}
           totalPages={totalPages}
           totalCount={totalCount}

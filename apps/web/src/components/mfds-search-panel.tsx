@@ -762,8 +762,12 @@ export function MfdsSearchPanel({
 
   // ── Render ────────────────────────────────────────────────────────
 
-  const drugPct = syncStatus?.drugApiCount ? Math.min(100, Math.round((syncStatus.drugCount / syncStatus.drugApiCount) * 100)) : null;
-  const devicePct = syncStatus?.deviceApiCount ? Math.min(100, Math.round((syncStatus.deviceCount / syncStatus.deviceApiCount) * 100)) : null;
+  const drugPct = syncStatus?.drugApiCount && syncStatus.drugApiCount > 0
+    ? Math.min(100, Math.round((syncStatus.drugCount / syncStatus.drugApiCount) * 100))
+    : syncStatus?.drugCount ? 100 : null;
+  const devicePct = syncStatus?.deviceApiCount && syncStatus.deviceApiCount > 0
+    ? Math.min(100, Math.round((syncStatus.deviceCount / syncStatus.deviceApiCount) * 100))
+    : syncStatus?.deviceCount ? 100 : null;
 
   return (
     <div className="flex flex-col h-[calc(100vh-180px)] min-h-[400px]">
@@ -773,14 +777,20 @@ export function MfdsSearchPanel({
           <span className="font-medium text-foreground/70">DB 현황</span>
           <span>
             의약품 <span className="font-mono font-medium text-foreground">{syncStatus.drugCount.toLocaleString()}</span>
-            {syncStatus.drugApiCount != null && (
-              <>/{syncStatus.drugApiCount.toLocaleString()}, <span className={`font-medium ${drugPct != null && drugPct < 90 ? "text-amber-600" : "text-green-600"}`}>{drugPct ?? 0}%</span> 동기화</>
+            {syncStatus.drugApiCount != null && syncStatus.drugApiCount > 0 && (
+              <>/{syncStatus.drugApiCount.toLocaleString()}</>
+            )}
+            {drugPct != null && (
+              <>, <span className={`font-medium ${drugPct < 90 ? "text-amber-600" : "text-green-600"}`}>{drugPct}%</span> 동기화</>
             )}
           </span>
           <span>
             의료기기(UDI) <span className="font-mono font-medium text-foreground">{syncStatus.deviceCount.toLocaleString()}</span>
-            {syncStatus.deviceApiCount != null && (
-              <>/{syncStatus.deviceApiCount.toLocaleString()}, <span className={`font-medium ${devicePct != null && devicePct < 90 ? "text-amber-600" : "text-green-600"}`}>{devicePct ?? 0}%</span> 동기화</>
+            {syncStatus.deviceApiCount != null && syncStatus.deviceApiCount > 0 && (
+              <>/{syncStatus.deviceApiCount.toLocaleString()}</>
+            )}
+            {devicePct != null && (
+              <>, <span className={`font-medium ${devicePct < 90 ? "text-amber-600" : "text-green-600"}`}>{devicePct}%</span> 동기화</>
             )}
           </span>
         </div>

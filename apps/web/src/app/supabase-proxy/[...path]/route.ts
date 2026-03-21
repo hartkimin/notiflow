@@ -1,7 +1,7 @@
 /**
  * Catch-all proxy for Supabase API.
- * Used by both Docker web container and mobile apps connecting via Cloudflare Tunnel.
- * Reads SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) at runtime.
+ * Used by Docker web container and mobile apps connecting via Cloudflare Tunnel.
+ * Restricted to known origins with apikey validation.
  */
 import { NextRequest, NextResponse } from "next/server";
 
@@ -13,20 +13,44 @@ function getSupabaseUrl(): string {
   );
 }
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-supabase-api-version",
-  "Access-Control-Max-Age": "86400",
-};
+const ALLOWED_ORIGINS = new Set(
+  (process.env.PROXY_ALLOWED_ORIGINS || "https://notiflow.life,http://localhost:3000,http://localhost:3002")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean),
+);
+
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const allowedOrigin = origin && ALLOWED_ORIGINS.has(origin) ? origin : "";
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers":
+      "authorization, apikey, content-type, x-client-info, x-supabase-api-version",
+    "Access-Control-Max-Age": "86400",
+  };
+}
 
 async function handler(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> },
 ) {
+  const origin = request.headers.get("origin");
+  const corsHeaders = getCorsHeaders(origin);
+
   // Handle CORS preflight
   if (request.method === "OPTIONS") {
-    return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+    return new NextResponse(null, { status: 204, headers: corsHeaders });
+  }
+
+  // Require apikey or authorization header
+  const hasApiKey = request.headers.has("apikey");
+  const hasAuth = request.headers.has("authorization");
+  if (!hasApiKey && !hasAuth) {
+    return NextResponse.json(
+      { error: "Missing authentication" },
+      { status: 401, headers: corsHeaders },
+    );
   }
 
   const { path } = await params;
@@ -42,15 +66,16 @@ async function handler(
   const res = await fetch(target, {
     method: request.method,
     headers,
-    body: request.method !== "GET" && request.method !== "HEAD"
-      ? await request.arrayBuffer()
-      : undefined,
+    body:
+      request.method !== "GET" && request.method !== "HEAD"
+        ? await request.arrayBuffer()
+        : undefined,
   });
 
   // Forward response with CORS headers
   const responseHeaders = new Headers(res.headers);
   responseHeaders.delete("transfer-encoding");
-  for (const [key, value] of Object.entries(CORS_HEADERS)) {
+  for (const [key, value] of Object.entries(corsHeaders)) {
     responseHeaders.set(key, value);
   }
 

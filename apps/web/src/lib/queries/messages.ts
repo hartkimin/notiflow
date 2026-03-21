@@ -33,7 +33,6 @@ function mapCaptured(m: CapturedMessage): UnifiedMessage {
 export async function getMessages(params: {
   from?: string;
   to?: string;
-  parse_status?: string;
   source_app?: string;
   limit?: number;
   offset?: number;

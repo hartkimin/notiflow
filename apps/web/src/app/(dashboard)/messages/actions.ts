@@ -10,7 +10,7 @@ interface ManualParseItem {
 }
 
 export async function createManualOrder(
-  messageId: number,
+  messageId: string | number,
   hospitalId: number,
   items: ManualParseItem[],
 ) {

@@ -16,7 +16,7 @@ export default async function DashboardLayout({
   return (
     <DashboardShell userName={user.name}>
       <div className="flex flex-1 flex-col min-w-0 min-h-screen">
-        <Nav syncInterval={settings.sync_interval_minutes} />
+        <Nav syncInterval={settings.sync_interval_minutes} userName={user.name} />
         <GlobalNotifications />
         <main className="flex-1 overflow-y-auto p-4 pb-16 md:pb-4 lg:p-6 lg:pb-4">
           <div className="w-full space-y-4">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { ClipboardList, Link2, Trash2, Unlink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -455,6 +455,7 @@ interface MessageCalendarProps {
   referenceDate?: Date;
   onDateChange?: (date: Date) => void;
   onDateDoubleClick?: (date: Date) => void;
+  onMessageClick?: (messageId: string) => void;
 }
 
 export function MessageCalendar({
@@ -470,11 +471,18 @@ export function MessageCalendar({
   referenceDate,
   onDateChange,
   onDateDoubleClick,
+  onMessageClick,
 }: MessageCalendarProps) {
   const items: MessageCalendarItem[] = useMemo(() => [
     ...forecasts.map((f) => ({ kind: "forecast" as const, data: f })),
     ...messages.map((m) => ({ kind: "message" as const, data: m })),
   ], [messages, forecasts]);
+
+  const handleItemClick = useCallback((item: MessageCalendarItem) => {
+    if (item.kind === "message" && onMessageClick) {
+      onMessageClick(item.data.id);
+    }
+  }, [onMessageClick]);
 
   return (
     <DataCalendar
@@ -496,6 +504,7 @@ export function MessageCalendar({
       referenceDate={referenceDate}
       onDateChange={onDateChange}
       onDateDoubleClick={onDateDoubleClick}
+      onItemClick={handleItemClick}
     />
   );
 }

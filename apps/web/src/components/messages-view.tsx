@@ -111,6 +111,12 @@ export function MessagesView({
     setForecastDialogOpen(true);
   }, []);
 
+  const handleCalendarMessageClick = useCallback((messageId: string) => {
+    setTab("list");
+    window.history.replaceState(null, "", "/messages");
+    router.push(`/messages?tab=list&highlight=${messageId}`);
+  }, [router]);
+
   const calLabel =
     calView === "day" ? formatDayLabel(calDate) :
     calView === "week" ? formatWeekLabel(getWeekMonday(calDate)) :
@@ -249,6 +255,7 @@ export function MessagesView({
           referenceDate={calDate}
           onDateChange={navigateCalDate}
           onDateDoubleClick={handleDateDoubleClick}
+          onMessageClick={handleCalendarMessageClick}
         />
       )}
       <ForecastDialog

@@ -32,6 +32,8 @@ interface DataCalendarProps<T> {
   onDateChange?: (date: Date) => void;
   /** Called when a date cell is double-clicked */
   onDateDoubleClick?: (date: Date) => void;
+  /** Called when any item is clicked (before opening detail panel) */
+  onItemClick?: (item: T) => void;
 }
 
 export function DataCalendar<T>({
@@ -39,7 +41,7 @@ export function DataCalendar<T>({
   renderMonthItem, renderWeekItem, renderDayItem,
   renderDetail, detailTitle,
   initialView, initialDate, basePath, tabParam = "calendar",
-  hideHeader, view: controlledView, onViewChange, referenceDate: controlledDate, onDateChange, onDateDoubleClick,
+  hideHeader, view: controlledView, onViewChange, referenceDate: controlledDate, onDateChange, onDateDoubleClick, onItemClick,
 }: DataCalendarProps<T>) {
   const router = useRouter();
   const [internalView, setInternalView] = useState<CalendarView>(initialView);
@@ -74,7 +76,8 @@ export function DataCalendar<T>({
 
   const handleItemClick = useCallback((item: T) => {
     setSelectedItem(item);
-  }, []);
+    onItemClick?.(item);
+  }, [onItemClick]);
 
   const handleDateClick = useCallback((date: Date) => {
     setView("day");

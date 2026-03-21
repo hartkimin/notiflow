@@ -12,11 +12,13 @@ export async function createMessage(data: {
   sender?: string;
   content: string;
 }) {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("인증되지 않은 사용자입니다.");
   const id = `web-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const { error } = await supabase.from("captured_messages").insert({
     id,
-    user_id: (await supabase.auth.getUser()).data.user?.id ?? "00000000-0000-0000-0000-000000000000",
+    user_id: user.id,
     app_name: data.source_app,
     sender: data.sender ?? "unknown",
     content: data.content,
@@ -34,7 +36,7 @@ export async function createMessage(data: {
 }
 
 export async function deleteMessage(id: number | string) {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { error } = await supabase
     .from("captured_messages")
     .update({ is_deleted: true, updated_at: Date.now() })
@@ -47,7 +49,7 @@ export async function deleteMessage(id: number | string) {
 
 export async function deleteMessages(ids: (number | string)[]) {
   if (ids.length === 0) return { success: true };
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { error } = await supabase
     .from("captured_messages")
     .update({ is_deleted: true, updated_at: Date.now() })

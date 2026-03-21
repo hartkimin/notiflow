@@ -30,6 +30,13 @@ function mapCaptured(m: CapturedMessage): UnifiedMessage {
   };
 }
 
+/** Parse a date string as local timezone midnight (not UTC).
+ *  "2026-03-01" → local 2026-03-01 00:00:00 epoch ms */
+function localDateToMs(dateStr: string): number {
+  const parts = dateStr.split("-").map(Number);
+  return new Date(parts[0], parts[1] - 1, parts[2]).getTime();
+}
+
 export async function getMessages(params: {
   from?: string;
   to?: string;
@@ -41,13 +48,13 @@ export async function getMessages(params: {
 
   let query = supabase.from("captured_messages").select("*", { count: "exact" });
 
-  // Filter by date range (convert ISO to epoch ms)
+  // Filter by date range (convert to local-timezone epoch ms)
   if (params.from) {
-    const fromMs = new Date(params.from).getTime();
+    const fromMs = localDateToMs(params.from);
     if (!isNaN(fromMs)) query = query.gte("received_at", fromMs);
   }
   if (params.to) {
-    const toMs = new Date(params.to).getTime();
+    const toMs = localDateToMs(params.to) + 24 * 60 * 60 * 1000 - 1;
     if (!isNaN(toMs)) query = query.lte("received_at", toMs);
   }
   if (params.source_app) {
@@ -118,8 +125,8 @@ export async function getMessagesForCalendar(params: {
 }): Promise<UnifiedMessage[]> {
   const supabase = await createClient();
 
-  const fromMs = new Date(params.from).getTime();
-  const toMs = new Date(params.to).getTime();
+  const fromMs = localDateToMs(params.from);
+  const toMs = localDateToMs(params.to) + 24 * 60 * 60 * 1000;
 
   let query = supabase
     .from("captured_messages")

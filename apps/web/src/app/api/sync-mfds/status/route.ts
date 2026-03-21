@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminSupabase, cleanupStaleLogs } from "@/lib/mfds-sync";
 
 export async function GET() {
+  // Auth check — this endpoint exposes internal sync state
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const admin = createAdminSupabase();
 
   // Auto-cleanup stale "running" logs (process died)

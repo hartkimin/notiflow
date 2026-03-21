@@ -82,66 +82,17 @@ export function AccordionDetail({ message, localState }: AccordionDetailProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4 px-6 py-4 bg-muted/30 border-t">
-      {/* Left: message content + meta */}
-      <div className="space-y-3 min-w-0">
-        {/* Meta info */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+    <div className="flex flex-col h-full overflow-y-auto">
+      {/* Header: meta + actions */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/30 shrink-0">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap min-w-0">
+          <span className="font-medium text-foreground">{msg.sender || "(발신자 없음)"}</span>
+          <span className="text-muted-foreground/30">·</span>
           <span>{SOURCE_LABEL[msg.source_app] || msg.source_app}</span>
-          <span className="text-muted-foreground/30">|</span>
+          <span className="text-muted-foreground/30">·</span>
           <span>{formatDateTime(msg.received_at)}</span>
-          {msg.sender && (
-            <>
-              <span className="text-muted-foreground/30">|</span>
-              <span>{msg.sender}</span>
-            </>
-          )}
-          {msg.room_name && (
-            <>
-              <span className="text-muted-foreground/30">|</span>
-              <span>{msg.room_name}</span>
-            </>
-          )}
-          {msg.device_name && (
-            <>
-              <span className="text-muted-foreground/30">|</span>
-              <span className="truncate">{msg.device_name}</span>
-            </>
-          )}
         </div>
-
-        {/* Message content */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-medium text-muted-foreground">
-              메시지 내용 {msgLocal.editedContent !== null && <span className="text-orange-500">(편집됨)</span>}
-            </span>
-            {!isEditing && (
-              <Button variant="ghost" size="sm" className="h-6 px-2" onClick={handleStartEdit}>
-                <Pencil className="h-3 w-3 mr-1" />편집
-              </Button>
-            )}
-          </div>
-          {isEditing ? (
-            <div className="space-y-1.5">
-              <Textarea value={editDraft} onChange={(e) => setEditDraft(e.target.value)} rows={4} className="text-sm font-sans" />
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" size="sm" className="h-7" onClick={handleCancelEdit}>취소</Button>
-                <Button size="sm" className="h-7" onClick={handleSaveEdit}>저장</Button>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-xl bg-background p-4 border">
-              <pre className="text-sm whitespace-pre-wrap font-sans leading-snug">{displayContent}</pre>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Right: comments + actions */}
-      <div className="space-y-3 min-w-0">
-        {/* Actions */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 shrink-0">
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
             onClick={() => localState.togglePin(msg.id)}
             title={msgLocal.isPinned ? "핀 해제" : "핀 고정"}
@@ -169,10 +120,48 @@ export function AccordionDetail({ message, localState }: AccordionDetailProps) {
             </AlertDialogContent>
           </AlertDialog>
         </div>
+      </div>
+
+      {/* Sub meta */}
+      {(msg.room_name || msg.device_name) && (
+        <div className="flex items-center gap-2 px-4 py-1.5 border-b text-[10px] text-muted-foreground shrink-0">
+          {msg.room_name && <span>채팅방: {msg.room_name}</span>}
+          {msg.room_name && msg.device_name && <span className="text-muted-foreground/30">·</span>}
+          {msg.device_name && <span>기기: {msg.device_name}</span>}
+        </div>
+      )}
+
+      {/* Message content */}
+      <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-medium text-muted-foreground">
+              메시지 내용 {msgLocal.editedContent !== null && <span className="text-orange-500">(편집됨)</span>}
+            </span>
+            {!isEditing && (
+              <Button variant="ghost" size="sm" className="h-6 px-2" onClick={handleStartEdit}>
+                <Pencil className="h-3 w-3 mr-1" />편집
+              </Button>
+            )}
+          </div>
+          {isEditing ? (
+            <div className="space-y-1.5">
+              <Textarea value={editDraft} onChange={(e) => setEditDraft(e.target.value)} rows={6} className="text-sm font-sans" />
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" size="sm" className="h-7" onClick={handleCancelEdit}>취소</Button>
+                <Button size="sm" className="h-7" onClick={handleSaveEdit}>저장</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg bg-muted/40 p-3 border">
+              <pre className="text-sm whitespace-pre-wrap font-sans leading-snug">{displayContent}</pre>
+            </div>
+          )}
+        </div>
 
         {/* Comments */}
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1.5">
             <MessageSquare className="h-3 w-3 text-muted-foreground" />
             <span className="text-xs font-medium text-muted-foreground">코멘트 ({msgLocal.comments.length})</span>
           </div>
@@ -190,7 +179,7 @@ export function AccordionDetail({ message, localState }: AccordionDetailProps) {
               onClick={handleAddComment} disabled={!commentDraft.trim()}>추가</Button>
           </div>
           {msgLocal.comments.length > 0 && (
-            <div className="space-y-1 max-h-32 overflow-y-auto">
+            <div className="space-y-1 max-h-40 overflow-y-auto">
               {msgLocal.comments.map((comment) => (
                 <div key={comment.id} className="flex items-center justify-between gap-2 rounded border bg-background px-2 py-1">
                   <p className="text-xs break-words min-w-0 flex-1">{comment.text}</p>

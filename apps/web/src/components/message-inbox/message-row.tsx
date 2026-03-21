@@ -3,7 +3,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { AccordionDetail } from "./accordion-detail";
 import { SOURCE_LABEL, formatDate } from "./constants";
 import type { UnifiedMessage } from "@/lib/queries/messages";
 import type { MessageLocalStateHook } from "@/hooks/use-message-local-state";
@@ -98,10 +97,7 @@ export function MessageRow({
         </div>
       </div>
 
-      {/* Accordion expanded content */}
-      {isExpanded && (
-        <AccordionDetail message={msg} localState={localState} />
-      )}
+      {/* Detail is now rendered in the side panel, not inline */}
     </div>
   );
 }

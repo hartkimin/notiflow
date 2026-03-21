@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // Vercel Cron: runs daily at 23:50 KST (14:50 UTC)
 // Generates a daily stats snapshot and stores it in sales_reports
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const today = new Date().toISOString().slice(0, 10);
 
   // Fetch daily stats via RPC

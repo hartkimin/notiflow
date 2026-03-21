@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // Vercel Cron: runs on the 1st of each month at 01:00 KST (16:00 UTC prev day)
 // Generates the previous month's sales report
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Calculate previous month
   const now = new Date();

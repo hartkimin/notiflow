@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { TaxInvoice, TaxInvoiceDetail, TaxInvoiceStats, UnbilledOrder } from "@/lib/tax-invoice/types";
+import { escapeFilterValue } from "@/lib/supabase/sanitize";
 
 export async function getInvoices(params: {
   status?: string;
@@ -21,7 +22,8 @@ export async function getInvoices(params: {
   if (params.from) query = query.gte("issue_date", params.from);
   if (params.to) query = query.lte("issue_date", params.to);
   if (params.search) {
-    query = query.or(`invoice_number.ilike.%${params.search}%,buyer_name.ilike.%${params.search}%`);
+    const eq = escapeFilterValue(params.search);
+    query = query.or(`invoice_number.ilike.%${eq}%,buyer_name.ilike.%${eq}%`);
   }
 
   query = query

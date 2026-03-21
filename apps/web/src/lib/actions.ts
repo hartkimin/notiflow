@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { geocodeAddress } from "@/lib/geocode";
+import { escapeFilterValue, escapeLikeValue } from "@/lib/supabase/sanitize";
 
 // --- Messages (captured_messages table) ---
 
@@ -718,12 +719,14 @@ export async function searchMyItems(params: { query: string; sourceType: string;
   let dbQuery = supabase.from(table).select("*", { count: "exact" });
 
   if (q) {
-    if (sourceType === "drug") dbQuery = dbQuery.or(`item_name.ilike.%${q}%,entp_name.ilike.%${q}%,bar_code.ilike.%${q}%`);
-    else dbQuery = dbQuery.or(`prdlst_nm.ilike.%${q}%,mnft_iprt_entp_nm.ilike.%${q}%,udidi_cd.ilike.%${q}%`);
+    const eq = escapeFilterValue(q);
+    if (sourceType === "drug") dbQuery = dbQuery.or(`item_name.ilike.%${eq}%,entp_name.ilike.%${eq}%,bar_code.ilike.%${eq}%`);
+    else dbQuery = dbQuery.or(`prdlst_nm.ilike.%${eq}%,mnft_iprt_entp_nm.ilike.%${eq}%,udidi_cd.ilike.%${eq}%`);
   }
   for (const chip of filters) {
     const dbCol = chip.field.toLowerCase();
-    if (chip.operator === "contains") dbQuery = dbQuery.filter(dbCol, "ilike", `%${chip.value}%`);
+    const ev = escapeLikeValue(chip.value);
+    if (chip.operator === "contains") dbQuery = dbQuery.filter(dbCol, "ilike", `%${ev}%`);
     else if (chip.operator === "equals") dbQuery = dbQuery.filter(dbCol, "eq", chip.value);
   }
   dbQuery = dbQuery.order(sortBy?.toLowerCase() || (sourceType === "drug" ? "item_name" : "prdlst_nm"), { ascending: sortOrder === "asc" }).range(from, to);
@@ -751,8 +754,14 @@ export async function searchMfdsItems(params: { query: string; sourceType: strin
 
   let dbQuery = supabase.from(tableName).select("*", { count: "exact" });
 
-  if (q) dbQuery = dbQuery.or(`${nameCol}.ilike.%${q}%,${mfrCol}.ilike.%${q}%,${codeCol}.ilike.%${q}%`);
-  for (const chip of filters) dbQuery = dbQuery.filter(chip.field.toLowerCase(), "ilike", `%${chip.value}%`);
+  if (q) {
+    const eq = escapeFilterValue(q);
+    dbQuery = dbQuery.or(`${nameCol}.ilike.%${eq}%,${mfrCol}.ilike.%${eq}%,${codeCol}.ilike.%${eq}%`);
+  }
+  for (const chip of filters) {
+    const ev = escapeLikeValue(chip.value);
+    dbQuery = dbQuery.filter(chip.field.toLowerCase(), "ilike", `%${ev}%`);
+  }
   dbQuery = dbQuery.order(nameCol, { ascending: sortOrder === "asc" }).range(from, to);
 
   const { data, count, error } = await dbQuery;

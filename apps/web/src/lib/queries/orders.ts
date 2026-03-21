@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Order, OrderDetail, OrderItem, OrderItemFlat } from "@/lib/types";
+import { escapeLikeValue } from "@/lib/supabase/sanitize";
 
 export async function getOrders(params: {
   status?: string;
@@ -64,7 +65,7 @@ export async function getOrderItems(params: {
     const { data: matchItems } = await supabase
       .from("order_items")
       .select("order_id")
-      .ilike("product_name", `%${params.search}%`);
+      .ilike("product_name", `%${escapeLikeValue(params.search)}%`);
     const matchOrderIds = [...new Set((matchItems ?? []).map((i) => i.order_id))];
     if (matchOrderIds.length === 0) return { items: [], total: 0 };
     orderQuery = orderQuery.in("id", matchOrderIds);

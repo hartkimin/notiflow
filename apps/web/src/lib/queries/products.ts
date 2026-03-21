@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { MyDrug, MyDevice } from "@/lib/types";
+import { escapeFilterValue } from "@/lib/supabase/sanitize";
 
 export async function getMyDrugs(): Promise<MyDrug[]> {
   const supabase = await createClient();
@@ -43,7 +44,8 @@ export async function searchMyItems(query: string): Promise<Array<{
   raw: Record<string, unknown>;
 }>> {
   const supabase = await createClient();
-  const q = `%${query}%`;
+  const escaped = escapeFilterValue(query);
+  const q = `%${escaped}%`;
 
   const [{ data: drugs }, { data: devices }] = await Promise.all([
     supabase

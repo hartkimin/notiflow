@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Supplier } from "@/lib/types";
+import { escapeLikeValue } from "@/lib/supabase/sanitize";
 
 export async function getSuppliers(params: {
   search?: string;
@@ -10,7 +11,7 @@ export async function getSuppliers(params: {
 
   let query = supabase.from("suppliers").select("*", { count: "exact" });
 
-  if (params.search) query = query.ilike("name", `%${params.search}%`);
+  if (params.search) query = query.ilike("name", `%${escapeLikeValue(params.search)}%`);
 
   query = query
     .order("name")

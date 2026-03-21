@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Hospital } from "@/lib/types";
+import { escapeLikeValue } from "@/lib/supabase/sanitize";
 
 export async function getHospitals(params: {
   search?: string;
@@ -11,7 +12,7 @@ export async function getHospitals(params: {
 
   let query = supabase.from("hospitals").select("*", { count: "exact" });
 
-  if (params.search) query = query.ilike("name", `%${params.search}%`);
+  if (params.search) query = query.ilike("name", `%${escapeLikeValue(params.search)}%`);
   if (params.type) query = query.eq("hospital_type", params.type);
 
   query = query

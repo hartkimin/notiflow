@@ -116,9 +116,7 @@ export function MessagesView({
     formatMonthLabel(calDate);
 
   // ─── List filter submit ─────────────────────────
-  const pendingCount = messages.filter(
-    (m) => m.parse_status === "pending" || m.parse_status === "failed",
-  ).length;
+  const pendingCount = 0;
 
   function handleFilterSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

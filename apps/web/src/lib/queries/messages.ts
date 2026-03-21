@@ -13,20 +13,15 @@ export interface UnifiedMessage extends RawMessage {
 
 function mapCaptured(m: CapturedMessage): UnifiedMessage {
   return {
-    // RawMessage legacy fields (defaults for removed raw_messages table)
-    id: Number(m.id),
+    id: m.id,
     content: m.content,
     received_at: new Date(m.received_at).toISOString(),
     sender: m.sender,
-    parse_status: "skipped",
     source_app: m.app_name,
     hospital_id: null,
     order_id: null,
     device_name: m.device_id,
-    parse_result: null,
-    parse_method: null,
     is_order_message: null,
-    // UnifiedMessage fields
     is_captured: true,
     app_name: m.app_name,
     room_name: m.room_name,

@@ -121,7 +121,7 @@ export async function deleteForecast(id: number) {
   return { success: true };
 }
 
-export async function matchForecast(forecastId: number, messageId: number) {
+export async function matchForecast(forecastId: number, messageId: string | number) {
   const supabase = await createClient();
 
   const { error: fErr } = await supabase

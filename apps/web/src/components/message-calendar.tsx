@@ -32,13 +32,6 @@ const SOURCE_LABELS: Record<string, string> = {
   manual: "수동",
 };
 
-const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  parsed: "default",
-  pending: "secondary",
-  failed: "destructive",
-  skipped: "outline",
-};
-
 const FORECAST_STATUS_LABEL: Record<ForecastStatus, string> = {
   pending: "대기",
   matched: "매칭됨",
@@ -70,13 +63,6 @@ function formatDate(dateStr: string): string {
 function formatForecastDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-
-function parseStatusLabel(status: string): string {
-  if (status === "parsed") return "파싱완료";
-  if (status === "pending") return "대기";
-  if (status === "failed") return "실패";
-  return status;
 }
 
 function ForecastStatusBadge({ status }: { status: ForecastStatus }) {
@@ -118,9 +104,6 @@ function MessageDayItem({ msg }: { msg: RawMessage }) {
         <div className="flex items-center gap-1.5 shrink-0">
           <Badge variant="outline" className="text-[10px]">
             {SOURCE_LABELS[msg.source_app] ?? msg.source_app}
-          </Badge>
-          <Badge variant={STATUS_VARIANTS[msg.parse_status] ?? "secondary"} className="text-[10px]">
-            {parseStatusLabel(msg.parse_status)}
           </Badge>
           <span className="text-xs text-muted-foreground">{formatDate(msg.received_at)}</span>
         </div>
@@ -198,10 +181,6 @@ function DayItem({ item }: { item: MessageCalendarItem }) {
 // ─── Message Detail ──────────────────────────────
 
 function MessageDetailContent({ msg }: { msg: RawMessage }) {
-  const parseResult = msg.parse_result as {
-    items?: Array<{ item: string; qty: number; unit: string; matched_product?: string; confidence?: number }>;
-  } | null;
-
   const [candidates, setCandidates] = useState<OrderForecast[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(true);
   const [isPending, startTransition] = useTransition();
@@ -240,10 +219,6 @@ function MessageDetailContent({ msg }: { msg: RawMessage }) {
           <span className="text-muted-foreground">출처</span>
           <p><Badge variant="outline">{SOURCE_LABELS[msg.source_app] ?? msg.source_app}</Badge></p>
         </div>
-        <div>
-          <span className="text-muted-foreground">파싱상태</span>
-          <p><Badge variant={STATUS_VARIANTS[msg.parse_status] ?? "secondary"}>{msg.parse_status}</Badge></p>
-        </div>
         {msg.device_name && (
           <div>
             <span className="text-muted-foreground">기기</span>
@@ -264,34 +239,6 @@ function MessageDetailContent({ msg }: { msg: RawMessage }) {
           {msg.content}
         </div>
       </div>
-
-      {parseResult?.items && parseResult.items.length > 0 && (
-        <div>
-          <h4 className="text-sm font-medium mb-1">파싱 결과</h4>
-          <div className="rounded border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="text-left px-2 py-1 font-medium">품목</th>
-                  <th className="text-right px-2 py-1 font-medium">수량</th>
-                  <th className="text-left px-2 py-1 font-medium">단위</th>
-                  <th className="text-left px-2 py-1 font-medium">매칭</th>
-                </tr>
-              </thead>
-              <tbody>
-                {parseResult.items.map((item, i) => (
-                  <tr key={i} className="border-t">
-                    <td className="px-2 py-1">{item.item}</td>
-                    <td className="px-2 py-1 text-right">{item.qty}</td>
-                    <td className="px-2 py-1">{item.unit}</td>
-                    <td className="px-2 py-1 text-muted-foreground">{item.matched_product ?? "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {/* Forecast matching section */}
       <div>

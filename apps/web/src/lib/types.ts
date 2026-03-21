@@ -242,17 +242,14 @@ export interface ProductCatalogRow {
 
 /** @deprecated Use CapturedMessage instead */
 export interface RawMessage {
-  id: number;
+  id: string;
   content: string;
   received_at: string;
   sender: string | null;
-  parse_status: string;
   source_app: string;
   hospital_id: number | null;
   order_id: number | null;
   device_name: string | null;
-  parse_result: Record<string, unknown>[] | null;
-  parse_method: string | null;
   is_order_message: boolean | null;
   forecast_id?: number | null;
 }

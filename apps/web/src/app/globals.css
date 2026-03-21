@@ -80,6 +80,7 @@
     border-color: hsl(var(--border));
   }
   body {
+    font-family: 'Pretendard', sans-serif;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     -webkit-font-smoothing: antialiased;

@@ -74,12 +74,12 @@ export function useMessageLocalState() {
   );
 
   const getState = useCallback(
-    (msgId: number): MessageLocalData => states[msgId] ?? emptyLocal(),
+    (msgId: string | number): MessageLocalData => states[msgId] ?? emptyLocal(),
     [states],
   );
 
   const updateState = useCallback(
-    (msgId: number, updater: (prev: MessageLocalData) => MessageLocalData) => {
+    (msgId: string | number, updater: (prev: MessageLocalData) => MessageLocalData) => {
       setStates((prev) => ({
         ...prev,
         [msgId]: updater(prev[msgId] ?? emptyLocal()),
@@ -91,7 +91,7 @@ export function useMessageLocalState() {
   // --- Status ---
 
   const changeStatus = useCallback(
-    (msgId: number, newStatusId: string) => {
+    (msgId: string | number, newStatusId: string) => {
       updateState(msgId, (prev) => {
         const fromStep = steps.find((s) => s.id === prev.statusId);
         const toStep = steps.find((s) => s.id === newStatusId);
@@ -114,7 +114,7 @@ export function useMessageLocalState() {
   );
 
   const clearStatus = useCallback(
-    (msgId: number) => {
+    (msgId: string | number) => {
       updateState(msgId, (prev) => ({
         ...prev,
         statusId: null,
@@ -126,7 +126,7 @@ export function useMessageLocalState() {
   // --- Pin ---
 
   const togglePin = useCallback(
-    (msgId: number) => {
+    (msgId: string | number) => {
       updateState(msgId, (prev) => ({ ...prev, isPinned: !prev.isPinned }));
     },
     [updateState],
@@ -135,7 +135,7 @@ export function useMessageLocalState() {
   // --- Snooze ---
 
   const setSnooze = useCallback(
-    (msgId: number, snoozeAt: string | null) => {
+    (msgId: string | number, snoozeAt: string | null) => {
       updateState(msgId, (prev) => ({ ...prev, snoozeAt }));
     },
     [updateState],
@@ -144,7 +144,7 @@ export function useMessageLocalState() {
   // --- Comments ---
 
   const addComment = useCallback(
-    (msgId: number, text: string) => {
+    (msgId: string | number, text: string) => {
       const comment: MessageComment = {
         id: generateId(),
         text,
@@ -159,7 +159,7 @@ export function useMessageLocalState() {
   );
 
   const deleteComment = useCallback(
-    (msgId: number, commentId: string) => {
+    (msgId: string | number, commentId: string) => {
       updateState(msgId, (prev) => ({
         ...prev,
         comments: prev.comments.filter((c) => c.id !== commentId),
@@ -171,7 +171,7 @@ export function useMessageLocalState() {
   // --- Edit content ---
 
   const setEditedContent = useCallback(
-    (msgId: number, content: string | null) => {
+    (msgId: string | number, content: string | null) => {
       updateState(msgId, (prev) => ({ ...prev, editedContent: content }));
     },
     [updateState],

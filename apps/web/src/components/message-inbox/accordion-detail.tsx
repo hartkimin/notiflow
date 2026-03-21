@@ -1,52 +1,35 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  ClipboardList, Trash2,
-  Pin, PinOff, Copy, Pencil, MessageSquare, X,
+  Trash2, Pin, PinOff, Copy, Pencil, MessageSquare, X,
 } from "lucide-react";
 import { deleteMessage } from "@/lib/actions";
-import { ParseResultTable } from "./parse-result-table";
 import { SOURCE_LABEL, formatDateTime } from "./constants";
-import type { RawMessage } from "@/lib/types";
+import type { UnifiedMessage } from "@/lib/queries/messages";
 import type { MessageLocalStateHook } from "@/hooks/use-message-local-state";
 
-interface DetailPanelProps {
-  message: RawMessage | null;
+interface AccordionDetailProps {
+  message: UnifiedMessage;
   localState: MessageLocalStateHook;
 }
 
-export function MessageDetailPanel({ message, localState }: DetailPanelProps) {
+export function AccordionDetail({ message, localState }: AccordionDetailProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [editingMsgId, setEditingMsgId] = useState<number | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState("");
   const [commentDraft, setCommentDraft] = useState("");
-  if (!message) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center space-y-2">
-          <MessageSquare className="h-10 w-10 text-muted-foreground/30 mx-auto" />
-          <p className="text-sm text-muted-foreground">메시지를 선택하세요</p>
-        </div>
-      </div>
-    );
-  }
 
   const msg = message;
   const msgLocal = localState.getState(msg.id);
@@ -54,7 +37,7 @@ export function MessageDetailPanel({ message, localState }: DetailPanelProps) {
 
   function handleStartEdit() {
     const state = localState.getState(msg.id);
-    setEditingMsgId(msg.id);
+    setIsEditing(true);
     setEditDraft(state.editedContent ?? msg.content);
   }
 
@@ -62,13 +45,13 @@ export function MessageDetailPanel({ message, localState }: DetailPanelProps) {
     const trimmed = editDraft.trim();
     const content = trimmed === msg.content.trim() ? null : trimmed;
     localState.setEditedContent(msg.id, content);
-    setEditingMsgId(null);
+    setIsEditing(false);
     setEditDraft("");
     toast.success("메모가 저장되었습니다.");
   }
 
   function handleCancelEdit() {
-    setEditingMsgId(null);
+    setIsEditing(false);
     setEditDraft("");
   }
 
@@ -98,67 +81,48 @@ export function MessageDetailPanel({ message, localState }: DetailPanelProps) {
     });
   }
 
-
   return (
-    <div className="flex flex-col h-full min-w-0">
-      {/* Meta bar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b flex-wrap">
-        <Select
-          value={msgLocal.statusId ?? "none"}
-          onValueChange={(val: string) => {
-            if (val === "none") localState.clearStatus(msg.id);
-            else localState.changeStatus(msg.id, val);
-          }}
-        >
-          <SelectTrigger className="w-28 h-7 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">미지정</SelectItem>
-            {localState.steps.map((step) => (
-              <SelectItem key={step.id} value={step.id}>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: step.color }} />
-                  {step.name}
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="text-muted-foreground/30">|</span>
-        {msg.order_id ? (
-          <Link href={`/orders/${msg.order_id}`} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-            <ClipboardList className="h-3 w-3" />#{msg.order_id}
-          </Link>
-        ) : (
-          <span className="text-xs text-muted-foreground">주문 없음</span>
-        )}
-        <span className="text-muted-foreground/30">|</span>
-        <span className="text-xs text-muted-foreground">{SOURCE_LABEL[msg.source_app] || msg.source_app}</span>
-        <span className="text-xs text-muted-foreground">{formatDateTime(msg.received_at)}</span>
-        {msg.device_name && (
-          <>
-            <span className="text-muted-foreground/30">|</span>
-            <span className="text-xs text-muted-foreground truncate">{msg.device_name}</span>
-          </>
-        )}
-      </div>
+    <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4 px-6 py-4 bg-muted/30 border-t">
+      {/* Left: message content + meta */}
+      <div className="space-y-3 min-w-0">
+        {/* Meta info */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+          <span>{SOURCE_LABEL[msg.source_app] || msg.source_app}</span>
+          <span className="text-muted-foreground/30">|</span>
+          <span>{formatDateTime(msg.received_at)}</span>
+          {msg.sender && (
+            <>
+              <span className="text-muted-foreground/30">|</span>
+              <span>{msg.sender}</span>
+            </>
+          )}
+          {msg.room_name && (
+            <>
+              <span className="text-muted-foreground/30">|</span>
+              <span>{msg.room_name}</span>
+            </>
+          )}
+          {msg.device_name && (
+            <>
+              <span className="text-muted-foreground/30">|</span>
+              <span className="truncate">{msg.device_name}</span>
+            </>
+          )}
+        </div>
 
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Message content */}
         <div>
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-medium text-muted-foreground">
               메시지 내용 {msgLocal.editedContent !== null && <span className="text-orange-500">(편집됨)</span>}
             </span>
-            {editingMsgId !== msg.id && (
+            {!isEditing && (
               <Button variant="ghost" size="sm" className="h-6 px-2" onClick={handleStartEdit}>
                 <Pencil className="h-3 w-3 mr-1" />편집
               </Button>
             )}
           </div>
-          {editingMsgId === msg.id ? (
+          {isEditing ? (
             <div className="space-y-1.5">
               <Textarea value={editDraft} onChange={(e) => setEditDraft(e.target.value)} rows={4} className="text-sm font-sans" />
               <div className="flex gap-2 justify-end">
@@ -167,16 +131,43 @@ export function MessageDetailPanel({ message, localState }: DetailPanelProps) {
               </div>
             </div>
           ) : (
-            <div className="rounded-xl bg-muted p-4">
+            <div className="rounded-xl bg-background p-4 border">
               <pre className="text-sm whitespace-pre-wrap font-sans leading-snug">{displayContent}</pre>
             </div>
           )}
         </div>
+      </div>
 
-        {/* Parse result */}
-        <div>
-          <span className="text-xs font-medium text-muted-foreground mb-1 block">파싱 결과</span>
-          <ParseResultTable msg={msg} />
+      {/* Right: comments + actions */}
+      <div className="space-y-3 min-w-0">
+        {/* Actions */}
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+            onClick={() => localState.togglePin(msg.id)}
+            title={msgLocal.isPinned ? "핀 해제" : "핀 고정"}
+          >
+            {msgLocal.isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleCopyContent} title="복사">
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" disabled={isPending} title="삭제">
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>메시지를 삭제하시겠습니까?</AlertDialogTitle>
+                <AlertDialogDescription>이 작업은 되돌릴 수 없습니다.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">삭제</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
 
         {/* Comments */}
@@ -214,36 +205,6 @@ export function MessageDetailPanel({ message, localState }: DetailPanelProps) {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Sticky bottom action bar */}
-      <div className="flex items-center gap-1 px-4 py-2 border-t bg-background">
-        <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
-          onClick={() => localState.togglePin(msg.id)}
-          title={msgLocal.isPinned ? "핀 해제" : "핀 고정"}
-        >
-          {msgLocal.isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
-        </Button>
-        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleCopyContent} title="복사">
-          <Copy className="h-3.5 w-3.5" />
-        </Button>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" disabled={isPending} title="삭제">
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>메시지를 삭제하시겠습니까?</AlertDialogTitle>
-              <AlertDialogDescription>이 작업은 되돌릴 수 없습니다.</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>취소</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">삭제</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
     </div>
   );

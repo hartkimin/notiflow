@@ -36,4 +36,12 @@ export function useRowSelection<T extends string | number>(allIds: T[]) {
   return { selected, toggle, toggleAll, clear, count, allSelected, someSelected };
 }
 
-export type RowSelectionHook = ReturnType<typeof useRowSelection>;
+export type RowSelectionHook<T extends string | number = string | number> = {
+  selected: Set<T>;
+  toggle: (id: T) => void;
+  toggleAll: () => void;
+  clear: () => void;
+  count: number;
+  allSelected: boolean;
+  someSelected: boolean;
+};

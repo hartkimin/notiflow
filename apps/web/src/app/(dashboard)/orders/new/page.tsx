@@ -20,6 +20,14 @@ export default async function NewOrderPage({ searchParams }: Props) {
 
   const initialNotes = messages.length ? formatMessagesAsNotes(messages) : "";
 
+  const sourceMessages = messages.map((m) => ({
+    id: m.id,
+    sender: m.sender,
+    app_name: m.app_name || m.source_app,
+    content: m.content,
+    received_at: m.received_at,
+  }));
+
   return (
     <div className="space-y-4">
       <PurchaseOrderForm
@@ -27,6 +35,7 @@ export default async function NewOrderPage({ searchParams }: Props) {
         columnWidths={columnWidths}
         sourceMessageId={ids[0]}
         initialNotes={initialNotes}
+        sourceMessages={sourceMessages}
       />
     </div>
   );

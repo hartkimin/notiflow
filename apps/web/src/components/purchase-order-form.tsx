@@ -82,11 +82,20 @@ interface LineItem {
   sales_rep: string;
 }
 
+export interface SourceMessage {
+  id: string;
+  sender: string | null;
+  app_name: string;
+  content: string;
+  received_at: string;
+}
+
 interface Props {
   displayColumns: OrderDisplayColumns;
   columnWidths?: Record<string, number>;
   sourceMessageId?: string;
   initialNotes?: string;
+  sourceMessages?: SourceMessage[];
 }
 
 // ── Optional column definitions ────────────────────────────
@@ -109,7 +118,7 @@ function nextKey() { return `po-${Date.now()}-${++_keyCounter}`; }
 
 // ── Main Component ─────────────────────────────────────────
 
-export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageId, initialNotes }: Props) {
+export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageId, initialNotes, sourceMessages }: Props) {
   const router = useRouter();
 
   // ── Header state ──
@@ -355,7 +364,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
     );
   }
 
-  const hasNotes = notes.trim().length > 0;
+  const hasMessages = sourceMessages && sourceMessages.length > 0;
 
   return (
     <div className="w-full space-y-0">
@@ -380,24 +389,9 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
         </div>
       </div>
 
-      {/* ── 2-Column Layout: Notes (left) + Order Form (right) ── */}
-      <div className={hasNotes ? "grid grid-cols-[340px_1fr] gap-4 items-start" : ""}>
-        {/* ── Left: 수신메시지 메모 ── */}
-        {hasNotes && (
-          <div className="border rounded-lg bg-white shadow-sm sticky top-4">
-            <div className="px-4 py-3 border-b bg-muted/30">
-              <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">수신 메시지</Label>
-            </div>
-            <div className="p-4">
-              <Textarea
-                value={notes} onChange={(e) => setNotes(e.target.value)}
-                placeholder="주문 관련 메모..." rows={16} className="text-xs leading-relaxed font-mono resize-y"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* ── Right: Order Form ── */}
+      {/* ── 2-Column Layout: Order Form (left) + Messages (right) ── */}
+      <div className={hasMessages ? "grid grid-cols-[1fr_360px] gap-4 items-start" : ""}>
+        {/* ── Left: Order Form ── */}
         <div className="border rounded-lg bg-white shadow-sm">
           {/* ── PO Info ──────────────────────────────────── */}
           <div className="p-6 border-b">
@@ -781,68 +775,71 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
           {items.length > 0 && (
             <div className="p-6 border-t bg-muted/10">
               <div className="flex flex-col md:flex-row gap-6">
-                {!hasNotes && (
-                  <div className="flex-1">
-                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">메모</Label>
-                    <Textarea
-                      value={notes} onChange={(e) => setNotes(e.target.value)}
-                      placeholder="주문 관련 메모..." rows={3} className="mt-1.5 text-sm"
-                    />
+                <div className="flex-1">
+                  <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">메모</Label>
+                  <Textarea
+                    value={notes} onChange={(e) => setNotes(e.target.value)}
+                    placeholder="주문 관련 메모..." rows={3} className="mt-1.5 text-sm"
+                  />
+                </div>
+                <div className="md:w-[260px] space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">매입 합계</span>
+                    <span className="tabular-nums">₩{totalPurchase.toLocaleString()}</span>
                   </div>
-                )}
-                <div className={hasNotes ? "w-full" : "md:w-[260px]"}>
-                  <div className={`space-y-2 text-sm ${hasNotes ? "flex flex-wrap gap-6 items-center" : ""}`}>
-                    {hasNotes ? (
-                      <>
-                        <div className="flex gap-2">
-                          <span className="text-muted-foreground">매입</span>
-                          <span className="tabular-nums">₩{totalPurchase.toLocaleString()}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="text-muted-foreground">매출</span>
-                          <span className="tabular-nums font-semibold">₩{totalSelling.toLocaleString()}</span>
-                        </div>
-                        <Separator orientation="vertical" className="h-4" />
-                        <div className="flex gap-2">
-                          <span className="text-muted-foreground">이익</span>
-                          <span className={`tabular-nums font-semibold ${totalMargin >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                            ₩{totalMargin.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="text-muted-foreground">이익률</span>
-                          <span className="tabular-nums">{marginRate.toFixed(1)}%</span>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">매입 합계</span>
-                          <span className="tabular-nums">₩{totalPurchase.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">매출 합계</span>
-                          <span className="tabular-nums font-semibold">₩{totalSelling.toLocaleString()}</span>
-                        </div>
-                        <Separator />
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">이익</span>
-                          <span className={`tabular-nums font-semibold ${totalMargin >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                            ₩{totalMargin.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">이익률</span>
-                          <span className="tabular-nums">{marginRate.toFixed(1)}%</span>
-                        </div>
-                      </>
-                    )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">매출 합계</span>
+                    <span className="tabular-nums font-semibold">₩{totalSelling.toLocaleString()}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">이익</span>
+                    <span className={`tabular-nums font-semibold ${totalMargin >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                      ₩{totalMargin.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">이익률</span>
+                    <span className="tabular-nums">{marginRate.toFixed(1)}%</span>
                   </div>
                 </div>
               </div>
             </div>
           )}
         </div>
+
+        {/* ── Right: 수신 메시지 카드 ── */}
+        {hasMessages && (
+          <div className="sticky top-4 space-y-3">
+            <div className="border rounded-lg bg-white shadow-sm">
+              <div className="px-4 py-3 border-b bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">수신 메시지</Label>
+                  <Badge variant="secondary" className="text-[10px]">{sourceMessages!.length}건</Badge>
+                </div>
+              </div>
+              <div className="p-3 space-y-2 max-h-[calc(100vh-8rem)] overflow-y-auto">
+                {sourceMessages!.map((msg) => {
+                  const time = new Date(msg.received_at).toLocaleString("ko-KR", {
+                    month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+                  });
+                  return (
+                    <div key={msg.id} className="border rounded-lg p-3 bg-muted/10 hover:bg-muted/20 transition-colors">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0">
+                          {msg.app_name}
+                        </Badge>
+                        <span className="text-xs font-medium truncate">{msg.sender || "(발신자 없음)"}</span>
+                        <span className="text-[10px] text-muted-foreground ml-auto shrink-0">{time}</span>
+                      </div>
+                      <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed text-muted-foreground">{msg.content}</pre>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

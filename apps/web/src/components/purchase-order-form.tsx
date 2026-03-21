@@ -355,10 +355,12 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
     );
   }
 
+  const hasNotes = notes.trim().length > 0;
+
   return (
     <div className="w-full space-y-0">
       {/* ── PO Header ────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild>
             <Link href="/orders"><ArrowLeft className="h-4 w-4" /></Link>
@@ -378,113 +380,131 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
         </div>
       </div>
 
-      <div className="border rounded-lg bg-white shadow-sm">
-        {/* ── PO Info ──────────────────────────────────── */}
-        <div className="p-6 border-b">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Left: 거래처 */}
-            <div className="space-y-3">
-              <div>
-                <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">거래처 (납품처)</Label>
-                {hospitalId ? (
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <Badge variant="secondary" className="text-sm py-1 px-3">
-                      {hospitalName}
-                    </Badge>
-                    <button
-                      type="button"
-                      onClick={() => { setHospitalId(null); setHospitalName(""); setHospitalContactPerson(null); setPartnerProducts([]); }}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="mt-1.5">
-                    <PortalSearchBox
-                      placeholder="거래처명을 입력하세요..."
-                      fetchRecent={getRecentHospitalsAction}
-                      searchAction={searchHospitalsAction}
-                      onSelect={(h: { id: number; name: string; contact_person?: string | null }) => { setHospitalId(h.id); setHospitalName(h.name); setHospitalContactPerson(h.contact_person ?? null); }}
-                    />
-                  </div>
-                )}
-              </div>
+      {/* ── 2-Column Layout: Notes (left) + Order Form (right) ── */}
+      <div className={hasNotes ? "grid grid-cols-[340px_1fr] gap-4 items-start" : ""}>
+        {/* ── Left: 수신메시지 메모 ── */}
+        {hasNotes && (
+          <div className="border rounded-lg bg-white shadow-sm sticky top-4">
+            <div className="px-4 py-3 border-b bg-muted/30">
+              <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">수신 메시지</Label>
             </div>
+            <div className="p-4">
+              <Textarea
+                value={notes} onChange={(e) => setNotes(e.target.value)}
+                placeholder="주문 관련 메모..." rows={16} className="text-xs leading-relaxed font-mono resize-y"
+              />
+            </div>
+          </div>
+        )}
 
-            {/* Right: 날짜/번호 */}
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+        {/* ── Right: Order Form ── */}
+        <div className="border rounded-lg bg-white shadow-sm">
+          {/* ── PO Info ──────────────────────────────────── */}
+          <div className="p-6 border-b">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left: 거래처 */}
+              <div className="space-y-3">
                 <div>
-                  <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">주문일</Label>
-                  <Input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} className="mt-1.5" />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">배송예정일</Label>
-                  <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className="mt-1.5" />
+                  <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">거래처 (납품처)</Label>
+                  {hospitalId ? (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <Badge variant="secondary" className="text-sm py-1 px-3">
+                        {hospitalName}
+                      </Badge>
+                      <button
+                        type="button"
+                        onClick={() => { setHospitalId(null); setHospitalName(""); setHospitalContactPerson(null); setPartnerProducts([]); }}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-1.5">
+                      <PortalSearchBox
+                        placeholder="거래처명을 입력하세요..."
+                        fetchRecent={getRecentHospitalsAction}
+                        searchAction={searchHospitalsAction}
+                        onSelect={(h: { id: number; name: string; contact_person?: string | null }) => { setHospitalId(h.id); setHospitalName(h.name); setHospitalContactPerson(h.contact_person ?? null); }}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
-              <div>
-                <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">주문번호</Label>
-                <p className="text-sm text-muted-foreground mt-1.5">자동 생성됩니다</p>
+
+              {/* Right: 날짜/번호 */}
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">주문일</Label>
+                    <Input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} className="mt-1.5" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">배송예정일</Label>
+                    <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className="mt-1.5" />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">주문번호</Label>
+                  <p className="text-sm text-muted-foreground mt-1.5">자동 생성됩니다</p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* ── Item Add Section ─────────────────────────── */}
-        <div className="p-6 border-b bg-muted/20">
-          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            품목 추가
-          </h3>
+          {/* ── Item Add Section ─────────────────────────── */}
+          <div className="p-6 border-b bg-muted/20">
+            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              품목 추가
+            </h3>
 
-          <Tabs defaultValue={hospitalId ? "partner" : "mfds"} className="space-y-3">
-            <TabsList>
-              <TabsTrigger value="partner" className="text-xs" disabled={!hospitalId}>
-                거래처 품목
-                {partnerProducts.length > 0 && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 ml-1.5">
-                    {partnerProducts.length}
-                  </Badge>
+            <Tabs defaultValue={hospitalId ? "partner" : "mfds"} className="space-y-3">
+              <TabsList>
+                <TabsTrigger value="partner" className="text-xs" disabled={!hospitalId}>
+                  거래처 품목
+                  {partnerProducts.length > 0 && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 ml-1.5">
+                      {partnerProducts.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="mfds" className="text-xs">식약처 아이템</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="partner">
+                {!hospitalId ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-lg">
+                    먼저 거래처를 선택하세요
+                  </p>
+                ) : productsLoading ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <PortalSearchBox
+                    placeholder="거래처 등록 품목 검색..."
+                    fetchRecent={fetchRecentPartnerProducts}
+                    searchAction={searchPartnerProductsLocal}
+                    onSelect={addPartnerProduct}
+                    renderItem={renderProductItem}
+                  />
                 )}
-              </TabsTrigger>
-              <TabsTrigger value="mfds" className="text-xs">식약처 아이템</TabsTrigger>
-            </TabsList>
+              </TabsContent>
 
-            <TabsContent value="partner">
-              {!hospitalId ? (
-                <p className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-lg">
-                  먼저 거래처를 선택하세요
-                </p>
-              ) : productsLoading ? (
-                <div className="flex justify-center py-6">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
+              <TabsContent value="mfds">
                 <PortalSearchBox
-                  placeholder="거래처 등록 품목 검색..."
-                  fetchRecent={fetchRecentPartnerProducts}
-                  searchAction={searchPartnerProductsLocal}
-                  onSelect={addPartnerProduct}
-                  renderItem={renderProductItem}
+                  placeholder="식약처 품목 검색 (품목명, 코드, 업체명)..."
+                  fetchRecent={getRecentMfdsItemsAction}
+                  searchAction={searchMfdsItemsAction}
+                  onSelect={addMfdsItem}
+                  renderItem={renderMfdsItem}
                 />
-              )}
-            </TabsContent>
+              </TabsContent>
+            </Tabs>
+          </div>
 
-            <TabsContent value="mfds">
-              <PortalSearchBox
-                placeholder="식약처 품목 검색 (품목명, 코드, 업체명)..."
-                fetchRecent={getRecentMfdsItemsAction}
-                searchAction={searchMfdsItemsAction}
-                onSelect={addMfdsItem}
-                renderItem={renderMfdsItem}
-              />
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        {/* ── Line Items Table ─────────────────────────── */}
+          {/* ── Line Items Table ─────────────────────────── */}
         <div className="p-6">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold">
@@ -757,41 +777,72 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
           )}
         </div>
 
-        {/* ── Footer: Notes + Summary ──────────────────── */}
-        {items.length > 0 && (
-          <div className="p-6 border-t bg-muted/10">
-            <div className="flex flex-col md:flex-row gap-6">
-              <div className="flex-1">
-                <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">메모</Label>
-                <Textarea
-                  value={notes} onChange={(e) => setNotes(e.target.value)}
-                  placeholder="주문 관련 메모..." rows={3} className="mt-1.5 text-sm"
-                />
-              </div>
-              <div className="md:w-[260px] space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">매입 합계</span>
-                  <span className="tabular-nums">₩{totalPurchase.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">매출 합계</span>
-                  <span className="tabular-nums font-semibold">₩{totalSelling.toLocaleString()}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">이익</span>
-                  <span className={`tabular-nums font-semibold ${totalMargin >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                    ₩{totalMargin.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">이익률</span>
-                  <span className="tabular-nums">{marginRate.toFixed(1)}%</span>
+          {/* ── Footer: Notes + Summary ──────────────────── */}
+          {items.length > 0 && (
+            <div className="p-6 border-t bg-muted/10">
+              <div className="flex flex-col md:flex-row gap-6">
+                {!hasNotes && (
+                  <div className="flex-1">
+                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">메모</Label>
+                    <Textarea
+                      value={notes} onChange={(e) => setNotes(e.target.value)}
+                      placeholder="주문 관련 메모..." rows={3} className="mt-1.5 text-sm"
+                    />
+                  </div>
+                )}
+                <div className={hasNotes ? "w-full" : "md:w-[260px]"}>
+                  <div className={`space-y-2 text-sm ${hasNotes ? "flex flex-wrap gap-6 items-center" : ""}`}>
+                    {hasNotes ? (
+                      <>
+                        <div className="flex gap-2">
+                          <span className="text-muted-foreground">매입</span>
+                          <span className="tabular-nums">₩{totalPurchase.toLocaleString()}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="text-muted-foreground">매출</span>
+                          <span className="tabular-nums font-semibold">₩{totalSelling.toLocaleString()}</span>
+                        </div>
+                        <Separator orientation="vertical" className="h-4" />
+                        <div className="flex gap-2">
+                          <span className="text-muted-foreground">이익</span>
+                          <span className={`tabular-nums font-semibold ${totalMargin >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                            ₩{totalMargin.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="text-muted-foreground">이익률</span>
+                          <span className="tabular-nums">{marginRate.toFixed(1)}%</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">매입 합계</span>
+                          <span className="tabular-nums">₩{totalPurchase.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">매출 합계</span>
+                          <span className="tabular-nums font-semibold">₩{totalSelling.toLocaleString()}</span>
+                        </div>
+                        <Separator />
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">이익</span>
+                          <span className={`tabular-nums font-semibold ${totalMargin >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                            ₩{totalMargin.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">이익률</span>
+                          <span className="tabular-nums">{marginRate.toFixed(1)}%</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

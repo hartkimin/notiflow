@@ -79,11 +79,11 @@ export function MessagesView({
   const navigateCalDate = useCallback((date: Date) => {
     if (date.getMonth() !== loadedMonth || date.getFullYear() !== loadedYear) {
       const m = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      router.push(`/messages?tab=calendar&month=${m}`);
+      router.push(`/messages?tab=calendar&month=${m}&view=${calView}`);
       return;
     }
     setCalDate(date);
-  }, [loadedMonth, loadedYear, router]);
+  }, [loadedMonth, loadedYear, router, calView]);
 
   const handleCalPrev = useCallback(() => {
     const d = new Date(calDate);

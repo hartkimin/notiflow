@@ -81,6 +81,33 @@ export async function getMessageById(id: string): Promise<UnifiedMessage | null>
   return mapCaptured(data as CapturedMessage);
 }
 
+export async function getMessagesByIds(ids: string[]): Promise<UnifiedMessage[]> {
+  if (ids.length === 0) return [];
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("captured_messages")
+    .select("*")
+    .in("id", ids)
+    .eq("is_deleted", false);
+
+  if (error) console.error("captured_messages batch query error:", JSON.stringify(error, null, 2));
+
+  return (data ?? []).map((m) => mapCaptured(m as CapturedMessage));
+}
+
+export function formatMessagesAsNotes(messages: UnifiedMessage[]): string {
+  return messages
+    .map((m) => {
+      const time = new Date(m.received_at).toLocaleString("ko-KR", {
+        month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+      });
+      const source = m.app_name || m.source_app;
+      return `[${source} | ${m.sender || "알 수 없음"} | ${time}]\n${m.content}`;
+    })
+    .join("\n---\n");
+}
+
 /**
  * Get all messages in a date range (no pagination) for calendar view.
  */

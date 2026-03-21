@@ -86,6 +86,7 @@ interface Props {
   displayColumns: OrderDisplayColumns;
   columnWidths?: Record<string, number>;
   sourceMessageId?: string;
+  initialNotes?: string;
 }
 
 // ── Optional column definitions ────────────────────────────
@@ -108,7 +109,7 @@ function nextKey() { return `po-${Date.now()}-${++_keyCounter}`; }
 
 // ── Main Component ─────────────────────────────────────────
 
-export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageId }: Props) {
+export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageId, initialNotes }: Props) {
   const router = useRouter();
 
   // ── Header state ──
@@ -118,7 +119,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
 
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
   const [deliveryDate, setDeliveryDate] = useState("");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(initialNotes || "");
 
   // ── Partner products (거래처 등록 품목) ──
   const [partnerProducts, setPartnerProducts] = useState<PartnerProduct[]>([]);

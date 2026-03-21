@@ -103,6 +103,21 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
+    // Verify the request is from a trusted source (database webhook or service role)
+    const authHeader = req.headers.get("authorization");
+    const expectedKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (authHeader !== `Bearer ${expectedKey}`) {
+      // Check for webhook-specific header from Supabase
+      const webhookSecret = Deno.env.get("WEBHOOK_SECRET");
+      const webhookHeader = req.headers.get("x-webhook-secret");
+      if (!webhookSecret || webhookHeader !== webhookSecret) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     // ------------------------------------------------------------------
     // 1. Parse the Database Webhook payload
     // ------------------------------------------------------------------

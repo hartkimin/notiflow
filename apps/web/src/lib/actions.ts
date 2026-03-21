@@ -221,34 +221,80 @@ export async function updateDevice(id: string, data: Record<string, unknown>) {
   const supabase = await createClient();
   const { error } = await supabase.from("mobile_devices").update(data).eq("id", id);
   if (error) throw error;
-  revalidatePath("/devices");
+  revalidatePath("/settings/devices");
+  return { success: true };
+}
+
+export async function deleteDevice(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("mobile_devices").delete().eq("id", id);
+  if (error) throw error;
+  revalidatePath("/settings/devices");
   return { success: true };
 }
 
 export async function requestDeviceSync(id: string) {
   const supabase = await createClient();
-  const { data, error } = await supabase.functions.invoke("trigger-sync", {
-    body: { device_id: id },
-  });
-  if (error) {
-    return { success: false, error: data?.error ?? error.message ?? "동기화 요청 실패", fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
+  try {
+    const { data, error } = await supabase.functions.invoke("trigger-sync", {
+      body: { device_id: id },
+    });
+    if (error) {
+      // Supabase functions.invoke wraps non-2xx as FunctionsHttpError
+      const msg = data?.error ?? error.message ?? "동기화 요청 실패";
+      console.error("requestDeviceSync error:", msg);
+      // Fallback: directly update sync_requested_at via DB (bypasses Edge Function)
+      await supabase
+        .from("mobile_devices")
+        .update({ sync_requested_at: new Date().toISOString() })
+        .eq("id", id);
+      revalidatePath("/settings/devices");
+      return { success: true, fcm_sent: 0, fcm_failed: 0, realtime_updated: 1, fallback: true, error: `Edge Function 실패 — Realtime 대체: ${msg}` };
+    }
+    revalidatePath("/settings/devices");
+    revalidatePath("/dashboard");
+    return data as { success: boolean; fcm_sent: number; fcm_failed: number; realtime_updated: number };
+  } catch (err) {
+    // Network-level errors (Edge Function unreachable)
+    console.error("requestDeviceSync catch:", err);
+    await supabase
+      .from("mobile_devices")
+      .update({ sync_requested_at: new Date().toISOString() })
+      .eq("id", id);
+    revalidatePath("/settings/devices");
+    return { success: true, fcm_sent: 0, fcm_failed: 0, realtime_updated: 1, fallback: true, error: "Edge Function 연결 실패 — Realtime으로 대체 요청됨" };
   }
-  revalidatePath("/devices");
-  revalidatePath("/dashboard");
-  return data as { success: boolean; fcm_sent: number; fcm_failed: number; realtime_updated: number };
 }
 
 export async function requestAllDevicesSync() {
   const supabase = await createClient();
-  const { data, error } = await supabase.functions.invoke("trigger-sync", {
-    body: { device_id: "all" },
-  });
-  if (error) {
-    return { success: false, error: data?.error ?? error.message ?? "동기화 요청 실패", fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
+  try {
+    const { data, error } = await supabase.functions.invoke("trigger-sync", {
+      body: { device_id: "all" },
+    });
+    if (error) {
+      const msg = data?.error ?? error.message ?? "동기화 요청 실패";
+      console.error("requestAllDevicesSync error:", msg);
+      // Fallback: update all active devices' sync_requested_at
+      await supabase
+        .from("mobile_devices")
+        .update({ sync_requested_at: new Date().toISOString() })
+        .eq("is_active", true);
+      revalidatePath("/settings/devices");
+      return { success: true, fcm_sent: 0, fcm_failed: 0, realtime_updated: 1, fallback: true, error: `Edge Function 실패 — Realtime 대체: ${msg}` };
+    }
+    revalidatePath("/settings/devices");
+    revalidatePath("/dashboard");
+    return data as { success: boolean; fcm_sent: number; fcm_failed: number; realtime_updated: number };
+  } catch (err) {
+    console.error("requestAllDevicesSync catch:", err);
+    await supabase
+      .from("mobile_devices")
+      .update({ sync_requested_at: new Date().toISOString() })
+      .eq("is_active", true);
+    revalidatePath("/settings/devices");
+    return { success: true, fcm_sent: 0, fcm_failed: 0, realtime_updated: 1, fallback: true, error: "Edge Function 연결 실패 — Realtime으로 대체 요청됨" };
   }
-  revalidatePath("/devices");
-  revalidatePath("/dashboard");
-  return data as { success: boolean; fcm_sent: number; fcm_failed: number; realtime_updated: number };
 }
 
 // --- Users (direct admin client — no Edge Function dependency) ---

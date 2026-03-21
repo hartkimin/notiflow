@@ -13,10 +13,15 @@ import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  ArrowUp, ArrowDown, ArrowUpDown, Smartphone, Circle, RefreshCw,
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  ArrowUp, ArrowDown, ArrowUpDown, Smartphone, Circle, RefreshCw, Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { updateDevice, requestDeviceSync } from "@/lib/actions";
+import { updateDevice, requestDeviceSync, deleteDevice } from "@/lib/actions";
 import { useResizableColumns } from "@/hooks/use-resizable-columns";
 import { ResizableTh } from "@/components/resizable-th";
 import type { MobileDevice } from "@/lib/types";
@@ -131,17 +136,32 @@ export function DeviceTable({ devices }: { devices: MobileDevice[] }) {
 
   function handleRequestSync(device: MobileDevice) {
     startTransition(async () => {
-      const result = await requestDeviceSync(device.id);
-      if ("error" in result) {
-        toast.error(result.error as string);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result: any = await requestDeviceSync(device.id);
+      if (result.error && !result.fallback) {
+        toast.error(result.error);
         return;
       }
-      if (result.fcm_sent > 0) {
+      if (result.fallback) {
+        toast.success(`${device.device_name} 기기에 Realtime으로 동기화 요청을 보냈습니다. (Edge Function 대체)`);
+      } else if (result.fcm_sent > 0) {
         toast.success(`${device.device_name} 기기에 동기화 푸시를 보냈습니다.`);
       } else {
         toast.success(`${device.device_name} 기기에 Realtime으로 동기화 요청을 보냈습니다.`);
       }
       router.refresh();
+    });
+  }
+
+  function handleDeleteDevice(device: MobileDevice) {
+    startTransition(async () => {
+      try {
+        await deleteDevice(device.id);
+        toast.success(`${device.device_name} 기기가 삭제되었습니다.`);
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "기기 삭제 실패");
+      }
     });
   }
 
@@ -189,6 +209,9 @@ export function DeviceTable({ devices }: { devices: MobileDevice[] }) {
             </ResizableTh>
             <th className="w-[60px] px-2 text-center text-xs font-medium text-muted-foreground">
               동기화
+            </th>
+            <th className="w-[50px] px-2 text-center text-xs font-medium text-muted-foreground">
+              삭제
             </th>
           </TableRow>
         </thead>
@@ -267,6 +290,35 @@ export function DeviceTable({ devices }: { devices: MobileDevice[] }) {
                   <TooltipContent>보류 메시지 동기화 요청</TooltipContent>
                 </Tooltip>
               </TableCell>
+              <TableCell className="text-center">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      disabled={isPending}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{d.device_name} 기기를 삭제하시겠습니까?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        기기 등록 정보가 삭제됩니다. 모바일 앱에서 다시 로그인하면 자동으로 재등록됩니다.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>취소</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => handleDeleteDevice(d)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >삭제</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -282,12 +334,15 @@ export function SyncAllButton() {
   function handleSyncAll() {
     startTransition(async () => {
       const { requestAllDevicesSync } = await import("@/lib/actions");
-      const result = await requestAllDevicesSync();
-      if ("error" in result) {
-        toast.error(result.error as string);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result: any = await requestAllDevicesSync();
+      if (result.error && !result.fallback) {
+        toast.error(result.error);
         return;
       }
-      if (result.fcm_sent > 0) {
+      if (result.fallback) {
+        toast.success("모든 활성 기기에 Realtime으로 동기화 요청을 보냈습니다. (Edge Function 대체)");
+      } else if (result.fcm_sent > 0) {
         toast.success(`${result.fcm_sent}대 기기에 동기화 푸시를 보냈습니다.`);
       } else {
         toast.success("모든 활성 기기에 Realtime으로 동기화 요청을 보냈습니다.");

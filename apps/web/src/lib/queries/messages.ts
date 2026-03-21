@@ -12,10 +12,12 @@ export interface UnifiedMessage extends RawMessage {
 }
 
 function mapCaptured(m: CapturedMessage): UnifiedMessage {
+  // Supabase returns BIGINT as string — must convert to number for Date
+  const receivedAtMs = typeof m.received_at === "string" ? Number(m.received_at) : m.received_at;
   return {
     id: m.id,
     content: m.content,
-    received_at: new Date(m.received_at).toISOString(),
+    received_at: new Date(receivedAtMs).toISOString(),
     sender: m.sender,
     source_app: m.app_name,
     hospital_id: null,
@@ -139,7 +141,7 @@ export async function getMessagesForCalendar(params: {
     query = query.eq("app_name", params.source_app);
   }
 
-  const { data, error } = await query.limit(200);
+  const { data, error } = await query.order("received_at", { ascending: false }).limit(2000);
 
   if (error) console.error("captured_messages calendar query error:", JSON.stringify(error, null, 2));
 

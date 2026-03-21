@@ -58,20 +58,6 @@ export async function deleteMessages(ids: (number | string)[]) {
   return { success: true };
 }
 
-// reparseMessage and reparseMessages are no longer supported
-// (raw_messages parsing infrastructure was removed in migration 00030)
-
-export async function reparseMessage(_id: number, _hospitalId?: number) {
-  return { message_id: _id, status: "unsupported", items: 0, warnings: ["Message parsing has been removed"] };
-}
-
-export async function reparseMessages(_ids: number[]) {
-  const results = _ids.map((id) => ({ message_id: id, status: "unsupported" }));
-  revalidatePath("/messages");
-  revalidatePath("/notifications");
-  return { results };
-}
-
 // --- Hospitals ---
 
 export async function createHospital(data: {

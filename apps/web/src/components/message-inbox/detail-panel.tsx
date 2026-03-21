@@ -17,34 +17,14 @@ import {
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Bot, Cpu, ClipboardList, Trash2,
+  ClipboardList, Trash2,
   Pin, PinOff, Copy, Pencil, MessageSquare, X,
 } from "lucide-react";
-import { deleteMessage, reparseMessage } from "@/lib/actions";
+import { deleteMessage } from "@/lib/actions";
 import { ParseResultTable } from "./parse-result-table";
 import { SOURCE_LABEL, formatDateTime } from "./constants";
 import type { RawMessage } from "@/lib/types";
 import type { MessageLocalStateHook } from "@/hooks/use-message-local-state";
-
-interface AiTestResult {
-  method: string;
-  ai_provider: string | null;
-  ai_model: string | null;
-  latency_ms: number;
-  token_usage: { input_tokens: number; output_tokens: number } | null;
-  warnings: string[];
-  match_summary: { matched: number; review: number; unmatched: number };
-  items: {
-    original_text: string;
-    product_official_name: string | null;
-    quantity: number;
-    unit: string;
-    product_id: number | null;
-    match_confidence: number;
-    match_status: string;
-    match_method: string;
-  }[];
-}
 
 interface DetailPanelProps {
   message: RawMessage | null;
@@ -57,9 +37,6 @@ export function MessageDetailPanel({ message, localState }: DetailPanelProps) {
   const [editingMsgId, setEditingMsgId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [commentDraft, setCommentDraft] = useState("");
-  const [aiTestResult, setAiTestResult] = useState<Record<number, AiTestResult | null>>({});
-  const [aiTestLoading, setAiTestLoading] = useState<number | null>(null);
-
   if (!message) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -121,42 +98,6 @@ export function MessageDetailPanel({ message, localState }: DetailPanelProps) {
     });
   }
 
-  async function handleAiTest() {
-    setAiTestLoading(msg.id);
-    try {
-      const res = await fetch("/api/test-parse", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: msg.content,
-          hospitalId: msg.hospital_id ?? undefined,
-          sender: msg.sender ?? undefined,
-        }),
-      });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error ?? `HTTP ${res.status}`);
-      setAiTestResult((prev) => ({ ...prev, [msg.id]: result }));
-      toast.success(`AI 테스트 완료 (${result.method}) — ${result.items.length}개 품목 감지`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "AI 테스트에 실패했습니다.");
-    } finally {
-      setAiTestLoading(null);
-    }
-  }
-
-  function handleReparse() {
-    startTransition(async () => {
-      try {
-        await reparseMessage(msg.id, msg.hospital_id ?? undefined);
-        toast.success("파싱 완료");
-        router.refresh();
-      } catch {
-        toast.error("파싱 실패");
-      }
-    });
-  }
-
-  const testResult = aiTestResult[msg.id];
 
   return (
     <div className="flex flex-col h-full min-w-0">
@@ -238,54 +179,6 @@ export function MessageDetailPanel({ message, localState }: DetailPanelProps) {
           <ParseResultTable msg={msg} />
         </div>
 
-        {/* AI test result */}
-        {testResult != null && (
-          <div>
-            <span className="text-xs font-medium text-muted-foreground mb-1 block">AI 테스트 결과</span>
-            <div className="rounded-md border bg-muted/30 p-2 space-y-1.5">
-              <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {testResult.ai_provider}/{testResult.ai_model}
-                </Badge>
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                  {testResult.method === "llm" ? "AI" : "정규식"} · {testResult.latency_ms}ms
-                </Badge>
-                <div className="ml-auto flex gap-1">
-                  <Badge variant="default" className="text-[10px] px-1.5 py-0">{testResult.match_summary.matched} 매칭</Badge>
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{testResult.match_summary.review} 검토</Badge>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{testResult.match_summary.unmatched} 미매칭</Badge>
-                </div>
-              </div>
-              {testResult.items.length > 0 && (
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="text-left p-1 font-medium">원문</th>
-                      <th className="text-left p-1 font-medium">매칭</th>
-                      <th className="text-center p-1 font-medium">수량</th>
-                      <th className="text-center p-1 font-medium">신뢰도</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {testResult.items.map((item, i) => (
-                      <tr key={i} className="border-b last:border-0">
-                        <td className="p-1 text-muted-foreground">{item.original_text}</td>
-                        <td className="p-1">{item.product_official_name ?? <span className="italic text-muted-foreground">-</span>}</td>
-                        <td className="p-1 text-center">{item.quantity} {item.unit}</td>
-                        <td className="p-1 text-center">
-                          <Badge variant={item.match_confidence >= 0.8 ? "default" : "outline"} className="text-[10px] px-1.5 py-0">
-                            {Math.round(item.match_confidence * 100)}%
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Comments */}
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -325,18 +218,6 @@ export function MessageDetailPanel({ message, localState }: DetailPanelProps) {
 
       {/* Sticky bottom action bar */}
       <div className="flex items-center gap-1 px-4 py-2 border-t bg-background">
-        <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
-          disabled={aiTestLoading === msg.id || isPending}
-          onClick={handleAiTest}
-        >
-          <Bot className="h-3 w-3 mr-1" />{aiTestLoading === msg.id ? "테스트..." : "AI 파싱"}
-        </Button>
-        <Button size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={isPending}
-          onClick={handleReparse}
-        >
-          <Cpu className="h-3 w-3 mr-1" />파싱 실행
-        </Button>
-        <span className="text-muted-foreground/30 mx-0.5">|</span>
         <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
           onClick={() => localState.togglePin(msg.id)}
           title={msgLocal.isPinned ? "핀 해제" : "핀 고정"}

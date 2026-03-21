@@ -3,7 +3,7 @@
 import { useState, useMemo, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Bot, Trash2, X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -15,7 +15,7 @@ import { MessageDetailPanel } from "./detail-panel";
 import { OrderPanel } from "./order-panel";
 import { useMessageLocalState } from "@/hooks/use-message-local-state";
 import { useRowSelection } from "@/hooks/use-row-selection";
-import { reparseMessages, deleteMessages } from "@/lib/actions";
+import { deleteMessages } from "@/lib/actions";
 import { requestSidebarCollapse } from "@/hooks/use-sidebar-collapse";
 import type { RawMessage, Hospital, Product } from "@/lib/types";
 
@@ -81,22 +81,6 @@ export function MessageInbox({
       {rowSelection.count > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg border bg-background/95 backdrop-blur px-4 py-2.5 shadow-lg">
           <span className="text-sm font-medium whitespace-nowrap">{rowSelection.count}개 선택됨</span>
-          <Button size="sm" disabled={isPending}
-            onClick={() => {
-              startTransition(async () => {
-                try {
-                  const result = await reparseMessages(Array.from(rowSelection.selected));
-                  const successCount = result.results.filter((r: { status: string }) => r.status !== "unsupported" && r.status !== "not_found").length;
-                  const failCount = result.results.length - successCount;
-                  toast.success(`일괄 파싱 완료: ${successCount}개 성공${failCount > 0 ? `, ${failCount}개 실패` : ""}`);
-                  rowSelection.clear();
-                  router.refresh();
-                } catch { toast.error("일괄 파싱에 실패했습니다."); }
-              });
-            }}
-          >
-            <Bot className="h-4 w-4 mr-1" />일괄 파싱
-          </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button size="sm" variant="destructive" disabled={isPending}>

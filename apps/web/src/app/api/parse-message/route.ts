@@ -24,29 +24,66 @@ export async function POST(req: Request) {
 
   const { data: message, error: msgErr } = await supabase
     .from("captured_messages")
-    .select("id, content, sender, app_name")
+    .select("id, content, sender, app_name, room_name")
     .eq("id", messageId)
     .single();
   if (msgErr || !message) {
     return NextResponse.json({ error: "메시지를 찾을 수 없습니다." }, { status: 404 });
   }
 
+  // Infer hospital from sender, room_name, and content
   let hospitalId: number | null = null;
   let hospitalName: string | null = null;
-  if (message.sender) {
-    const { data: hospitals } = await supabase
-      .from("hospitals")
-      .select("id, name")
-      .ilike("name", `%${escapeLikeValue(message.sender)}%`)
-      .limit(1);
-    if (hospitals?.length) {
-      hospitalId = hospitals[0].id;
-      hospitalName = hospitals[0].name;
+
+  // Collect search candidates from metadata
+  const searchTexts = [
+    message.room_name,         // "연세수요양병원 젠스코리아 발주" → "연세수요양병원"
+    message.sender,            // "(바른요양)박주현" → "바른요양"
+    message.content?.split("\n")[0], // first line may contain hospital name
+  ].filter(Boolean) as string[];
+
+  // Load all hospitals for matching
+  const { data: allHospitals } = await supabase.from("hospitals").select("id, name, short_name");
+  if (allHospitals?.length) {
+    for (const text of searchTexts) {
+      if (hospitalId) break;
+      const lower = text.toLowerCase();
+      // Try exact/partial match against hospital name and short_name
+      for (const h of allHospitals) {
+        const hName = h.name.toLowerCase();
+        const hShort = (h.short_name ?? "").toLowerCase();
+        if (lower.includes(hName) || hName.includes(lower) ||
+            (hShort && (lower.includes(hShort) || hShort.includes(lower)))) {
+          hospitalId = h.id;
+          hospitalName = h.name;
+          break;
+        }
+      }
+    }
+    // Fallback: try extracting text inside parentheses from sender — "(바른요양)박주현" → "바른요양"
+    if (!hospitalId && message.sender) {
+      const parenMatch = message.sender.match(/[（(]([^)）]+)[)）]/);
+      if (parenMatch) {
+        const extracted = parenMatch[1].toLowerCase();
+        for (const h of allHospitals) {
+          if (h.name.toLowerCase().includes(extracted) || extracted.includes(h.name.toLowerCase())) {
+            hospitalId = h.id;
+            hospitalName = h.name;
+            break;
+          }
+        }
+      }
     }
   }
 
   try {
-    const parseResult = await parseMessage(message.content, hospitalId, hospitalName);
+    // Pass metadata for richer parsing context
+    const parseContext = {
+      sender: message.sender,
+      roomName: message.room_name,
+      appName: message.app_name,
+    };
+    const parseResult = await parseMessage(message.content, hospitalId, hospitalName, parseContext);
     const matchedItems = await matchProductsBulk(parseResult.items, hospitalId);
 
     // Store embedding for future few-shot retrieval (fire and forget)

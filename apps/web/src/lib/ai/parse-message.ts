@@ -93,15 +93,30 @@ function parseItemsFromJson(text: string): { items: ParsedItem[]; confidence: nu
   return { items, confidence: Number(parsed.confidence ?? 0.8) };
 }
 
+export interface ParseContext {
+  sender?: string | null;
+  roomName?: string | null;
+  appName?: string | null;
+}
+
 export async function parseMessage(
   messageContent: string,
   hospitalId: number | null,
   hospitalName: string | null,
+  context?: ParseContext,
 ): Promise<ParseResult> {
   const [aliases, catalog] = await Promise.all([loadAliases(hospitalId), loadCatalog()]);
   const userPrompt = buildUserPrompt(hospitalName, aliases, catalog, messageContent);
+
+  // Add metadata context
+  const metaParts: string[] = [];
+  if (context?.sender) metaParts.push(`발신자: ${context.sender}`);
+  if (context?.roomName) metaParts.push(`채팅방: ${context.roomName}`);
+  if (context?.appName) metaParts.push(`출처: ${context.appName}`);
+  const metaSection = metaParts.length > 0 ? "\n\n" + metaParts.join("\n") : "";
+
   const fewShot = await loadFewShotExamples(messageContent, hospitalName);
-  const fullPrompt = userPrompt + fewShot;
+  const fullPrompt = userPrompt + metaSection + fewShot;
   const startMs = Date.now();
 
   // 1st: Ollama

@@ -2,6 +2,7 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { Nav } from "@/components/nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { GlobalNotifications } from "@/components/global-notifications";
+import { ChatWidget } from "@/components/chat-widget";
 import { requireAuth } from "@/lib/auth";
 import { getSettings } from "@/lib/queries/settings";
 
@@ -25,6 +26,7 @@ export default async function DashboardLayout({
         </main>
       </div>
       <MobileNav />
+      <ChatWidget />
     </DashboardShell>
   );
 }

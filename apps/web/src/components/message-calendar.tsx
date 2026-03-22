@@ -1,9 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { ClipboardList, Link2, Trash2, Unlink } from "lucide-react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ClipboardList, Copy, ExternalLink, Link2, ShoppingCart, Trash2, Unlink } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { deleteMessage } from "@/lib/actions";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { DataCalendar } from "@/components/data-calendar";
 import {
   deleteForecast,
@@ -181,17 +190,16 @@ function DayItem({ item }: { item: MessageCalendarItem }) {
 // ─── Message Detail ──────────────────────────────
 
 function MessageDetailContent({ msg }: { msg: RawMessage }) {
+  const router = useRouter();
   const [candidates, setCandidates] = useState<OrderForecast[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(true);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     if (msg.forecast_id || !msg.hospital_id) {
-      // No need to fetch — already matched or no hospital
-      queueMicrotask(() => setLoadingCandidates(false));
+      setLoadingCandidates(false);
       return;
     }
-
     getMatchingForecasts(msg.hospital_id, msg.received_at)
       .then(setCandidates)
       .catch(() => setCandidates([]))
@@ -204,8 +212,28 @@ function MessageDetailContent({ msg }: { msg: RawMessage }) {
     });
   }
 
+  function handleCopy() {
+    navigator.clipboard.writeText(msg.content).then(
+      () => toast.success("클립보드에 복사되었습니다."),
+      () => toast.error("복사에 실패했습니다."),
+    );
+  }
+
+  function handleDelete() {
+    startTransition(async () => {
+      try {
+        await deleteMessage(msg.id);
+        toast.success("메시지가 삭제되었습니다.");
+        router.refresh();
+      } catch {
+        toast.error("삭제에 실패했습니다.");
+      }
+    });
+  }
+
   return (
     <div className="space-y-4">
+      {/* Meta info */}
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div>
           <span className="text-muted-foreground">발신자</span>
@@ -227,56 +255,83 @@ function MessageDetailContent({ msg }: { msg: RawMessage }) {
         )}
         {msg.order_id && (
           <div>
-            <span className="text-muted-foreground">주문</span>
-            <p><a href={`/orders/${msg.order_id}`} className="text-primary hover:underline">#{msg.order_id}</a></p>
+            <span className="text-muted-foreground">연결 주문</span>
+            <p>
+              <Link href={`/orders/${msg.order_id}`} className="text-primary hover:underline inline-flex items-center gap-1">
+                주문 #{msg.order_id} <ExternalLink className="h-3 w-3" />
+              </Link>
+            </p>
           </div>
         )}
       </div>
 
+      {/* Full message content */}
       <div>
         <h4 className="text-sm font-medium mb-1">메시지 내용</h4>
-        <div className="rounded border p-3 text-sm whitespace-pre-wrap bg-muted/30">
+        <div className="rounded-lg border p-3 text-sm whitespace-pre-wrap bg-muted/30 max-h-60 overflow-y-auto">
           {msg.content}
         </div>
       </div>
 
-      {/* Forecast matching section */}
-      <div>
-        <h4 className="text-sm font-medium mb-1">매칭 후보</h4>
-        {msg.forecast_id ? (
-          <div className="rounded border p-3 bg-green-50 text-green-700 text-sm flex items-center gap-2">
-            <Link2 className="h-4 w-4 shrink-0" />
-            <span>예보 #{msg.forecast_id}에 매칭됨</span>
-          </div>
-        ) : loadingCandidates ? (
-          <p className="text-sm text-muted-foreground">후보 검색 중...</p>
-        ) : candidates.length === 0 ? (
-          <p className="text-sm text-muted-foreground">매칭 가능한 예보가 없습니다.</p>
-        ) : (
-          <div className="space-y-2">
-            {candidates.map((fc) => (
-              <div
-                key={fc.id}
-                className="flex items-center justify-between rounded border p-2 text-sm"
-              >
-                <div>
-                  <span className="font-medium">{fc.hospital_name ?? `병원#${fc.hospital_id}`}</span>
-                  <span className="text-muted-foreground ml-2">{fc.forecast_date}</span>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs"
-                  disabled={isPending}
-                  onClick={() => handleMatch(fc.id)}
-                >
-                  매칭 확인
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* Action buttons */}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={handleCopy}>
+          <Copy className="h-3.5 w-3.5" /> 복사
+        </Button>
+        <Link href={`/orders/new?source_message_id=${msg.id}`}>
+          <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+            <ShoppingCart className="h-3.5 w-3.5" /> 주문 생성
+          </Button>
+        </Link>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 text-destructive hover:text-destructive" disabled={isPending}>
+              <Trash2 className="h-3.5 w-3.5" /> 삭제
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>메시지를 삭제하시겠습니까?</AlertDialogTitle>
+              <AlertDialogDescription>이 작업은 되돌릴 수 없습니다.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>취소</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">삭제</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
+
+      {/* Forecast matching section */}
+      {!msg.order_id && (
+        <div>
+          <h4 className="text-sm font-medium mb-1">예보 매칭</h4>
+          {msg.forecast_id ? (
+            <div className="rounded border p-3 bg-green-50 text-green-700 text-sm flex items-center gap-2">
+              <Link2 className="h-4 w-4 shrink-0" />
+              <span>예보 #{msg.forecast_id}에 매칭됨</span>
+            </div>
+          ) : loadingCandidates ? (
+            <p className="text-sm text-muted-foreground">후보 검색 중...</p>
+          ) : candidates.length === 0 ? (
+            <p className="text-sm text-muted-foreground">매칭 가능한 예보가 없습니다.</p>
+          ) : (
+            <div className="space-y-2">
+              {candidates.map((fc) => (
+                <div key={fc.id} className="flex items-center justify-between rounded border p-2 text-sm">
+                  <div>
+                    <span className="font-medium">{fc.hospital_name ?? `병원#${fc.hospital_id}`}</span>
+                    <span className="text-muted-foreground ml-2">{fc.forecast_date}</span>
+                  </div>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" disabled={isPending} onClick={() => handleMatch(fc.id)}>
+                    매칭 확인
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

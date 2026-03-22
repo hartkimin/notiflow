@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { File, PlusCircle } from "lucide-react";
+import { PlusCircle } from "lucide-react";
+import { OrderExportButton } from "@/components/order-export-button";
 
 import { getOrderItems, getOrderSummaryStats, getLatestOrderDate, getOrdersForCalendar } from "@/lib/queries/orders";
 import { getHospitals } from "@/lib/queries/hospitals";
@@ -111,10 +112,13 @@ export default async function OrdersPage({ searchParams }: Props) {
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">주문 관리</h1>
         <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" variant="outline" className="h-8 gap-1">
-            <File className="h-3.5 w-3.5" />
-            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">내보내기</span>
-          </Button>
+          <OrderExportButton params={{
+            status: params.status,
+            hospital_id: params.hospital,
+            from: params.from,
+            to: params.to,
+            search: params.search,
+          }} />
           <Button size="sm" className="h-8 gap-1" asChild>
             <Link href={sourceMessageId ? `/orders/new?source_message_id=${sourceMessageId}` : "/orders/new"}>
               <PlusCircle className="h-3.5 w-3.5" />

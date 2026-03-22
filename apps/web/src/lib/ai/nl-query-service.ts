@@ -20,6 +20,12 @@ export type NLQueryIntent =
   | "mfds_search"
   | "period_comparison"
   | "recent_messages"
+  | "device_status"
+  | "user_list"
+  | "audit_log"
+  | "partner_products"
+  | "kpis_report"
+  | "order_comments"
   | "general_question"
   | "unknown";
 
@@ -52,6 +58,12 @@ const INTENT_SYSTEM_PROMPT = `당신은 NotiFlow 의료 물자 주문 관리 시
 - mfds_search: 식약처 품목 검색 (예: "식약처 투석여과기 검색", "의료기기 허가 정보")
 - period_comparison: 기간 비교 (예: "지난달 대비 이번달 매출", "전월 비교")
 - recent_messages: 최근 메시지 (예: "오늘 들어온 메시지")
+- device_status: 모바일 기기 상태 (예: "연결된 기기", "기기 동기화 상태")
+- user_list: 사용자/직원 목록 (예: "등록된 사용자", "관리자 목록")
+- audit_log: 변경 이력/감사 로그 (예: "최근 변경 내역", "누가 수정했어")
+- partner_products: 거래처 품목/alias (예: "한국신장센터 등록 품목", "거래처별 품목")
+- kpis_report: KPIS 신고 현황 (예: "KPIS 신고 현황", "미신고 품목")
+- order_comments: 주문 코멘트 (예: "최근 코멘트", "ORD-20260321-001 코멘트")
 - general_question: DB 조회 불필요 (예: "혈액투석이 뭐야")
 - unknown: 분류 불가
 
@@ -324,6 +336,89 @@ const QUERY_MAP: Record<string, QueryExecutor> = {
       ...m,
       received_at: new Date(typeof m.received_at === "string" ? Number(m.received_at) : m.received_at).toLocaleString("ko-KR"),
       content: m.content.length > 80 ? m.content.slice(0, 80) + "..." : m.content,
+    }));
+  },
+
+  device_status: async () => {
+    const sb = createAdminClient();
+    const { data } = await sb.from("mobile_devices")
+      .select("id, device_name, device_model, os_version, app_version, is_active, last_heartbeat, sync_requested_at, created_at")
+      .order("last_heartbeat", { ascending: false });
+    return (data ?? []).map(d => ({
+      ...d,
+      last_heartbeat: d.last_heartbeat ? new Date(d.last_heartbeat).toLocaleString("ko-KR") : null,
+      status: d.is_active ? (d.last_heartbeat && Date.now() - new Date(d.last_heartbeat).getTime() < 600_000 ? "온라인" : "오프라인") : "비활성",
+    }));
+  },
+
+  user_list: async () => {
+    const sb = createAdminClient();
+    const { data } = await sb.from("user_profiles").select("id, name, role, is_active, created_at, updated_at").order("name");
+    return data;
+  },
+
+  audit_log: async (p) => {
+    const sb = createAdminClient();
+    const { data } = await sb.from("audit_logs")
+      .select("id, table_name, record_id, action, changes, created_at")
+      .order("created_at", { ascending: false })
+      .limit(Number(p.limit ?? 20));
+    return (data ?? []).map(a => ({
+      ...a,
+      created_at: new Date(a.created_at).toLocaleString("ko-KR"),
+      changes: typeof a.changes === "object" ? JSON.stringify(a.changes).slice(0, 200) : a.changes,
+    }));
+  },
+
+  partner_products: async (p) => {
+    const sb = createAdminClient();
+    let q = sb.from("partner_products").select("id, partner_type, partner_id, product_source, product_id, standard_code, unit_price, partner_product_aliases(alias)");
+    if (p.hospital_name) {
+      const { data: hospitals } = await sb.from("hospitals").select("id").ilike("name", `%${escapeLikeValue(p.hospital_name as string)}%`).limit(1);
+      if (hospitals?.length) q = q.eq("partner_type", "hospital").eq("partner_id", hospitals[0].id);
+    }
+    const { data } = await q.limit(20);
+
+    // Enrich with product names
+    const items = data ?? [];
+    const drugIds = items.filter(i => i.product_source === "drug").map(i => i.product_id);
+    const deviceIds = items.filter(i => i.product_source === "device").map(i => i.product_id);
+    const [{ data: drugs }, { data: devices }] = await Promise.all([
+      drugIds.length ? sb.from("my_drugs").select("id, item_name").in("id", drugIds) : { data: [] },
+      deviceIds.length ? sb.from("my_devices").select("id, prdlst_nm").in("id", deviceIds) : { data: [] },
+    ]);
+    const nameMap = new Map<number, string>();
+    for (const d of drugs ?? []) nameMap.set(d.id, d.item_name);
+    for (const d of devices ?? []) nameMap.set(d.id, d.prdlst_nm);
+
+    return items.map(i => ({
+      product_name: nameMap.get(i.product_id) ?? `#${i.product_id}`,
+      source: i.product_source,
+      unit_price: i.unit_price,
+      aliases: ((i.partner_product_aliases as unknown as Array<{ alias: string }>) ?? []).map(a => a.alias),
+    }));
+  },
+
+  kpis_report: async (p) => {
+    const sb = createAdminClient();
+    let q = sb.from("kpis_reports")
+      .select("id, order_item_id, reference_number, report_status, reported_at, order_items(product_name, quantity, orders(order_number, hospitals(name)))");
+    if (p.status) q = q.eq("report_status", p.status as string);
+    const { data } = await q.order("id", { ascending: false }).limit(Number(p.limit ?? 20));
+    return data;
+  },
+
+  order_comments: async (p) => {
+    const sb = createAdminClient();
+    let q = sb.from("order_comments").select("id, content, created_at, order_id, orders(order_number), user_profiles(name)");
+    if (p.order_number) {
+      const { data: order } = await sb.from("orders").select("id").eq("order_number", p.order_number as string).single();
+      if (order) q = q.eq("order_id", order.id);
+    }
+    const { data } = await q.order("created_at", { ascending: false }).limit(Number(p.limit ?? 20));
+    return (data ?? []).map(c => ({
+      ...c,
+      created_at: new Date(c.created_at).toLocaleString("ko-KR"),
     }));
   },
 };

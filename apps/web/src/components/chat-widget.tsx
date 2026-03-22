@@ -17,9 +17,10 @@ interface ChatMessage {
 const EXAMPLE_QUESTIONS = [
   "이번 달 주문 현황",
   "최근 수신 메시지",
-  "이번 달 매출 현황",
-  "투석액 검색",
-  "오늘 배송 예정",
+  "이번 달 이익률",
+  "전월 대비 매출 비교",
+  "식약처 투석여과기 검색",
+  "연결된 기기 상태",
 ];
 
 export function ChatWidget() {

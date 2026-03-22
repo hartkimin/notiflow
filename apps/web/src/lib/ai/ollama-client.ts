@@ -1,5 +1,5 @@
 const DEFAULT_BASE_URL = "http://localhost:11434";
-const DEFAULT_TIMEOUT = 30_000;
+const DEFAULT_TIMEOUT = 60_000;
 
 export interface OllamaGenerateResult {
   text: string;
@@ -62,13 +62,16 @@ export async function ollamaChat(
         ],
         format: "json",
         stream: false,
+        think: false,
         options: { temperature: opts?.temperature ?? 0.1, num_predict: opts?.maxTokens ?? 1024 },
       }),
       signal: controller.signal,
     });
     if (!res.ok) { const err = await res.text(); throw new Error(`Ollama API error (${res.status}): ${err}`); }
     const data = await res.json();
-    return { text: data.message?.content ?? "", inputTokens: data.prompt_eval_count ?? 0, outputTokens: data.eval_count ?? 0, durationMs: Math.round((data.total_duration ?? 0) / 1e6) };
+    // Qwen 3.5+ may put content in thinking field if think mode is not disabled
+    const content = data.message?.content || data.message?.thinking || "";
+    return { text: content, inputTokens: data.prompt_eval_count ?? 0, outputTokens: data.eval_count ?? 0, durationMs: Math.round((data.total_duration ?? 0) / 1e6) };
   } finally { clearTimeout(timeout); }
 }
 

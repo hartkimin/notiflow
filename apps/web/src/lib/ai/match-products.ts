@@ -119,9 +119,24 @@ export async function matchProductsBulk(
       }
     }
 
-    // Level 6: Unmatched
+    // Level 6: Vector similarity search (requires embedding)
     if (!matched) {
-      matched = { ...item, product_id: null, product_source: null, product_name_matched: null, standard_code: null, manufacturer: null, match_level: 6, match_confidence: 0.3 };
+      try {
+        const { generateEmbedding } = await import("./embedding-service");
+        const { searchProducts } = await import("./vector-search");
+        const searchText = searchTerms.join(" ");
+        const { embedding } = await generateEmbedding(searchText);
+        const vectorMatches = await searchProducts(embedding, 1, 0.5);
+        if (vectorMatches.length > 0) {
+          const best = vectorMatches[0];
+          matched = { ...item, product_id: best.id, product_source: best.type as "drug" | "device", product_name_matched: best.name, standard_code: null, manufacturer: null, match_level: 6, match_confidence: Math.min(best.similarity, 0.75) };
+        }
+      } catch { /* embedding not available, skip to unmatched */ }
+    }
+
+    // Level 7: Unmatched
+    if (!matched) {
+      matched = { ...item, product_id: null, product_source: null, product_name_matched: null, standard_code: null, manufacturer: null, match_level: 7, match_confidence: 0.3 };
     }
 
     results.push(matched);

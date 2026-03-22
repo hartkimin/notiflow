@@ -39,11 +39,17 @@ export function AccordionDetail({ message, localState, linkedOrder }: AccordionD
   const [commentDraft, setCommentDraft] = useState("");
 
   const [parseResult, setParseResult] = useState<{
-    items: Array<{ item: string; qty: number; unit: string; matched_product: string | null; product_id: number | null }>;
+    items: Array<{
+      item: string; qty: number; unit: string;
+      matched_product: string | null; product_id: number | null;
+      product_name_matched: string | null; standard_code: string | null;
+      manufacturer: string | null; match_level: number; match_confidence: number;
+      product_source: string | null;
+    }>;
     confidence: number;
     method: string;
     durationMs: number;
-    order?: { orderId: number; orderNumber: string };
+    order?: { orderId: number; orderNumber: string; matchedCount: number; itemCount: number };
   } | null>(null);
   const [isParsing, setIsParsing] = useState(false);
 
@@ -253,12 +259,23 @@ export function AccordionDetail({ message, localState, linkedOrder }: AccordionD
                 )}
               </div>
               {parseResult.items.map((item, i) => (
-                <div key={i} className="flex items-center justify-between text-xs rounded bg-background px-2 py-1 border">
-                  <span className="font-medium">{item.item}</span>
-                  <span className="text-muted-foreground">{item.qty} {item.unit}</span>
-                  <span className={item.product_id ? "text-emerald-600" : "text-orange-500"}>
-                    {item.matched_product ?? "미매칭"}
-                  </span>
+                <div key={i} className="rounded bg-background px-2.5 py-1.5 border space-y-0.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold">{item.item}</span>
+                    <span className="text-muted-foreground font-medium">{item.qty} {item.unit}</span>
+                  </div>
+                  {item.product_name_matched ? (
+                    <div className="text-[10px] text-emerald-600 flex items-center gap-1">
+                      <span>✓</span>
+                      <span className="truncate">{item.product_name_matched}</span>
+                      {item.manufacturer && <span className="text-muted-foreground">({item.manufacturer})</span>}
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-orange-500">미매칭 — 식약처 DB에서 유사 품목을 찾지 못했습니다</div>
+                  )}
+                  {item.standard_code && (
+                    <div className="text-[10px] text-muted-foreground">코드: {item.standard_code}</div>
+                  )}
                 </div>
               ))}
             </div>

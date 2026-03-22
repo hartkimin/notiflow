@@ -39,8 +39,9 @@ export async function createOrderFromParsedItems(
   if (items.length > 0) {
     const orderItems = items.map(item => ({
       order_id: order.id,
-      product_id: item.product_id,
-      product_name: item.matched_product ?? item.product_name_matched ?? item.item,
+      // product_id FK only works for products table — set null for mfds/my items
+      product_id: null,
+      product_name: item.product_name_matched ?? item.matched_product ?? item.item,
       quantity: item.qty,
       unit_type: item.unit,
     }));

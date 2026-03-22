@@ -47,7 +47,7 @@ export async function POST(req: Request) {
 
   try {
     const parseResult = await parseMessage(message.content, hospitalId, hospitalName);
-    const matchedItems = await matchProductsBulk(parseResult.items);
+    const matchedItems = await matchProductsBulk(parseResult.items, hospitalId);
 
     let order = null;
     if (autoCreateOrder && matchedItems.length > 0 && hospitalId) {

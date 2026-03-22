@@ -46,8 +46,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
 
-    --primary: 158 64% 52%; /* Supabase Green #3ecf8e */
-    --primary-foreground: 161 94% 13%;
+    --primary: 158 64% 40%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
@@ -224,7 +224,7 @@
   --color-surface-container-highest: #d7dfd9;
   --color-secondary-fixed-dim: #88ea89;
   --color-tertiary-fixed: #fdf8cb;
-  --color-on-primary: #cdffd4;
+  --color-on-primary: #ffffff;
   --color-surface-container-high: #dde4de;
   --color-secondary-container: #96f996;
   --color-primary-fixed: #86fea7;

@@ -66,6 +66,7 @@ export async function getSettings(): Promise<AISettings> {
       anthropic: maskApiKey(map.get("ai_api_key_anthropic")),
       google: maskApiKey(map.get("ai_api_key_google")),
       openai: maskApiKey(map.get("ai_api_key_openai")),
+      ollama: { set: true, masked: "(로컬)" },
     },
     drug_api_key: maskApiKey(map.get("drug_api_service_key")),
     ollama_base_url: (map.get("ollama_base_url") as string)?.replace(/^"|"$/g, "") ?? "",

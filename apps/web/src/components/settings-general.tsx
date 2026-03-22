@@ -36,6 +36,7 @@ const PROVIDERS = [
   { value: "anthropic" as const, label: "Anthropic (Claude)", placeholder: "sk-ant-api03-..." },
   { value: "google" as const, label: "Google (Gemini)", placeholder: "AIza..." },
   { value: "openai" as const, label: "OpenAI (GPT)", placeholder: "sk-..." },
+  { value: "ollama" as const, label: "Ollama (로컬 LLM)", placeholder: "" },
 ];
 
 const MODELS: Record<AIProvider, Array<{ value: string; label: string; desc: string }>> = {
@@ -54,6 +55,11 @@ const MODELS: Record<AIProvider, Array<{ value: string; label: string; desc: str
     { value: "gpt-4.1", label: "GPT-4.1", desc: "고품질 (최신)" },
     { value: "gpt-4o-mini", label: "GPT-4o Mini", desc: "빠르고 경제적" },
     { value: "gpt-4o", label: "GPT-4o", desc: "고품질" },
+  ],
+  ollama: [
+    { value: "qwen3.5:9b", label: "Qwen 3.5 9B", desc: "로컬 추론 (추천)" },
+    { value: "qwen3.5:4b", label: "Qwen 3.5 4B", desc: "경량 모델" },
+    { value: "llama3.3:latest", label: "Llama 3.3", desc: "Meta 오픈소스" },
   ],
 };
 

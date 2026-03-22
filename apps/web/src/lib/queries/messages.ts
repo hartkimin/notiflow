@@ -105,6 +105,40 @@ export async function getMessagesByIds(ids: string[]): Promise<UnifiedMessage[]>
   return (data ?? []).map((m) => mapCaptured(m as CapturedMessage));
 }
 
+export interface LinkedOrder {
+  id: number;
+  order_number: string;
+  status: string;
+  hospital_name: string | null;
+  order_date: string;
+  source_message_id: string;
+}
+
+/**
+ * Get orders linked to given message IDs via orders.source_message_id
+ */
+export async function getLinkedOrders(messageIds: string[]): Promise<Record<string, LinkedOrder>> {
+  if (messageIds.length === 0) return {};
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("orders")
+    .select("id, order_number, status, order_date, source_message_id, hospitals(name)")
+    .in("source_message_id", messageIds);
+  const map: Record<string, LinkedOrder> = {};
+  for (const o of data ?? []) {
+    if (!o.source_message_id) continue;
+    map[o.source_message_id] = {
+      id: o.id,
+      order_number: o.order_number,
+      status: o.status,
+      hospital_name: (o.hospitals as unknown as { name: string } | null)?.name ?? null,
+      order_date: o.order_date,
+      source_message_id: o.source_message_id,
+    };
+  }
+  return map;
+}
+
 export function formatMessagesAsNotes(messages: UnifiedMessage[]): string {
   return messages
     .map((m) => {

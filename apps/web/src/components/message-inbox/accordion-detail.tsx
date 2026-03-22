@@ -12,19 +12,26 @@ import {
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Trash2, Pin, PinOff, Copy, Pencil, MessageSquare, X,
+  Trash2, Pin, PinOff, Copy, Pencil, MessageSquare, X, ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { deleteMessage } from "@/lib/actions";
 import { SOURCE_LABEL, formatDateTime } from "./constants";
-import type { UnifiedMessage } from "@/lib/queries/messages";
+import type { UnifiedMessage, LinkedOrder } from "@/lib/queries/messages";
 import type { MessageLocalStateHook } from "@/hooks/use-message-local-state";
+
+const ORDER_STATUS_LABEL: Record<string, string> = {
+  draft: "임시", confirmed: "접수", delivered: "배송완료", invoiced: "정산완료", cancelled: "취소",
+};
 
 interface AccordionDetailProps {
   message: UnifiedMessage;
   localState: MessageLocalStateHook;
+  linkedOrder?: LinkedOrder;
 }
 
-export function AccordionDetail({ message, localState }: AccordionDetailProps) {
+export function AccordionDetail({ message, localState, linkedOrder }: AccordionDetailProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isEditing, setIsEditing] = useState(false);
@@ -158,6 +165,31 @@ export function AccordionDetail({ message, localState }: AccordionDetailProps) {
             </div>
           )}
         </div>
+
+        {/* Linked Order */}
+        {linkedOrder && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3 space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-blue-700">연결된 주문</span>
+              <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                {ORDER_STATUS_LABEL[linkedOrder.status] || linkedOrder.status}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-muted-foreground space-y-0.5">
+                <div className="font-medium text-foreground">{linkedOrder.order_number}</div>
+                {linkedOrder.hospital_name && <div>{linkedOrder.hospital_name}</div>}
+                <div>{linkedOrder.order_date}</div>
+              </div>
+              <Link href={`/orders/${linkedOrder.id}`}>
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                  주문 보기
+                  <ExternalLink className="h-3 w-3" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Comments */}
         <div>

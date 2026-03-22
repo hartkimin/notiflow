@@ -8,17 +8,18 @@ import { AccordionDetail } from "./accordion-detail";
 import { BulkActionBar } from "./bulk-action-bar";
 import { useMessageLocalState } from "@/hooks/use-message-local-state";
 import { useRowSelection } from "@/hooks/use-row-selection";
-import type { UnifiedMessage } from "@/lib/queries/messages";
+import type { UnifiedMessage, LinkedOrder } from "@/lib/queries/messages";
 
 interface MessageInboxProps {
   messages: UnifiedMessage[];
+  linkedOrders?: Record<string, LinkedOrder>;
   currentPage: number;
   totalPages: number;
   totalCount: number;
 }
 
 export function MessageInbox({
-  messages, currentPage, totalPages, totalCount,
+  messages, linkedOrders, currentPage, totalPages, totalCount,
 }: MessageInboxProps) {
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("highlight");
@@ -57,7 +58,7 @@ export function MessageInbox({
       {/* Right: Detail Panel */}
       <div className="w-[380px] shrink-0 border-y border-r rounded-r-lg overflow-hidden bg-background">
         {selectedMsg ? (
-          <AccordionDetail message={selectedMsg} localState={localState} />
+          <AccordionDetail message={selectedMsg} localState={localState} linkedOrder={linkedOrders?.[selectedMsg.id]} />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center gap-2">
             <MessageSquare className="h-10 w-10 text-muted-foreground/20" />

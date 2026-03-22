@@ -19,7 +19,7 @@ import {
 } from "@/lib/schedule-utils";
 import type { CalendarView } from "@/lib/schedule-utils";
 import type { RawMessage, Hospital, Product, OrderForecast } from "@/lib/types";
-import type { UnifiedMessage } from "@/lib/queries/messages";
+import type { UnifiedMessage, LinkedOrder } from "@/lib/queries/messages";
 
 // ─── Types ──────────────────────────────────────
 
@@ -29,6 +29,7 @@ interface MessagesViewProps {
   initialTab: TabValue;
   // List data
   messages: UnifiedMessage[];
+  linkedOrders?: Record<string, LinkedOrder>;
   hospitals: Hospital[];
   products: Product[];
   currentPage: number;
@@ -45,7 +46,7 @@ interface MessagesViewProps {
 
 export function MessagesView({
   initialTab,
-  messages, hospitals, products,
+  messages, linkedOrders, hospitals, products,
   currentPage, totalPages, totalCount,
   calendarMessages, calendarForecasts, initialCalView, initialCalDate,
 }: MessagesViewProps) {
@@ -237,6 +238,7 @@ export function MessagesView({
       {tab === "list" ? (
         <MessageInbox
           messages={messages}
+          linkedOrders={linkedOrders}
           currentPage={currentPage}
           totalPages={totalPages}
           totalCount={totalCount}

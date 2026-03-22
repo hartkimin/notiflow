@@ -40,7 +40,7 @@ export async function GET(req: Request) {
     try {
       const { embedding, model } = await generateEmbedding(text);
       await admin.from(table).update({
-        embedding: JSON.stringify(embedding),
+        embedding: "[" + embedding.join(",") + "]",
         embedding_model: model,
         embedded_at: new Date().toISOString(),
       }).eq("id", row.id);

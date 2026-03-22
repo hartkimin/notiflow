@@ -12,7 +12,7 @@ import {
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Trash2, Pin, PinOff, Copy, Pencil, MessageSquare, X, ExternalLink,
+  Trash2, Pin, PinOff, Copy, Pencil, MessageSquare, Sparkles, X, ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +37,43 @@ export function AccordionDetail({ message, localState, linkedOrder }: AccordionD
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState("");
   const [commentDraft, setCommentDraft] = useState("");
+
+  const [parseResult, setParseResult] = useState<{
+    items: Array<{ item: string; qty: number; unit: string; matched_product: string | null; product_id: number | null }>;
+    confidence: number;
+    method: string;
+    durationMs: number;
+    order?: { orderId: number; orderNumber: string };
+  } | null>(null);
+  const [isParsing, setIsParsing] = useState(false);
+
+  async function handleAiParse(autoCreate = false) {
+    setIsParsing(true);
+    try {
+      const res = await fetch("/api/parse-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId: msg.id, autoCreateOrder: autoCreate }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error ?? "파싱 실패");
+        return;
+      }
+      const data = await res.json();
+      setParseResult({ ...data.parse, order: data.order });
+      if (data.order) {
+        toast.success(`주문 ${data.order.orderNumber} 생성됨 (${data.order.matchedCount}/${data.order.itemCount} 매칭)`);
+        router.refresh();
+      } else {
+        toast.success(`${data.parse.items.length}건 품목 추출 (${data.parse.method}, ${data.parse.durationMs}ms)`);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "AI 파싱 중 오류");
+    } finally {
+      setIsParsing(false);
+    }
+  }
 
   const msg = message;
   const msgLocal = localState.getState(msg.id);
@@ -190,6 +227,43 @@ export function AccordionDetail({ message, localState, linkedOrder }: AccordionD
             </div>
           </div>
         )}
+
+        {/* AI Parse */}
+        <div>
+          <div className="flex items-center gap-2 mb-1.5">
+            <Sparkles className="h-3 w-3 text-primary" />
+            <span className="text-xs font-medium text-muted-foreground">AI 파싱</span>
+          </div>
+          <div className="flex gap-2 mb-2">
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleAiParse(false)} disabled={isParsing}>
+              <Sparkles className="h-3 w-3" />{isParsing ? "분석중..." : "파싱만"}
+            </Button>
+            <Button size="sm" className="h-7 text-xs gap-1" onClick={() => handleAiParse(true)} disabled={isParsing}>
+              <Sparkles className="h-3 w-3" />{isParsing ? "분석중..." : "파싱+주문생성"}
+            </Button>
+          </div>
+          {parseResult && (
+            <div className="space-y-1.5 rounded border p-2 bg-muted/20">
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                <span>{parseResult.method} · {parseResult.durationMs}ms · 신뢰도 {(parseResult.confidence * 100).toFixed(0)}%</span>
+                {parseResult.order && (
+                  <a href={`/orders/${parseResult.order.orderId}`} className="text-primary hover:underline">
+                    {parseResult.order.orderNumber}
+                  </a>
+                )}
+              </div>
+              {parseResult.items.map((item, i) => (
+                <div key={i} className="flex items-center justify-between text-xs rounded bg-background px-2 py-1 border">
+                  <span className="font-medium">{item.item}</span>
+                  <span className="text-muted-foreground">{item.qty} {item.unit}</span>
+                  <span className={item.product_id ? "text-emerald-600" : "text-orange-500"}>
+                    {item.matched_product ?? "미매칭"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Comments */}
         <div>

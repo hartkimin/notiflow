@@ -49,6 +49,17 @@ export async function POST(req: Request) {
     const parseResult = await parseMessage(message.content, hospitalId, hospitalName);
     const matchedItems = await matchProductsBulk(parseResult.items, hospitalId);
 
+    // Store embedding for future few-shot retrieval (fire and forget)
+    if (parseResult.confidence >= 0.7) {
+      import("@/lib/ai/embedding-service").then(({ generateEmbedding }) =>
+        generateEmbedding(message.content).then(({ embedding, model }) =>
+          import("@/lib/ai/vector-search").then(({ storeMessageEmbedding }) =>
+            storeMessageEmbedding(messageId, embedding, model)
+          )
+        )
+      ).catch(() => {});
+    }
+
     let order = null;
     if (autoCreateOrder && matchedItems.length > 0 && hospitalId) {
       order = await createOrderFromParsedItems(hospitalId, messageId, matchedItems);

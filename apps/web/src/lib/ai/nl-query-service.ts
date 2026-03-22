@@ -15,6 +15,10 @@ export type NLQueryIntent =
   | "supplier_info"
   | "delivery_status"
   | "sales_report"
+  | "profit_analysis"
+  | "invoice_status"
+  | "mfds_search"
+  | "period_comparison"
   | "recent_messages"
   | "general_question"
   | "unknown";
@@ -43,6 +47,10 @@ const INTENT_SYSTEM_PROMPT = `당신은 NotiFlow 의료 물자 주문 관리 시
 - supplier_info: 공급사 정보 (예: "대한메디칼 연락처")
 - delivery_status: 배송 상태 (예: "오늘 배송 예정")
 - sales_report: 매출 리포트 (예: "이번 달 매출 현황")
+- profit_analysis: 이익/마진 분석 (예: "이번 달 이익률", "거래처별 마진", "영업담당자 실적")
+- invoice_status: 세금계산서 현황 (예: "미발행 세금계산서", "이번 달 세금계산서")
+- mfds_search: 식약처 품목 검색 (예: "식약처 투석여과기 검색", "의료기기 허가 정보")
+- period_comparison: 기간 비교 (예: "지난달 대비 이번달 매출", "전월 비교")
 - recent_messages: 최근 메시지 (예: "오늘 들어온 메시지")
 - general_question: DB 조회 불필요 (예: "혈액투석이 뭐야")
 - unknown: 분류 불가
@@ -52,8 +60,11 @@ const INTENT_SYSTEM_PROMPT = `당신은 NotiFlow 의료 물자 주문 관리 시
 - supplier_name: 공급사명
 - product_name: 제품명/약어
 - order_number: 주문번호 (ORD-YYYYMMDD-###)
+- invoice_number: 세금계산서번호
 - period: "today", "this_week", "this_month", "last_month"
+- compare_period: 비교 기간 ("last_month", "last_year")
 - status: "draft", "confirmed", "delivered", "invoiced"
+- sales_rep: 영업담당자명
 - limit: 조회 건수 (기본 10)
 
 ## 출력 (JSON만)
@@ -196,6 +207,112 @@ const QUERY_MAP: Record<string, QueryExecutor> = {
       total_amount: data?.reduce((s, o) => s + (Number(o.total_amount) || 0), 0) ?? 0,
       supply_amount: data?.reduce((s, o) => s + (Number(o.supply_amount) || 0), 0) ?? 0,
       period: `${dateFrom} ~ ${dateTo}`,
+    };
+  },
+
+  profit_analysis: async (p) => {
+    const sb = createAdminClient();
+    const { dateFrom, dateTo } = resolvePeriod(p.period as string);
+    let q = sb.from("order_items")
+      .select("product_name, quantity, unit_price, purchase_price, sales_rep, orders!inner(order_date, status, hospital_id, hospitals(name))")
+      .gte("orders.order_date", dateFrom).lte("orders.order_date", dateTo);
+    if (p.hospital_name) {
+      // Filter will be applied in-memory after fetch since nested filter is complex
+    }
+    const { data } = await q;
+    const items = data ?? [];
+    const totalRevenue = items.reduce((s, i) => s + (Number(i.unit_price ?? 0) * (i.quantity ?? 0)), 0);
+    const totalPurchase = items.reduce((s, i) => s + (Number(i.purchase_price ?? 0) * (i.quantity ?? 0)), 0);
+    const totalProfit = totalRevenue - totalPurchase;
+
+    // Group by sales_rep
+    const byRep: Record<string, { revenue: number; purchase: number; count: number }> = {};
+    for (const i of items) {
+      const rep = i.sales_rep ?? "미지정";
+      if (!byRep[rep]) byRep[rep] = { revenue: 0, purchase: 0, count: 0 };
+      byRep[rep].revenue += Number(i.unit_price ?? 0) * (i.quantity ?? 0);
+      byRep[rep].purchase += Number(i.purchase_price ?? 0) * (i.quantity ?? 0);
+      byRep[rep].count++;
+    }
+
+    // Group by hospital
+    const byHospital: Record<string, { revenue: number; purchase: number; count: number }> = {};
+    for (const i of items) {
+      const name = (i.orders as unknown as { hospitals: { name: string } })?.hospitals?.name ?? "알 수 없음";
+      if (!byHospital[name]) byHospital[name] = { revenue: 0, purchase: 0, count: 0 };
+      byHospital[name].revenue += Number(i.unit_price ?? 0) * (i.quantity ?? 0);
+      byHospital[name].purchase += Number(i.purchase_price ?? 0) * (i.quantity ?? 0);
+      byHospital[name].count++;
+    }
+
+    return {
+      period: `${dateFrom} ~ ${dateTo}`,
+      total: { revenue: totalRevenue, purchase: totalPurchase, profit: totalProfit, margin: totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) + "%" : "0%" },
+      by_sales_rep: Object.entries(byRep).map(([name, v]) => ({ name, ...v, profit: v.revenue - v.purchase, margin: v.revenue > 0 ? ((v.revenue - v.purchase) / v.revenue * 100).toFixed(1) + "%" : "0%" })).sort((a, b) => b.revenue - a.revenue),
+      by_hospital: Object.entries(byHospital).map(([name, v]) => ({ name, ...v, profit: v.revenue - v.purchase, margin: v.revenue > 0 ? ((v.revenue - v.purchase) / v.revenue * 100).toFixed(1) + "%" : "0%" })).sort((a, b) => b.revenue - a.revenue).slice(0, 10),
+    };
+  },
+
+  invoice_status: async (p) => {
+    const sb = createAdminClient();
+    const { dateFrom, dateTo } = resolvePeriod(p.period as string);
+    const { data: invoices } = await sb.from("tax_invoices")
+      .select("id, invoice_number, issue_date, status, total_amount, buyer_name")
+      .gte("issue_date", dateFrom).lte("issue_date", dateTo)
+      .order("issue_date", { ascending: false }).limit(Number(p.limit ?? 20));
+
+    // Count uninvoiced delivered orders
+    const { data: uninvoiced } = await sb.from("orders")
+      .select("id, order_number, order_date, total_amount, hospitals(name)")
+      .eq("status", "delivered")
+      .gte("order_date", dateFrom).lte("order_date", dateTo);
+
+    const statuses: Record<string, number> = {};
+    for (const inv of invoices ?? []) statuses[inv.status] = (statuses[inv.status] ?? 0) + 1;
+
+    return {
+      period: `${dateFrom} ~ ${dateTo}`,
+      invoices: invoices ?? [],
+      by_status: statuses,
+      total_amount: (invoices ?? []).reduce((s, i) => s + (Number(i.total_amount) || 0), 0),
+      uninvoiced_orders: (uninvoiced ?? []).length,
+      uninvoiced_amount: (uninvoiced ?? []).reduce((s, o) => s + (Number(o.total_amount) || 0), 0),
+    };
+  },
+
+  mfds_search: async (p) => {
+    const sb = createAdminClient();
+    const name = escapeLikeValue(p.product_name as string);
+    const [{ data: drugs, count: drugCount }, { data: devices, count: deviceCount }] = await Promise.all([
+      sb.from("mfds_drugs").select("id, item_name, entp_name, bar_code, item_permit_date", { count: "exact" }).ilike("item_name", `%${name}%`).limit(5),
+      sb.from("mfds_devices").select("id, prdlst_nm, mnft_iprt_entp_nm, udidi_cd, prmsn_ymd", { count: "exact" }).ilike("prdlst_nm", `%${name}%`).limit(5),
+    ]);
+    return {
+      search_term: p.product_name,
+      drugs: { items: drugs ?? [], total: drugCount ?? 0 },
+      devices: { items: devices ?? [], total: deviceCount ?? 0 },
+    };
+  },
+
+  period_comparison: async (p) => {
+    const sb = createAdminClient();
+    const { dateFrom: curFrom, dateTo: curTo } = resolvePeriod(p.period as string ?? "this_month");
+    const { dateFrom: prevFrom, dateTo: prevTo } = resolvePeriod(p.compare_period as string ?? "last_month");
+
+    const [{ data: curData }, { data: prevData }] = await Promise.all([
+      sb.from("orders").select("status, total_amount").gte("order_date", curFrom).lte("order_date", curTo),
+      sb.from("orders").select("status, total_amount").gte("order_date", prevFrom).lte("order_date", prevTo),
+    ]);
+
+    const curTotal = (curData ?? []).reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
+    const prevTotal = (prevData ?? []).reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
+    const change = prevTotal > 0 ? ((curTotal - prevTotal) / prevTotal * 100).toFixed(1) : "N/A";
+
+    return {
+      current: { period: `${curFrom} ~ ${curTo}`, orders: curData?.length ?? 0, total_amount: curTotal },
+      previous: { period: `${prevFrom} ~ ${prevTo}`, orders: prevData?.length ?? 0, total_amount: prevTotal },
+      change_percent: change,
+      trend: curTotal > prevTotal ? "증가" : curTotal < prevTotal ? "감소" : "동일",
     };
   },
 

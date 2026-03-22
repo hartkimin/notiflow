@@ -9,6 +9,7 @@ export type NLQueryIntent =
   | "order_detail"
   | "order_stats"
   | "product_search"
+  | "product_stock"
   | "hospital_info"
   | "hospital_orders"
   | "supplier_info"
@@ -36,6 +37,7 @@ const INTENT_SYSTEM_PROMPT = `당신은 NotiFlow 의료 물자 주문 관리 시
 - order_detail: 특정 주문 상세 (예: "ORD-20260321-001 상세")
 - order_stats: 주문 통계 (예: "이번 달 총 주문 건수")
 - product_search: 제품 검색 (예: "투석여과기 종류", "EK-15H 정보")
+- product_stock: 제품 수량/주문량 (예: "니들 얼마나 주문했어", "이번 달 투석액 총 수량")
 - hospital_info: 병원 정보 (예: "한국신장센터 연락처")
 - hospital_orders: 병원별 주문 (예: "한국신장센터 주문 내역")
 - supplier_info: 공급사 정보 (예: "대한메디칼 연락처")
@@ -137,6 +139,19 @@ const QUERY_MAP: Record<string, QueryExecutor> = {
       sb.from("my_devices").select("id, prdlst_nm, udidi_cd, mnft_iprt_entp_nm, unit_price").ilike("prdlst_nm", `%${name}%`).limit(5),
     ]);
     return { drugs: drugs ?? [], devices: devices ?? [] };
+  },
+
+  product_stock: async (p) => {
+    const sb = createAdminClient();
+    const { dateFrom, dateTo } = resolvePeriod(p.period as string);
+    const name = escapeLikeValue(p.product_name as string);
+    const { data } = await sb.from("order_items")
+      .select("product_name, quantity, unit_type, orders!inner(order_date, status, hospitals(name))")
+      .ilike("product_name", `%${name}%`)
+      .gte("orders.order_date", dateFrom)
+      .lte("orders.order_date", dateTo);
+    const totalQty = (data ?? []).reduce((s, i) => s + (i.quantity ?? 0), 0);
+    return { product_name: p.product_name, total_quantity: totalQty, items: (data ?? []).slice(0, 20), period: `${dateFrom} ~ ${dateTo}` };
   },
 
   hospital_info: async (p) => {

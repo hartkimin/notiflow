@@ -170,10 +170,10 @@ export function SalesRepChart({ initialData, initialMonth }: SalesRepChartProps)
                     <Cell key={i} fill={entry._color} fillOpacity={0.85} />
                   ))}
                   <LabelList
-                    dataKey="이익률"
+                    dataKey="매출"
                     position="top"
-                    formatter={(v) => `${v}%`}
-                    style={{ fontSize: 10, fontWeight: 700, fill: "#059669" }}
+                    formatter={(v) => fmt(v as number)}
+                    style={{ fontSize: 10, fontWeight: 700, fill: "#374151" }}
                   />
                 </Bar>
               </BarChart>

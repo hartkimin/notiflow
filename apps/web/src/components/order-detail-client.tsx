@@ -95,7 +95,7 @@ const STATUS_VARIANT: Record<
 };
 
 const DETAIL_COL_DEFAULTS: Record<string, number> = {
-  idx: 40, product: 180, supplier: 120, quantity: 80, unit_price: 90, total: 90,
+  idx: 40, product: 180, supplier: 100, quantity: 60, unit_type: 50, purchase_price: 90, unit_price: 90, total: 90, sales_rep: 80,
 };
 
 interface EditItemState {
@@ -337,7 +337,13 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
     const price = edit ? edit.unit_price : (item.unit_price ?? 0);
     return sum + qty * price;
   }, 0);
+  const purchaseTotal = visibleItems.reduce((sum, item) => {
+    const qty = editItems[item.id]?.quantity ?? item.quantity;
+    return sum + qty * (item.purchase_price ?? 0);
+  }, 0);
   const taxTotal = Math.round(supplyTotal * 0.1);
+  const profit = supplyTotal - purchaseTotal;
+  const profitRate = supplyTotal > 0 ? Math.round(profit / supplyTotal * 100) : 0;
 
   return (
     <div className="space-y-4">
@@ -555,8 +561,11 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                 <ResizableTh width={widths.product} colKey="product" onResizeStart={onMouseDown}>품목</ResizableTh>
                 <ResizableTh width={widths.supplier} colKey="supplier" onResizeStart={onMouseDown}>매입처</ResizableTh>
                 <ResizableTh width={widths.quantity} colKey="quantity" onResizeStart={onMouseDown} className="text-right">수량</ResizableTh>
-                <ResizableTh width={widths.unit_price} colKey="unit_price" onResizeStart={onMouseDown} className="text-right">단가</ResizableTh>
-                <ResizableTh width={widths.total} colKey="total" onResizeStart={onMouseDown} className="text-right pr-6">금액</ResizableTh>
+                <ResizableTh width={widths.unit_type} colKey="unit_type" onResizeStart={onMouseDown}>단위</ResizableTh>
+                <ResizableTh width={widths.purchase_price} colKey="purchase_price" onResizeStart={onMouseDown} className="text-right">매입단가</ResizableTh>
+                <ResizableTh width={widths.unit_price} colKey="unit_price" onResizeStart={onMouseDown} className="text-right">판매단가</ResizableTh>
+                <ResizableTh width={widths.total} colKey="total" onResizeStart={onMouseDown} className="text-right">금액</ResizableTh>
+                <ResizableTh width={widths.sales_rep} colKey="sales_rep" onResizeStart={onMouseDown} className="pr-6">담당자</ResizableTh>
                 {isEditing && <th className="w-[40px] print:hidden" />}
               </TableRow>
             </TableHeader>
@@ -711,6 +720,12 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                         item.quantity
                       )}
                     </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {item.unit_type ?? "piece"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {(item.purchase_price ?? 0).toLocaleString("ko-KR")}
+                    </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {isEditing && !isDeleted ? (
                         <Input
@@ -726,8 +741,11 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                         (item.unit_price ?? 0).toLocaleString("ko-KR")
                       )}
                     </TableCell>
-                    <TableCell className="text-right pr-6 tabular-nums font-medium">
+                    <TableCell className="text-right tabular-nums font-medium">
                       {lineTotal.toLocaleString("ko-KR")}
+                    </TableCell>
+                    <TableCell className="pr-6 text-sm text-muted-foreground">
+                      {item.sales_rep ?? "-"}
                     </TableCell>
                     {isEditing && (
                       <TableCell className="px-1 print:hidden">
@@ -768,6 +786,10 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
           <Separator />
           <div className="flex justify-end">
             <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+              <span className="text-muted-foreground text-right">매입합계</span>
+              <span className="text-right tabular-nums">
+                {purchaseTotal.toLocaleString("ko-KR")}원
+              </span>
               <span className="text-muted-foreground text-right">공급가액</span>
               <span className="text-right tabular-nums">
                 {supplyTotal.toLocaleString("ko-KR")}원
@@ -782,6 +804,14 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
               <span className="font-semibold text-right tabular-nums">
                 {(supplyTotal + taxTotal).toLocaleString("ko-KR")}원
               </span>
+              {purchaseTotal > 0 && (
+                <>
+                  <span className="text-muted-foreground text-right">이익</span>
+                  <span className={cn("text-right tabular-nums", profit >= 0 ? "text-green-600" : "text-red-500")}>
+                    {profit.toLocaleString("ko-KR")}원 ({profitRate}%)
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </>

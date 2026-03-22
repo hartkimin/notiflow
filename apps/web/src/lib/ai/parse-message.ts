@@ -59,6 +59,23 @@ async function loadCatalog(): Promise<ProductCatalogEntry[]> {
   return results;
 }
 
+/** Load similar parsed messages for few-shot examples */
+async function loadFewShotExamples(
+  content: string,
+  hospitalName: string | null,
+): Promise<string> {
+  try {
+    const { generateEmbedding } = await import("./embedding-service");
+    const { searchSimilarMessages } = await import("./vector-search");
+    const { embedding } = await generateEmbedding(content);
+    const similar = await searchSimilarMessages(embedding, hospitalName, 3);
+    if (similar.length === 0) return "";
+    return "\n\n유사 주문 예시:\n" + similar.map((m, i) =>
+      `[${i + 1}] "${m.content.slice(0, 100)}"`
+    ).join("\n");
+  } catch { return ""; }
+}
+
 function parseItemsFromJson(text: string): { items: ParsedItem[]; confidence: number } {
   // Extract JSON from potentially markdown-wrapped response
   let cleaned = text.replace(/```json\n?|```\n?/g, "").trim();
@@ -83,11 +100,13 @@ export async function parseMessage(
 ): Promise<ParseResult> {
   const [aliases, catalog] = await Promise.all([loadAliases(hospitalId), loadCatalog()]);
   const userPrompt = buildUserPrompt(hospitalName, aliases, catalog, messageContent);
+  const fewShot = await loadFewShotExamples(messageContent, hospitalName);
+  const fullPrompt = userPrompt + fewShot;
   const startMs = Date.now();
 
   // 1st: Ollama
   try {
-    const result = await ollamaChat(MESSAGE_PARSE_SYSTEM_PROMPT, userPrompt);
+    const result = await ollamaChat(MESSAGE_PARSE_SYSTEM_PROMPT, fullPrompt);
     const { items, confidence } = parseItemsFromJson(result.text);
     return { items, confidence, method: "ollama", model: "qwen3.5:9b", durationMs: Date.now() - startMs };
   } catch (ollamaErr) {

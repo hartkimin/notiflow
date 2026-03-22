@@ -60,7 +60,11 @@ async function loadCatalog(): Promise<ProductCatalogEntry[]> {
 }
 
 function parseItemsFromJson(text: string): { items: ParsedItem[]; confidence: number } {
-  const cleaned = text.replace(/```json\n?|```\n?/g, "").trim();
+  // Extract JSON from potentially markdown-wrapped response
+  let cleaned = text.replace(/```json\n?|```\n?/g, "").trim();
+  // If response contains explanation text, extract just the JSON object
+  const jsonMatch = cleaned.match(/\{[\s\S]*"items"\s*:\s*\[[\s\S]*\][\s\S]*\}/);
+  if (jsonMatch) cleaned = jsonMatch[0];
   const parsed = JSON.parse(cleaned);
   const rawItems = parsed.items ?? parsed ?? [];
   const items: ParsedItem[] = (Array.isArray(rawItems) ? rawItems : []).map((item: Record<string, unknown>) => ({

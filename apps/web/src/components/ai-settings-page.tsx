@@ -43,9 +43,8 @@ const MODELS: Record<AIProvider, Array<{ value: string; label: string; desc: str
     { value: "gpt-4o", label: "GPT-4o", desc: "고품질" },
   ],
   ollama: [
-    { value: "qwen3.5:latest", label: "Qwen 3.5 (latest)", desc: "로컬 추론 (추천)" },
-    { value: "qwen3.5:9b", label: "Qwen 3.5 9B", desc: "9.7B 파라미터" },
-    { value: "qwen3.5:4b", label: "Qwen 3.5 4B", desc: "경량 모델" },
+    { value: "qwen3.5:latest", label: "Qwen 3.5 9.7B", desc: "고품질 추론 (추천)" },
+    { value: "qwen3.5:4b", label: "Qwen 3.5 4.7B", desc: "빠른 응답, 간단한 작업" },
     { value: "llama3.3:latest", label: "Llama 3.3", desc: "Meta 오픈소스" },
   ],
 };

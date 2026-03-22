@@ -9,6 +9,7 @@ export async function createClient() {
     process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       auth: { storageKey: "sb-notiflow-auth-token" },
+      global: { fetch: (url: RequestInfo | URL, init?: RequestInit) => fetch(url, { ...init, cache: "no-store" }) },
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -37,6 +38,7 @@ export async function createAdminClient() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
       auth: { storageKey: "sb-notiflow-auth-token" },
+      global: { fetch: (url: RequestInfo | URL, init?: RequestInit) => fetch(url, { ...init, cache: "no-store" }) },
       cookies: {
         getAll() {
           return cookieStore.getAll();

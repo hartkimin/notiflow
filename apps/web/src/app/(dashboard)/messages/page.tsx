@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getMessages, getMessagesForCalendar, getLinkedOrders } from "@/lib/queries/messages";
 import { getHospitals } from "@/lib/queries/hospitals";
 import { getProductsCatalog } from "@/lib/queries/products";

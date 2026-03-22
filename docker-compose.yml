@@ -37,6 +37,8 @@ services:
       PARSE_API_SECRET: ${PARSE_API_SECRET:-local-dev-secret-12345}
       # Supabase proxy rewrite reads this at runtime (container can't reach localhost:54321)
       NEXT_PUBLIC_SUPABASE_URL: http://host.docker.internal:54321
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: qwen3.5:latest
       HOSTNAME: 0.0.0.0
     restart: unless-stopped
 

@@ -172,14 +172,12 @@ export default async function DashboardHome({ searchParams }: Props) {
         </Card>
       )}
 
-      <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
         {/* ── 영업담당자별 실적 ── */}
         <SalesRepChart initialData={salesReps} initialMonth={selectedMonth} />
 
         {/* ── 거래처별 매출 Top 10 ── */}
-        <div className="lg:col-span-2">
-          <HospitalRankChart initialData={hospitalRank} initialMonth={selectedMonth} />
-        </div>
+        <HospitalRankChart initialData={hospitalRank} initialMonth={selectedMonth} />
       </div>
 
       <div className="grid gap-4 md:gap-6 lg:grid-cols-2">

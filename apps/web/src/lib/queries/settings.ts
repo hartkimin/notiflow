@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 
-export type AIProvider = "anthropic" | "google" | "openai";
+export type AIProvider = "anthropic" | "google" | "openai" | "ollama";
 
 export interface AIApiKeyInfo {
   set: boolean;
@@ -14,6 +14,7 @@ export interface AISettings {
   sync_interval_minutes: number;
   ai_api_keys: Record<AIProvider, AIApiKeyInfo>;
   drug_api_key: AIApiKeyInfo;
+  ollama_base_url: string;
 }
 
 function maskApiKey(key: unknown): AIApiKeyInfo {
@@ -41,6 +42,7 @@ export async function getSettings(): Promise<AISettings> {
       "ai_api_key_google",
       "ai_api_key_openai",
       "drug_api_service_key",
+      "ollama_base_url",
     ]);
 
   if (error) throw error;
@@ -53,7 +55,7 @@ export async function getSettings(): Promise<AISettings> {
 
   return {
     ai_enabled: map.get("ai_enabled") === true || map.get("ai_enabled") === "true",
-    ai_provider: (["anthropic", "google", "openai"].includes(provider)
+    ai_provider: (["anthropic", "google", "openai", "ollama"].includes(provider)
       ? provider as AIProvider
       : "anthropic"),
     ai_model: (typeof map.get("ai_model") === "string"
@@ -66,6 +68,7 @@ export async function getSettings(): Promise<AISettings> {
       openai: maskApiKey(map.get("ai_api_key_openai")),
     },
     drug_api_key: maskApiKey(map.get("drug_api_service_key")),
+    ollama_base_url: (map.get("ollama_base_url") as string)?.replace(/^"|"$/g, "") ?? "",
   };
 }
 

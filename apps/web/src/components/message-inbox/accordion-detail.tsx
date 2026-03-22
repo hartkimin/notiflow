@@ -49,17 +49,20 @@ export function AccordionDetail({ message, localState, linkedOrder }: AccordionD
     confidence: number;
     method: string;
     durationMs: number;
+    hospitalId: number | null;
+    hospitalName: string | null;
     order?: { orderId: number; orderNumber: string; matchedCount: number; itemCount: number };
   } | null>(null);
   const [isParsing, setIsParsing] = useState(false);
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
 
-  async function handleAiParse(autoCreate = false) {
+  async function handleAiParse() {
     setIsParsing(true);
     try {
       const res = await fetch("/api/parse-message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId: msg.id, autoCreateOrder: autoCreate }),
+        body: JSON.stringify({ messageId: msg.id, autoCreateOrder: false }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -67,17 +70,41 @@ export function AccordionDetail({ message, localState, linkedOrder }: AccordionD
         return;
       }
       const data = await res.json();
-      setParseResult({ ...data.parse, order: data.order });
-      if (data.order) {
-        toast.success(`주문 ${data.order.orderNumber} 생성됨 (${data.order.matchedCount}/${data.order.itemCount} 매칭)`);
-        router.refresh();
-      } else {
-        toast.success(`${data.parse.items.length}건 품목 추출 (${data.parse.method}, ${data.parse.durationMs}ms)`);
-      }
+      setParseResult({ ...data.parse, hospitalId: data.hospitalId, hospitalName: data.hospitalName });
+      toast.success(`${data.parse.items.length}건 품목 추출 (${data.parse.method}, ${data.parse.durationMs}ms)`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "AI 파싱 중 오류");
     } finally {
       setIsParsing(false);
+    }
+  }
+
+  async function handleCreateOrder() {
+    if (!parseResult || parseResult.items.length === 0) return;
+    setIsCreatingOrder(true);
+    try {
+      const res = await fetch("/api/parse-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId: msg.id, autoCreateOrder: true }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error ?? "주문 생성 실패");
+        return;
+      }
+      const data = await res.json();
+      if (data.order) {
+        setParseResult(prev => prev ? { ...prev, order: data.order } : null);
+        toast.success(`주문 ${data.order.orderNumber} 생성됨 (${data.order.matchedCount}/${data.order.itemCount} 매칭)`);
+        router.refresh();
+      } else {
+        toast.error("주문 생성에 실패했습니다. 거래처가 매칭되지 않았을 수 있습니다.");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "주문 생성 중 오류");
+    } finally {
+      setIsCreatingOrder(false);
     }
   }
 
@@ -241,23 +268,37 @@ export function AccordionDetail({ message, localState, linkedOrder }: AccordionD
             <span className="text-xs font-medium text-muted-foreground">AI 파싱</span>
           </div>
           <div className="flex gap-2 mb-2">
-            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleAiParse(false)} disabled={isParsing}>
-              <Sparkles className="h-3 w-3" />{isParsing ? "분석중..." : "파싱만"}
-            </Button>
-            <Button size="sm" className="h-7 text-xs gap-1" onClick={() => handleAiParse(true)} disabled={isParsing}>
-              <Sparkles className="h-3 w-3" />{isParsing ? "분석중..." : "파싱+주문생성"}
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleAiParse} disabled={isParsing || isCreatingOrder}>
+              <Sparkles className="h-3 w-3" />{isParsing ? "분석중..." : "AI 파싱"}
             </Button>
           </div>
+
+          {/* Parse Result Preview */}
           {parseResult && (
             <div className="space-y-1.5 rounded border p-2 bg-muted/20">
+              {/* Header: method, time, confidence */}
               <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                 <span>{parseResult.method} · {parseResult.durationMs}ms · 신뢰도 {(parseResult.confidence * 100).toFixed(0)}%</span>
                 {parseResult.order && (
-                  <a href={`/orders/${parseResult.order.orderId}`} className="text-primary hover:underline">
-                    {parseResult.order.orderNumber}
+                  <a href={`/orders/${parseResult.order.orderId}`} className="text-primary hover:underline font-medium">
+                    {parseResult.order.orderNumber} →
                   </a>
                 )}
               </div>
+
+              {/* Hospital match info */}
+              {parseResult.hospitalName ? (
+                <div className="flex items-center gap-1 text-[10px] text-blue-600 bg-blue-50 rounded px-2 py-1">
+                  <span>🏥</span>
+                  <span className="font-medium">거래처: {parseResult.hospitalName}</span>
+                </div>
+              ) : (
+                <div className="text-[10px] text-orange-500 bg-orange-50 rounded px-2 py-1">
+                  ⚠ 거래처를 자동 추론하지 못했습니다. 주문 생성 시 수동 선택이 필요합니다.
+                </div>
+              )}
+
+              {/* Item list */}
               {parseResult.items.map((item, i) => (
                 <div key={i} className="rounded bg-background px-2.5 py-1.5 border space-y-0.5">
                   <div className="flex items-center justify-between text-xs">
@@ -271,13 +312,40 @@ export function AccordionDetail({ message, localState, linkedOrder }: AccordionD
                       {item.manufacturer && <span className="text-muted-foreground">({item.manufacturer})</span>}
                     </div>
                   ) : (
-                    <div className="text-[10px] text-orange-500">미매칭 — 식약처 DB에서 유사 품목을 찾지 못했습니다</div>
+                    <div className="text-[10px] text-orange-500">미매칭</div>
                   )}
                   {item.standard_code && (
                     <div className="text-[10px] text-muted-foreground">코드: {item.standard_code}</div>
                   )}
                 </div>
               ))}
+
+              {/* Order creation actions */}
+              {!parseResult.order && parseResult.items.length > 0 && (
+                <div className="flex items-center gap-2 pt-1 border-t mt-1">
+                  {parseResult.hospitalName ? (
+                    <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={handleCreateOrder} disabled={isCreatingOrder}>
+                      {isCreatingOrder ? "생성중..." : `주문 생성 (${parseResult.items.length}건)`}
+                    </Button>
+                  ) : (
+                    <Link href={`/orders/new?source_message_id=${msg.id}`} className="flex-1">
+                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1 w-full">
+                        거래처 선택 후 주문 생성 →
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              )}
+
+              {/* Order created badge */}
+              {parseResult.order && (
+                <div className="flex items-center gap-2 pt-1 border-t mt-1">
+                  <div className="flex items-center gap-1 text-[10px] text-emerald-600 bg-emerald-50 rounded px-2 py-1 flex-1">
+                    <span>✅</span>
+                    <span>주문 생성 완료 — {parseResult.order.orderNumber} ({parseResult.order.matchedCount}/{parseResult.order.itemCount} 매칭)</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

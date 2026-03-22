@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Settings, Users, Smartphone, Building } from "lucide-react";
+import { Settings, Users, Smartphone, Building, Bot } from "lucide-react";
 
 const settingsTabs = [
   { href: "/settings", label: "일반", icon: Settings, exact: true },
+  { href: "/settings/ai", label: "AI 설정", icon: Bot },
   { href: "/settings/users", label: "사용자 관리", icon: Users },
   { href: "/settings/devices", label: "기기 관리", icon: Smartphone },
   { href: "/settings/company", label: "자사 정보", icon: Building },

@@ -240,122 +240,14 @@ export function SettingsGeneral({ settings, displayColumns }: Props) {
         </SettingRow>
       </Section>
 
-      {/* ── AI 설정 ── */}
-      <Section icon={Bot} title="AI 파싱" description="수신 메시지를 AI가 자동으로 분석합니다">
-        <div className="space-y-0">
-          <SettingRow label="AI 파싱 활성화" description={enabled ? "AI가 메시지를 자동 분석합니다" : "수동 확인이 필요합니다"}>
-            <Switch checked={enabled} disabled={isPending} onCheckedChange={(v: boolean) => { setEnabled(v); save("ai_enabled", v); }} />
-          </SettingRow>
-
-          <SettingRow label="AI 제공자">
-            <Select value={provider} disabled={isPending} onValueChange={(v: string) => handleProviderChange(v as AIProvider)}>
-              <SelectTrigger className="w-52 h-8 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PROVIDERS.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>
-                    <span className="flex items-center gap-2">
-                      {p.label}
-                      {settings.ai_api_keys[p.value]?.set && (
-                        <Badge variant="outline" className="text-green-600 text-[10px] px-1 py-0">키 등록</Badge>
-                      )}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SettingRow>
-
-          <SettingRow label="모델">
-            <Select value={model} disabled={isPending} onValueChange={(v: string) => { setModel(v); save("ai_model", v); }}>
-              <SelectTrigger className="w-52 h-8 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {providerModels.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>
-                    <span className="flex items-center gap-2">{m.label}<span className="text-xs text-muted-foreground">— {m.desc}</span></span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SettingRow>
-        </div>
-      </Section>
-
-      {/* ── API 키 관리 ── */}
-      <Section icon={Key} title="API 키 관리" description="AI 및 식약처 API 인증 키를 관리합니다">
-        <div className="space-y-4">
-          {/* AI API Key */}
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Label className="text-sm font-medium">{providerConfig?.label ?? "AI"} API 키</Label>
-              {currentKeyInfo?.set && (
-                <Badge variant="outline" className="text-green-600 text-[10px]">
-                  <CheckCircle className="h-3 w-3 mr-0.5" />
-                  <code className="font-mono">{currentKeyInfo.masked}</code>
-                </Badge>
-              )}
-              {currentKeyInfo?.set && (
-                <Button size="sm" variant="ghost" className="text-destructive h-6 px-2 text-xs" disabled={isSavingKey} onClick={() => deleteApiKey("ai")}>삭제</Button>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Input
-                  type={showKey ? "text" : "password"}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={currentKeyInfo?.set ? "새 키로 변경..." : providerConfig?.placeholder ?? "API 키 입력..."}
-                  className="h-8 text-sm pr-9"
-                />
-                <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowKey(!showKey)}>
-                  {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                </button>
-              </div>
-              <Button size="sm" className="h-8" disabled={isSavingKey || !apiKey.trim()} onClick={() => saveApiKey("ai")}>
-                {isSavingKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "저장"}
-              </Button>
-            </div>
+      {/* ── AI 설정 (별도 탭) ── */}
+      <Section icon={Bot} title="AI 설정" description="AI 제공자, 모델, API 키를 관리합니다">
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            현재: <strong>{settings.ai_provider}</strong> / {settings.ai_model}
+            {settings.ai_enabled ? " (활성)" : " (비활성)"}
           </div>
-
-          <div className="border-t" />
-
-          {/* Drug API Key */}
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Pill className="h-3.5 w-3.5 text-muted-foreground" />
-              <Label className="text-sm font-medium">식약처 의약품 API 키</Label>
-              {settings.drug_api_key?.set && (
-                <Badge variant="outline" className="text-green-600 text-[10px]">
-                  <CheckCircle className="h-3 w-3 mr-0.5" />
-                  <code className="font-mono">{settings.drug_api_key.masked}</code>
-                </Badge>
-              )}
-              {settings.drug_api_key?.set && (
-                <Button size="sm" variant="ghost" className="text-destructive h-6 px-2 text-xs" disabled={isSavingDrugKey} onClick={() => deleteApiKey("drug")}>삭제</Button>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Input
-                  type={showDrugKey ? "text" : "password"}
-                  value={drugApiKey}
-                  onChange={(e) => setDrugApiKey(e.target.value)}
-                  placeholder={settings.drug_api_key?.set ? "새 키로 변경..." : "공공데이터포털 인증키 입력..."}
-                  className="h-8 text-sm pr-9"
-                />
-                <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowDrugKey(!showDrugKey)}>
-                  {showDrugKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                </button>
-              </div>
-              <Button size="sm" className="h-8" disabled={isSavingDrugKey || !drugApiKey.trim()} onClick={() => saveApiKey("drug")}>
-                {isSavingDrugKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "저장"}
-              </Button>
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1.5">공공데이터포털(data.go.kr) → 마이페이지 → 활용신청 현황에서 확인</p>
-          </div>
+          <a href="/settings/ai" className="text-sm text-primary hover:underline font-medium">AI 설정 →</a>
         </div>
       </Section>
 

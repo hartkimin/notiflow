@@ -85,7 +85,7 @@ export function DataCalendar<T>({
   }, [navigateToDate, setView]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)]">
+    <div className="flex flex-col h-[calc(100vh-9rem)] overflow-hidden">
       {!hideHeader && (
         <CalendarHeader
           view={view}

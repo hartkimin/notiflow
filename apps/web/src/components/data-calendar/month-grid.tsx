@@ -62,7 +62,7 @@ export function MonthGrid<T>({
 
       {/* Grid */}
       <div
-        className="grid grid-cols-7 gap-1 flex-1"
+        className="grid grid-cols-7 gap-1 flex-1 min-h-0 overflow-hidden"
         style={{ gridTemplateRows: `repeat(${rowCount}, minmax(0, 1fr))` }}
       >
         {gridDates.slice(0, cellCount).map((date) => {

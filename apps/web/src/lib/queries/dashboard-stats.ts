@@ -48,34 +48,45 @@ export async function getDashboardKpis(month?: string): Promise<DashboardKpis> {
   // Current month orders
   const { data: thisMonthOrders } = await supabase
     .from("orders")
-    .select("id, status, supply_amount")
+    .select("id, status")
     .gte("order_date", thisMonthStart)
     .lt("order_date", nextMonthStart);
 
   const orders = thisMonthOrders ?? [];
 
-  // Current month items for purchase calc
+  // Current month items for revenue + purchase calc (source of truth)
   const orderIds = orders.map((o) => o.id);
+  let monthlyRevenue = 0;
   let monthlyPurchase = 0;
   if (orderIds.length > 0) {
     const { data: items } = await supabase
       .from("order_items")
-      .select("quantity, purchase_price")
+      .select("quantity, unit_price, purchase_price")
       .in("order_id", orderIds);
-    monthlyPurchase = (items ?? []).reduce((s, i) => s + (i.purchase_price ?? 0) * i.quantity, 0);
+    for (const i of items ?? []) {
+      monthlyRevenue += (Number(i.unit_price ?? 0)) * (i.quantity ?? 0);
+      monthlyPurchase += (Number(i.purchase_price ?? 0)) * (i.quantity ?? 0);
+    }
   }
 
-  const monthlyRevenue = orders.reduce((s, o) => s + Number(o.supply_amount || 0), 0);
   const monthlyProfit = monthlyRevenue - monthlyPurchase;
 
-  // Previous month revenue
+  // Previous month revenue (also from order_items)
   const { data: prevOrders } = await supabase
     .from("orders")
-    .select("supply_amount")
+    .select("id")
     .gte("order_date", prevMonthStart)
     .lt("order_date", thisMonthStart);
 
-  const prevMonthRevenue = (prevOrders ?? []).reduce((s, o) => s + Number(o.supply_amount || 0), 0);
+  let prevMonthRevenue = 0;
+  const prevOrderIds = (prevOrders ?? []).map((o) => o.id);
+  if (prevOrderIds.length > 0) {
+    const { data: prevItems } = await supabase
+      .from("order_items")
+      .select("quantity, unit_price")
+      .in("order_id", prevOrderIds);
+    prevMonthRevenue = (prevItems ?? []).reduce((s, i) => s + (Number(i.unit_price ?? 0)) * (i.quantity ?? 0), 0);
+  }
   const revenueGrowth = prevMonthRevenue > 0 ? ((monthlyRevenue - prevMonthRevenue) / prevMonthRevenue) * 100 : 0;
 
   // Order status counts (this month only)
@@ -140,30 +151,42 @@ export async function getYearlyKpis(year?: number): Promise<YearlyKpis> {
   // This year orders
   const { data: orders } = await supabase
     .from("orders")
-    .select("id, status, supply_amount")
+    .select("id, status")
     .gte("order_date", yearStart)
     .lt("order_date", yearEnd);
 
   const rows = orders ?? [];
   const orderIds = rows.map((o) => o.id);
-  const revenue = rows.reduce((s, o) => s + Number(o.supply_amount || 0), 0);
 
+  // Revenue + purchase from order_items (source of truth)
+  let revenue = 0;
   let purchase = 0;
   if (orderIds.length > 0) {
     const { data: items } = await supabase
       .from("order_items")
-      .select("quantity, purchase_price")
+      .select("quantity, unit_price, purchase_price")
       .in("order_id", orderIds);
-    purchase = (items ?? []).reduce((s, i) => s + (i.purchase_price ?? 0) * i.quantity, 0);
+    for (const i of items ?? []) {
+      revenue += (Number(i.unit_price ?? 0)) * (i.quantity ?? 0);
+      purchase += (Number(i.purchase_price ?? 0)) * (i.quantity ?? 0);
+    }
   }
 
-  // Prev year revenue
+  // Prev year revenue (also from order_items)
   const { data: prevOrders } = await supabase
     .from("orders")
-    .select("supply_amount")
+    .select("id")
     .gte("order_date", prevYearStart)
     .lt("order_date", yearStart);
-  const prevYearRevenue = (prevOrders ?? []).reduce((s, o) => s + Number(o.supply_amount || 0), 0);
+  let prevYearRevenue = 0;
+  const prevOrderIds = (prevOrders ?? []).map((o) => o.id);
+  if (prevOrderIds.length > 0) {
+    const { data: prevItems } = await supabase
+      .from("order_items")
+      .select("quantity, unit_price")
+      .in("order_id", prevOrderIds);
+    prevYearRevenue = (prevItems ?? []).reduce((s, i) => s + (Number(i.unit_price ?? 0)) * (i.quantity ?? 0), 0);
+  }
 
   // Status counts & invoices
   const statusCounts: Record<string, number> = {};
@@ -209,7 +232,7 @@ export async function getHospitalRanking(limit = 10, month?: string): Promise<Ho
 
   let query = supabase
     .from("orders")
-    .select("id, hospital_id, supply_amount, hospitals(name)")
+    .select("id, hospital_id, hospitals(name)")
     .not("status", "eq", "cancelled");
 
   if (month) {
@@ -224,40 +247,41 @@ export async function getHospitalRanking(limit = 10, month?: string): Promise<Ho
   if (!orders?.length) return [];
 
   // Group by hospital
-  const map = new Map<number, { name: string; orderIds: number[]; revenue: number }>();
+  const map = new Map<number, { name: string; orderIds: number[] }>();
   for (const o of orders) {
     const hid = o.hospital_id;
     const name = (o.hospitals as unknown as { name: string } | null)?.name ?? "";
-    if (!map.has(hid)) map.set(hid, { name, orderIds: [], revenue: 0 });
-    const entry = map.get(hid)!;
-    entry.orderIds.push(o.id);
-    entry.revenue += Number(o.supply_amount || 0);
+    if (!map.has(hid)) map.set(hid, { name, orderIds: [] });
+    map.get(hid)!.orderIds.push(o.id);
   }
 
-  // Get purchase for all order items
+  // Get revenue + purchase from order_items (source of truth)
   const allOrderIds = orders.map((o) => o.id);
   const { data: items } = await supabase
     .from("order_items")
-    .select("order_id, quantity, purchase_price")
+    .select("order_id, quantity, unit_price, purchase_price")
     .in("order_id", allOrderIds);
 
+  const revenueByOrder = new Map<number, number>();
   const purchaseByOrder = new Map<number, number>();
   for (const item of items ?? []) {
-    purchaseByOrder.set(item.order_id, (purchaseByOrder.get(item.order_id) || 0) + (item.purchase_price ?? 0) * item.quantity);
+    revenueByOrder.set(item.order_id, (revenueByOrder.get(item.order_id) || 0) + (Number(item.unit_price ?? 0)) * (item.quantity ?? 0));
+    purchaseByOrder.set(item.order_id, (purchaseByOrder.get(item.order_id) || 0) + (Number(item.purchase_price ?? 0)) * (item.quantity ?? 0));
   }
 
   const result: HospitalRanking[] = [];
   for (const [hid, entry] of map) {
+    const revenue = entry.orderIds.reduce((s, id) => s + (revenueByOrder.get(id) || 0), 0);
     const purchase = entry.orderIds.reduce((s, id) => s + (purchaseByOrder.get(id) || 0), 0);
-    const profit = entry.revenue - purchase;
+    const profit = revenue - purchase;
     result.push({
       hospital_id: hid,
       hospital_name: entry.name,
       order_count: entry.orderIds.length,
-      revenue: entry.revenue,
+      revenue,
       purchase,
       profit,
-      margin: entry.revenue > 0 ? (profit / entry.revenue) * 100 : 0,
+      margin: revenue > 0 ? (profit / revenue) * 100 : 0,
     });
   }
 
@@ -342,7 +366,7 @@ export async function getRecentOrders(limit = 10): Promise<RecentOrder[]> {
 
   const { data, error } = await supabase
     .from("orders")
-    .select("id, order_number, order_date, status, supply_amount, total_amount, hospitals(name)")
+    .select("id, order_number, order_date, status, total_amount, hospitals(name)")
     .order("order_date", { ascending: false })
     .order("id", { ascending: false })
     .limit(limit);
@@ -355,7 +379,7 @@ export async function getRecentOrders(limit = 10): Promise<RecentOrder[]> {
     order_date: o.order_date,
     hospital_name: (o.hospitals as unknown as { name: string } | null)?.name ?? "",
     status: o.status,
-    supply_amount: Number(o.supply_amount || 0),
+    supply_amount: Number(o.total_amount || 0),
     total_amount: Number(o.total_amount || 0),
   }));
 }

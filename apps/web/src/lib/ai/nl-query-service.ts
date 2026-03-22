@@ -439,7 +439,7 @@ export async function processNaturalLanguageQuery(question: string): Promise<NLQ
   // Step 1: Classify intent
   let intentResult: IntentResult;
   try {
-    const res = await ollamaChat(INTENT_SYSTEM_PROMPT, question);
+    const res = await ollamaChat(INTENT_SYSTEM_PROMPT, question, { maxTokens: 256 });
     const cleaned = res.text.replace(/```json\n?|```\n?/g, "").trim();
     intentResult = JSON.parse(cleaned);
   } catch (err) {

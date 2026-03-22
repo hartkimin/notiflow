@@ -1,5 +1,6 @@
 const DEFAULT_BASE_URL = "http://localhost:11434";
 const DEFAULT_TIMEOUT = 60_000;
+const KEEP_ALIVE = "24h";
 
 export interface OllamaGenerateResult {
   text: string;
@@ -13,7 +14,7 @@ export function getOllamaBaseUrl(): string {
 }
 
 export function getOllamaModel(): string {
-  return process.env.OLLAMA_MODEL || "qwen3.5:9b";
+  return process.env.OLLAMA_MODEL || "qwen3.5:latest";
 }
 
 export async function ollamaGenerate(
@@ -32,6 +33,7 @@ export async function ollamaGenerate(
         prompt,
         format: "json",
         stream: false,
+        keep_alive: KEEP_ALIVE,
         options: { temperature: opts?.temperature ?? 0.1, num_predict: opts?.maxTokens ?? 1024 },
       }),
       signal: controller.signal,
@@ -42,14 +44,23 @@ export async function ollamaGenerate(
   } finally { clearTimeout(timeout); }
 }
 
+export interface OllamaChatOptions {
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  /** Set false to disable JSON format enforcement (for natural language responses) */
+  json?: boolean;
+}
+
 export async function ollamaChat(
   systemPrompt: string,
   userPrompt: string,
-  opts?: { model?: string; temperature?: number; maxTokens?: number },
+  opts?: OllamaChatOptions,
 ): Promise<OllamaGenerateResult> {
   const baseUrl = getOllamaBaseUrl();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
+  const useJson = opts?.json !== false;
   try {
     const res = await fetch(`${baseUrl}/api/chat`, {
       method: "POST",
@@ -60,19 +71,34 @@ export async function ollamaChat(
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        format: "json",
+        ...(useJson ? { format: "json" } : {}),
         stream: false,
         think: false,
+        keep_alive: KEEP_ALIVE,
         options: { temperature: opts?.temperature ?? 0.1, num_predict: opts?.maxTokens ?? 1024 },
       }),
       signal: controller.signal,
     });
     if (!res.ok) { const err = await res.text(); throw new Error(`Ollama API error (${res.status}): ${err}`); }
     const data = await res.json();
-    // Qwen 3.5+ may put content in thinking field if think mode is not disabled
     const content = data.message?.content || data.message?.thinking || "";
     return { text: content, inputTokens: data.prompt_eval_count ?? 0, outputTokens: data.eval_count ?? 0, durationMs: Math.round((data.total_duration ?? 0) / 1e6) };
   } finally { clearTimeout(timeout); }
+}
+
+/** Preload model into memory (fire and forget) */
+export function ollamaPreload(): void {
+  const baseUrl = getOllamaBaseUrl();
+  fetch(`${baseUrl}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: getOllamaModel(),
+      messages: [{ role: "user", content: "ping" }],
+      stream: false, think: false, keep_alive: KEEP_ALIVE,
+      options: { num_predict: 1 },
+    }),
+  }).catch(() => {});
 }
 
 export async function ollamaHealthCheck(): Promise<{ ok: boolean; models: string[]; error?: string }> {

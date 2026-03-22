@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { ollamaHealthCheck, getOllamaBaseUrl, getOllamaModel } from "@/lib/ai/ollama-client";
+import { ollamaHealthCheck, ollamaPreload, getOllamaBaseUrl, getOllamaModel } from "@/lib/ai/ollama-client";
 
 export async function GET() {
   const supabase = await createClient();
@@ -10,6 +10,9 @@ export async function GET() {
   }
 
   const health = await ollamaHealthCheck();
+
+  // Preload model into memory if not loaded
+  if (health.ok) ollamaPreload();
 
   return NextResponse.json({
     ...health,

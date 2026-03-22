@@ -37,62 +37,13 @@ interface IntentResult {
 
 // ─── Intent Classification Prompt ───────────────
 
-const INTENT_SYSTEM_PROMPT = `당신은 NotiFlow 의료 물자 주문 관리 시스템의 질의 분류기입니다.
-
-## 역할
-사용자의 자연어 질문을 분석하여 의도를 분류하고 매개변수를 추출합니다.
-
-## 의도 목록
-- order_status: 주문 현황 (예: "이번 주 주문 현황", "미확인 주문")
-- order_detail: 특정 주문 상세 (예: "ORD-20260321-001 상세")
-- order_stats: 주문 통계 (예: "이번 달 총 주문 건수")
-- product_search: 제품 검색 (예: "투석여과기 종류", "EK-15H 정보")
-- product_stock: 제품 수량/주문량 (예: "니들 얼마나 주문했어", "이번 달 투석액 총 수량")
-- hospital_info: 병원 정보 (예: "한국신장센터 연락처")
-- hospital_orders: 병원별 주문 (예: "한국신장센터 주문 내역")
-- supplier_info: 공급사 정보 (예: "대한메디칼 연락처")
-- delivery_status: 배송 상태 (예: "오늘 배송 예정")
-- sales_report: 매출 리포트 (예: "이번 달 매출 현황")
-- profit_analysis: 이익/마진 분석 (예: "이번 달 이익률", "거래처별 마진", "영업담당자 실적")
-- invoice_status: 세금계산서 현황 (예: "미발행 세금계산서", "이번 달 세금계산서")
-- mfds_search: 식약처 품목 검색 (예: "식약처 투석여과기 검색", "의료기기 허가 정보")
-- period_comparison: 기간 비교 (예: "지난달 대비 이번달 매출", "전월 비교")
-- recent_messages: 최근 메시지 (예: "오늘 들어온 메시지")
-- device_status: 모바일 기기 상태 (예: "연결된 기기", "기기 동기화 상태")
-- user_list: 사용자/직원 목록 (예: "등록된 사용자", "관리자 목록")
-- audit_log: 변경 이력/감사 로그 (예: "최근 변경 내역", "누가 수정했어")
-- partner_products: 거래처 품목/alias (예: "한국신장센터 등록 품목", "거래처별 품목")
-- kpis_report: KPIS 신고 현황 (예: "KPIS 신고 현황", "미신고 품목")
-- order_comments: 주문 코멘트 (예: "최근 코멘트", "ORD-20260321-001 코멘트")
-- general_question: DB 조회 불필요 (예: "혈액투석이 뭐야")
-- unknown: 분류 불가
-
-## 매개변수
-- hospital_name: 병원명 (부분 매칭)
-- supplier_name: 공급사명
-- product_name: 제품명/약어
-- order_number: 주문번호 (ORD-YYYYMMDD-###)
-- invoice_number: 세금계산서번호
-- period: "today", "this_week", "this_month", "last_month"
-- compare_period: 비교 기간 ("last_month", "last_year")
-- status: "draft", "confirmed", "delivered", "invoiced"
-- sales_rep: 영업담당자명
-- limit: 조회 건수 (기본 10)
-
-## 출력 (JSON만)
-{"intent":"카테고리","params":{"필요한것만"},"confidence":0.0~1.0}`;
+const INTENT_SYSTEM_PROMPT = `의도분류기. JSON출력: {"intent":"카테고리","params":{},"confidence":0.9}
+의도: order_status(주문현황) order_detail(ORD-번호상세) order_stats(주문통계) product_search(제품검색) product_stock(제품수량) hospital_info(병원정보) hospital_orders(병원주문) supplier_info(공급사) delivery_status(배송) sales_report(매출) profit_analysis(이익/마진) invoice_status(세금계산서) mfds_search(식약처검색) period_comparison(기간비교) recent_messages(최근메시지) device_status(기기상태) user_list(사용자) audit_log(변경이력) partner_products(거래처품목) kpis_report(KPIS신고) order_comments(코멘트) general_question(일반) unknown
+매개변수: hospital_name supplier_name product_name order_number period(today/this_week/this_month/last_month) compare_period(last_month) status(draft/confirmed/delivered/invoiced) sales_rep limit`;
 
 // ─── Response Generation Prompt ─────────────────
 
-const RESPONSE_SYSTEM_PROMPT = `당신은 NotiFlow 의료 물자 주문 관리 시스템의 어시스턴트입니다.
-
-## 규칙
-1. 조회 결과가 없으면 가능한 원인을 설명
-2. 숫자는 천단위 쉼표 (예: 1,500,000원)
-3. 날짜는 한국식 (예: 2026년 3월 21일)
-4. 주문 상태: draft→초안, confirmed→접수확인, delivered→배송완료, invoiced→정산완료
-5. 간결하게 핵심만, 표가 적합하면 마크다운 테이블 사용
-6. 추가 질문이 필요하면 유도`;
+const RESPONSE_SYSTEM_PROMPT = `의료물자 주문관리 어시스턴트. 한국어로 간결 답변. 숫자는 쉼표, 날짜는 한국식. draft=초안 confirmed=접수확인 delivered=배송완료 invoiced=정산완료. 표가 적합하면 마크다운 테이블.`;
 
 // ─── Date Period Resolver ───────────────────────
 
@@ -466,8 +417,9 @@ export async function processNaturalLanguageQuery(question: string): Promise<NLQ
   if (intent === "general_question" || intent === "unknown") {
     try {
       const res = await ollamaChat(
-        "당신은 의료기기 유통 전문가입니다. 간결하게 한국어로 답변하세요.",
+        "의료기기 유통 전문가. 간결 한국어 답변.",
         question,
+        { maxTokens: 256, json: false },
       );
       return { question, intent, confidence, answer: res.text, durationMs: Date.now() - startMs };
     } catch {
@@ -491,10 +443,8 @@ export async function processNaturalLanguageQuery(question: string): Promise<NLQ
   // Step 3: Generate natural language response
   try {
     const responsePrompt = `사용자 질문: ${question}\n조회 의도: ${intent}\n조회 결과:\n${JSON.stringify(queryResult, null, 2)}`;
-    const res = await ollamaChat(RESPONSE_SYSTEM_PROMPT, responsePrompt, { maxTokens: 2048 });
-    // Strip JSON wrapper if Ollama returns it
-    let answer = res.text;
-    try { const parsed = JSON.parse(answer); answer = parsed.response ?? parsed.answer ?? answer; } catch { /* not JSON, use as-is */ }
+    const res = await ollamaChat(RESPONSE_SYSTEM_PROMPT, responsePrompt, { maxTokens: 512, json: false });
+    const answer = res.text;
     return { question, intent, confidence, answer, durationMs: Date.now() - startMs };
   } catch {
     // Fallback: return raw data

@@ -107,12 +107,36 @@ const QUERY_MAP: Record<string, QueryExecutor> = {
 
   product_search: async (p) => {
     const sb = createAdminClient();
-    const name = escapeLikeValue(p.product_name as string);
-    const [{ data: drugs }, { data: devices }] = await Promise.all([
-      sb.from("my_drugs").select("id, item_name, bar_code, entp_name, unit_price").ilike("item_name", `%${name}%`).limit(5),
-      sb.from("my_devices").select("id, prdlst_nm, udidi_cd, mnft_iprt_entp_nm, unit_price").ilike("prdlst_nm", `%${name}%`).limit(5),
+    const name = escapeLikeValue((p.product_name ?? p.query ?? "") as string);
+    // Search across all product sources: my items + MFDS (식약처)
+    const [{ data: myDrugs }, { data: myDevices }, { data: mfdsDrugs }, { data: mfdsDevices }] = await Promise.all([
+      sb.from("my_drugs").select("id, item_name, bar_code, entp_name, unit_price").ilike("item_name", `%${name}%`).limit(3),
+      sb.from("my_devices").select("id, prdlst_nm, udidi_cd, mnft_iprt_entp_nm, unit_price").ilike("prdlst_nm", `%${name}%`).limit(3),
+      sb.from("mfds_drugs").select("id, item_name, bar_code, entp_name").ilike("item_name", `%${name}%`).limit(5),
+      sb.from("mfds_devices").select("id, prdlst_nm, udidi_cd, mnft_iprt_entp_nm").ilike("prdlst_nm", `%${name}%`).limit(5),
     ]);
-    return { drugs: drugs ?? [], devices: devices ?? [] };
+
+    // Also try vector search if embedding is available
+    let vectorResults: Array<{ name: string; similarity: number; type: string }> = [];
+    try {
+      const { generateEmbedding } = await import("./embedding-service");
+      const { searchProducts } = await import("./vector-search");
+      const { embedding } = await generateEmbedding(name);
+      vectorResults = await searchProducts(embedding, 3, 0.5);
+    } catch { /* no embedding available */ }
+
+    return {
+      my_items: {
+        drugs: (myDrugs ?? []).map(d => ({ name: d.item_name, code: d.bar_code, manufacturer: d.entp_name, source: "내 의약품" })),
+        devices: (myDevices ?? []).map(d => ({ name: d.prdlst_nm, code: d.udidi_cd, manufacturer: d.mnft_iprt_entp_nm, source: "내 의료기기" })),
+      },
+      mfds: {
+        drugs: (mfdsDrugs ?? []).map(d => ({ name: d.item_name, code: d.bar_code, manufacturer: d.entp_name, source: "식약처 의약품" })),
+        devices: (mfdsDevices ?? []).map(d => ({ name: d.prdlst_nm, code: d.udidi_cd, manufacturer: d.mnft_iprt_entp_nm, source: "식약처 의료기기" })),
+      },
+      vector_matches: vectorResults.map(v => ({ name: v.name, similarity: Math.round(v.similarity * 100) + "%", source: v.type === "drug" ? "벡터 의약품" : "벡터 의료기기" })),
+      search_term: name,
+    };
   },
 
   product_stock: async (p) => {
@@ -374,6 +398,83 @@ const QUERY_MAP: Record<string, QueryExecutor> = {
   },
 };
 
+// ─── Direct Formatting (skip LLM for simple queries) ────
+
+function fmt(n: number): string {
+  if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)}억원`;
+  if (Math.abs(n) >= 1e4) return `${Math.round(n / 1e4).toLocaleString()}만원`;
+  return `${n.toLocaleString()}원`;
+}
+
+const STATUS_KO: Record<string, string> = { draft: "초안", confirmed: "접수확인", delivered: "배송완료", invoiced: "정산완료", cancelled: "취소" };
+
+function tryDirectFormat(intent: string, _question: string, data: unknown): string | null {
+  const d = data as Record<string, unknown>;
+  switch (intent) {
+    case "order_stats": {
+      const byStatus = d.by_status as Record<string, number>;
+      const statusStr = Object.entries(byStatus).map(([k, v]) => `${STATUS_KO[k] ?? k} ${v}건`).join(", ");
+      return `📊 **주문 통계** (${d.period})\n\n총 **${d.total_orders}건**, 금액 **${fmt(d.total_amount as number)}**\n상태별: ${statusStr}`;
+    }
+    case "product_search": {
+      const items = d as { my_items?: { drugs: Array<{name:string;manufacturer:string;source:string}>; devices: Array<{name:string;manufacturer:string;source:string}> }; mfds?: { drugs: Array<{name:string;manufacturer:string;source:string}>; devices: Array<{name:string;manufacturer:string;source:string}> }; vector_matches?: Array<{name:string;similarity:string;source:string}>; search_term?: string };
+      const lines: string[] = [`🔍 **"${items.search_term}" 검색 결과**\n`];
+      const allResults = [
+        ...(items.my_items?.drugs ?? []),
+        ...(items.my_items?.devices ?? []),
+        ...(items.mfds?.drugs ?? []),
+        ...(items.mfds?.devices ?? []),
+      ];
+      if (allResults.length === 0 && (!items.vector_matches || items.vector_matches.length === 0)) {
+        return `"${items.search_term}"에 대한 검색 결과가 없습니다. 다른 키워드로 검색해보세요.`;
+      }
+      for (const r of allResults.slice(0, 8)) {
+        lines.push(`• **${r.name}** — ${r.manufacturer} _(${r.source})_`);
+      }
+      if (items.vector_matches?.length) {
+        lines.push("\n**벡터 유사 검색:**");
+        for (const v of items.vector_matches) {
+          lines.push(`• ${v.name} (유사도 ${v.similarity}) _(${v.source})_`);
+        }
+      }
+      return lines.join("\n");
+    }
+    case "hospital_info": {
+      const hospitals = d as unknown as Array<{name:string;phone?:string;address?:string}> | null;
+      if (!hospitals?.length) return "해당 병원을 찾을 수 없습니다.";
+      return hospitals.map(h => `🏥 **${h.name}**\n${h.phone ? `전화: ${h.phone}` : ""}${h.address ? `\n주소: ${h.address}` : ""}`).join("\n\n");
+    }
+    case "recent_messages": {
+      const msgs = d as unknown as Array<{sender:string;app_name:string;content:string;received_at:string}> | null;
+      if (!msgs?.length) return "최근 수신 메시지가 없습니다.";
+      return `📨 **최근 메시지 ${msgs.length}건**\n\n` + msgs.map((m, i) =>
+        `${i + 1}. **${m.sender}** (${m.app_name}) — ${m.received_at}\n   ${m.content}`
+      ).join("\n");
+    }
+    case "device_status": {
+      const devices = d as unknown as Array<{device_name:string;device_model:string;status:string;last_heartbeat:string}> | null;
+      if (!devices?.length) return "등록된 기기가 없습니다.";
+      return `📱 **기기 상태**\n\n` + devices.map(dev =>
+        `• **${dev.device_name ?? dev.device_model}** — ${dev.status} (${dev.last_heartbeat ?? "미연결"})`
+      ).join("\n");
+    }
+    case "user_list": {
+      const users = d as unknown as Array<{name:string;role:string;is_active:boolean}> | null;
+      if (!users?.length) return "등록된 사용자가 없습니다.";
+      return `👥 **사용자 목록**\n\n` + users.map(u =>
+        `• **${u.name}** — ${u.role} ${u.is_active ? "✅" : "❌ 비활성"}`
+      ).join("\n");
+    }
+    default:
+      return null; // Use LLM for complex queries
+  }
+}
+
+function formatFallback(data: unknown): string {
+  const str = JSON.stringify(data, null, 2);
+  return str.length > 1500 ? str.slice(0, 1500) + "\n..." : str;
+}
+
 // ─── Main Query Function ────────────────────────
 
 export interface NLQueryResult {
@@ -440,14 +541,22 @@ export async function processNaturalLanguageQuery(question: string): Promise<NLQ
     return { question, intent, confidence, answer: `데이터 조회 중 오류: ${(err as Error).message}`, durationMs: Date.now() - startMs };
   }
 
-  // Step 3: Generate natural language response
+  // Step 3: Format response
+  // For simple queries, format directly without LLM (saves ~3s)
+  const directAnswer = tryDirectFormat(intent, question, queryResult);
+  if (directAnswer) {
+    return { question, intent, confidence, answer: directAnswer, durationMs: Date.now() - startMs };
+  }
+
+  // Complex queries: generate natural language response via LLM
   try {
-    const responsePrompt = `사용자 질문: ${question}\n조회 의도: ${intent}\n조회 결과:\n${JSON.stringify(queryResult, null, 2)}`;
+    const resultStr = JSON.stringify(queryResult, null, 2);
+    // Truncate large results to keep prompt small
+    const truncated = resultStr.length > 2000 ? resultStr.slice(0, 2000) + "\n..." : resultStr;
+    const responsePrompt = `질문: ${question}\n의도: ${intent}\n결과:\n${truncated}`;
     const res = await ollamaChat(RESPONSE_SYSTEM_PROMPT, responsePrompt, { maxTokens: 512, json: false });
-    const answer = res.text;
-    return { question, intent, confidence, answer, durationMs: Date.now() - startMs };
+    return { question, intent, confidence, answer: res.text, durationMs: Date.now() - startMs };
   } catch {
-    // Fallback: return raw data
-    return { question, intent, confidence, answer: `조회 결과:\n\`\`\`json\n${JSON.stringify(queryResult, null, 2)}\n\`\`\``, durationMs: Date.now() - startMs };
+    return { question, intent, confidence, answer: formatFallback(queryResult), durationMs: Date.now() - startMs };
   }
 }

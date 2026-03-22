@@ -136,6 +136,31 @@ Mobile reads `SUPABASE_URL`, `SUPABASE_KEY`, and `HUGGING_FACE_TOKEN` from `apps
 - Tailwind CSS 4 via `@tailwindcss/postcss` plugin (no separate tailwind.config)
 - Mobile: minSDK 26 (Android 8.0), targetSDK 35, namespace `com.hart.notimgmt`, appId `com.hart.notiflow`
 
+## gstack (AI Engineering Workflow)
+
+Use gstack skills for the following workflows. gstack complements superpowers — use whichever is better suited for the task.
+
+### When to use gstack over superpowers:
+- **`/browse`** — Web browsing and interaction (use instead of superpowers-chrome)
+- **`/qa`** — Automated QA with real browser testing + bug fix
+- **`/design-review`** — Visual design audit with screenshots + auto-fix
+- **`/review`** — Code review with automatic fix suggestions
+- **`/ship`** — Release automation (test → PR → merge)
+- **`/land-and-deploy`** — Deploy + CI wait + health check
+- **`/canary`** — Post-deploy monitoring (console errors, performance)
+- **`/benchmark`** — Core Web Vitals + bundle size analysis
+- **`/careful`** — Warn before destructive commands
+- **`/freeze`** — Restrict edits to specific directories
+
+### When to keep using superpowers:
+- **`/brainstorming`**, **`/writing-plans`**, **`/executing-plans`** — Planning workflow
+- **`/test-driven-development`** — TDD cycle
+- **`/systematic-debugging`** — Root cause analysis
+- **`/subagent-driven-development`** — Parallel task execution
+
+### Browse tool
+gstack `/browse` is the preferred browser tool for this project. It uses a persistent Chromium daemon with Playwright, supports `@ref` element addressing, and maintains cookies/sessions across commands. The app runs on `http://localhost:3001` (Docker) or `http://localhost:3000` (dev).
+
 ## CI/CD
 
 GitHub Actions (`.github/workflows/ci.yml`) triggers on push/PR to `main` with path-based detection:

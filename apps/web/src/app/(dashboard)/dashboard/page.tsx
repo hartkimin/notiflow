@@ -4,6 +4,10 @@ import {
   FileText,
   ChevronLeft,
   ChevronRight,
+  TrendingUp,
+  TrendingDown,
+  AlertCircle,
+  Calendar,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +40,13 @@ function fmt(n: number) {
   if (Math.abs(n) >= 1e4) return `${Math.round(n / 1e4).toLocaleString()}만`;
   return n.toLocaleString();
 }
+
+const INVOICE_STATUS_LABELS: Record<string, string> = {
+  draft: "임시", issued: "발행", sent: "전송", cancelled: "취소",
+};
+const INVOICE_STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive"> = {
+  draft: "secondary", issued: "default", sent: "default", cancelled: "destructive",
+};
 
 function getMonthOffset(ym: string, offset: number): string {
   const [y, m] = ym.split("-").map(Number);
@@ -76,17 +87,23 @@ export default async function DashboardHome({ searchParams }: Props) {
       {/* ── KPI Bar: Year (left) | Month (right) ── */}
       <Card>
         <CardContent className="p-3">
+          {!yearKpis && !kpis && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-1">
+              <AlertCircle className="h-4 w-4" />
+              <span>대시보드 데이터를 불러올 수 없습니다. 페이지를 새로고침하세요.</span>
+            </div>
+          )}
           <div className="flex items-center gap-0 overflow-x-auto text-sm">
             {/* ── Year section ── */}
             {yearKpis && (
               <>
                 <div className="flex items-center gap-1 shrink-0">
                   <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
-                    <Link href={`/dashboard?year=${selectedYear - 1}&month=${selectedMonth}`}><ChevronLeft className="h-3 w-3" /></Link>
+                    <Link href={`/dashboard?year=${selectedYear - 1}`}><ChevronLeft className="h-3 w-3" /></Link>
                   </Button>
-                  <span className="text-[11px] font-bold min-w-[40px] text-center">{yearKpis.year}</span>
+                  <span className="text-[11px] font-bold min-w-[40px] text-center">{yearKpis.year}년</span>
                   <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
-                    <Link href={`/dashboard?year=${selectedYear + 1}&month=${selectedMonth}`}><ChevronRight className="h-3 w-3" /></Link>
+                    <Link href={`/dashboard?year=${selectedYear + 1}`}><ChevronRight className="h-3 w-3" /></Link>
                   </Button>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -117,7 +134,9 @@ export default async function DashboardHome({ searchParams }: Props) {
                   {isCurrentMonth ? (
                     <span className="text-[11px] font-bold min-w-[35px] text-center">{parseInt(selectedMonth.slice(5))}월</span>
                   ) : (
-                    <Link href="/dashboard" className="text-[11px] font-bold min-w-[35px] text-center hover:underline">{parseInt(selectedMonth.slice(5))}월</Link>
+                    <Link href="/dashboard" className="text-[11px] font-bold min-w-[45px] text-center hover:underline" title="클릭하면 이번 달로 이동">
+                      {selectedMonth.slice(2, 4)}.{parseInt(selectedMonth.slice(5))}월
+                    </Link>
                   )}
                   <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
                     <Link href={`/dashboard?month=${nextMonth}&year=${selectedYear}`}><ChevronRight className="h-3 w-3" /></Link>
@@ -140,16 +159,20 @@ export default async function DashboardHome({ searchParams }: Props) {
                 <div className="flex items-center gap-1 shrink-0 ml-2">
                   <span className="text-muted-foreground text-xs">주문</span>
                   <span className="font-bold text-xs">{kpis.monthlyOrderCount}건</span>
-                  <span className="text-[10px] text-muted-foreground">
-                    접수{kpis.ordersConfirmed} 배송{kpis.ordersDelivered} 발행{kpis.ordersInvoiced}
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <span className="text-blue-600">접수 {kpis.ordersConfirmed}</span>
+                    <span className="text-muted-foreground/30">|</span>
+                    <span className="text-green-600">배송 {kpis.ordersDelivered}</span>
+                    <span className="text-muted-foreground/30">|</span>
+                    <span className="text-emerald-600">발행 {kpis.ordersInvoiced}</span>
                   </span>
                 </div>
                 <div className="flex items-center gap-1 shrink-0 ml-2">
                   <FileText className="h-3 w-3 text-purple-500" />
                   <span className="font-bold text-xs">{kpis.invoicesIssued}건</span>
                   {kpis.unbilledOrders > 0 && (
-                    <Link href="/invoices/new" className="text-[10px] text-orange-600 font-medium hover:underline">
-                      미발행{kpis.unbilledOrders} →
+                    <Link href="/orders?status=delivered" className="text-[10px] text-orange-600 font-medium hover:underline">
+                      미발행 {kpis.unbilledOrders}건 →
                     </Link>
                   )}
                 </div>
@@ -160,19 +183,27 @@ export default async function DashboardHome({ searchParams }: Props) {
       </Card>
 
       {/* ── 월별 매출/이익 추이 ── */}
-      {monthlyTrend.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">월별 매출·이익 추이</CardTitle>
-            <CardDescription>최근 6개월간 매출과 이익률 변동</CardDescription>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            월별 매출·이익 추이
+          </CardTitle>
+          <CardDescription>최근 6개월간 매출과 이익률 변동</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {monthlyTrend.length > 0 ? (
             <SalesTrendChart data={monthlyTrend} />
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <div className="text-sm text-muted-foreground text-center py-12">
+              <Calendar className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+              아직 매출 데이터가 없습니다
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-      <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 md:gap-6 md:grid-cols-2">
         {/* ── 영업담당자별 실적 ── */}
         <SalesRepChart initialData={salesReps} initialMonth={selectedMonth} />
 
@@ -180,7 +211,7 @@ export default async function DashboardHome({ searchParams }: Props) {
         <HospitalRankChart initialData={hospitalRank} initialMonth={selectedMonth} />
       </div>
 
-      <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 md:gap-6 md:grid-cols-2">
         {/* ── 최근 주문 ── */}
         <Card>
           <CardHeader className="pb-2">
@@ -192,34 +223,40 @@ export default async function DashboardHome({ searchParams }: Props) {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>주문번호</TableHead>
-                  <TableHead>거래처</TableHead>
-                  <TableHead className="text-right">매출액</TableHead>
-                  <TableHead>상태</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentOrders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell>
-                      <Link href={`/orders/${order.id}`} className="font-medium text-primary hover:underline text-sm">
-                        {order.order_number}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-sm truncate max-w-[120px]">{order.hospital_name}</TableCell>
-                    <TableCell className="text-right text-sm tabular-nums">₩{fmt(order.supply_amount)}</TableCell>
-                    <TableCell>
-                      <Badge variant={ORDER_STATUS_VARIANT[order.status] ?? "secondary"} className="text-[10px]">
-                        {ORDER_STATUS_LABELS[order.status] || order.status}
-                      </Badge>
-                    </TableCell>
+            {recentOrders.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-8">최근 주문이 없습니다.</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>주문번호</TableHead>
+                    <TableHead>거래처</TableHead>
+                    <TableHead className="text-right">매출액</TableHead>
+                    <TableHead>주문일</TableHead>
+                    <TableHead>상태</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {recentOrders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell>
+                        <Link href={`/orders/${order.id}`} className="font-medium text-primary hover:underline text-sm">
+                          {order.order_number}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-sm truncate max-w-[120px]" title={order.hospital_name}>{order.hospital_name}</TableCell>
+                      <TableCell className="text-right text-sm tabular-nums">₩{fmt(order.supply_amount)}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{order.order_date?.slice(5) || "-"}</TableCell>
+                      <TableCell>
+                        <Badge variant={ORDER_STATUS_VARIANT[order.status] ?? "secondary"} className="text-[10px]">
+                          {ORDER_STATUS_LABELS[order.status] || order.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -254,11 +291,11 @@ export default async function DashboardHome({ searchParams }: Props) {
                           {inv.invoice_number}
                         </Link>
                       </TableCell>
-                      <TableCell className="text-sm truncate max-w-[120px]">{inv.buyer_name}</TableCell>
+                      <TableCell className="text-sm truncate max-w-[120px]" title={inv.buyer_name}>{inv.buyer_name}</TableCell>
                       <TableCell className="text-right text-sm tabular-nums">₩{fmt(inv.total_amount)}</TableCell>
                       <TableCell>
-                        <Badge variant={inv.status === "issued" ? "default" : inv.status === "cancelled" ? "destructive" : "secondary"} className="text-[10px]">
-                          {inv.status === "draft" ? "임시" : inv.status === "issued" ? "발행" : inv.status === "cancelled" ? "취소" : inv.status}
+                        <Badge variant={INVOICE_STATUS_VARIANT[inv.status] ?? "secondary"} className="text-[10px]">
+                          {INVOICE_STATUS_LABELS[inv.status] || inv.status}
                         </Badge>
                       </TableCell>
                     </TableRow>

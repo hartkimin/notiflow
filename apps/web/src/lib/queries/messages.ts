@@ -12,9 +12,11 @@ export interface UnifiedMessage extends RawMessage {
   is_read?: boolean;
 }
 
-function mapCaptured(m: CapturedMessage): UnifiedMessage {
+function mapCaptured(m: CapturedMessage, deviceMap?: Map<string, string>): UnifiedMessage {
   // Supabase returns BIGINT as string — must convert to number for Date
   const receivedAtMs = typeof m.received_at === "string" ? Number(m.received_at) : m.received_at;
+  // Resolve device_id to "사용자명 (모델명)" via pre-loaded map
+  const deviceLabel = m.device_id && deviceMap?.get(m.device_id) || m.device_id;
   return {
     id: m.id,
     content: m.content,
@@ -23,7 +25,7 @@ function mapCaptured(m: CapturedMessage): UnifiedMessage {
     source_app: m.app_name,
     hospital_id: null,
     order_id: null,
-    device_name: m.device_id,
+    device_name: deviceLabel,
     is_order_message: null,
     is_captured: true,
     app_name: m.app_name,
@@ -79,7 +81,26 @@ export async function getMessages(params: {
 
   if (error) console.error("captured_messages query error:", JSON.stringify(error, null, 2));
 
-  const messages = (data ?? [] as CapturedMessage[]).map((m) => mapCaptured(m as CapturedMessage));
+  // Build device_id → "사용자명 (모델명)" map
+  const rawMessages = (data ?? []) as CapturedMessage[];
+  const deviceIds = [...new Set(rawMessages.map((m) => m.device_id).filter(Boolean))] as string[];
+  let deviceMap: Map<string, string> | undefined;
+  if (deviceIds.length > 0) {
+    const { data: devices } = await supabase
+      .from("mobile_devices")
+      .select("id, device_name, device_model, user_id, user_profiles!inner(name)")
+      .in("id", deviceIds);
+    if (devices && devices.length > 0) {
+      deviceMap = new Map();
+      for (const d of devices) {
+        const userName = (d.user_profiles as unknown as { name: string })?.name ?? "";
+        const model = d.device_model || d.device_name || "";
+        deviceMap.set(d.id, userName && model ? `${userName} (${model})` : userName || model || d.id);
+      }
+    }
+  }
+
+  const messages = rawMessages.map((m) => mapCaptured(m, deviceMap));
 
   return { messages, total: count ?? 0 };
 }

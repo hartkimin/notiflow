@@ -732,7 +732,7 @@ export async function searchMyItems(params: { query: string; sourceType: string;
 
   for (const chip of filters) {
     const dbCol = chip.field.toLowerCase();
-    items = items.filter((item) => {
+    items = items.filter((item: Record<string, unknown>) => {
       const val = String(item[dbCol] ?? "");
       if (chip.operator === "contains") return val.toLowerCase().includes(chip.value.toLowerCase());
       if (chip.operator === "equals") return val === chip.value;
@@ -770,7 +770,7 @@ export async function searchMfdsItems(params: { query: string; sourceType: strin
   });
 
   for (const chip of filters) {
-    items = items.filter((item) => {
+    items = items.filter((item: Record<string, unknown>) => {
       const val = String(item[chip.field.toLowerCase()] ?? "");
       return val.toLowerCase().includes(chip.value.toLowerCase());
     });

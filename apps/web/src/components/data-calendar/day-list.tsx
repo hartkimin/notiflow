@@ -19,7 +19,9 @@ export function DayList<T>({
   const dayMs = startOfDayMs(referenceDate);
 
   const dayItems = useMemo(() => {
-    return items.filter((item) => startOfDayMs(dateAccessor(item)) === dayMs);
+    return items
+      .filter((item) => startOfDayMs(dateAccessor(item)) === dayMs)
+      .sort((a, b) => dateAccessor(a).getTime() - dateAccessor(b).getTime());
   }, [items, dateAccessor, dayMs]);
 
   return (
@@ -34,9 +36,10 @@ export function DayList<T>({
         </button>
       ))}
       {dayItems.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-8">
-          이 날짜에 데이터가 없습니다
-        </p>
+        <div className="text-center py-12">
+          <p className="text-sm text-muted-foreground">이 날짜에 일정이 없습니다</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">더블클릭하여 예상 일정을 등록할 수 있습니다</p>
+        </div>
       )}
     </div>
   );

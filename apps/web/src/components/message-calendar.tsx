@@ -86,16 +86,16 @@ function ForecastStatusBadge({ status }: { status: ForecastStatus }) {
 
 function MessageMonthItem({ msg }: { msg: RawMessage }) {
   return (
-    <span>
-      <span className="font-medium">{msg.sender ?? "?"}</span>{" "}
-      {msg.content?.slice(0, 20)}
+    <span className="flex items-center gap-1">
+      <span className="h-1.5 w-1.5 rounded-full bg-sky-400 shrink-0" />
+      <span className="font-medium truncate">{msg.sender ?? "?"}</span>
     </span>
   );
 }
 
 function MessageWeekItem({ msg }: { msg: RawMessage }) {
   return (
-    <div>
+    <div className="border-l-2 border-l-sky-400 pl-1.5">
       <div className="flex items-center justify-between gap-1">
         <span className="text-[11px] font-medium truncate">{msg.sender ?? "?"}</span>
         <span className="text-[10px] text-muted-foreground shrink-0">{formatTime(msg.received_at)}</span>
@@ -128,21 +128,27 @@ function MessageDayItem({ msg }: { msg: RawMessage }) {
 // ─── Forecast Renderers ──────────────────────────
 
 function ForecastMonthItem({ forecast }: { forecast: OrderForecast }) {
+  const statusColor = forecast.status === "matched" ? "bg-green-400" :
+                      forecast.status === "pending" ? "bg-orange-400" :
+                      forecast.status === "missed" ? "bg-red-400" : "bg-gray-400";
   return (
     <span className="flex items-center gap-1">
-      <ClipboardList className={`h-3 w-3 shrink-0 ${FORECAST_STATUS_CLASSES[forecast.status].split(" ")[0]}`} />
-      <span className="font-medium truncate">{forecast.hospital_name ?? `병원#${forecast.hospital_id}`}</span>
+      <span className={`h-1.5 w-1.5 rounded-full ${statusColor} shrink-0`} />
+      <span className="font-medium truncate">{forecast.hospital_name ?? "거래처 미지정"}</span>
     </span>
   );
 }
 
 function ForecastWeekItem({ forecast }: { forecast: OrderForecast }) {
+  const borderColor = forecast.status === "matched" ? "border-l-green-500" :
+                      forecast.status === "pending" ? "border-l-orange-500" :
+                      forecast.status === "missed" ? "border-l-red-500" : "border-l-gray-400";
   return (
-    <div>
+    <div className={`border-l-2 ${borderColor} pl-1.5`}>
       <div className="flex items-center justify-between gap-1">
         <span className="flex items-center gap-1 text-[11px] font-medium truncate">
           <ClipboardList className="h-3 w-3 shrink-0" />
-          {forecast.hospital_name ?? `병원#${forecast.hospital_id}`}
+          {forecast.hospital_name ?? "거래처 미지정"}
         </span>
         <ForecastStatusBadge status={forecast.status} />
       </div>
@@ -156,7 +162,7 @@ function ForecastDayItem({ forecast }: { forecast: OrderForecast }) {
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-sm font-medium truncate">
           <ClipboardList className="h-4 w-4 shrink-0" />
-          {forecast.hospital_name ?? `병원#${forecast.hospital_id}`}
+          {forecast.hospital_name ?? "거래처 미지정"}
         </span>
         <div className="flex items-center gap-1.5 shrink-0">
           <ForecastStatusBadge status={forecast.status} />
@@ -367,7 +373,7 @@ function ForecastDetailContent({ forecast }: { forecast: OrderForecast }) {
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div>
           <span className="text-muted-foreground">병원</span>
-          <p className="font-medium">{forecast.hospital_name ?? `병원#${forecast.hospital_id}`}</p>
+          <p className="font-medium">{forecast.hospital_name ?? "거래처 미지정"}</p>
         </div>
         <div>
           <span className="text-muted-foreground">예보일</span>

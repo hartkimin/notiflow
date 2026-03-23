@@ -82,40 +82,44 @@ export function MonthGrid<T>({
                 isToday && "ring-2 ring-primary/50",
               ].filter(Boolean).join(" ")}
             >
-              <button
-                onClick={() => onDateClick(date)}
-                className={[
-                  "text-sm font-medium hover:text-primary transition-colors text-left",
-                  isToday && "text-primary",
-                  dow === 0 && isCurrentMonth && "text-red-500",
-                  dow === 6 && isCurrentMonth && "text-blue-500",
-                ].filter(Boolean).join(" ")}
-              >
-                {date.getDate()}
-              </button>
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => onDateClick(date)}
+                  className={[
+                    "text-sm font-semibold hover:text-primary transition-colors text-left",
+                    isToday && "text-primary",
+                    dow === 0 && isCurrentMonth && "text-red-500",
+                    dow === 6 && isCurrentMonth && "text-blue-500",
+                  ].filter(Boolean).join(" ")}
+                >
+                  {date.getDate()}
+                </button>
+                {dayItems.length > 0 && (
+                  <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 font-medium">
+                    {dayItems.length}
+                  </Badge>
+                )}
+              </div>
 
               {/* Items + Count */}
               {dayItems.length > 0 && (
                 <div className="mt-0.5 flex-1 min-h-0 flex flex-col overflow-hidden">
                   <div className="space-y-px overflow-hidden flex-1 min-h-0">
-                    {dayItems.slice(0, 2).map((item) => (
+                    {dayItems.slice(0, 3).map((item) => (
                       <button
                         key={idAccessor(item)}
                         onClick={() => onItemClick(item)}
-                        className="w-full text-left text-[8px] text-muted-foreground truncate leading-tight hover:text-foreground transition-colors"
+                        className="w-full text-left text-[10px] text-muted-foreground truncate leading-snug hover:text-foreground transition-colors py-px"
                       >
                         {renderItem(item)}
                       </button>
                     ))}
                   </div>
-                  <div className="shrink-0 mt-auto">
-                    {dayItems.length > 2 && (
-                      <span className="text-[8px] text-muted-foreground">+{dayItems.length - 2}건</span>
-                    )}
-                    <Badge variant="outline" className="text-[8px] px-1 py-0 h-3 ml-0.5">
-                      {dayItems.length}
-                    </Badge>
-                  </div>
+                  {dayItems.length > 3 && (
+                    <div className="shrink-0 mt-auto">
+                      <span className="text-[9px] text-muted-foreground font-medium">+{dayItems.length - 3}건 더보기</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

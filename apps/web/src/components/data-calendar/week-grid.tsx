@@ -88,7 +88,7 @@ export function WeekGrid<T>({
                 </button>
               ))}
               {dayItems.length === 0 && (
-                <p className="text-[10px] text-muted-foreground text-center py-4">-</p>
+                <p className="text-[10px] text-muted-foreground/40 text-center py-4">일정 없음</p>
               )}
             </div>
           </div>

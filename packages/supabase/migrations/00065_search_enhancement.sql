@@ -101,8 +101,26 @@ DECLARE
   q TEXT := TRIM(query);
   like_q TEXT;
 BEGIN
-  -- Empty query returns nothing
+  -- Empty query returns all items (for manage mode listing)
   IF q IS NULL OR q = '' THEN
+    RETURN QUERY
+    SELECT d.id, 'drug'::TEXT, d.item_name::TEXT,
+           COALESCE(d.bar_code, d.edi_code)::TEXT, d.entp_name::TEXT,
+           d.unit_price::NUMERIC, 0::REAL, to_jsonb(d)
+    FROM my_drugs d
+    WHERE source_type IN ('all', 'drug')
+    ORDER BY d.item_name
+    LIMIT result_limit;
+
+    RETURN QUERY
+    SELECT d.id, 'device'::TEXT, d.prdlst_nm::TEXT,
+           d.udidi_cd::TEXT, d.mnft_iprt_entp_nm::TEXT,
+           d.unit_price::NUMERIC, 0::REAL, to_jsonb(d)
+    FROM my_devices d
+    WHERE source_type IN ('all', 'device')
+    ORDER BY d.prdlst_nm
+    LIMIT result_limit;
+
     RETURN;
   END IF;
 

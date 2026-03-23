@@ -278,7 +278,16 @@ export function AccordionDetail({ message, localState, linkedOrder }: AccordionD
             <div className="space-y-1.5 rounded border p-2 bg-muted/20">
               {/* Header: method, time, confidence */}
               <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                <span>{parseResult.method} · {parseResult.durationMs}ms · 신뢰도 {(parseResult.confidence * 100).toFixed(0)}%</span>
+                <span className="flex items-center gap-1.5">
+                  {parseResult.method} · {parseResult.durationMs}ms ·
+                  <span className={`font-semibold px-1 py-0.5 rounded ${
+                    parseResult.confidence >= 0.8 ? "text-green-700 bg-green-100" :
+                    parseResult.confidence >= 0.6 ? "text-amber-700 bg-amber-100" :
+                    "text-red-700 bg-red-100"
+                  }`}>
+                    신뢰도 {(parseResult.confidence * 100).toFixed(0)}%
+                  </span>
+                </span>
                 {parseResult.order && (
                   <a href={`/orders/${parseResult.order.orderId}`} className="text-primary hover:underline font-medium">
                     {parseResult.order.orderNumber} →

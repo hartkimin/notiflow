@@ -2,6 +2,12 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { SOURCE_LABEL, formatDate } from "./constants";
 import type { UnifiedMessage } from "@/lib/queries/messages";
@@ -33,15 +39,18 @@ export function MessageRow({
   const msgLocal = localState.getState(msg.id);
   const statusStep = localState.steps.find((s) => s.id === msgLocal.statusId);
   const isChecked = rowSelection.selected.has(msg.id);
+  const content = msgLocal.editedContent ?? msg.content;
+  const isUnread = msg.is_read === false;
 
   return (
     <div ref={ref}>
       <div
         className={cn(
-          "grid grid-cols-[36px_130px_80px_120px_120px_1fr_80px] items-center gap-1 px-3 py-2 border-b cursor-pointer transition-colors text-sm",
+          "grid grid-cols-[36px_130px_80px_120px_1fr_90px] items-center gap-1 px-3 py-2 border-b cursor-pointer transition-colors text-sm",
           "hover:bg-muted/50",
           isChecked && "bg-blue-50 dark:bg-blue-950/30",
           isExpanded && !isChecked && "bg-blue-50/50 dark:bg-blue-950/15",
+          isUnread && !isExpanded && !isChecked && "bg-orange-50/40",
         )}
         onClick={onToggleExpand}
       >
@@ -54,7 +63,7 @@ export function MessageRow({
         </div>
 
         {/* Time */}
-        <span className="text-xs text-muted-foreground truncate">
+        <span className={cn("text-xs truncate", isUnread ? "text-foreground font-medium" : "text-muted-foreground")}>
           {formatDate(msg.received_at)}
         </span>
 
@@ -69,35 +78,54 @@ export function MessageRow({
           {SOURCE_LABEL[msg.source_app] || msg.source_app}
         </Badge>
 
-        {/* Sender */}
-        <span className="text-xs font-medium truncate">
-          {msg.sender || "(발신자 없음)"}
-        </span>
-
-        {/* Room name */}
-        <span className="text-xs text-muted-foreground truncate">
-          {msg.room_name || "-"}
-        </span>
-
-        {/* Content truncated */}
-        <p className="text-xs text-muted-foreground truncate min-w-0">
-          {msgLocal.editedContent ?? msg.content}
-        </p>
-
-        {/* Status dot */}
-        <div className="flex items-center justify-center">
-          {statusStep ? (
-            <span className="inline-flex items-center gap-1 text-[10px]">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: statusStep.color }} />
-              {statusStep.name}
+        {/* Sender + Room */}
+        <div className="flex flex-col min-w-0">
+          <span className={cn("text-xs truncate", isUnread ? "font-semibold" : "font-medium")} title={msg.sender || ""}>
+            {msg.sender || "(발신자 없음)"}
+          </span>
+          {msg.room_name && (
+            <span className="text-[10px] text-muted-foreground truncate" title={msg.room_name}>
+              {msg.room_name}
             </span>
+          )}
+        </div>
+
+        {/* Content with tooltip */}
+        <TooltipProvider delayDuration={400}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <p className={cn("text-xs truncate min-w-0", isUnread ? "text-foreground" : "text-muted-foreground")}>
+                {content}
+              </p>
+            </TooltipTrigger>
+            {content && content.length > 50 && (
+              <TooltipContent side="bottom" align="start" className="max-w-[400px] max-h-[200px] overflow-y-auto">
+                <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed">{content.slice(0, 500)}{content.length > 500 ? "..." : ""}</pre>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
+
+        {/* Status badge */}
+        <div className="flex items-center justify-end">
+          {statusStep ? (
+            <Badge
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 h-5 gap-1"
+              style={{ borderColor: statusStep.color, color: statusStep.color }}
+            >
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: statusStep.color }} />
+              {statusStep.name}
+            </Badge>
+          ) : isUnread ? (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-orange-300 text-orange-600 bg-orange-50">
+              새 메시지
+            </Badge>
           ) : (
-            <span className="h-2 w-2 rounded-full bg-gray-300" />
+            <span className="text-[10px] text-muted-foreground">-</span>
           )}
         </div>
       </div>
-
-      {/* Detail is now rendered in the side panel, not inline */}
     </div>
   );
 }

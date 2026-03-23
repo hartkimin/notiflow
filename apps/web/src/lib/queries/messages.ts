@@ -9,6 +9,7 @@ export interface UnifiedMessage extends RawMessage {
   room_name: string | null;
   category_id?: string | null;
   status_id?: string | null;
+  is_read?: boolean;
 }
 
 function mapCaptured(m: CapturedMessage): UnifiedMessage {
@@ -29,6 +30,7 @@ function mapCaptured(m: CapturedMessage): UnifiedMessage {
     room_name: m.room_name,
     category_id: m.category_id,
     status_id: m.status_id,
+    is_read: (m as unknown as Record<string, unknown>).is_read as boolean | undefined,
   };
 }
 
@@ -43,6 +45,7 @@ export async function getMessages(params: {
   from?: string;
   to?: string;
   source_app?: string;
+  q?: string;
   limit?: number;
   offset?: number;
 } = {}): Promise<{ messages: UnifiedMessage[]; total: number }> {
@@ -61,6 +64,10 @@ export async function getMessages(params: {
   }
   if (params.source_app) {
     query = query.eq("app_name", params.source_app);
+  }
+  if (params.q) {
+    const q = params.q.trim();
+    if (q) query = query.or(`sender.ilike.%${q}%,content.ilike.%${q}%,room_name.ilike.%${q}%`);
   }
 
   // Exclude soft-deleted

@@ -19,6 +19,7 @@ interface Props {
     page?: string;
     view?: string;
     month?: string;
+    q?: string;
   }>;
 }
 
@@ -49,7 +50,7 @@ export default async function MessagesPage({ searchParams }: Props) {
 
   // Fetch both datasets in parallel for instant tab switching
   const [result, calendarMessages, hospitalsResult, productsResult, calendarForecasts] = await Promise.all([
-    getMessages({ from: params.from, to: params.to, source_app: params.source_app, limit, offset })
+    getMessages({ from: params.from, to: params.to, source_app: params.source_app, q: params.q, limit, offset })
       .catch(() => ({ messages: [], total: 0 })),
     getMessagesForCalendar({ from: fromStr, to: toStr, source_app: params.source_app }).catch(() => []),
     getHospitals({ limit: 500 }).catch(() => ({ hospitals: [], total: 0 })),

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CalendarPlus, CalendarRange, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { CalendarPlus, CalendarRange, ChevronLeft, ChevronRight, Search, FilterX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -128,9 +128,11 @@ export function MessagesView({
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const params = new URLSearchParams();
+    const q = fd.get("q") as string;
     const from = fd.get("from") as string;
     const to = fd.get("to") as string;
     const source_app = fd.get("source_app") as string;
+    if (q?.trim()) params.set("q", q.trim());
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     if (source_app && source_app !== "all") params.set("source_app", source_app);
@@ -169,6 +171,7 @@ export function MessagesView({
         {/* Mode-specific controls */}
         {tab === "list" ? (
           <form onSubmit={handleFilterSubmit} className="flex items-center gap-2 flex-1 min-w-0">
+            <Input type="text" name="q" defaultValue={searchParams.get("q") || ""} placeholder="발신자, 내용 검색..." className="h-8 w-[160px] text-xs" />
             <Input type="date" name="from" defaultValue={searchParams.get("from") || ""} className="h-8 w-[120px] text-xs" />
             <Input type="date" name="to" defaultValue={searchParams.get("to") || ""} className="h-8 w-[120px] text-xs" />
             <Select name="source_app" defaultValue={searchParams.get("source_app") || "all"}>
@@ -186,6 +189,11 @@ export function MessagesView({
             <Button type="submit" size="sm" variant="outline" className="h-8 px-2">
               <Search className="h-3.5 w-3.5" />
             </Button>
+            {(searchParams.get("from") || searchParams.get("to") || searchParams.get("source_app") || searchParams.get("q")) && (
+              <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-muted-foreground" onClick={() => router.push("/messages")}>
+                <FilterX className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap">
               <span>전체 <strong className="text-foreground">{totalCount}</strong>건</span>
             </div>

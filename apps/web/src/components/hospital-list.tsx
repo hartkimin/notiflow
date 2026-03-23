@@ -14,10 +14,12 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  Plus, Pencil, Trash2, LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown, 
-  Phone, MapPin, Building, User as UserIcon, CreditCard, Clock, Package, Info, Save, X, Loader2, Search
+import {
+  Plus, Pencil, Trash2, LayoutList, LayoutGrid, ArrowUp, ArrowDown, ArrowUpDown,
+  Phone, MapPin, Building, User as UserIcon, CreditCard, Clock, Package, Info, Save, X, Loader2, Search,
+  ExternalLink, FileText, FilterX,
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { createHospital, updateHospital, deleteHospital, deleteHospitals } from "@/lib/actions";
 import { toast } from "sonner";
 import { useResizableColumns } from "@/hooks/use-resizable-columns";
@@ -130,14 +132,21 @@ export function HospitalTable({ hospitals }: { hospitals: Hospital[] }) {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-4 flex-1 w-full sm:w-auto">
           <h2 className="text-xl font-black text-zinc-950 shrink-0">거래처 관리</h2>
-          <form onSubmit={handleSearch} className="relative flex-1 max-w-sm group">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400 group-focus-within:text-primary transition-colors" />
-            <Input
-              name="search"
-              placeholder="거래처 검색..."
-              defaultValue={searchParams.get("search") || ""}
-              className="pl-9 h-10 bg-white shadow-sm border-zinc-200 rounded-xl"
-            />
+          <form onSubmit={handleSearch} className="relative flex-1 max-w-sm group flex items-center gap-1">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400 group-focus-within:text-primary transition-colors" />
+              <Input
+                name="search"
+                placeholder="이름, 약칭, 주소, 담당자 검색..."
+                defaultValue={searchParams.get("search") || ""}
+                className="pl-9 h-10 bg-white shadow-sm border-zinc-200 rounded-xl"
+              />
+            </div>
+            {searchParams.get("search") && (
+              <Button type="button" variant="ghost" size="icon" className="h-10 w-10 shrink-0" onClick={() => router.push("/hospitals")}>
+                <FilterX className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            )}
           </form>
         </div>
         
@@ -161,7 +170,13 @@ export function HospitalTable({ hospitals }: { hospitals: Hospital[] }) {
           <ResizablePanel defaultSize={selectedHospital ? 65 : 100} minSize={30}>
             {hospitals.length === 0 ? (
               <div className="text-center py-24 bg-zinc-50/30">
-                <p className="text-sm font-bold text-zinc-400">거래처가 없습니다.</p>
+                <Building className="h-10 w-10 mx-auto mb-3 text-zinc-300" />
+                <p className="text-sm font-bold text-zinc-400">
+                  {searchParams.get("search") ? "검색 결과가 없습니다" : "등록된 거래처가 없습니다"}
+                </p>
+                <p className="text-xs text-zinc-300 mt-1">
+                  {searchParams.get("search") ? "다른 검색어를 시도하거나 필터를 초기화하세요" : "\"거래처 추가\" 버튼으로 첫 거래처를 등록하세요"}
+                </p>
               </div>
             ) : view === "list" ? (
               <div className="h-full overflow-auto no-scrollbar">
@@ -248,6 +263,9 @@ export function HospitalTable({ hospitals }: { hospitals: Hospital[] }) {
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setSelectedHospital(h); setIsEditing(true); }}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(h.id)}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -273,11 +291,26 @@ export function HospitalTable({ hospitals }: { hospitals: Hospital[] }) {
                   >
                     <CardContent className="p-4 space-y-2">
                       <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-zinc-950">{h.name}</h3>
-                        <Badge variant="outline" className="text-[10px]">{TYPE_LABEL[h.hospital_type] || h.hospital_type}</Badge>
+                        <h3 className="font-bold text-zinc-950 truncate">{h.name}</h3>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Badge variant="outline" className="text-[10px]">{TYPE_LABEL[h.hospital_type] || h.hospital_type}</Badge>
+                          {!h.is_active && <Badge variant="secondary" className="text-[10px]">비활성</Badge>}
+                        </div>
                       </div>
                       {h.short_name && <p className="text-[11px] text-muted-foreground truncate">약칭: {h.short_name}</p>}
-                      {h.phone && <p className="text-[11px] text-zinc-500 flex items-center gap-1.5"><Phone className="h-3 w-3" /> {h.phone}</p>}
+                      <div className="space-y-1 text-[11px] text-zinc-500">
+                        {h.contact_person && <p className="flex items-center gap-1.5"><UserIcon className="h-3 w-3" /> {h.contact_person}</p>}
+                        {h.phone && <p className="flex items-center gap-1.5"><Phone className="h-3 w-3" /> {h.phone}</p>}
+                        {h.address && <p className="flex items-center gap-1.5 truncate"><MapPin className="h-3 w-3 shrink-0" /> {h.address}</p>}
+                      </div>
+                      <div className="flex gap-1 pt-1 border-t" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs flex-1" onClick={() => { setSelectedHospital(h); setIsEditing(true); }}>
+                          <Pencil className="h-3 w-3 mr-1" /> 수정
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => setDeleteId(h.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -364,6 +397,16 @@ export function HospitalTable({ hospitals }: { hospitals: Hospital[] }) {
                               <div>
                                 <p className="text-[11px] font-bold text-zinc-400">주소</p>
                                 <p className="text-sm font-semibold text-zinc-950 leading-relaxed">{selectedHospital.address || "-"}</p>
+                                {selectedHospital.address && (
+                                  <a
+                                    href={`https://map.naver.com/v5/search/${encodeURIComponent(selectedHospital.address)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1"
+                                  >
+                                    <ExternalLink className="h-3 w-3" /> 네이버 지도에서 보기
+                                  </a>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -389,6 +432,21 @@ export function HospitalTable({ hospitals }: { hospitals: Hospital[] }) {
                           </div>
                         </div>
                       </div>
+
+                      {(selectedHospital.notes || selectedHospital.delivery_notes) && (
+                        <div className="space-y-3 pt-4 border-t border-dashed">
+                          <Label className="text-[10px] uppercase tracking-widest text-zinc-400 font-black">메모</Label>
+                          {selectedHospital.notes && (
+                            <div className="rounded-lg border p-3 bg-muted/30 text-sm">{selectedHospital.notes}</div>
+                          )}
+                          {selectedHospital.delivery_notes && (
+                            <div>
+                              <p className="text-[11px] font-bold text-zinc-400 mb-1">배송 메모</p>
+                              <div className="rounded-lg border p-3 bg-amber-50/50 text-sm">{selectedHospital.delivery_notes}</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <div className="pt-6 border-t flex gap-2">
                         <Button variant="outline" size="sm" className="flex-1 font-black h-10 rounded-xl" onClick={() => setIsEditing(true)}>
@@ -427,7 +485,7 @@ export function HospitalTable({ hospitals }: { hospitals: Hospital[] }) {
       <Dialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>거래처 삭제</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">이 거래처를 비활성화하시겠습니까?</p>
+          <p className="text-sm text-muted-foreground">이 거래처를 영구 삭제합니다. 관련 주문 데이터는 유지됩니다.</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteId(null)}>취소</Button>
             <Button variant="destructive" disabled={isPending} onClick={() => deleteId && handleDelete(deleteId)}>
@@ -458,12 +516,21 @@ function HospitalInlineForm({
   const [businessNumber, setBusinessNumber] = useState(hospital.business_number || "");
   const [paymentTerms, setPaymentTerms] = useState(hospital.payment_terms || "");
   const [leadTimeDays, setLeadTimeDays] = useState(hospital.lead_time_days || 1);
+  const [notes, setNotes] = useState(hospital.notes || "");
+  const [deliveryNotes, setDeliveryNotes] = useState(hospital.delivery_notes || "");
+  const [ceoName, setCeoName] = useState(hospital.ceo_name || "");
+  const [bizType, setBizType] = useState(hospital.biz_type || "");
+  const [bizItem, setBizItem] = useState(hospital.biz_item || "");
+  const [email, setEmail] = useState(hospital.email || "");
 
   async function handleSave() {
+    if (!name.trim()) { toast.error("거래처명은 필수입니다"); return; }
     const data = {
       name, short_name: shortName, hospital_type: hospitalType,
       phone, contact_person: contactPerson, address, business_number: businessNumber,
-      payment_terms: paymentTerms, lead_time_days: leadTimeDays
+      payment_terms: paymentTerms, lead_time_days: leadTimeDays,
+      notes: notes || null, delivery_notes: deliveryNotes || null,
+      ceo_name: ceoName || null, biz_type: bizType || null, biz_item: bizItem || null, email: email || null,
     };
     startTransition(async () => {
       try {
@@ -480,8 +547,8 @@ function HospitalInlineForm({
     <div className="space-y-6 animate-in fade-in slide-in-from-left-2 duration-300">
       <div className="space-y-4">
         <div className="space-y-1.5">
-          <Label className="text-[11px] font-black text-zinc-400">거래처명</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} className="h-10 font-bold rounded-xl" />
+          <Label className="text-[11px] font-black text-zinc-400">거래처명 <span className="text-red-500">*</span></Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} className="h-10 font-bold rounded-xl" required />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -534,9 +601,48 @@ function HospitalInlineForm({
             <Input type="number" min={0} value={leadTimeDays} onChange={(e) => setLeadTimeDays(parseInt(e.target.value, 10))} className="h-10 rounded-xl" />
           </div>
         </div>
+
+        {/* 세금계산서 정보 */}
+        <div className="pt-4 border-t border-dashed">
+          <Label className="text-[10px] uppercase tracking-widest text-zinc-400 font-black flex items-center gap-1 mb-3">
+            <FileText className="h-3 w-3" /> 세금계산서 정보
+          </Label>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-black text-zinc-400">대표자명</Label>
+              <Input value={ceoName} onChange={(e) => setCeoName(e.target.value)} className="h-10 rounded-xl" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-black text-zinc-400">이메일</Label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="세금계산서 수신" className="h-10 rounded-xl" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-black text-zinc-400">업태</Label>
+              <Input value={bizType} onChange={(e) => setBizType(e.target.value)} className="h-10 rounded-xl" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-black text-zinc-400">종목</Label>
+              <Input value={bizItem} onChange={(e) => setBizItem(e.target.value)} className="h-10 rounded-xl" />
+            </div>
+          </div>
+        </div>
+
+        {/* 메모 */}
+        <div className="pt-4 border-t border-dashed">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-black text-zinc-400">메모</Label>
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="rounded-xl text-sm" placeholder="거래처 관련 메모..." />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-black text-zinc-400">배송 메모</Label>
+              <Textarea value={deliveryNotes} onChange={(e) => setDeliveryNotes(e.target.value)} rows={2} className="rounded-xl text-sm" placeholder="배송 시 주의사항..." />
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="pt-6 border-t flex gap-2">
+      <div className="pt-6 border-t flex gap-2 mt-4">
         <Button size="sm" className="flex-1 font-black h-10 rounded-xl" onClick={handleSave} disabled={isPending}>
           {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} 저장하기
         </Button>
@@ -572,6 +678,10 @@ export function HospitalFormDialog({
       business_number: fd.get("business_number") as string || undefined,
       payment_terms: fd.get("payment_terms") as string || undefined,
       lead_time_days: parseInt(fd.get("lead_time_days") as string, 10) || 1,
+      ceo_name: fd.get("ceo_name") as string || undefined,
+      email: fd.get("email") as string || undefined,
+      biz_type: fd.get("biz_type") as string || undefined,
+      biz_item: fd.get("biz_item") as string || undefined,
     };
 
     startTransition(async () => {
@@ -637,9 +747,33 @@ export function HospitalFormDialog({
             </div>
             <div className="space-y-1">
               <Label className="text-[11px] font-black text-zinc-400">리드타임(일)</Label>
-              <Input name="lead_time_days" type="number" min={0} defaultValue={hospital?.lead_time_days || 1} className="h-10 rounded-xl" />
+              <Input name="lead_time_days" type="number" min={0} max={365} defaultValue={hospital?.lead_time_days || 1} className="h-10 rounded-xl" />
             </div>
           </div>
+          {/* 세금계산서 정보 (접힌 섹션) */}
+          <details className="border-t pt-3">
+            <summary className="text-[11px] font-black text-zinc-400 cursor-pointer mb-2 flex items-center gap-1">
+              <FileText className="h-3 w-3" /> 세금계산서 정보 (선택)
+            </summary>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-[11px] font-black text-zinc-400">대표자명</Label>
+                <Input name="ceo_name" defaultValue="" className="h-10 rounded-xl" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-black text-zinc-400">이메일</Label>
+                <Input name="email" type="email" defaultValue="" placeholder="세금계산서 수신" className="h-10 rounded-xl" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-black text-zinc-400">업태</Label>
+                <Input name="biz_type" defaultValue="" className="h-10 rounded-xl" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-black text-zinc-400">종목</Label>
+                <Input name="biz_item" defaultValue="" className="h-10 rounded-xl" />
+              </div>
+            </div>
+          </details>
           <DialogFooter className="pt-4">
             <Button variant="ghost" type="button" onClick={onClose} className="font-bold">취소</Button>
             <Button type="submit" disabled={isPending} className="font-black rounded-xl px-6">

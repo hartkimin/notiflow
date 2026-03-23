@@ -15,6 +15,8 @@ export interface Hospital {
   biz_item: string | null;
   email: string | null;
   fax: string | null;
+  notes: string | null;
+  delivery_notes: string | null;
 }
 
 export interface Order {

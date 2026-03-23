@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Hospital } from "@/lib/types";
-import { escapeLikeValue } from "@/lib/supabase/sanitize";
 
 export async function getHospitals(params: {
   search?: string;
@@ -12,7 +11,7 @@ export async function getHospitals(params: {
 
   let query = supabase.from("hospitals").select("*", { count: "exact" });
 
-  if (params.search) query = query.ilike("name", `%${escapeLikeValue(params.search)}%`);
+  if (params.search) query = query.ilike("name", `%${params.search}%`);
   if (params.type) query = query.eq("hospital_type", params.type);
 
   query = query
@@ -23,6 +22,34 @@ export async function getHospitals(params: {
   if (error) throw error;
 
   return { hospitals: (data ?? []) as Hospital[], total: count ?? 0 };
+}
+
+export async function searchHospitalsRpc(query: string, limit: number = 20): Promise<Array<{
+  id: number;
+  name: string;
+  short_name: string | null;
+  address: string | null;
+  contact_person: string | null;
+  phone: string | null;
+  hospital_type: string;
+}>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("search_hospitals", {
+    query,
+    result_limit: limit,
+  });
+
+  if (error) throw error;
+  return (data ?? []) as Array<{
+    id: number;
+    name: string;
+    short_name: string | null;
+    address: string | null;
+    contact_person: string | null;
+    phone: string | null;
+    hospital_type: string;
+  }>;
 }
 
 export async function getHospital(id: number): Promise<Hospital> {

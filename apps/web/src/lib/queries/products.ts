@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import type { MyDrug, MyDevice } from "@/lib/types";
-import { escapeFilterValue } from "@/lib/supabase/sanitize";
 
 export async function getMyDrugs(): Promise<MyDrug[]> {
   const supabase = await createClient();
@@ -44,54 +43,24 @@ export async function searchMyItems(query: string): Promise<Array<{
   raw: Record<string, unknown>;
 }>> {
   const supabase = await createClient();
-  const escaped = escapeFilterValue(query);
-  const q = `%${escaped}%`;
 
-  const [{ data: drugs }, { data: devices }] = await Promise.all([
-    supabase
-      .from("my_drugs")
-      .select("*")
-      .or(`item_name.ilike.${q},bar_code.ilike.${q},entp_name.ilike.${q},edi_code.ilike.${q}`)
-      .limit(20),
-    supabase
-      .from("my_devices")
-      .select("*")
-      .or(`prdlst_nm.ilike.${q},udidi_cd.ilike.${q},mnft_iprt_entp_nm.ilike.${q}`)
-      .limit(20),
-  ]);
+  const { data, error } = await supabase.rpc("search_my_items", {
+    query,
+    source_type: "all",
+    result_limit: 30,
+  });
 
-  const results: Array<{
-    id: number;
-    type: "drug" | "device";
-    name: string;
-    code: string | null;
-    manufacturer: string | null;
-    unit_price: number | null;
-    raw: Record<string, unknown>;
-  }> = [];
-  for (const d of drugs ?? []) {
-    results.push({
-      id: d.id,
-      type: "drug" as const,
-      name: d.item_name ?? "",
-      code: d.bar_code,
-      manufacturer: d.entp_name,
-      unit_price: d.unit_price,
-      raw: d as Record<string, unknown>,
-    });
-  }
-  for (const d of devices ?? []) {
-    results.push({
-      id: d.id,
-      type: "device" as const,
-      name: d.prdlst_nm ?? "",
-      code: d.udidi_cd,
-      manufacturer: d.mnft_iprt_entp_nm,
-      unit_price: d.unit_price,
-      raw: d as Record<string, unknown>,
-    });
-  }
-  return results;
+  if (error) throw error;
+
+  return (data ?? []).map((row: Record<string, unknown>) => ({
+    id: row.id as number,
+    type: row.item_type as "drug" | "device",
+    name: (row.name as string) ?? "",
+    code: (row.code as string) ?? null,
+    manufacturer: (row.manufacturer as string) ?? null,
+    unit_price: row.unit_price as number | null,
+    raw: (row.raw_data as Record<string, unknown>) ?? {},
+  }));
 }
 
 export async function getProductsCatalog() {

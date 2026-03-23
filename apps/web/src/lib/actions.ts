@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { geocodeAddress } from "@/lib/geocode";
-import { escapeFilterValue, escapeLikeValue } from "@/lib/supabase/sanitize";
+
 
 // --- Messages (captured_messages table) ---
 
@@ -711,63 +711,72 @@ export async function deletePartnerProductAlias(aliasId: number) {
 // --- My Products ---
 
 export async function searchMyItems(params: { query: string; sourceType: string; page?: number; pageSize?: number; filters?: { field: string; operator: string; value: string }[]; sortBy?: string; sortOrder?: string; searchField?: string }) {
-  const { query, sourceType, page = 1, pageSize = 30, filters = [], sortBy, sortOrder = "asc" } = params;
+  const { query, sourceType, page = 1, pageSize = 30, filters = [] } = params;
   const supabase = await createClient();
   const q = query.trim();
-  const from = (page - 1) * pageSize, to = from + pageSize - 1;
-  const table = sourceType === "drug" ? "my_drugs" : "my_devices";
-  let dbQuery = supabase.from(table).select("*", { count: "exact" });
 
-  if (q) {
-    const eq = escapeFilterValue(q);
-    if (sourceType === "drug") dbQuery = dbQuery.or(`item_name.ilike.%${eq}%,entp_name.ilike.%${eq}%,bar_code.ilike.%${eq}%`);
-    else dbQuery = dbQuery.or(`prdlst_nm.ilike.%${eq}%,mnft_iprt_entp_nm.ilike.%${eq}%,udidi_cd.ilike.%${eq}%`);
-  }
-  for (const chip of filters) {
-    const dbCol = chip.field.toLowerCase();
-    const ev = escapeLikeValue(chip.value);
-    if (chip.operator === "contains") dbQuery = dbQuery.filter(dbCol, "ilike", `%${ev}%`);
-    else if (chip.operator === "equals") dbQuery = dbQuery.filter(dbCol, "eq", chip.value);
-  }
-  dbQuery = dbQuery.order(sortBy?.toLowerCase() || (sourceType === "drug" ? "item_name" : "prdlst_nm"), { ascending: sortOrder === "asc" }).range(from, to);
+  const { data, error } = await supabase.rpc("search_my_items", {
+    query: q,
+    source_type: sourceType === "drug" ? "drug" : "device",
+    result_limit: pageSize * page,
+  });
 
-  const { data, count, error } = await dbQuery;
   if (error) throw error;
-  const items = (data ?? []).map((row: Record<string, unknown>) => {
-    const mapped = { ...row };
-    Object.entries(row).forEach(([k, v]) => { if (!["id", "unit_price", "added_at", "synced_at"].includes(k)) mapped[k.toUpperCase()] = v; });
+
+  let items = (data ?? []).map((row: Record<string, unknown>) => {
+    const raw = (row.raw_data as Record<string, unknown>) ?? {};
+    const mapped: Record<string, unknown> = { ...raw };
+    Object.entries(raw).forEach(([k, v]) => { if (!["id", "unit_price", "added_at", "synced_at"].includes(k)) mapped[k.toUpperCase()] = v; });
     return mapped;
   });
-  return { items, totalCount: count ?? 0, page };
+
+  for (const chip of filters) {
+    const dbCol = chip.field.toLowerCase();
+    items = items.filter((item) => {
+      const val = String(item[dbCol] ?? "");
+      if (chip.operator === "contains") return val.toLowerCase().includes(chip.value.toLowerCase());
+      if (chip.operator === "equals") return val === chip.value;
+      return true;
+    });
+  }
+
+  const totalCount = items.length;
+  const from = (page - 1) * pageSize;
+  const paged = items.slice(from, from + pageSize);
+
+  return { items: paged, totalCount, page };
 }
 
 export async function searchMfdsItems(params: { query: string; sourceType: string; page?: number; pageSize?: number; filters?: { field: string; value: string }[]; sortOrder?: string; searchField?: string }) {
-  const { query, sourceType, page = 1, pageSize = 30, filters = [], sortOrder = "asc" } = params;
+  const { query, sourceType, page = 1, pageSize = 30, filters = [] } = params;
   const supabase = await createClient();
   const q = query.trim();
-  const from = (page - 1) * pageSize, to = from + pageSize - 1;
 
-  const tableName = sourceType === "drug" ? "mfds_drugs" : "mfds_devices";
-  const nameCol = sourceType === "drug" ? "item_name" : "prdlst_nm";
-  const mfrCol = sourceType === "drug" ? "entp_name" : "mnft_iprt_entp_nm";
-  const codeCol = sourceType === "drug" ? "bar_code" : "udidi_cd";
+  const { data, error } = await supabase.rpc("search_mfds_items", {
+    query: q,
+    source_type: sourceType === "drug" ? "drug" : "device",
+    result_limit: pageSize,
+    page_num: page,
+    page_size: pageSize,
+  });
 
-  let dbQuery = supabase.from(tableName).select("*", { count: "exact" });
-
-  if (q) {
-    const eq = escapeFilterValue(q);
-    dbQuery = dbQuery.or(`${nameCol}.ilike.%${eq}%,${mfrCol}.ilike.%${eq}%,${codeCol}.ilike.%${eq}%`);
-  }
-  for (const chip of filters) {
-    const ev = escapeLikeValue(chip.value);
-    dbQuery = dbQuery.filter(chip.field.toLowerCase(), "ilike", `%${ev}%`);
-  }
-  dbQuery = dbQuery.order(nameCol, { ascending: sortOrder === "asc" }).range(from, to);
-
-  const { data, count, error } = await dbQuery;
   if (error) throw error;
-  const items = (data ?? []).map((row: Record<string, unknown>) => ({ ...row, _type: sourceType }));
-  return { items, totalCount: count ?? 0, page };
+
+  const totalCount = Number((data?.[0] as Record<string, unknown>)?.total_count ?? 0);
+
+  let items = (data ?? []).map((row: Record<string, unknown>) => {
+    const raw = (row.raw_data as Record<string, unknown>) ?? {};
+    return { ...raw, _type: sourceType };
+  });
+
+  for (const chip of filters) {
+    items = items.filter((item) => {
+      const val = String(item[chip.field.toLowerCase()] ?? "");
+      return val.toLowerCase().includes(chip.value.toLowerCase());
+    });
+  }
+
+  return { items, totalCount, page };
 }
 
 export async function addToMyDrugs(item: Record<string, unknown>): Promise<{ success: boolean; id?: number; alreadyExists?: boolean }> {

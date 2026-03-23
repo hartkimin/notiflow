@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Supplier } from "@/lib/types";
-import { escapeLikeValue } from "@/lib/supabase/sanitize";
 
 export async function getSuppliers(params: {
   search?: string;
@@ -11,7 +10,7 @@ export async function getSuppliers(params: {
 
   let query = supabase.from("suppliers").select("*", { count: "exact" });
 
-  if (params.search) query = query.ilike("name", `%${escapeLikeValue(params.search)}%`);
+  if (params.search) query = query.ilike("name", `%${params.search}%`);
 
   query = query
     .order("name")
@@ -21,6 +20,32 @@ export async function getSuppliers(params: {
   if (error) throw error;
 
   return { suppliers: (data ?? []) as Supplier[], total: count ?? 0 };
+}
+
+export async function searchSuppliersRpc(query: string, limit: number = 20): Promise<Array<{
+  id: number;
+  name: string;
+  short_name: string | null;
+  phone: string | null;
+  ceo_name: string | null;
+  business_category: string | null;
+}>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("search_suppliers", {
+    query,
+    result_limit: limit,
+  });
+
+  if (error) throw error;
+  return (data ?? []) as Array<{
+    id: number;
+    name: string;
+    short_name: string | null;
+    phone: string | null;
+    ceo_name: string | null;
+    business_category: string | null;
+  }>;
 }
 
 export async function getSupplier(id: number): Promise<Supplier> {

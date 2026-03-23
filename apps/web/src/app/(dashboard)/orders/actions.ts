@@ -77,16 +77,16 @@ export async function searchMyItemsAction(query: string) {
 
 export async function searchHospitalsAction(query: string) {
   if (!query || query.length < 1) return [];
-  const { getHospitals } = await import("@/lib/queries/hospitals");
-  const { hospitals } = await getHospitals({ search: query, limit: 20 });
-  return hospitals.map((h) => ({ id: h.id, name: h.name, contact_person: h.contact_person ?? null }));
+  const { searchHospitalsRpc } = await import("@/lib/queries/hospitals");
+  const results = await searchHospitalsRpc(query, 20);
+  return results.map((h) => ({ id: h.id, name: h.name, contact_person: h.contact_person ?? null }));
 }
 
 export async function searchSuppliersAction(query: string) {
   if (!query || query.length < 1) return [];
-  const { getSuppliers } = await import("@/lib/queries/suppliers");
-  const { suppliers } = await getSuppliers({ search: query, limit: 20 });
-  return suppliers.map((s) => ({ id: s.id, name: s.name }));
+  const { searchSuppliersRpc } = await import("@/lib/queries/suppliers");
+  const results = await searchSuppliersRpc(query, 20);
+  return results.map((s) => ({ id: s.id, name: s.name }));
 }
 
 export async function getCalendarOrdersAction(from: string, to: string) {
@@ -327,25 +327,32 @@ export async function searchMfdsItemsAction(query: string) {
   if (!query || query.length < 1) return [];
   const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
-  const q = query.trim();
 
-  const [drugs, devices] = await Promise.all([
-    supabase.from("mfds_drugs")
-      .select("id, item_name, bar_code, entp_name")
-      .or(`item_name.ilike.%${q}%,bar_code.ilike.%${q}%,entp_name.ilike.%${q}%`)
-      .limit(15),
-    supabase.from("mfds_devices")
-      .select("id, prdlst_nm, udidi_cd, mnft_iprt_entp_nm")
-      .or(`prdlst_nm.ilike.%${q}%,udidi_cd.ilike.%${q}%,mnft_iprt_entp_nm.ilike.%${q}%`)
-      .limit(15),
+  const [{ data: drugData }, { data: devData }] = await Promise.all([
+    supabase.rpc("search_mfds_items", {
+      query: query.trim(),
+      source_type: "drug",
+      result_limit: 15,
+      page_num: 1,
+      page_size: 15,
+    }),
+    supabase.rpc("search_mfds_items", {
+      query: query.trim(),
+      source_type: "device",
+      result_limit: 15,
+      page_num: 1,
+      page_size: 15,
+    }),
   ]);
 
   const results = [
-    ...(drugs.data ?? []).map((d) => ({
-      id: d.id, name: d.item_name, code: d.bar_code ?? "", source_type: "drug" as const, manufacturer: d.entp_name,
+    ...(drugData ?? []).map((d: Record<string, unknown>) => ({
+      id: d.id as number, name: d.name as string, code: (d.code as string) ?? "",
+      source_type: "drug" as const, manufacturer: d.manufacturer as string,
     })),
-    ...(devices.data ?? []).map((d) => ({
-      id: d.id, name: d.prdlst_nm, code: d.udidi_cd ?? "", source_type: "device_std" as const, manufacturer: d.mnft_iprt_entp_nm,
+    ...(devData ?? []).map((d: Record<string, unknown>) => ({
+      id: d.id as number, name: d.name as string, code: (d.code as string) ?? "",
+      source_type: "device_std" as const, manufacturer: d.manufacturer as string,
     })),
   ];
   return results.slice(0, 30);

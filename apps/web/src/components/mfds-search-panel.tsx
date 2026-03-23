@@ -159,31 +159,42 @@ export function MfdsSearchPanel({
     { key: "change_date", label: "변경일자" },
   ];
 
-  const DEVICE_FIELDS: Array<{ key: string; label: string; required?: boolean }> = [
-    { key: "prdlst_nm", label: "품목명", required: true },
-    { key: "mnft_iprt_entp_nm", label: "업체명" },
-    { key: "udidi_cd", label: "UDI-DI 코드" },
-    { key: "permit_no", label: "품목허가번호" },
-    { key: "foml_info", label: "모델명" },
-    { key: "prdt_nm_info", label: "제품명 상세" },
-    { key: "mdeq_clsf_no", label: "품목분류번호" },
-    { key: "clsf_no_grad_cd", label: "등급" },
-    { key: "prmsn_ymd", label: "허가일자" },
-    { key: "use_purps_cont", label: "사용목적" },
-    { key: "sterilization_method_nm", label: "멸균방법" },
-    { key: "strg_cnd_info", label: "저장조건" },
-    { key: "circ_cnd_info", label: "유통조건" },
-    { key: "hmbd_trspt_mdeq_yn", label: "체외진단 여부" },
-    { key: "dspsbl_mdeq_yn", label: "일회용 여부" },
-    { key: "trck_mng_trgt_yn", label: "추적관리 대상" },
-    { key: "total_dev", label: "총 기기수" },
-    { key: "cmbnmd_yn", label: "조합의료기기 여부" },
-    { key: "use_before_strlzt_need_yn", label: "사용전 멸균 필요" },
-    { key: "rcprslry_trgt_yn", label: "수리부속 대상" },
+  type FieldType = "text" | "select" | "yn";
+  interface DeviceField { key: string; label: string; required?: boolean; type?: FieldType; options?: string[]; group: string; placeholder?: string }
+
+  const DEVICE_FIELDS_GROUPED: DeviceField[] = [
+    // 기본 정보
+    { key: "prdlst_nm", label: "품목명", required: true, group: "기본 정보", placeholder: "예: 혈액투석용 필터세트" },
+    { key: "mnft_iprt_entp_nm", label: "제조/수입업체", group: "기본 정보", placeholder: "예: ㈜한국메디컬" },
+    { key: "foml_info", label: "모델명", group: "기본 정보", placeholder: "예: HD-2000F" },
+    { key: "prdt_nm_info", label: "제품명 상세", group: "기본 정보" },
+    // 허가/코드
+    { key: "udidi_cd", label: "UDI-DI 코드", group: "허가/코드", placeholder: "예: 08806541234567" },
+    { key: "permit_no", label: "품목허가번호", group: "허가/코드" },
+    { key: "mdeq_clsf_no", label: "품목분류번호", group: "허가/코드" },
+    { key: "clsf_no_grad_cd", label: "등급", type: "select", options: ["1", "2", "3", "4"], group: "허가/코드" },
+    { key: "prmsn_ymd", label: "허가일자", group: "허가/코드", placeholder: "YYYYMMDD" },
+    // 사용/보관
+    { key: "use_purps_cont", label: "사용목적", group: "사용/보관" },
+    { key: "sterilization_method_nm", label: "멸균방법", group: "사용/보관" },
+    { key: "strg_cnd_info", label: "저장조건", group: "사용/보관" },
+    { key: "circ_cnd_info", label: "유통조건", group: "사용/보관" },
+    // 속성
+    { key: "hmbd_trspt_mdeq_yn", label: "체외진단", type: "yn", group: "속성" },
+    { key: "dspsbl_mdeq_yn", label: "일회용", type: "yn", group: "속성" },
+    { key: "trck_mng_trgt_yn", label: "추적관리 대상", type: "yn", group: "속성" },
+    { key: "cmbnmd_yn", label: "조합의료기기", type: "yn", group: "속성" },
+    { key: "use_before_strlzt_need_yn", label: "사용전 멸균", type: "yn", group: "속성" },
+    { key: "rcprslry_trgt_yn", label: "수리부속 대상", type: "yn", group: "속성" },
+    { key: "total_dev", label: "총 기기수", group: "속성", placeholder: "숫자" },
   ];
 
+  // Flat version for backward compat
+  const DEVICE_FIELDS = DEVICE_FIELDS_GROUPED.map(({ key, label, required }) => ({ key, label, required }));
+
+  const [addAnother, setAddAnother] = useState(false);
+
   const handleManualAdd = async () => {
-    const fields = tab === "drug" ? DRUG_FIELDS : DEVICE_FIELDS;
     const nameField = tab === "drug" ? "item_name" : "prdlst_nm";
     if (!manualForm[nameField]?.trim()) {
       toast.error("품목명은 필수입니다");
@@ -197,9 +208,13 @@ export function MfdsSearchPanel({
       if (result.alreadyExists) {
         toast.info("이미 등록된 품목입니다");
       } else if (result.success) {
-        toast.success("품목이 추가되었습니다");
-        setShowManualAdd(false);
-        setManualForm({});
+        toast.success(`"${manualForm[nameField]}" 추가됨`);
+        if (addAnother) {
+          setManualForm({});
+        } else {
+          setShowManualAdd(false);
+          setManualForm({});
+        }
         doSearch(1);
       } else {
         toast.error("추가에 실패했습니다");
@@ -1023,51 +1038,122 @@ export function MfdsSearchPanel({
       {/* Manual add dialog */}
       {showManualAdd && (
         <Dialog open onOpenChange={() => setShowManualAdd(false)}>
-          <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>
                 {tab === "drug" ? "의약품" : "의료기기"} 수동 추가
               </DialogTitle>
             </DialogHeader>
             <ScrollArea className="flex-1 pr-4 -mr-4">
-              <div className="grid gap-3 py-2">
-                {(tab === "drug" ? DRUG_FIELDS : DEVICE_FIELDS).map((f) => (
-                  <div key={f.key} className="grid grid-cols-[120px_1fr] items-center gap-2">
-                    <Label htmlFor={`manual-${f.key}`} className="text-xs text-right text-muted-foreground">
-                      {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
-                    </Label>
-                    <Input
-                      id={`manual-${f.key}`}
-                      value={manualForm[f.key] ?? ""}
-                      onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                      placeholder={f.label}
-                      className="h-8 text-sm"
-                    />
+              {tab === "drug" ? (
+                /* Drug: flat list (unchanged) */
+                <div className="grid gap-3 py-2">
+                  {DRUG_FIELDS.map((f) => (
+                    <div key={f.key} className="grid grid-cols-[120px_1fr] items-center gap-2">
+                      <Label htmlFor={`manual-${f.key}`} className="text-xs text-right text-muted-foreground">
+                        {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
+                      </Label>
+                      <Input
+                        id={`manual-${f.key}`}
+                        value={manualForm[f.key] ?? ""}
+                        onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                        placeholder={f.label}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  ))}
+                  <div className="grid grid-cols-[120px_1fr] items-center gap-2">
+                    <Label htmlFor="manual-unit_price" className="text-xs text-right text-muted-foreground">단가</Label>
+                    <Input id="manual-unit_price" type="number" value={manualForm.unit_price ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, unit_price: e.target.value }))} placeholder="원 단위 입력" className="h-8 text-sm" />
                   </div>
-                ))}
-                <div className="grid grid-cols-[120px_1fr] items-center gap-2">
-                  <Label htmlFor="manual-unit_price" className="text-xs text-right text-muted-foreground">
-                    단가
-                  </Label>
-                  <Input
-                    id="manual-unit_price"
-                    type="number"
-                    value={manualForm.unit_price ?? ""}
-                    onChange={(e) => setManualForm((prev) => ({ ...prev, unit_price: e.target.value }))}
-                    placeholder="0"
-                    className="h-8 text-sm"
-                  />
                 </div>
-              </div>
+              ) : (
+                /* Device: grouped layout with proper input types */
+                <div className="space-y-5 py-2">
+                  {(() => {
+                    const groups = [...new Set(DEVICE_FIELDS_GROUPED.map((f) => f.group))];
+                    return groups.map((groupName) => (
+                      <div key={groupName}>
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 border-b pb-1">{groupName}</h4>
+                        {groupName === "속성" ? (
+                          /* Y/N fields in a compact grid */
+                          <div className="grid grid-cols-2 gap-2">
+                            {DEVICE_FIELDS_GROUPED.filter((f) => f.group === groupName).map((f) => (
+                              f.type === "yn" ? (
+                                <label key={f.key} className="flex items-center gap-2 px-2 py-1.5 rounded border hover:bg-muted/50 cursor-pointer text-sm">
+                                  <input
+                                    type="checkbox"
+                                    checked={manualForm[f.key] === "Y"}
+                                    onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.checked ? "Y" : "N" }))}
+                                    className="rounded border-gray-300"
+                                  />
+                                  {f.label}
+                                </label>
+                              ) : (
+                                <div key={f.key} className="grid grid-cols-[100px_1fr] items-center gap-2">
+                                  <Label className="text-xs text-right text-muted-foreground">{f.label}</Label>
+                                  <Input value={manualForm[f.key] ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))} placeholder={f.placeholder ?? f.label} className="h-8 text-sm" />
+                                </div>
+                              )
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="grid gap-2.5">
+                            {DEVICE_FIELDS_GROUPED.filter((f) => f.group === groupName).map((f) => (
+                              <div key={f.key} className="grid grid-cols-[120px_1fr] items-center gap-2">
+                                <Label htmlFor={`manual-${f.key}`} className="text-xs text-right text-muted-foreground">
+                                  {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
+                                </Label>
+                                {f.type === "select" && f.options ? (
+                                  <select
+                                    id={`manual-${f.key}`}
+                                    value={manualForm[f.key] ?? ""}
+                                    onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                                    className="h-8 text-sm rounded-md border border-input bg-background px-3"
+                                  >
+                                    <option value="">선택하세요</option>
+                                    {f.options.map((opt) => <option key={opt} value={opt}>{opt}등급</option>)}
+                                  </select>
+                                ) : (
+                                  <Input
+                                    id={`manual-${f.key}`}
+                                    value={manualForm[f.key] ?? ""}
+                                    onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                                    placeholder={f.placeholder ?? f.label}
+                                    className="h-8 text-sm"
+                                  />
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ));
+                  })()}
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 border-b pb-1">가격</h4>
+                    <div className="grid grid-cols-[120px_1fr] items-center gap-2">
+                      <Label htmlFor="manual-unit_price" className="text-xs text-right text-muted-foreground">단가</Label>
+                      <Input id="manual-unit_price" type="number" value={manualForm.unit_price ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, unit_price: e.target.value }))} placeholder="원 단위 입력" className="h-8 text-sm" />
+                    </div>
+                  </div>
+                </div>
+              )}
             </ScrollArea>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowManualAdd(false)}>
-                취소
-              </Button>
-              <Button onClick={handleManualAdd} disabled={isAdding}>
-                {isAdding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-1" />}
-                추가
-              </Button>
+            <DialogFooter className="flex items-center justify-between sm:justify-between">
+              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                <input type="checkbox" checked={addAnother} onChange={(e) => setAddAnother(e.target.checked)} className="rounded border-gray-300" />
+                연속 추가
+              </label>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowManualAdd(false)}>
+                  닫기
+                </Button>
+                <Button onClick={handleManualAdd} disabled={isAdding}>
+                  {isAdding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-1" />}
+                  추가
+                </Button>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>

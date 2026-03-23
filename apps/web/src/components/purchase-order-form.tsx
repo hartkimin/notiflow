@@ -138,6 +138,18 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
   const [items, setItems] = useState<LineItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ── Unsaved changes warning ──
+  const isDirty = items.length > 0 || hospitalId !== null || notes !== (initialNotes || "");
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty && !isSubmitting) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty, isSubmitting]);
+
   // ── Optional columns visibility ──
   const defaultVisibleCols = useMemo(() => {
     const allKeys = [...(displayColumns.drug ?? []), ...(displayColumns.device ?? [])];
@@ -407,7 +419,11 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                       </Badge>
                       <button
                         type="button"
-                        onClick={() => { setHospitalId(null); setHospitalName(""); setHospitalContactPerson(null); setPartnerProducts([]); }}
+                        onClick={() => {
+                          if (items.length > 0 && !confirm("거래처를 변경하면 추가된 품목이 모두 삭제됩니다. 계속하시겠습니까?")) return;
+                          setHospitalId(null); setHospitalName(""); setHospitalContactPerson(null); setPartnerProducts([]);
+                          if (items.length > 0) setItems([]);
+                        }}
                         className="text-muted-foreground hover:text-foreground"
                       >
                         <X className="h-4 w-4" />
@@ -434,8 +450,8 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                     <Input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} className="mt-1.5" />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">배송예정일</Label>
-                    <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className="mt-1.5" />
+                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">배송예정일 <span className="font-normal normal-case">(선택)</span></Label>
+                    <Input type="date" value={deliveryDate} min={orderDate} onChange={(e) => setDeliveryDate(e.target.value)} className="mt-1.5" />
                   </div>
                 </div>
                 <div>

@@ -48,6 +48,8 @@ export function PortalSearchBox<T extends { id: number; name: string }>({
       try {
         const recent = await fetchRecentRef.current();
         setItems(recent);
+      } catch {
+        setItems([]);
       } finally {
         setIsLoading(false);
       }
@@ -62,6 +64,8 @@ export function PortalSearchBox<T extends { id: number; name: string }>({
       try {
         const results = await searchAction(query);
         setItems(results);
+      } catch {
+        setItems([]);
       } finally {
         setIsLoading(false);
       }

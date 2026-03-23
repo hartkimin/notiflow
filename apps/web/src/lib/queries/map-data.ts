@@ -8,7 +8,7 @@ export async function getMapPins(): Promise<MapPin[]> {
   // Hospitals with coordinates
   const { data: hospitals } = await supabase
     .from("hospitals")
-    .select("id, name, address, lat, lng")
+    .select("id, name, address, phone, lat, lng")
     .not("lat", "is", null)
     .not("lng", "is", null)
     .eq("is_active", true);
@@ -19,6 +19,7 @@ export async function getMapPins(): Promise<MapPin[]> {
       type: "hospital",
       name: h.name,
       address: h.address || "",
+      phone: h.phone || undefined,
       lat: h.lat,
       lng: h.lng,
     });
@@ -27,7 +28,7 @@ export async function getMapPins(): Promise<MapPin[]> {
   // Suppliers with coordinates
   const { data: suppliers } = await supabase
     .from("suppliers")
-    .select("id, name, address, lat, lng")
+    .select("id, name, address, phone, lat, lng")
     .not("lat", "is", null)
     .not("lng", "is", null)
     .eq("is_active", true);
@@ -38,6 +39,7 @@ export async function getMapPins(): Promise<MapPin[]> {
       type: "supplier",
       name: s.name,
       address: s.address || "",
+      phone: s.phone || undefined,
       lat: s.lat,
       lng: s.lng,
     });

@@ -73,11 +73,17 @@ export async function createHospital(data: {
   business_number?: string;
   payment_terms?: string;
   lead_time_days?: number;
+  [key: string]: unknown;
 }) {
+  if (data.address && typeof data.address === "string") {
+    const coords = await geocodeAddress(data.address).catch(() => null);
+    if (coords) { data.lat = coords.lat; data.lng = coords.lng; }
+  }
   const supabase = await createClient();
   const { error } = await supabase.from("hospitals").insert(data);
   if (error) throw error;
   revalidatePath("/hospitals");
+  revalidatePath("/map");
   return { success: true };
 }
 
@@ -94,6 +100,7 @@ export async function updateHospital(id: number, data: Record<string, unknown>) 
   const { error } = await supabase.from("hospitals").update(data).eq("id", id);
   if (error) throw error;
   revalidatePath("/hospitals");
+  revalidatePath("/map");
   return { success: true };
 }
 
@@ -102,6 +109,7 @@ export async function deleteHospital(id: number) {
   const { error } = await supabase.from("hospitals").delete().eq("id", id);
   if (error) throw error;
   revalidatePath("/hospitals");
+  revalidatePath("/map");
   return { success: true };
 }
 
@@ -177,27 +185,30 @@ export async function createSupplier(data: {
   business_type?: string;
   business_category?: string;
   notes?: string;
+  [key: string]: unknown;
 }) {
+  if (data.address && typeof data.address === "string") {
+    const coords = await geocodeAddress(data.address).catch(() => null);
+    if (coords) { data.lat = coords.lat; data.lng = coords.lng; }
+  }
   const supabase = await createClient();
   const { error } = await supabase.from("suppliers").insert(data);
   if (error) throw error;
   revalidatePath("/suppliers");
+  revalidatePath("/map");
   return { success: true };
 }
 
 export async function updateSupplier(id: number, data: Record<string, unknown>) {
-  // Auto-geocode when address changes
   if (data.address && typeof data.address === "string") {
     const coords = await geocodeAddress(data.address).catch(() => null);
-    if (coords) {
-      data.lat = coords.lat;
-      data.lng = coords.lng;
-    }
+    if (coords) { data.lat = coords.lat; data.lng = coords.lng; }
   }
   const supabase = await createClient();
   const { error } = await supabase.from("suppliers").update(data).eq("id", id);
   if (error) throw error;
   revalidatePath("/suppliers");
+  revalidatePath("/map");
   return { success: true };
 }
 
@@ -206,6 +217,7 @@ export async function deleteSupplier(id: number) {
   const { error } = await supabase.from("suppliers").delete().eq("id", id);
   if (error) throw error;
   revalidatePath("/suppliers");
+  revalidatePath("/map");
   return { success: true };
 }
 

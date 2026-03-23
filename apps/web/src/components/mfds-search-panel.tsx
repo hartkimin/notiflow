@@ -21,7 +21,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2, Database, Square } from "lucide-react";
+import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2, Database, Square, PenLine } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   searchMfdsItems,
   searchMyItems,
@@ -126,6 +129,87 @@ export function MfdsSearchPanel({
   // Price editing state (manage mode only)
   const [editingPriceId, setEditingPriceId] = useState<number | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState<string>("");
+
+  // Manual add state (manage mode only)
+  const [showManualAdd, setShowManualAdd] = useState(false);
+  const [manualForm, setManualForm] = useState<Record<string, string>>({});
+  const [isAdding, setIsAdding] = useState(false);
+
+  const DRUG_FIELDS: Array<{ key: string; label: string; required?: boolean }> = [
+    { key: "item_name", label: "품목명", required: true },
+    { key: "entp_name", label: "업체명" },
+    { key: "bar_code", label: "표준코드(바코드)" },
+    { key: "edi_code", label: "보험코드(EDI)" },
+    { key: "item_eng_name", label: "영문 품목명" },
+    { key: "item_seq", label: "품목기준코드" },
+    { key: "entp_no", label: "업체허가번호" },
+    { key: "item_permit_date", label: "허가일자" },
+    { key: "cnsgn_manuf", label: "위탁제조업체" },
+    { key: "etc_otc_code", label: "전문/일반 구분" },
+    { key: "chart", label: "성상(외형)" },
+    { key: "material_name", label: "원료성분명" },
+    { key: "storage_method", label: "저장방법" },
+    { key: "valid_term", label: "유효기간" },
+    { key: "pack_unit", label: "포장단위" },
+    { key: "permit_kind_name", label: "허가종류" },
+    { key: "atc_code", label: "ATC 코드" },
+    { key: "rare_drug_yn", label: "희귀의약품 여부" },
+    { key: "cancel_date", label: "취소일자" },
+    { key: "cancel_name", label: "취소명" },
+    { key: "change_date", label: "변경일자" },
+  ];
+
+  const DEVICE_FIELDS: Array<{ key: string; label: string; required?: boolean }> = [
+    { key: "prdlst_nm", label: "품목명", required: true },
+    { key: "mnft_iprt_entp_nm", label: "업체명" },
+    { key: "udidi_cd", label: "UDI-DI 코드" },
+    { key: "permit_no", label: "품목허가번호" },
+    { key: "foml_info", label: "모델명" },
+    { key: "prdt_nm_info", label: "제품명 상세" },
+    { key: "mdeq_clsf_no", label: "품목분류번호" },
+    { key: "clsf_no_grad_cd", label: "등급" },
+    { key: "prmsn_ymd", label: "허가일자" },
+    { key: "use_purps_cont", label: "사용목적" },
+    { key: "sterilization_method_nm", label: "멸균방법" },
+    { key: "strg_cnd_info", label: "저장조건" },
+    { key: "circ_cnd_info", label: "유통조건" },
+    { key: "hmbd_trspt_mdeq_yn", label: "체외진단 여부" },
+    { key: "dspsbl_mdeq_yn", label: "일회용 여부" },
+    { key: "trck_mng_trgt_yn", label: "추적관리 대상" },
+    { key: "total_dev", label: "총 기기수" },
+    { key: "cmbnmd_yn", label: "조합의료기기 여부" },
+    { key: "use_before_strlzt_need_yn", label: "사용전 멸균 필요" },
+    { key: "rcprslry_trgt_yn", label: "수리부속 대상" },
+  ];
+
+  const handleManualAdd = async () => {
+    const fields = tab === "drug" ? DRUG_FIELDS : DEVICE_FIELDS;
+    const nameField = tab === "drug" ? "item_name" : "prdlst_nm";
+    if (!manualForm[nameField]?.trim()) {
+      toast.error("품목명은 필수입니다");
+      return;
+    }
+    setIsAdding(true);
+    try {
+      const result = tab === "drug"
+        ? await addToMyDrugs(manualForm)
+        : await addToMyDevices(manualForm);
+      if (result.alreadyExists) {
+        toast.info("이미 등록된 품목입니다");
+      } else if (result.success) {
+        toast.success("품목이 추가되었습니다");
+        setShowManualAdd(false);
+        setManualForm({});
+        doSearch(1);
+      } else {
+        toast.error("추가에 실패했습니다");
+      }
+    } catch {
+      toast.error("추가 중 오류가 발생했습니다");
+    } finally {
+      setIsAdding(false);
+    }
+  };
 
   const pageSize = 15;
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -829,6 +913,19 @@ export function MfdsSearchPanel({
             />
           </div>
 
+          {/* Manual add button (manage mode) */}
+          {mode === "manage" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 shrink-0"
+              onClick={() => { setManualForm({}); setShowManualAdd(true); }}
+            >
+              <PenLine className="h-3 w-3 mr-1" />
+              수동 추가
+            </Button>
+          )}
+
           {/* Sync buttons (browse mode) */}
           {mode === "browse" && syncStatus && (
             <div className="flex items-center gap-1.5 shrink-0">
@@ -936,6 +1033,58 @@ export function MfdsSearchPanel({
               <Button onClick={handleApplySync} disabled={isPending}>
                 {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 적용
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+      {/* Manual add dialog */}
+      {showManualAdd && (
+        <Dialog open onOpenChange={() => setShowManualAdd(false)}>
+          <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>
+                {tab === "drug" ? "의약품" : "의료기기"} 수동 추가
+              </DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="flex-1 pr-4 -mr-4">
+              <div className="grid gap-3 py-2">
+                {(tab === "drug" ? DRUG_FIELDS : DEVICE_FIELDS).map((f) => (
+                  <div key={f.key} className="grid grid-cols-[120px_1fr] items-center gap-2">
+                    <Label htmlFor={`manual-${f.key}`} className="text-xs text-right text-muted-foreground">
+                      {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
+                    </Label>
+                    <Input
+                      id={`manual-${f.key}`}
+                      value={manualForm[f.key] ?? ""}
+                      onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                      placeholder={f.label}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                ))}
+                <div className="grid grid-cols-[120px_1fr] items-center gap-2">
+                  <Label htmlFor="manual-unit_price" className="text-xs text-right text-muted-foreground">
+                    단가
+                  </Label>
+                  <Input
+                    id="manual-unit_price"
+                    type="number"
+                    value={manualForm.unit_price ?? ""}
+                    onChange={(e) => setManualForm((prev) => ({ ...prev, unit_price: e.target.value }))}
+                    placeholder="0"
+                    className="h-8 text-sm"
+                  />
+                </div>
+              </div>
+            </ScrollArea>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowManualAdd(false)}>
+                취소
+              </Button>
+              <Button onClick={handleManualAdd} disabled={isAdding}>
+                {isAdding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-1" />}
+                추가
               </Button>
             </DialogFooter>
           </DialogContent>

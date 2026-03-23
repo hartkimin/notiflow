@@ -795,7 +795,9 @@ export async function addToMyDrugs(item: Record<string, unknown>): Promise<{ suc
     "cancel_name", "change_date", "atc_code", "rare_drug_yn",
   ];
   for (const col of cols) row[col] = (item[col] as string) ?? null;
-  const { data, error } = await supabase.from("my_drugs").insert(row).select("id").single();
+  const insertRow: Record<string, unknown> = { ...row };
+  if (item.unit_price != null && String(item.unit_price).trim() !== "") insertRow.unit_price = Number(item.unit_price);
+  const { data, error } = await supabase.from("my_drugs").insert(insertRow).select("id").single();
   if (error) { console.error("addToMyDrugs error:", error); return { success: false }; }
   revalidatePath("/products"); return { success: true, id: data.id };
 }
@@ -816,7 +818,9 @@ export async function addToMyDevices(item: Record<string, unknown>): Promise<{ s
     "strg_cnd_info", "circ_cnd_info", "rcprslry_trgt_yn",
   ];
   for (const col of cols) row[col] = (item[col] as string) ?? null;
-  const { data, error } = await supabase.from("my_devices").insert(row).select("id").single();
+  const insertRow: Record<string, unknown> = { ...row };
+  if (item.unit_price != null && String(item.unit_price).trim() !== "") insertRow.unit_price = Number(item.unit_price);
+  const { data, error } = await supabase.from("my_devices").insert(insertRow).select("id").single();
   if (error) { console.error("addToMyDevices error:", error); return { success: false }; }
   revalidatePath("/products"); return { success: true, id: data.id };
 }

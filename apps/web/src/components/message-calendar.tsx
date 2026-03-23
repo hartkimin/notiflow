@@ -289,6 +289,11 @@ function MessageDetailContent({ msg }: { msg: RawMessage }) {
             <ShoppingCart className="h-3.5 w-3.5" /> 주문 생성
           </Button>
         </Link>
+        <Link href={`/messages?highlight=${msg.id}`}>
+          <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+            <ExternalLink className="h-3.5 w-3.5" /> 목록에서 보기
+          </Button>
+        </Link>
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 text-destructive hover:text-destructive" disabled={isPending}>
@@ -495,10 +500,12 @@ function getItemId(item: MessageCalendarItem): string {
 
 function getDetailTitle(item: MessageCalendarItem): string {
   if (item.kind === "forecast") {
-    const name = item.data.hospital_name ?? `병원#${item.data.hospital_id}`;
+    const name = item.data.hospital_name ?? "거래처 미지정";
     return `${name} — ${item.data.forecast_date}`;
   }
-  return `${item.data.sender ?? "메시지"} — ${formatTime(item.data.received_at)}`;
+  const sender = item.data.sender ?? "발신자 없음";
+  const source = SOURCE_LABELS[item.data.source_app] ?? item.data.source_app;
+  return `${sender} (${source}) — ${formatTime(item.data.received_at)}`;
 }
 
 // ─── Main Component ──────────────────────────────
@@ -539,11 +546,11 @@ export function MessageCalendar({
     ...messages.map((m) => ({ kind: "message" as const, data: m })),
   ], [messages, forecasts]);
 
-  const handleItemClick = useCallback((item: MessageCalendarItem) => {
-    if (item.kind === "message" && onMessageClick) {
-      onMessageClick(item.data.id);
-    }
-  }, [onMessageClick]);
+  // Message click opens detail panel inline (no navigation away)
+  // onMessageClick is kept for external integrations but not used for default behavior
+  const handleItemClick = useCallback((_item: MessageCalendarItem) => {
+    // Detail panel is handled by DataCalendar's setSelectedItem
+  }, []);
 
   return (
     <DataCalendar

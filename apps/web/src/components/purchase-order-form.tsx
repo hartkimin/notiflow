@@ -9,8 +9,10 @@ import {
   Loader2,
   Plus,
   X,
-  FileText,
+  ClipboardList,
   Settings2,
+  PackagePlus,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -150,6 +152,18 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
     return () => window.removeEventListener("beforeunload", handler);
   }, [isDirty, isSubmitting]);
 
+  // ── Keyboard shortcut: Ctrl+Enter to submit ──
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !isSubmitting) {
+        e.preventDefault();
+        handleSubmit();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  });
+
   // ── Optional columns visibility ──
   const defaultVisibleCols = useMemo(() => {
     const allKeys = [...(displayColumns.drug ?? []), ...(displayColumns.device ?? [])];
@@ -164,6 +178,19 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
 
   const [visibleCols, setVisibleCols] = useState<Set<string>>(new Set());
   const [showColSettings, setShowColSettings] = useState(false);
+
+  // ── Outside click to close column settings ──
+  const colSettingsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showColSettings) return;
+    const handler = (e: MouseEvent) => {
+      if (colSettingsRef.current && !colSettingsRef.current.contains(e.target as Node)) {
+        setShowColSettings(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showColSettings]);
 
   // ── Column widths (resizable) ──
   const [colWidths, setColWidths] = useState<Record<string, number>>(columnWidths ?? {});
@@ -213,10 +240,14 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
     });
   }
 
+  // ── Tab state for item add section ──
+  const [addTab, setAddTab] = useState<string>(hospitalId ? "partner" : "mfds");
+
   // ── Load partner products for selected hospital ──
   useEffect(() => {
     if (!hospitalId) { setPartnerProducts([]); return; }
     setProductsLoading(true);
+    setAddTab("partner"); // auto-switch to partner tab
     getPartnerProductsForOrderAction(hospitalId)
       .then((ppList) => setPartnerProducts(ppList))
       .finally(() => setProductsLoading(false));
@@ -226,11 +257,14 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
   function addProduct(pp: PartnerProduct) {
     const dupKey = `${pp.product_source}-${pp.product_id}`;
     if (items.some((i) => `${i.source_type}-${i.product_id}` === dupKey)) {
-      toast.error("이미 추가된 품목입니다");
+      toast.warning("이미 추가된 품목입니다");
       return;
     }
+    const key = nextKey();
+    setFlashKey(key);
+    setTimeout(() => setFlashKey(null), 1200);
     setItems((prev) => [...prev, {
-      key: nextKey(),
+      key,
       product_id: pp.product_id,
       product_name: pp.name,
       standard_code: pp.code || null,
@@ -248,8 +282,17 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
     }]);
   }
 
+  const [flashKey, setFlashKey] = useState<string | null>(null);
+
   function removeItem(key: string) {
+    const removed = items.find((i) => i.key === key);
+    if (!removed) return;
+    const idx = items.indexOf(removed);
     setItems((prev) => prev.filter((i) => i.key !== key));
+    toast("품목이 삭제되었습니다", {
+      action: { label: "되돌리기", onClick: () => setItems((prev) => { const next = [...prev]; next.splice(idx, 0, removed); return next; }) },
+      duration: 4000,
+    });
   }
 
   function updateItem(key: string, updates: Partial<LineItem>) {
@@ -317,11 +360,14 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
   function addMfdsItem(item: MfdsSearchResult) {
     const sourceType = item.source_type === "device_std" ? "device" : "drug";
     if (items.some((i) => `${i.source_type}-${i.product_id}` === `${sourceType}-${item.id}`)) {
-      toast.error("이미 추가된 품목입니다");
+      toast.warning("이미 추가된 품목입니다");
       return;
     }
+    const key = nextKey();
+    setFlashKey(key);
+    setTimeout(() => setFlashKey(null), 1200);
     setItems((prev) => [...prev, {
-      key: nextKey(),
+      key,
       product_id: item.id,
       product_name: item.name,
       standard_code: item.code || null,
@@ -387,15 +433,15 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
             <Link href="/orders"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
           <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-muted-foreground" />
-            <h1 className="text-xl font-bold">Purchase Order</h1>
+            <ClipboardList className="h-5 w-5 text-muted-foreground" />
+            <h1 className="text-xl font-bold">주문서 작성</h1>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
             <Link href="/orders">취소</Link>
           </Button>
-          <Button size="sm" onClick={handleSubmit} disabled={isSubmitting}>
+          <Button size="sm" onClick={handleSubmit} disabled={isSubmitting} title="Ctrl+Enter">
             {isSubmitting ? <><Loader2 className="mr-1 h-4 w-4 animate-spin" />생성 중...</> : "주문 생성"}
           </Button>
         </div>
@@ -454,10 +500,12 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                     <Input type="date" value={deliveryDate} min={orderDate} onChange={(e) => setDeliveryDate(e.target.value)} className="mt-1.5" />
                   </div>
                 </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">주문번호</Label>
-                  <p className="text-sm text-muted-foreground mt-1.5">자동 생성됩니다</p>
-                </div>
+                {hospitalContactPerson && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">담당자</Label>
+                    <p className="text-sm mt-1.5">{hospitalContactPerson}</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -469,7 +517,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
               품목 추가
             </h3>
 
-            <Tabs defaultValue={hospitalId ? "partner" : "mfds"} className="space-y-3">
+            <Tabs value={addTab} onValueChange={setAddTab} className="space-y-3">
               <TabsList>
                 <TabsTrigger value="partner" className="text-xs" disabled={!hospitalId}>
                   거래처 품목
@@ -521,7 +569,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
               주문 품목 {items.length > 0 && <span className="text-muted-foreground font-normal">({items.length}건)</span>}
             </h3>
             {/* Column settings toggle */}
-            <div className="relative">
+            <div className="relative" ref={colSettingsRef}>
               <Button
                 variant="ghost"
                 size="sm"
@@ -551,7 +599,9 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
 
           {items.length === 0 ? (
             <div className="text-center py-12 text-sm text-muted-foreground border border-dashed rounded-lg">
-              위에서 품목을 추가하세요
+              <PackagePlus className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
+              <p>위에서 품목을 검색하여 추가하세요</p>
+              <p className="text-xs mt-1 text-muted-foreground/60">거래처 품목 또는 식약처 데이터에서 검색할 수 있습니다</p>
             </div>
           ) : (
             <div className="border rounded-md overflow-x-auto">
@@ -629,7 +679,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                   {items.map((item, idx) => {
                     const lineTotal = (item.selling_price ?? 0) * item.quantity;
                     return (
-                      <TableRow key={item.key}>
+                      <TableRow key={item.key} className={`${idx % 2 === 1 ? "bg-muted/20" : ""} ${flashKey === item.key ? "animate-pulse bg-green-50" : ""} transition-colors`}>
                         <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
                         <TableCell className="text-sm truncate overflow-hidden" title={item.product_name}>
                           <div className="flex items-center gap-1.5">
@@ -683,9 +733,9 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         <TableCell className="text-right">
                           <Input
                             type="number" min={0} value={item.purchase_price ?? ""}
-                            onChange={(e) => updateItem(item.key, { purchase_price: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) => updateItem(item.key, { purchase_price: e.target.value ? parseFloat(e.target.value) : null })}
                             className="h-7 w-[80px] text-xs text-right ml-auto"
-                            placeholder="0"
+                            placeholder="매입가"
                           />
                         </TableCell>
                         <TableCell className="text-xs text-right font-mono">
@@ -742,15 +792,15 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                           </TableCell>
                         )}
                         <TableCell>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeItem(item.key)}>
-                            <X className="h-3.5 w-3.5" />
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-red-500" onClick={() => removeItem(item.key)}>
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </TableCell>
                       </TableRow>
                     );
                   })}
                   {/* ── Totals row ── */}
-                  <TableRow className="bg-muted/40 font-semibold border-t-2">
+                  <TableRow className="bg-muted/60 font-semibold border-t-2 border-t-foreground/20">
                     <TableCell className="text-xs" />
                     <TableCell className="text-xs">합계</TableCell>
                     {visibleCols.has("standard_code") && <TableCell />}

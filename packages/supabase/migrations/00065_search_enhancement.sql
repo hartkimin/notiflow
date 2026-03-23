@@ -264,21 +264,9 @@ BEGIN
       d.prdlst_nm::TEXT AS name,
       d.udidi_cd::TEXT AS code,
       d.mnft_iprt_entp_nm::TEXT AS manufacturer,
-      (
-        CASE WHEN (
-          d.prdlst_nm ILIKE like_q
-          OR d.mnft_iprt_entp_nm ILIKE like_q
-          OR d.udidi_cd ILIKE like_q
-          OR d.permit_no ILIKE like_q
-          OR d.foml_info ILIKE like_q
-          OR d.prdt_nm_info ILIKE like_q
-          OR d.use_purps_cont ILIKE like_q
-        ) THEN 1 ELSE 0 END
-        + GREATEST(
-            extensions.similarity(COALESCE(d.prdlst_nm, ''), q),
-            extensions.similarity(COALESCE(d.mnft_iprt_entp_nm, ''), q)
-          )
-      )::REAL AS rank,
+      (CASE WHEN d.prdlst_nm ILIKE like_q THEN 2
+            WHEN d.mnft_iprt_entp_nm ILIKE like_q THEN 1
+            ELSE 0 END)::REAL AS rank,
       to_jsonb(d) AS raw_data,
       count(*) OVER()::BIGINT AS total_count
     FROM mfds_devices d
@@ -289,10 +277,7 @@ BEGIN
       OR d.permit_no ILIKE like_q
       OR d.foml_info ILIKE like_q
       OR d.prdt_nm_info ILIKE like_q
-      OR d.use_purps_cont ILIKE like_q
-      OR extensions.similarity(COALESCE(d.prdlst_nm, ''), q) > 0.15
-      OR extensions.similarity(COALESCE(d.mnft_iprt_entp_nm, ''), q) > 0.15
-    ORDER BY rank DESC
+    ORDER BY rank DESC, d.prdlst_nm
     LIMIT page_size OFFSET off_val;
   ELSE
     -- drug (default)
@@ -303,21 +288,9 @@ BEGIN
       d.item_name::TEXT AS name,
       COALESCE(d.bar_code, d.edi_code)::TEXT AS code,
       d.entp_name::TEXT AS manufacturer,
-      (
-        CASE WHEN (
-          d.item_name ILIKE like_q
-          OR d.entp_name ILIKE like_q
-          OR d.bar_code ILIKE like_q
-          OR d.edi_code ILIKE like_q
-          OR d.atc_code ILIKE like_q
-          OR d.material_name ILIKE like_q
-          OR d.main_item_ingr ILIKE like_q
-        ) THEN 1 ELSE 0 END
-        + GREATEST(
-            extensions.similarity(COALESCE(d.item_name, ''), q),
-            extensions.similarity(COALESCE(d.entp_name, ''), q)
-          )
-      )::REAL AS rank,
+      (CASE WHEN d.item_name ILIKE like_q THEN 2
+            WHEN d.entp_name ILIKE like_q THEN 1
+            ELSE 0 END)::REAL AS rank,
       to_jsonb(d) AS raw_data,
       count(*) OVER()::BIGINT AS total_count
     FROM mfds_drugs d
@@ -329,9 +302,7 @@ BEGIN
       OR d.atc_code ILIKE like_q
       OR d.material_name ILIKE like_q
       OR d.main_item_ingr ILIKE like_q
-      OR extensions.similarity(COALESCE(d.item_name, ''), q) > 0.15
-      OR extensions.similarity(COALESCE(d.entp_name, ''), q) > 0.15
-    ORDER BY rank DESC
+    ORDER BY rank DESC, d.item_name
     LIMIT page_size OFFSET off_val;
   END IF;
 END;

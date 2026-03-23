@@ -159,39 +159,8 @@ export function DrugSearchDialog({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>식약처 의약품·의료기기 통합 검색</DialogTitle>
+          <DialogTitle>식약처 의약품 검색</DialogTitle>
         </DialogHeader>
-
-        {/* Tab toggle */}
-        <div className="flex gap-1 rounded-lg bg-muted p-1">
-          <button
-            type="button"
-            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              tab === "drug" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => switchTab("drug")}
-          >
-            의약품
-          </button>
-          <button
-            type="button"
-            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              tab === "device" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => switchTab("device")}
-          >
-            의료기기(품목)
-          </button>
-          <button
-            type="button"
-            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              tab === "device_std" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => switchTab("device_std")}
-          >
-            의료기기(UDI)
-          </button>
-        </div>
 
         {/* Search form */}
         <form onSubmit={handleSearch} className="space-y-2">

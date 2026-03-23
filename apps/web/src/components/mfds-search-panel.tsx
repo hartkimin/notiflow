@@ -849,9 +849,6 @@ export function MfdsSearchPanel({
   const drugPct = syncStatus?.drugApiCount && syncStatus.drugApiCount > 0
     ? Math.min(100, Math.round((syncStatus.drugCount / syncStatus.drugApiCount) * 100))
     : syncStatus?.drugCount ? 100 : null;
-  const devicePct = syncStatus?.deviceApiCount && syncStatus.deviceApiCount > 0
-    ? Math.min(100, Math.round((syncStatus.deviceCount / syncStatus.deviceApiCount) * 100))
-    : syncStatus?.deviceCount ? 100 : null;
 
   return (
     <div className="flex flex-col h-[calc(100vh-180px)] min-h-[400px]">
@@ -866,15 +863,6 @@ export function MfdsSearchPanel({
             )}
             {drugPct != null && (
               <>, <span className={`font-medium ${drugPct < 90 ? "text-amber-600" : "text-green-600"}`}>{drugPct}%</span> 동기화</>
-            )}
-          </span>
-          <span>
-            의료기기(UDI) <span className="font-mono font-medium text-foreground">{syncStatus.deviceCount.toLocaleString()}</span>
-            {syncStatus.deviceApiCount != null && syncStatus.deviceApiCount > 0 && (
-              <>/{syncStatus.deviceApiCount.toLocaleString()}</>
-            )}
-            {devicePct != null && (
-              <>, <span className={`font-medium ${devicePct < 90 ? "text-amber-600" : "text-green-600"}`}>{devicePct}%</span> 동기화</>
             )}
           </span>
         </div>

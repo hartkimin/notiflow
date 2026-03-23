@@ -954,16 +954,6 @@ export async function searchMfdsDrug(filters: Record<string, string>, page = 1) 
   return { items: parseMfdsApiItems(j?.body), totalCount: j?.body?.totalCount ?? 0, page };
 }
 
-export async function searchMfdsDevice(filters: Record<string, string>, page = 1) {
-  const key = await getMfdsApiKey();
-  const p = new URLSearchParams({ serviceKey: key, pageNo: String(page), numOfRows: "25", type: "json" });
-  for (const [k, v] of Object.entries(filters)) if ((v as string).trim()) p.set(k, (v as string).trim());
-  const res = await fetch(`https://apis.data.go.kr/1471000/MdeqStdCdPrdtInfoService03/getMdeqStdCdPrdtInfoInq03?${p}`);
-  if (!res.ok) return { items: [], totalCount: 0 };
-  const j = await res.json();
-  return { items: parseMfdsApiItems(j?.body), totalCount: j?.body?.totalCount ?? 0, page };
-}
-
 export async function syncMyDrug(id: number) {
   const supabase = await createClient();
   const { data: d } = await supabase.from("my_drugs").select("*").eq("id", id).single();
@@ -978,18 +968,8 @@ export async function syncMyDrug(id: number) {
   return { found: true, changes };
 }
 
-export async function syncMyDevice(id: number) {
-  const supabase = await createClient();
-  const { data: d } = await supabase.from("my_devices").select("*").eq("id", id).single();
-  if (!d?.udidi_cd) return { found: false, changes: [] };
-  const r = await searchMfdsDevice({ UDIDI_CD: d.udidi_cd });
-  if (r.items.length === 0) return { found: false, changes: [] };
-  const api = r.items[0] as Record<string, string>;
-  const labelMap: Record<string, string> = { prdlst_nm: "품목명", mnft_iprt_entp_nm: "업체명", udidi_cd: "UDI코드" };
-  const changes: { column: string; label: string; oldValue: string; newValue: string }[] = [];
-  const keys = ["PRDLST_NM", "MNFT_IPRT_ENTP_NM", "UDIDI_CD"];
-  for (const k of keys) if (d[k.toLowerCase()] !== api[k]) changes.push({ column: k.toLowerCase(), label: labelMap[k.toLowerCase()] ?? k, oldValue: d[k.toLowerCase()] ?? "", newValue: api[k] ?? "" });
-  return { found: true, changes };
+export async function syncMyDevice(_id: number) {
+  return { found: false, changes: [] };
 }
 
 export async function applyDrugSync(id: number, updates: Record<string, string>) {
@@ -998,14 +978,12 @@ export async function applyDrugSync(id: number, updates: Record<string, string>)
   revalidatePath("/products/my"); return { success: true };
 }
 
-export async function applyDeviceSync(id: number, updates: Record<string, string>) {
-  const supabase = await createClient();
-  await supabase.from("my_devices").update({ ...updates, synced_at: new Date().toISOString() }).eq("id", id);
-  revalidatePath("/products/my"); return { success: true };
+export async function applyDeviceSync(_id: number, _updates: Record<string, string>) {
+  return { success: true };
 }
 
 export async function triggerMfdsSync(sourceFilter: string) {
-  const sources = sourceFilter === "all" ? ["drug", "device_std"] : [sourceFilter];
+  const sources = sourceFilter === "all" ? ["drug"] : [sourceFilter];
   const results: Record<string, unknown> = {};
   const errors: string[] = [];
 

@@ -33,7 +33,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
       { href: "/notifications", label: "수신 메시지", icon: MessageSquare },
-      { href: "/orders", label: "주문 현황", icon: ClipboardList },
+      { href: "/orders", label: "주문 관리", icon: ClipboardList },
       { href: "/invoices", label: "세금계산서", icon: FileText },
       { href: "/sales", label: "영업실적", icon: BarChart3 },
     ],
@@ -50,8 +50,8 @@ export const navGroups: NavGroup[] = [
     label: "비즈니스 파트너",
     id: "partners",
     items: [
-      { href: "/hospitals", label: "병원(거래처)", icon: Building2 },
-      { href: "/suppliers", label: "제조/공급사", icon: Factory },
+      { href: "/hospitals", label: "거래처 관리", icon: Building2 },
+      { href: "/suppliers", label: "공급사 관리", icon: Factory },
       { href: "/map", label: "지도", icon: MapPin },
     ],
   },

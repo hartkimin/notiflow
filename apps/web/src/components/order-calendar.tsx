@@ -6,12 +6,12 @@ import { DataCalendar } from "@/components/data-calendar";
 import type { CalendarView } from "@/lib/schedule-utils";
 import type { OrderDetail } from "@/lib/types";
 
-const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  draft: { label: "초안", variant: "secondary" },
-  confirmed: { label: "접수확인", variant: "default" },
-  delivered: { label: "배송완료", variant: "outline" },
-  invoiced: { label: "발행완료", variant: "default" },
-  cancelled: { label: "취소", variant: "destructive" },
+const STATUS_MAP: Record<string, { label: string; color: string; bgClass: string }> = {
+  draft: { label: "초안", color: "bg-gray-400", bgClass: "text-gray-700 bg-gray-100 border-gray-300" },
+  confirmed: { label: "접수확인", color: "bg-blue-500", bgClass: "text-blue-700 bg-blue-50 border-blue-300" },
+  delivered: { label: "배송완료", color: "bg-green-500", bgClass: "text-green-700 bg-green-50 border-green-300" },
+  invoiced: { label: "발행완료", color: "bg-emerald-600", bgClass: "text-emerald-700 bg-emerald-50 border-emerald-300" },
+  cancelled: { label: "취소", color: "bg-red-500", bgClass: "text-red-700 bg-red-50 border-red-300" },
 };
 
 function formatDate(dateStr: string) {
@@ -32,28 +32,35 @@ function getSalesReps(order: OrderDetail): string {
 // --- Renderers ---
 
 function MonthItem({ order }: { order: OrderDetail }) {
+  const st = STATUS_MAP[order.status];
   return (
-    <span>
-      <span className="font-medium">{order.order_number}</span>{" "}
-      {order.hospital_name}
-      {order.total_amount ? <span className="text-[10px] text-muted-foreground ml-1">{formatAmount(order.total_amount)}</span> : null}
+    <span className="flex items-center gap-1">
+      <span className={`h-1.5 w-1.5 rounded-full ${st?.color ?? "bg-gray-400"} shrink-0`} />
+      <span className="font-medium truncate">{order.hospital_name ?? order.order_number}</span>
+      {order.total_amount ? <span className="text-muted-foreground ml-auto shrink-0">{formatAmount(order.total_amount)}</span> : null}
     </span>
   );
 }
 
 function WeekItem({ order }: { order: OrderDetail }) {
   const st = STATUS_MAP[order.status];
-  const reps = getSalesReps(order);
+  const borderColor = order.status === "delivered" ? "border-l-green-500" :
+                      order.status === "confirmed" ? "border-l-blue-500" :
+                      order.status === "invoiced" ? "border-l-emerald-600" :
+                      order.status === "cancelled" ? "border-l-red-500" : "border-l-gray-400";
   return (
-    <div>
+    <div className={`border-l-2 ${borderColor} pl-1.5`}>
       <div className="flex items-center justify-between gap-1">
-        <span className="text-[11px] font-medium font-mono truncate">{order.order_number}</span>
-        {st && <Badge variant={st.variant} className="text-[9px] px-1 py-0 h-3.5 shrink-0">{st.label}</Badge>}
+        <span className="text-[11px] font-medium truncate">{order.hospital_name}</span>
+        {st && (
+          <span className={`text-[9px] px-1 py-0 rounded border shrink-0 ${st.bgClass}`}>
+            {st.label}
+          </span>
+        )}
       </div>
-      <p className="text-[10px] text-muted-foreground truncate mt-0.5">{order.hospital_name}</p>
       <div className="flex items-center justify-between gap-1 mt-0.5">
-        {order.total_amount ? <span className="text-[10px] font-medium tabular-nums">{formatAmount(order.total_amount)}</span> : null}
-        {reps && <span className="text-[9px] text-blue-600 truncate">{reps}</span>}
+        <span className="text-[10px] text-muted-foreground font-mono">{order.order_number}</span>
+        {order.total_amount ? <span className="text-[10px] font-semibold tabular-nums">{formatAmount(order.total_amount)}</span> : null}
       </div>
     </div>
   );
@@ -72,17 +79,31 @@ function DayItem({ order }: { order: OrderDetail }) {
     <div className="space-y-2">
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium font-mono">{order.order_number}</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-sm font-semibold truncate">{order.hospital_name}</span>
+          <span className="text-xs text-muted-foreground font-mono shrink-0">{order.order_number}</span>
+        </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          {st && <Badge variant={st.variant} className="text-[10px]">{st.label}</Badge>}
+          {st && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${st.bgClass}`}>
+              {st.label}
+            </span>
+          )}
         </div>
       </div>
 
       {/* Info row */}
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        <span>{order.hospital_name}</span>
+      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
         {reps && <span className="text-blue-600">담당: {reps}</span>}
         {order.delivery_date && <span>배송: {formatDate(order.delivery_date)}</span>}
+        <span className="ml-auto font-semibold text-foreground tabular-nums">
+          매출 {formatAmount(salesTotal)}
+          {profit !== 0 && (
+            <span className={`ml-2 ${profit < 0 ? "text-red-500" : "text-green-600"}`}>
+              이익 {formatAmount(profit)} ({margin.toFixed(1)}%)
+            </span>
+          )}
+        </span>
       </div>
 
       {/* Items table */}
@@ -90,36 +111,31 @@ function DayItem({ order }: { order: OrderDetail }) {
         <div className="border rounded text-xs">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/30">
-                <TableHead className="text-[10px] py-1 h-auto">품목</TableHead>
+              <TableRow className="bg-muted/50">
+                <TableHead className="text-[10px] py-1 h-auto">품목명</TableHead>
                 <TableHead className="text-[10px] py-1 h-auto text-right w-12">수량</TableHead>
-                <TableHead className="text-[10px] py-1 h-auto text-right w-16">매입가(VAT별도)</TableHead>
-                <TableHead className="text-[10px] py-1 h-auto text-right w-16">매출가(VAT별도)</TableHead>
-                <TableHead className="text-[10px] py-1 h-auto text-right w-16">매출액</TableHead>
+                <TableHead className="text-[10px] py-1 h-auto text-right w-16">매입가</TableHead>
+                <TableHead className="text-[10px] py-1 h-auto text-right w-16">매출가</TableHead>
+                <TableHead className="text-[10px] py-1 h-auto text-right w-16">이익</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="text-[11px] py-0.5 truncate max-w-[120px]">{item.product_name || "-"}</TableCell>
-                  <TableCell className="text-[11px] py-0.5 text-right tabular-nums">{item.quantity}</TableCell>
-                  <TableCell className="text-[11px] py-0.5 text-right tabular-nums">{item.purchase_price?.toLocaleString() ?? "-"}</TableCell>
-                  <TableCell className="text-[11px] py-0.5 text-right tabular-nums">{item.unit_price?.toLocaleString() ?? "-"}</TableCell>
-                  <TableCell className="text-[11px] py-0.5 text-right tabular-nums">{((item.unit_price ?? 0) * item.quantity).toLocaleString()}</TableCell>
-                </TableRow>
-              ))}
+              {items.map((item) => {
+                const itemProfit = ((item.unit_price ?? 0) - (item.purchase_price ?? 0)) * item.quantity;
+                return (
+                  <TableRow key={item.id}>
+                    <TableCell className="text-[11px] py-0.5 truncate max-w-[140px]">{item.product_name || "-"}</TableCell>
+                    <TableCell className="text-[11px] py-0.5 text-right tabular-nums">{item.quantity}</TableCell>
+                    <TableCell className="text-[11px] py-0.5 text-right tabular-nums">{item.purchase_price?.toLocaleString() ?? "-"}</TableCell>
+                    <TableCell className="text-[11px] py-0.5 text-right tabular-nums">{item.unit_price?.toLocaleString() ?? "-"}</TableCell>
+                    <TableCell className={`text-[11px] py-0.5 text-right tabular-nums ${itemProfit < 0 ? "text-red-500" : "text-green-600"}`}>{itemProfit.toLocaleString()}</TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
       )}
-
-      {/* Summary */}
-      <div className="flex items-center gap-3 text-xs">
-        <span>매입 <strong className="tabular-nums">{formatAmount(purchaseTotal)}</strong></span>
-        <span>매출 <strong className="tabular-nums">{formatAmount(salesTotal)}</strong></span>
-        <span>이익 <strong className={`tabular-nums ${profit < 0 ? "text-red-500" : "text-green-600"}`}>{formatAmount(profit)}</strong></span>
-        <span className={margin < 0 ? "text-red-500" : ""}>{margin.toFixed(1)}%</span>
-      </div>
     </div>
   );
 }
@@ -154,7 +170,7 @@ function DetailContent({ order }: { order: OrderDetail }) {
         </div>
         <div>
           <span className="text-muted-foreground">상태</span>
-          <p>{st && <Badge variant={st.variant}>{st.label}</Badge>}</p>
+          <p>{st && <span className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${st.bgClass}`}>{st.label}</span>}</p>
         </div>
         <div>
           <span className="text-muted-foreground">담당자</span>
@@ -185,11 +201,11 @@ function DetailContent({ order }: { order: OrderDetail }) {
           <div className="border rounded overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/30">
+                <TableRow className="bg-muted/50">
                   <TableHead className="text-xs py-1 h-auto">품목명</TableHead>
                   <TableHead className="text-xs py-1 h-auto text-right w-14">수량</TableHead>
-                  <TableHead className="text-xs py-1 h-auto text-right w-20">매입단가(VAT별도)</TableHead>
-                  <TableHead className="text-xs py-1 h-auto text-right w-20">매출단가(VAT별도)</TableHead>
+                  <TableHead className="text-xs py-1 h-auto text-right w-20">매입가</TableHead>
+                  <TableHead className="text-xs py-1 h-auto text-right w-20">매출가</TableHead>
                   <TableHead className="text-xs py-1 h-auto text-right w-20">매출액</TableHead>
                   <TableHead className="text-xs py-1 h-auto text-right w-20">이익</TableHead>
                   <TableHead className="text-xs py-1 h-auto w-16">담당자</TableHead>

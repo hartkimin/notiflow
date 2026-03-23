@@ -328,34 +328,18 @@ export async function searchMfdsItemsAction(query: string) {
   const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
 
-  const [{ data: drugData }, { data: devData }] = await Promise.all([
-    supabase.rpc("search_mfds_items", {
-      query: query.trim(),
-      source_type: "drug",
-      result_limit: 15,
-      page_num: 1,
-      page_size: 15,
-    }),
-    supabase.rpc("search_mfds_items", {
-      query: query.trim(),
-      source_type: "device",
-      result_limit: 15,
-      page_num: 1,
-      page_size: 15,
-    }),
-  ]);
+  const { data: drugData } = await supabase.rpc("search_mfds_items", {
+    query: query.trim(),
+    source_type: "drug",
+    result_limit: 30,
+    page_num: 1,
+    page_size: 30,
+  });
 
-  const results = [
-    ...(drugData ?? []).map((d: Record<string, unknown>) => ({
-      id: d.id as number, name: d.name as string, code: (d.code as string) ?? "",
-      source_type: "drug" as const, manufacturer: d.manufacturer as string,
-    })),
-    ...(devData ?? []).map((d: Record<string, unknown>) => ({
-      id: d.id as number, name: d.name as string, code: (d.code as string) ?? "",
-      source_type: "device_std" as const, manufacturer: d.manufacturer as string,
-    })),
-  ];
-  return results.slice(0, 30);
+  return (drugData ?? []).map((d: Record<string, unknown>) => ({
+    id: d.id as number, name: d.name as string, code: (d.code as string) ?? "",
+    source_type: "drug" as const, manufacturer: d.manufacturer as string,
+  }));
 }
 
 export async function getRecentMfdsItemsAction() {

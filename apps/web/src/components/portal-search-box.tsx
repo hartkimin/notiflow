@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, Loader2, X } from "lucide-react";
+import { Search, Loader2, X, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface PortalSearchBoxProps<T extends { id: number; name: string }> {
@@ -12,6 +12,10 @@ interface PortalSearchBoxProps<T extends { id: number; name: string }> {
   renderItem?: (item: T) => React.ReactNode;
   className?: string;
   disabled?: boolean;
+  /** Keep dropdown open after selection (for multi-add flows) */
+  keepOpenOnSelect?: boolean;
+  /** Check if an item is already selected (shows checkmark) */
+  isSelected?: (item: T) => boolean;
 }
 
 export function PortalSearchBox<T extends { id: number; name: string }>({
@@ -22,6 +26,8 @@ export function PortalSearchBox<T extends { id: number; name: string }>({
   renderItem,
   className,
   disabled,
+  keepOpenOnSelect,
+  isSelected,
 }: PortalSearchBoxProps<T>) {
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<T[]>([]);
@@ -111,9 +117,7 @@ export function PortalSearchBox<T extends { id: number; name: string }>({
       case "Enter":
         e.preventDefault();
         if (activeIndex >= 0 && activeIndex < items.length) {
-          onSelect(items[activeIndex]);
-          setIsOpen(false);
-          setQuery("");
+          handleSelect(items[activeIndex]);
         }
         break;
       case "Escape":
@@ -123,9 +127,12 @@ export function PortalSearchBox<T extends { id: number; name: string }>({
   }
 
   function handleSelect(item: T) {
+    if (isSelected?.(item)) return; // already selected, ignore
     onSelect(item);
-    setIsOpen(false);
-    setQuery("");
+    if (!keepOpenOnSelect) {
+      setIsOpen(false);
+      setQuery("");
+    }
   }
 
   return (
@@ -154,31 +161,37 @@ export function PortalSearchBox<T extends { id: number; name: string }>({
         )}
       </div>
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-[300px] overflow-y-auto animate-in slide-in-from-top-1 fade-in duration-150">
+        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-[360px] overflow-y-auto animate-in slide-in-from-top-1 fade-in duration-150">
           {items.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-3">
               {isLoading ? "검색 중..." : query ? "검색 결과 없음" : "최근 항목 없음"}
             </p>
           ) : (
             <>
-              {!query && (
-                <div className="px-3 py-1.5 border-b bg-muted/30 text-[11px] text-muted-foreground">
-                  최근 사용
-                </div>
-              )}
-              {items.map((item, idx) => (
-                <button
-                  key={`${item.id}-${item.name}-${idx}`}
-                  type="button"
-                  className={`flex w-full items-center px-3 py-2 text-sm text-left border-b last:border-b-0 transition-colors ${
-                    idx === activeIndex ? "bg-accent" : "hover:bg-accent"
-                  }`}
-                  onClick={() => handleSelect(item)}
-                  onMouseEnter={() => setActiveIndex(idx)}
-                >
-                  {renderItem ? renderItem(item) : item.name}
-                </button>
-              ))}
+              <div className="px-3 py-1.5 border-b bg-muted/30 text-[11px] text-muted-foreground flex justify-between">
+                <span>{query ? "검색 결과" : "최근 사용"}</span>
+                <span>{items.length}건</span>
+              </div>
+              {items.map((item, idx) => {
+                const selected = isSelected?.(item);
+                return (
+                  <button
+                    key={`${item.id}-${item.name}-${idx}`}
+                    type="button"
+                    className={`flex w-full items-center px-3 py-2 text-sm text-left border-b last:border-b-0 transition-colors ${
+                      selected ? "bg-green-50 opacity-60" : idx === activeIndex ? "bg-accent" : "hover:bg-accent"
+                    }`}
+                    onClick={() => handleSelect(item)}
+                    onMouseEnter={() => setActiveIndex(idx)}
+                    disabled={selected}
+                  >
+                    <div className="flex-1 min-w-0">
+                      {renderItem ? renderItem(item) : item.name}
+                    </div>
+                    {selected && <Check className="h-3.5 w-3.5 text-green-600 shrink-0 ml-2" />}
+                  </button>
+                );
+              })}
             </>
           )}
         </div>

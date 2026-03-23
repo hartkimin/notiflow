@@ -38,6 +38,7 @@ import {
 import {
   getPartnerProductsForOrderAction,
   createOrderWithDetailsAction,
+  searchMyItemsAction,
 } from "@/app/(dashboard)/orders/actions";
 import { UNIT_OPTIONS, CUSTOM_UNIT_VALUE } from "@/lib/unit-types";
 import type { OrderDisplayColumns } from "@/lib/queries/settings";
@@ -355,6 +356,63 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
     [partnerProducts]
   );
 
+  // ── Check if item already added ──
+  const isPartnerItemSelected = useCallback((pp: PartnerProduct) => {
+    return items.some((i) => `${i.source_type}-${i.product_id}` === `${pp.product_source}-${pp.product_id}`);
+  }, [items]);
+
+  interface MyItemResult { id: number; type: "drug" | "device"; name: string; code: string | null; manufacturer: string | null; unit_price: number | null; }
+
+  function addMyItem(item: MyItemResult) {
+    if (items.some((i) => `${i.source_type}-${i.product_id}` === `${item.type}-${item.id}`)) {
+      toast.warning("이미 추가된 품목입니다");
+      return;
+    }
+    const key = nextKey();
+    setFlashKey(key);
+    setTimeout(() => setFlashKey(null), 1200);
+    setItems((prev) => [...prev, {
+      key,
+      product_id: item.id,
+      product_name: item.name,
+      standard_code: item.code || null,
+      supplier_id: null,
+      supplier_name: null,
+      suppliers: [],
+      quantity: 1,
+      unit_type: "piece",
+      custom_unit: false,
+      purchase_price: null,
+      selling_price: item.unit_price,
+      kpis_number: "",
+      source_type: item.type,
+      sales_rep: hospitalContactPerson ?? "",
+    }]);
+  }
+
+  const isMyItemSelected = useCallback((item: MyItemResult) => {
+    return items.some((i) => `${i.source_type}-${i.product_id}` === `${item.type}-${item.id}`);
+  }, [items]);
+
+  function renderMyItem(item: MyItemResult) {
+    return (
+      <div className="flex items-center gap-2 w-full">
+        <Badge variant="outline" className={`text-[9px] px-1 py-0 h-4 shrink-0 ${
+          item.type === "drug" ? "text-blue-600 bg-blue-50 border-blue-200" : "text-emerald-600 bg-emerald-50 border-emerald-200"
+        }`}>
+          {item.type === "drug" ? "약" : "기기"}
+        </Badge>
+        <span className="font-medium truncate">{item.name}</span>
+        {item.manufacturer && <span className="text-xs text-muted-foreground truncate">{item.manufacturer}</span>}
+        {item.unit_price != null && (
+          <span className="text-xs text-muted-foreground ml-auto shrink-0">{item.unit_price.toLocaleString()}원</span>
+        )}
+      </div>
+    );
+  }
+
+  const fetchRecentMyItems = useCallback(async () => [] as MyItemResult[], []);
+
   interface MfdsSearchResult { id: number; name: string; code: string; source_type: "drug" | "device_std"; manufacturer?: string | null; }
 
   function addMfdsItem(item: MfdsSearchResult) {
@@ -406,6 +464,11 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
       </div>
     );
   }
+
+  const isMfdsItemSelected = useCallback((item: MfdsSearchResult) => {
+    const sourceType = item.source_type === "device_std" ? "device" : "drug";
+    return items.some((i) => `${i.source_type}-${i.product_id}` === `${sourceType}-${item.id}`);
+  }, [items]);
 
   function renderMfdsItem(item: MfdsSearchResult) {
     const isDrug = item.source_type !== "device_std";
@@ -520,14 +583,15 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
             <Tabs value={addTab} onValueChange={setAddTab} className="space-y-3">
               <TabsList>
                 <TabsTrigger value="partner" className="text-xs" disabled={!hospitalId}>
-                  거래처 품목
+                  거래처
                   {partnerProducts.length > 0 && (
                     <Badge variant="outline" className="text-[10px] px-1.5 ml-1.5">
                       {partnerProducts.length}
                     </Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="mfds" className="text-xs">식약처 아이템</TabsTrigger>
+                <TabsTrigger value="myitems" className="text-xs">내품목</TabsTrigger>
+                <TabsTrigger value="mfds" className="text-xs">식약처 DB</TabsTrigger>
               </TabsList>
 
               <TabsContent value="partner">
@@ -546,17 +610,33 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                     searchAction={searchPartnerProductsLocal}
                     onSelect={addPartnerProduct}
                     renderItem={renderProductItem}
+                    keepOpenOnSelect
+                    isSelected={isPartnerItemSelected}
                   />
                 )}
               </TabsContent>
 
+              <TabsContent value="myitems">
+                <PortalSearchBox
+                  placeholder="내품목 검색 (품목명, 업체명, 코드)..."
+                  fetchRecent={fetchRecentMyItems}
+                  searchAction={searchMyItemsAction}
+                  onSelect={addMyItem}
+                  renderItem={renderMyItem}
+                  keepOpenOnSelect
+                  isSelected={isMyItemSelected}
+                />
+              </TabsContent>
+
               <TabsContent value="mfds">
                 <PortalSearchBox
-                  placeholder="식약처 품목 검색 (품목명, 코드, 업체명)..."
+                  placeholder="식약처 의약품 검색 (품목명, 코드, 업체명)..."
                   fetchRecent={getRecentMfdsItemsAction}
                   searchAction={searchMfdsItemsAction}
                   onSelect={addMfdsItem}
                   renderItem={renderMfdsItem}
+                  keepOpenOnSelect
+                  isSelected={isMfdsItemSelected}
                 />
               </TabsContent>
             </Tabs>

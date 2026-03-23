@@ -135,29 +135,38 @@ export function MfdsSearchPanel({
   const [manualForm, setManualForm] = useState<Record<string, string>>({});
   const [isAdding, setIsAdding] = useState(false);
 
-  const DRUG_FIELDS: Array<{ key: string; label: string; required?: boolean }> = [
-    { key: "item_name", label: "품목명", required: true },
-    { key: "entp_name", label: "업체명" },
-    { key: "bar_code", label: "표준코드(바코드)" },
-    { key: "edi_code", label: "보험코드(EDI)" },
-    { key: "item_eng_name", label: "영문 품목명" },
-    { key: "item_seq", label: "품목기준코드" },
-    { key: "entp_no", label: "업체허가번호" },
-    { key: "item_permit_date", label: "허가일자" },
-    { key: "cnsgn_manuf", label: "위탁제조업체" },
-    { key: "etc_otc_code", label: "전문/일반 구분" },
-    { key: "chart", label: "성상(외형)" },
-    { key: "material_name", label: "원료성분명" },
-    { key: "storage_method", label: "저장방법" },
-    { key: "valid_term", label: "유효기간" },
-    { key: "pack_unit", label: "포장단위" },
-    { key: "permit_kind_name", label: "허가종류" },
-    { key: "atc_code", label: "ATC 코드" },
-    { key: "rare_drug_yn", label: "희귀의약품 여부" },
-    { key: "cancel_date", label: "취소일자" },
-    { key: "cancel_name", label: "취소명" },
-    { key: "change_date", label: "변경일자" },
+  interface DrugField { key: string; label: string; required?: boolean; type?: FieldType; options?: string[]; group: string; placeholder?: string }
+
+  const DRUG_FIELDS_GROUPED: DrugField[] = [
+    // 기본 정보
+    { key: "item_name", label: "품목명", required: true, group: "기본 정보", placeholder: "예: 헤파린나트륨주사액" },
+    { key: "entp_name", label: "업체명", group: "기본 정보", placeholder: "예: ㈜대한제약" },
+    { key: "item_eng_name", label: "영문 품목명", group: "기본 정보" },
+    { key: "chart", label: "성상(외형)", group: "기본 정보" },
+    { key: "material_name", label: "원료성분명", group: "기본 정보" },
+    // 코드/허가
+    { key: "bar_code", label: "표준코드(바코드)", group: "코드/허가", placeholder: "예: 8806541234567" },
+    { key: "edi_code", label: "보험코드(EDI)", group: "코드/허가" },
+    { key: "atc_code", label: "ATC 코드", group: "코드/허가" },
+    { key: "item_seq", label: "품목기준코드", group: "코드/허가" },
+    { key: "entp_no", label: "업체허가번호", group: "코드/허가" },
+    { key: "item_permit_date", label: "허가일자", group: "코드/허가", placeholder: "YYYYMMDD" },
+    { key: "permit_kind_name", label: "허가종류", group: "코드/허가" },
+    // 보관/포장
+    { key: "storage_method", label: "저장방법", group: "보관/포장" },
+    { key: "valid_term", label: "유효기간", group: "보관/포장" },
+    { key: "pack_unit", label: "포장단위", group: "보관/포장", placeholder: "예: 10앰플/갑" },
+    // 분류
+    { key: "etc_otc_code", label: "전문/일반", type: "select", options: ["전문의약품", "일반의약품"], group: "분류" },
+    { key: "rare_drug_yn", label: "희귀의약품", type: "yn", group: "분류" },
+    { key: "cnsgn_manuf", label: "위탁제조업체", group: "분류" },
+    // 변경/취소 이력
+    { key: "cancel_date", label: "취소일자", group: "변경 이력", placeholder: "YYYYMMDD" },
+    { key: "cancel_name", label: "취소명", group: "변경 이력" },
+    { key: "change_date", label: "변경일자", group: "변경 이력", placeholder: "YYYYMMDD" },
   ];
+
+  const DRUG_FIELDS = DRUG_FIELDS_GROUPED.map(({ key, label, required }) => ({ key, label, required }));
 
   type FieldType = "text" | "select" | "yn";
   interface DeviceField { key: string; label: string; required?: boolean; type?: FieldType; options?: string[]; group: string; placeholder?: string }
@@ -1046,25 +1055,65 @@ export function MfdsSearchPanel({
             </DialogHeader>
             <ScrollArea className="flex-1 pr-4 -mr-4">
               {tab === "drug" ? (
-                /* Drug: flat list (unchanged) */
-                <div className="grid gap-3 py-2">
-                  {DRUG_FIELDS.map((f) => (
-                    <div key={f.key} className="grid grid-cols-[120px_1fr] items-center gap-2">
-                      <Label htmlFor={`manual-${f.key}`} className="text-xs text-right text-muted-foreground">
-                        {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
-                      </Label>
-                      <Input
-                        id={`manual-${f.key}`}
-                        value={manualForm[f.key] ?? ""}
-                        onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                        placeholder={f.label}
-                        className="h-8 text-sm"
-                      />
+                /* Drug: grouped layout */
+                <div className="space-y-5 py-2">
+                  {(() => {
+                    const groups = [...new Set(DRUG_FIELDS_GROUPED.map((f) => f.group))];
+                    return groups.map((groupName) => (
+                      <div key={groupName}>
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 border-b pb-1">{groupName}</h4>
+                        {DRUG_FIELDS_GROUPED.filter((f) => f.group === groupName).some((f) => f.type === "yn") ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            {DRUG_FIELDS_GROUPED.filter((f) => f.group === groupName).map((f) =>
+                              f.type === "yn" ? (
+                                <label key={f.key} className="flex items-center gap-2 px-2 py-1.5 rounded border hover:bg-muted/50 cursor-pointer text-sm">
+                                  <input type="checkbox" checked={manualForm[f.key] === "Y"} onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.checked ? "Y" : "N" }))} className="rounded border-gray-300" />
+                                  {f.label}
+                                </label>
+                              ) : f.type === "select" && f.options ? (
+                                <div key={f.key} className="grid grid-cols-[100px_1fr] items-center gap-2 col-span-2">
+                                  <Label className="text-xs text-right text-muted-foreground">{f.label}</Label>
+                                  <select value={manualForm[f.key] ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))} className="h-8 text-sm rounded-md border border-input bg-background px-3">
+                                    <option value="">선택하세요</option>
+                                    {f.options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                                  </select>
+                                </div>
+                              ) : (
+                                <div key={f.key} className="grid grid-cols-[100px_1fr] items-center gap-2 col-span-2">
+                                  <Label className="text-xs text-right text-muted-foreground">{f.label}</Label>
+                                  <Input value={manualForm[f.key] ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))} placeholder={f.placeholder ?? f.label} className="h-8 text-sm" />
+                                </div>
+                              )
+                            )}
+                          </div>
+                        ) : (
+                          <div className="grid gap-2.5">
+                            {DRUG_FIELDS_GROUPED.filter((f) => f.group === groupName).map((f) => (
+                              <div key={f.key} className="grid grid-cols-[120px_1fr] items-center gap-2">
+                                <Label htmlFor={`manual-${f.key}`} className="text-xs text-right text-muted-foreground">
+                                  {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
+                                </Label>
+                                {f.type === "select" && f.options ? (
+                                  <select id={`manual-${f.key}`} value={manualForm[f.key] ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))} className="h-8 text-sm rounded-md border border-input bg-background px-3">
+                                    <option value="">선택하세요</option>
+                                    {f.options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                                  </select>
+                                ) : (
+                                  <Input id={`manual-${f.key}`} value={manualForm[f.key] ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))} placeholder={f.placeholder ?? f.label} className="h-8 text-sm" />
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ));
+                  })()}
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 border-b pb-1">가격</h4>
+                    <div className="grid grid-cols-[120px_1fr] items-center gap-2">
+                      <Label htmlFor="manual-unit_price" className="text-xs text-right text-muted-foreground">단가</Label>
+                      <Input id="manual-unit_price" type="number" value={manualForm.unit_price ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, unit_price: e.target.value }))} placeholder="원 단위 입력" className="h-8 text-sm" />
                     </div>
-                  ))}
-                  <div className="grid grid-cols-[120px_1fr] items-center gap-2">
-                    <Label htmlFor="manual-unit_price" className="text-xs text-right text-muted-foreground">단가</Label>
-                    <Input id="manual-unit_price" type="number" value={manualForm.unit_price ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, unit_price: e.target.value }))} placeholder="원 단위 입력" className="h-8 text-sm" />
                   </div>
                 </div>
               ) : (

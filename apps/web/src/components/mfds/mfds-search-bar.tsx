@@ -174,9 +174,24 @@ export function MfdsSearchBar({
           <button
             type="button"
             onClick={() => onTabChange("drug")}
-            className="rounded-md px-3 py-1 text-xs font-medium bg-background text-foreground shadow-sm"
+            className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${
+              tab === "drug"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
           >
             의약품
+          </button>
+          <button
+            type="button"
+            onClick={() => onTabChange("device_std")}
+            className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${
+              tab === "device_std"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            의료기기
           </button>
         </div>
 

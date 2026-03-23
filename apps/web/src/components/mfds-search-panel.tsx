@@ -382,8 +382,9 @@ export function MfdsSearchPanel({
           return (
             <input
               type="number"
-              className="w-20 rounded border px-1.5 py-0.5 text-xs"
+              className="w-20 rounded border border-primary px-1.5 py-0.5 text-xs ring-1 ring-primary/30"
               autoFocus
+              placeholder="가격 입력"
               value={editingPriceValue}
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => setEditingPriceValue(e.target.value)}
@@ -405,7 +406,7 @@ export function MfdsSearchPanel({
               setEditingPriceValue(currentPrice != null ? String(currentPrice) : "");
             }}
           >
-            {currentPrice != null ? currentPrice.toLocaleString() : "-"}
+            {currentPrice != null ? `₩${currentPrice.toLocaleString()}` : <span className="text-muted-foreground/50">클릭하여 입력</span>}
           </span>
         );
       },
@@ -493,8 +494,7 @@ export function MfdsSearchPanel({
 
   // ── Debounced auto-search on query change ─────────────────────────
   useEffect(() => {
-    if (mode === "manage") return;
-    if (!hasSearched && !query.trim()) return;
+    if (!hasSearched && !query.trim() && mode !== "manage") return;
 
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -747,7 +747,7 @@ export function MfdsSearchPanel({
         }
         toast.success("변경사항이 적용되었습니다.");
         setSyncDiff(null);
-        router.refresh();
+        doSearch(page);
       } catch (err) {
         toast.error(`적용 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
       }
@@ -760,8 +760,6 @@ export function MfdsSearchPanel({
       ? (item.item_name as string) ?? ""
       : (item.prdlst_nm as string) ?? "";
 
-    if (!confirm(`"${name}" 항목을 삭제하시겠습니까?`)) return;
-
     setDeletingId(itemId);
     startTransition(async () => {
       try {
@@ -770,8 +768,8 @@ export function MfdsSearchPanel({
         } else {
           await deleteMyDevice(itemId);
         }
-        toast.success("삭제되었습니다.");
-        router.refresh();
+        toast.success(`"${name}" 삭제됨`, { duration: 4000 });
+        doSearch(page);
       } catch (err) {
         toast.error(`삭제 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
       } finally {
@@ -799,7 +797,7 @@ export function MfdsSearchPanel({
           await updateMyDevicePrice(itemId, unitPrice);
         }
         toast.success("가격이 저장되었습니다.");
-        router.refresh();
+        doSearch(page);
       } catch (err) {
         toast.error(`가격 저장 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
       }
@@ -852,8 +850,8 @@ export function MfdsSearchPanel({
 
   return (
     <div className="flex flex-col h-[calc(100vh-180px)] min-h-[400px]">
-      {/* Sync status bar */}
-      {mode === "browse" && syncStatus && (
+      {/* Status bar */}
+      {(mode === "browse" || mode === "manage") && syncStatus && (
         <div className="flex items-center gap-4 px-3 py-1.5 rounded-md bg-muted/50 text-xs text-muted-foreground mb-1.5 shrink-0">
           <span className="font-medium text-foreground/70">DB 현황</span>
           <span>
@@ -885,14 +883,10 @@ export function MfdsSearchPanel({
               filterLogic={filterLogic}
               onFilterLogicChange={setFilterLogic}
               onSearch={() => {
-                if (mode === "manage") {
-                  setGlobalFilter(query);
-                } else {
-                  if (debounceTimerRef.current) {
-                    clearTimeout(debounceTimerRef.current);
-                  }
-                  doSearch(1);
+                if (debounceTimerRef.current) {
+                  clearTimeout(debounceTimerRef.current);
                 }
+                doSearch(1);
               }}
               isPending={isPending}
               recentSearches={recentSearches.items}
@@ -942,7 +936,7 @@ export function MfdsSearchPanel({
         </div>
 
         {/* Inline toolbar: result count + column settings (compact) */}
-        {hasSearched && results.length > 0 && (
+        {(hasSearched || (mode === "manage" && results.length > 0)) && (
           <div className="flex items-center justify-between">
             <MfdsResultToolbar
               totalCount={totalCount}

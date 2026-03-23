@@ -14,11 +14,12 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  Plus, Pencil, Trash2, LayoutList, LayoutGrid, ArrowUp, ArrowDown, 
-  ArrowUpDown, Sparkles, Loader2, Globe, Phone, MapPin, Building, 
-  User as UserIcon, Package, Info, Save, X, Search 
+import {
+  Plus, Pencil, Trash2, LayoutList, LayoutGrid, ArrowUp, ArrowDown,
+  ArrowUpDown, Sparkles, Loader2, Globe, Phone, MapPin, Building,
+  User as UserIcon, Package, Info, Save, X, Search, ExternalLink, FilterX, Factory,
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { createSupplier, updateSupplier, deleteSupplier, deleteSuppliers } from "@/lib/actions";
 import { toast } from "sonner";
 import { useResizableColumns } from "@/hooks/use-resizable-columns";
@@ -120,14 +121,21 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-4 flex-1 w-full sm:w-auto">
           <h2 className="text-xl font-black text-zinc-950 shrink-0">공급사 관리</h2>
-          <form onSubmit={handleSearch} className="relative flex-1 max-w-sm group">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400 group-focus-within:text-primary transition-colors" />
-            <Input
-              name="search"
-              placeholder="공급사 검색..."
-              defaultValue={searchParams.get("search") || ""}
-              className="pl-9 h-10 bg-white shadow-sm border-zinc-200 rounded-xl"
-            />
+          <form onSubmit={handleSearch} className="relative flex-1 max-w-sm group flex items-center gap-1">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400 group-focus-within:text-primary transition-colors" />
+              <Input
+                name="search"
+                placeholder="이름, 약칭, 대표자, 업태 검색..."
+                defaultValue={searchParams.get("search") || ""}
+                className="pl-9 h-10 bg-white shadow-sm border-zinc-200 rounded-xl"
+              />
+            </div>
+            {searchParams.get("search") && (
+              <Button type="button" variant="ghost" size="icon" className="h-10 w-10 shrink-0" onClick={() => router.push("/suppliers")}>
+                <FilterX className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            )}
           </form>
         </div>
         
@@ -151,7 +159,13 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
           <ResizablePanel defaultSize={selectedSupplier ? 65 : 100} minSize={30}>
             {suppliers.length === 0 ? (
               <div className="text-center py-24 bg-zinc-50/30">
-                <p className="text-sm font-bold text-zinc-400">공급사가 없습니다.</p>
+                <Factory className="h-10 w-10 mx-auto mb-3 text-zinc-300" />
+                <p className="text-sm font-bold text-zinc-400">
+                  {searchParams.get("search") ? "검색 결과가 없습니다" : "등록된 공급사가 없습니다"}
+                </p>
+                <p className="text-xs text-zinc-300 mt-1">
+                  {searchParams.get("search") ? "다른 검색어를 시도하거나 필터를 초기화하세요" : "\"공급사 추가\" 버튼으로 첫 공급사를 등록하세요"}
+                </p>
               </div>
             ) : view === "list" ? (
               <div className="h-full overflow-auto no-scrollbar">
@@ -226,6 +240,9 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setSelectedSupplier(s); setIsEditing(true); }}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(s.id)}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -251,13 +268,26 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
                   >
                     <CardContent className="p-4 space-y-2">
                       <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-zinc-950">{s.name}</h3>
-                        <Badge variant={s.is_active ? "default" : "secondary"} className="text-[10px]">
+                        <h3 className="font-bold text-zinc-950 truncate">{s.name}</h3>
+                        <Badge variant={s.is_active ? "default" : "secondary"} className="text-[10px] shrink-0">
                           {s.is_active ? "활성" : "비활성"}
                         </Badge>
                       </div>
                       {s.short_name && <p className="text-[11px] text-muted-foreground truncate">{s.short_name}</p>}
-                      {s.phone && <p className="text-[11px] text-zinc-500 flex items-center gap-1.5"><Phone className="h-3 w-3" /> {s.phone}</p>}
+                      <div className="space-y-1 text-[11px] text-zinc-500">
+                        {s.ceo_name && <p className="flex items-center gap-1.5"><UserIcon className="h-3 w-3" /> {s.ceo_name}</p>}
+                        {s.phone && <p className="flex items-center gap-1.5"><Phone className="h-3 w-3" /> {s.phone}</p>}
+                        {s.address && <p className="flex items-center gap-1.5 truncate"><MapPin className="h-3 w-3 shrink-0" /> {s.address}</p>}
+                        {s.website && <p className="flex items-center gap-1.5 truncate"><Globe className="h-3 w-3 shrink-0" /> {s.website}</p>}
+                      </div>
+                      <div className="flex gap-1 pt-1 border-t" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs flex-1" onClick={() => { setSelectedSupplier(s); setIsEditing(true); }}>
+                          <Pencil className="h-3 w-3 mr-1" /> 수정
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => setDeleteId(s.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -341,6 +371,16 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
                               <div>
                                 <p className="text-[11px] font-bold text-zinc-400">주소</p>
                                 <p className="text-sm font-semibold text-zinc-950 leading-relaxed">{selectedSupplier.address || "-"}</p>
+                                {selectedSupplier.address && (
+                                  <a
+                                    href={`https://map.naver.com/v5/search/${encodeURIComponent(selectedSupplier.address)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1"
+                                  >
+                                    <ExternalLink className="h-3 w-3" /> 네이버 지도에서 보기
+                                  </a>
+                                )}
                               </div>
                             </div>
                             {selectedSupplier.website && (
@@ -402,7 +442,7 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
       <Dialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>공급사 삭제</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">이 공급사를 비활성화하시겠습니까?</p>
+          <p className="text-sm text-muted-foreground">이 공급사를 영구 삭제합니다. 관련 주문 데이터는 유지됩니다.</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteId(null)}>취소</Button>
             <Button variant="destructive" disabled={isPending} onClick={() => deleteId && handleDelete(deleteId)}>
@@ -468,6 +508,7 @@ function SupplierInlineForm({
   }
 
   async function handleSave() {
+    if (!name.trim()) { toast.error("공급사명은 필수입니다"); return; }
     const data = {
       name, short_name: shortName, ceo_name: ceoName, business_number: businessNumber,
       phone, fax, address, website, business_type: businessType, business_category: businessCategory,
@@ -488,9 +529,9 @@ function SupplierInlineForm({
     <div className="space-y-6 animate-in fade-in slide-in-from-left-2 duration-300">
       <div className="space-y-4">
         <div className="space-y-1.5">
-          <Label className="text-[11px] font-black text-zinc-400">공급사명</Label>
+          <Label className="text-[11px] font-black text-zinc-400">공급사명 <span className="text-red-500">*</span></Label>
           <div className="flex gap-2">
-            <Input value={name} onChange={(e) => setName(e.target.value)} className="h-10 font-bold rounded-xl" />
+            <Input value={name} onChange={(e) => setName(e.target.value)} className="h-10 font-bold rounded-xl" required />
             <Button size="icon" variant="outline" className="h-10 w-10 shrink-0 rounded-xl" onClick={handleAiSearch} disabled={isAiSearching}>
               {isAiSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-primary" />}
             </Button>
@@ -536,10 +577,12 @@ function SupplierInlineForm({
 
         <div className="space-y-1.5">
           <Label className="text-[11px] font-black text-zinc-400">비고</Label>
-          <textarea 
-            value={notes} 
-            onChange={(e) => setNotes(e.target.value)} 
-            className="w-full min-h-[100px] rounded-xl border bg-background p-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            className="rounded-xl text-sm"
+            placeholder="공급사 관련 메모..."
           />
         </div>
       </div>
@@ -736,7 +779,7 @@ function SupplierFormDialog({
 
             <div className="space-y-1">
               <Label className="text-[11px] font-black text-zinc-400">비고</Label>
-              <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="rounded-xl h-10" />
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="rounded-xl text-sm" placeholder="공급사 관련 메모..." />
             </div>
           </div>
           <DialogFooter className="pt-4">

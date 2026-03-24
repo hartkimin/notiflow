@@ -33,6 +33,33 @@ export function ChatWidget() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Draggable floating button
+  const [pos, setPos] = useState({ x: 0, y: 0 }); // offset from default (bottom-6 right-6)
+  const dragRef = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number; dragging: boolean }>({ startX: 0, startY: 0, startPosX: 0, startPosY: 0, dragging: false });
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    dragRef.current = { startX: e.clientX, startY: e.clientY, startPosX: pos.x, startPosY: pos.y, dragging: false };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, [pos]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    const d = dragRef.current;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    if (!d.dragging && Math.abs(dx) + Math.abs(dy) > 5) d.dragging = true;
+    if (d.dragging) {
+      setPos({ x: d.startPosX - dx, y: d.startPosY - dy });
+    }
+  }, []);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (!dragRef.current.dragging) {
+      e.stopPropagation();
+      setIsOpen(prev => !prev);
+    }
+    dragRef.current.dragging = false;
+  }, []);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -100,14 +127,17 @@ export function ChatWidget() {
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Button (draggable) */}
       <button
-        onClick={(e) => { e.stopPropagation(); setIsOpen(prev => !prev); }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        style={{ right: 24 + pos.x, bottom: 24 + pos.y, touchAction: "none" }}
         className={cn(
-          "fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-300 print:hidden",
+          "fixed z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-colors duration-200 print:hidden cursor-grab active:cursor-grabbing select-none",
           isOpen
-            ? "bg-muted text-muted-foreground hover:bg-muted/80 scale-90"
-            : "bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105 shadow-primary/25",
+            ? "bg-muted text-muted-foreground hover:bg-muted/80"
+            : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/25",
         )}
       >
         {isOpen ? <X className="h-5 w-5" /> : <MessageCircle className="h-6 w-6" />}
@@ -115,7 +145,10 @@ export function ChatWidget() {
 
       {/* Chat Panel */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 z-50 w-[380px] max-h-[560px] flex flex-col rounded-2xl border bg-background shadow-2xl overflow-hidden print:hidden animate-in slide-in-from-bottom-4 fade-in duration-200">
+        <div
+          style={{ right: 24 + pos.x, bottom: 96 + pos.y }}
+          className="fixed z-50 w-[380px] max-h-[560px] flex flex-col rounded-2xl border bg-background shadow-2xl overflow-hidden print:hidden animate-in slide-in-from-bottom-4 fade-in duration-200"
+        >
           {/* Header */}
           <div className="flex items-center gap-2.5 px-4 py-3 border-b bg-primary/5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">

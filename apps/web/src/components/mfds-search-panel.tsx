@@ -261,7 +261,7 @@ export function MfdsSearchPanel({
     }
   };
 
-  const pageSize = 15;
+  const pageSize = mode === "manage" ? 100 : 15;
   const totalPages = Math.ceil(totalCount / pageSize);
 
   // ── Column definitions ────────────────────────────────────────────
@@ -964,7 +964,7 @@ export function MfdsSearchPanel({
     : syncStatus?.drugCount ? 100 : null;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-180px)] min-h-[400px]">
+    <div className={mode === "manage" ? "flex flex-col" : "flex flex-col h-[calc(100vh-180px)] min-h-[400px]"}>
       {/* Status bar */}
       {(mode === "browse" || mode === "manage") && syncStatus && (
         <div className="flex items-center gap-4 px-3 py-1.5 rounded-md bg-muted/50 text-xs text-muted-foreground mb-1.5 shrink-0">
@@ -1064,7 +1064,7 @@ export function MfdsSearchPanel({
       </div>
 
       {/* Table fills remaining space */}
-      <div className="flex-1 min-h-0 overflow-auto mt-1.5">
+      <div className={mode === "manage" ? "mt-1.5" : "flex-1 min-h-0 overflow-auto mt-1.5"}>
         <MfdsResultTable
           table={table}
           tab={tab}

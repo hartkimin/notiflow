@@ -32,8 +32,18 @@ export async function sendFCMDataMessage(
     const result = await messaging.send({
       token: fcmToken,
       data: dataPayload,
+      // notification field ensures delivery even when app is killed
+      notification: {
+        title: '동기화 요청',
+        body: '새로운 데이터를 동기화합니다.',
+      },
       android: {
         priority: 'high' as const,
+        notification: {
+          channelId: 'orders',
+          sound: 'default',
+          clickAction: 'SYNC_ACTION',
+        },
       },
     });
 

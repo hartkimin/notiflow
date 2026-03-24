@@ -52,8 +52,8 @@ export function ProductSection({ initialData, initialMonth }: { initialData: Pro
   const prodChartData = useMemo(
     () =>
       data
-        .slice(0, 10)
-        .map((p) => ({ name: p.product_name.slice(0, 15), 매출: p.revenue, 이익: p.profit })),
+        .slice(0, 20)
+        .map((p) => ({ name: p.product_name.slice(0, 12), 매출: p.revenue, 이익: p.profit })),
     [data]
   );
 
@@ -88,14 +88,14 @@ export function ProductSection({ initialData, initialMonth }: { initialData: Pro
           <>
             {data.length > 0 && (
               <div className="rounded-lg border p-4 mb-4">
-                <h4 className="text-sm font-semibold mb-3">품목별 매출 Top {Math.min(10, data.length)}</h4>
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={prodChartData} margin={{ left: 10, right: 10, top: 5, bottom: 40 }}>
+                <h4 className="text-sm font-semibold mb-3">품목별 매출 Top {Math.min(20, data.length)}</h4>
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart data={prodChartData} margin={{ left: 10, right: 10, top: 5, bottom: 50 }} barSize={16}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" fontSize={10} angle={-30} textAnchor="end" height={60} interval={0} />
+                    <XAxis dataKey="name" fontSize={9} angle={-35} textAnchor="end" height={65} interval={0} />
                     <YAxis tickFormatter={fmtWon} />
                     <Tooltip formatter={(v) => `₩${fmtWon(Number(v))}`} />
-                    <Bar dataKey="매출" radius={[4, 4, 0, 0]}>
+                    <Bar dataKey="매출" radius={[3, 3, 0, 0]}>
                       {prodChartData.map((_, i) => (
                         <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                       ))}

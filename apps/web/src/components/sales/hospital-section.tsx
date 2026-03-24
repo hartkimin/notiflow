@@ -114,13 +114,13 @@ export function HospitalSection({ initialData, initialItemData, initialMonth }: 
             {data.length > 0 && (
               <div className="rounded-lg border p-4 mb-4">
                 <h4 className="text-sm font-semibold mb-3">거래처별 매출 Top {Math.min(10, data.length)}</h4>
-                <ResponsiveContainer width="100%" height={Math.max(200, Math.min(10, data.length) * 45)}>
-                  <BarChart data={hospChartData} layout="vertical" margin={{ left: 80, right: 20, top: 5, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" tickFormatter={fmtWon} />
-                    <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 11 }} />
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={hospChartData} margin={{ left: 10, right: 10, top: 5, bottom: 40 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" fontSize={10} angle={-20} textAnchor="end" height={50} interval={0} />
+                    <YAxis tickFormatter={fmtWon} />
                     <Tooltip formatter={(v) => `₩${fmtWon(Number(v))}`} />
-                    <Bar dataKey="매출" fill="#006a34" radius={[0, 4, 4, 0]}>
+                    <Bar dataKey="매출" radius={[4, 4, 0, 0]}>
                       {hospChartData.map((_, i) => (
                         <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                       ))}

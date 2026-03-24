@@ -125,15 +125,15 @@ export function SalesRepSection({ initialData, initialHospitalData, initialMonth
             {data.length > 0 && (
               <div className="rounded-lg border p-4 mb-4">
                 <h4 className="text-sm font-semibold mb-3">담당자별 매출·매입 비교</h4>
-                <ResponsiveContainer width="100%" height={Math.max(200, data.length * 50)}>
-                  <BarChart data={chartData} layout="vertical" margin={{ left: 60, right: 20, top: 5, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" tickFormatter={fmtWon} />
-                    <YAxis type="category" dataKey="name" width={55} tick={{ fontSize: 12 }} />
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={chartData} margin={{ left: 10, right: 10, top: 5, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" fontSize={12} />
+                    <YAxis tickFormatter={fmtWon} />
                     <Tooltip formatter={(v) => `₩${fmtWon(Number(v))}`} />
                     <Legend />
-                    <Bar dataKey="매출" fill="#006a34" radius={[0, 4, 4, 0]} />
-                    <Bar dataKey="매입" fill="#fc8181" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="매출" fill="#006a34" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="매입" fill="#fc8181" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

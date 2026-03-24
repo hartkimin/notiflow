@@ -13,8 +13,13 @@ import {
 } from "recharts";
 import type { MonthlySalesTrend } from "@/lib/queries/stats";
 
+function fmtWon(n: number) {
+  if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)}억`;
+  if (Math.abs(n) >= 1e4) return `${Math.round(n / 1e4).toLocaleString()}만`;
+  return n.toLocaleString();
+}
+
 export function SalesTrendChart({ data }: { data: MonthlySalesTrend[] }) {
-  // Recharts needs ascending order, but our SQL returns descending for limit. Reverse it.
   const chartData = [...data].reverse();
 
   return (
@@ -22,49 +27,45 @@ export function SalesTrendChart({ data }: { data: MonthlySalesTrend[] }) {
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
           data={chartData}
-          margin={{
-            top: 5,
-            right: 30,
-            left: 20,
-            bottom: 5,
-          }}
+          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
         >
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis 
-            dataKey="month" 
+          <XAxis
+            dataKey="month"
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 12 }}
+            fontSize={12}
             dy={10}
           />
-          <YAxis 
+          <YAxis
             yAxisId="left"
             axisLine={false}
             tickLine={false}
-            tickFormatter={(value) => `${(value / 10000).toFixed(0)}만`}
-            tick={{ fontSize: 12 }}
+            tickFormatter={fmtWon}
+            fontSize={12}
             dx={-10}
           />
-          <YAxis 
+          <YAxis
             yAxisId="right"
             orientation="right"
             axisLine={false}
             tickLine={false}
-            tickFormatter={(value) => `${value}%`}
-            tick={{ fontSize: 12 }}
+            tickFormatter={(v) => `${v}%`}
+            fontSize={12}
             dx={10}
           />
-          <Tooltip 
+          <Tooltip
             formatter={(value, name) => {
-              if (name === "profit_margin") return [`${value}%`, "이익률"];
-              return [`${Number(value).toLocaleString()}원`, name === "delivered_amount" ? "배송완료금액" : "매출이익"];
+              if (name === "이익률") return [`${value}%`, "이익률"];
+              return [`₩${fmtWon(Number(value))}`, name];
             }}
             labelStyle={{ color: "black", fontWeight: "bold", marginBottom: "4px" }}
             contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0" }}
           />
-          <Legend wrapperStyle={{ paddingTop: "20px" }}/>
-          <Bar yAxisId="left" dataKey="delivered_amount" name="배송완료금액" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
-          <Line yAxisId="right" type="monotone" dataKey="profit_margin" name="이익률" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
+          <Legend wrapperStyle={{ paddingTop: "20px" }} />
+          <Bar yAxisId="left" dataKey="supply_amount" name="매출(VAT포함)" fill="#006a34" radius={[4, 4, 0, 0]} barSize={36} />
+          <Bar yAxisId="left" dataKey="profit_amount" name="이익" fill="#68d391" radius={[4, 4, 0, 0]} barSize={36} />
+          <Line yAxisId="right" type="monotone" dataKey="profit_margin" name="이익률" stroke="#f6ad55" strokeWidth={2} dot={{ r: 4 }} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>

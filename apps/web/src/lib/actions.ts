@@ -832,13 +832,8 @@ export async function searchMfdsItems(params: { query: string; sourceType: strin
   return { items, totalCount, page };
 }
 
-export async function addToMyDrugs(item: Record<string, unknown>): Promise<{ success: boolean; id?: number; alreadyExists?: boolean }> {
+export async function addToMyDrugs(item: Record<string, unknown>): Promise<{ success: boolean; id?: number }> {
   const supabase = await createClient();
-  const barCode = (item.bar_code as string) ?? null;
-  if (barCode) {
-    const { data: existing } = await supabase.from("my_drugs").select("id").eq("bar_code", barCode).maybeSingle();
-    if (existing) return { success: true, id: existing.id, alreadyExists: true };
-  }
   const row: Record<string, string | null> = {};
   const cols = [
     "item_seq", "item_name", "item_eng_name", "entp_name", "entp_no",
@@ -855,13 +850,8 @@ export async function addToMyDrugs(item: Record<string, unknown>): Promise<{ suc
   revalidatePath("/products"); return { success: true, id: data.id };
 }
 
-export async function addToMyDevices(item: Record<string, unknown>): Promise<{ success: boolean; id?: number; alreadyExists?: boolean }> {
+export async function addToMyDevices(item: Record<string, unknown>): Promise<{ success: boolean; id?: number }> {
   const supabase = await createClient();
-  const udidiCd = (item.udidi_cd as string) ?? null;
-  if (udidiCd) {
-    const { data: existing } = await supabase.from("my_devices").select("id").eq("udidi_cd", udidiCd).maybeSingle();
-    if (existing) return { success: true, id: existing.id, alreadyExists: true };
-  }
   const row: Record<string, string | null> = {};
   const cols = [
     "udidi_cd", "prdlst_nm", "mnft_iprt_entp_nm", "mdeq_clsf_no", "clsf_no_grad_cd",
@@ -882,6 +872,22 @@ export async function deleteMyDrug(id: number) { const supabase = await createCl
 export async function deleteMyDevice(id: number) { const supabase = await createClient(); await supabase.from("my_devices").delete().eq("id", id); revalidatePath("/products/my"); return { success: true }; }
 export async function updateMyDrugPrice(id: number, p: number | null) { const supabase = await createClient(); await supabase.from("my_drugs").update({ unit_price: p }).eq("id", id); revalidatePath("/products/my"); return { success: true }; }
 export async function updateMyDevicePrice(id: number, p: number | null) { const supabase = await createClient(); await supabase.from("my_devices").update({ unit_price: p }).eq("id", id); revalidatePath("/products/my"); return { success: true }; }
+
+export async function updateMyDrug(id: number, data: Record<string, unknown>) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("my_drugs").update(data).eq("id", id);
+  if (error) throw error;
+  revalidatePath("/products/my");
+  return { success: true };
+}
+
+export async function updateMyDevice(id: number, data: Record<string, unknown>) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("my_devices").update(data).eq("id", id);
+  if (error) throw error;
+  revalidatePath("/products/my");
+  return { success: true };
+}
 
 export async function getActiveSyncLog() {
   const supabase = await createClient();

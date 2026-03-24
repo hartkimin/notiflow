@@ -156,7 +156,7 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
             : await addToMyDevices(item);
 
           if (!addRes.success) {
-            throw new Error(addRes.alreadyExists ? "이미 관리 품목에 존재하지만 정보를 가져오지 못했습니다." : "내 품목 등록 실패");
+            throw new Error("내 품목 등록 실패");
           }
           finalProductId = addRes.id;
         }

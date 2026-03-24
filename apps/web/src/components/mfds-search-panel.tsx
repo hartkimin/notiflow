@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2, Database, Square, PenLine } from "lucide-react";
+import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2, Database, Square, PenLine, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -38,6 +38,8 @@ import {
   deleteMyDevice,
   updateMyDrugPrice,
   updateMyDevicePrice,
+  updateMyDrug,
+  updateMyDevice,
 } from "@/lib/actions";
 import { type FilterChip } from "@/lib/mfds-search-utils";
 import { useRecentSearches } from "@/hooks/use-recent-searches";
@@ -130,10 +132,11 @@ export function MfdsSearchPanel({
   const [editingPriceId, setEditingPriceId] = useState<number | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState<string>("");
 
-  // Manual add state (manage mode only)
+  // Manual add / edit state (manage mode only)
   const [showManualAdd, setShowManualAdd] = useState(false);
   const [manualForm, setManualForm] = useState<Record<string, string>>({});
   const [isAdding, setIsAdding] = useState(false);
+  const [editingItem, setEditingItem] = useState<{ id: number; data: Record<string, string> } | null>(null);
 
   interface DrugField { key: string; label: string; required?: boolean; type?: FieldType; options?: string[]; group: string; placeholder?: string }
 
@@ -211,25 +214,44 @@ export function MfdsSearchPanel({
     }
     setIsAdding(true);
     try {
-      const result = tab === "drug"
-        ? await addToMyDrugs(manualForm)
-        : await addToMyDevices(manualForm);
-      if (result.alreadyExists) {
-        toast.info("이미 등록된 품목입니다");
-      } else if (result.success) {
-        toast.success(`"${manualForm[nameField]}" 추가됨`);
-        if (addAnother) {
-          setManualForm({});
+      if (editingItem) {
+        // Edit mode — update existing item
+        const updateData: Record<string, unknown> = { ...manualForm };
+        if (manualForm.unit_price != null && String(manualForm.unit_price).trim() !== "") {
+          updateData.unit_price = Number(manualForm.unit_price);
         } else {
-          setShowManualAdd(false);
-          setManualForm({});
+          updateData.unit_price = null;
         }
+        if (tab === "drug") {
+          await updateMyDrug(editingItem.id, updateData);
+        } else {
+          await updateMyDevice(editingItem.id, updateData);
+        }
+        toast.success(`"${manualForm[nameField]}" 수정됨`);
+        setShowManualAdd(false);
+        setManualForm({});
+        setEditingItem(null);
         doSearch(1);
       } else {
-        toast.error("추가에 실패했습니다");
+        // Add mode
+        const result = tab === "drug"
+          ? await addToMyDrugs(manualForm)
+          : await addToMyDevices(manualForm);
+        if (result.success) {
+          toast.success(`"${manualForm[nameField]}" 추가됨`);
+          if (addAnother) {
+            setManualForm({});
+          } else {
+            setShowManualAdd(false);
+            setManualForm({});
+          }
+          doSearch(1);
+        } else {
+          toast.error("추가에 실패했습니다");
+        }
       }
     } catch {
-      toast.error("추가 중 오류가 발생했습니다");
+      toast.error(editingItem ? "수정 중 오류가 발생했습니다" : "추가 중 오류가 발생했습니다");
     } finally {
       setIsAdding(false);
     }
@@ -258,8 +280,8 @@ export function MfdsSearchPanel({
 
     const actionCol: ColumnDef<Record<string, unknown>> = {
       id: "_action",
-      header: mode === "manage" ? "동기화" : mode === "browse" ? "추가" : "선택",
-      size: mode === "manage" ? 110 : 70,
+      header: mode === "manage" ? "관리" : mode === "browse" ? "추가" : "선택",
+      size: mode === "manage" ? 140 : 70,
       enableResizing: false,
       enableSorting: false,
       enableGlobalFilter: false,
@@ -271,6 +293,22 @@ export function MfdsSearchPanel({
           const isSyncing = syncingId === itemId;
           return (
             <div className="flex gap-1">
+              <Button
+                size="xs"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const fields = tab === "drug" ? DRUG_FIELDS_GROUPED : DEVICE_FIELDS_GROUPED;
+                  const data: Record<string, string> = {};
+                  for (const f of fields) data[f.key] = (item[f.key] as string) ?? "";
+                  if (item.unit_price != null) data.unit_price = String(item.unit_price);
+                  setEditingItem({ id: itemId, data });
+                  setManualForm(data);
+                  setShowManualAdd(true);
+                }}
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
               <Button
                 size="xs"
                 variant="outline"
@@ -296,24 +334,15 @@ export function MfdsSearchPanel({
           );
         }
 
-        const code = ((tab === "drug" ? item.bar_code : item.udidi_cd) as string) ?? "";
-        const alreadyAdded = existingStandardCodes.includes(code);
-
-        if (alreadyAdded) {
-          return (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <Check className="h-3 w-3" /> 추가됨
-            </span>
-          );
-        }
+        const itemCode = ((tab === "drug" ? item.bar_code : item.udidi_cd) as string) ?? "";
         return (
           <Button
             size="xs"
             variant="outline"
-            disabled={isPending && addingId === code}
+            disabled={isPending && addingId === itemCode}
             onClick={() => handleAdd(item)}
           >
-            {isPending && addingId === code ? (
+            {isPending && addingId === itemCode ? (
               <Loader2 className="h-3 w-3 animate-spin" />
             ) : (
               <Plus className="h-3 w-3" />
@@ -705,16 +734,12 @@ export function MfdsSearchPanel({
         const result = tab === "drug"
           ? await addToMyDrugs(item)
           : await addToMyDevices(item);
-        if (result.alreadyExists) {
-          toast.info("이미 내 품목에 등록된 항목입니다.");
-        } else {
-          toast.success("내 품목에 추가되었습니다.", {
-            action: {
-              label: "내 품목 보기 →",
-              onClick: () => router.push("/products/my"),
-            },
-          });
-        }
+        toast.success("내 품목에 추가되었습니다.", {
+          action: {
+            label: "내 품목 보기 →",
+            onClick: () => router.push("/products/my"),
+          },
+        });
         if (mode === "pick" && onSelect) {
           onSelect(result.id!);
         }
@@ -1050,7 +1075,7 @@ export function MfdsSearchPanel({
           <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
             <DialogHeader className="shrink-0">
               <DialogTitle className="text-lg">
-                {tab === "drug" ? "의약품" : "의료기기"} 수동 추가
+                {tab === "drug" ? "의약품" : "의료기기"} {editingItem ? "수정" : "수동 추가"}
               </DialogTitle>
             </DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto pr-2">
@@ -1166,17 +1191,19 @@ export function MfdsSearchPanel({
               })()}
             </div>
             <DialogFooter className="shrink-0 flex items-center justify-between sm:justify-between">
-              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                <input type="checkbox" checked={addAnother} onChange={(e) => setAddAnother(e.target.checked)} className="rounded border-gray-300" />
-                연속 추가
-              </label>
+              {!editingItem ? (
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <input type="checkbox" checked={addAnother} onChange={(e) => setAddAnother(e.target.checked)} className="rounded border-gray-300" />
+                  연속 추가
+                </label>
+              ) : <div />}
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setShowManualAdd(false)}>
+                <Button variant="outline" onClick={() => { setShowManualAdd(false); setEditingItem(null); setManualForm({}); }}>
                   닫기
                 </Button>
                 <Button onClick={handleManualAdd} disabled={isAdding}>
-                  {isAdding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-1" />}
-                  추가
+                  {isAdding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : editingItem ? <Pencil className="h-4 w-4 mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+                  {editingItem ? "수정" : "추가"}
                 </Button>
               </div>
             </DialogFooter>

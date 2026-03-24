@@ -126,7 +126,7 @@ export async function createOrderAction(data: {
       delivered_at: data.delivered_at ?? null,
       notes: data.notes ?? null,
       source_message_id: data.source_message_id ?? null,
-      status: "draft",
+      status: "confirmed",
       total_items: data.items.length,
     })
     .select("id")
@@ -223,7 +223,7 @@ export async function createOrderWithDetailsAction(data: {
       delivered_at: data.delivered_at,
       notes: data.notes,
       source_message_id: data.source_message_id,
-      status: "draft",
+      status: "confirmed",
       total_items: data.items.length,
       total_amount: totalAmount || null,
     })

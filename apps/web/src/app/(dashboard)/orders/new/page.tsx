@@ -1,5 +1,6 @@
 import { getOrderDisplayColumns, getOrderColumnWidths } from "@/lib/queries/settings";
 import { getMessagesByIds, formatMessagesAsNotes } from "@/lib/queries/messages";
+import { getSuppliers } from "@/lib/queries/suppliers";
 import { PurchaseOrderForm } from "@/components/purchase-order-form";
 
 interface Props {
@@ -12,10 +13,11 @@ export default async function NewOrderPage({ searchParams }: Props) {
   const ids = params.source_message_ids?.split(",").filter(Boolean) || [];
   if (!ids.length && params.source_message_id) ids.push(params.source_message_id);
 
-  const [displayColumns, columnWidths, messages] = await Promise.all([
+  const [displayColumns, columnWidths, messages, { suppliers: allSuppliers }] = await Promise.all([
     getOrderDisplayColumns(),
     getOrderColumnWidths(),
     ids.length ? getMessagesByIds(ids) : Promise.resolve([]),
+    getSuppliers({ limit: 500 }),
   ]);
 
   const initialNotes = messages.length ? formatMessagesAsNotes(messages) : "";
@@ -36,6 +38,7 @@ export default async function NewOrderPage({ searchParams }: Props) {
         sourceMessageId={ids[0]}
         initialNotes={initialNotes}
         sourceMessages={sourceMessages}
+        suppliers={allSuppliers.map(s => ({ id: s.id, name: s.name }))}
       />
     </div>
   );

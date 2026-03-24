@@ -93,12 +93,18 @@ export interface SourceMessage {
   received_at: string;
 }
 
+interface SupplierOption {
+  id: number;
+  name: string;
+}
+
 interface Props {
   displayColumns: OrderDisplayColumns;
   columnWidths?: Record<string, number>;
   sourceMessageId?: string;
   initialNotes?: string;
   sourceMessages?: SourceMessage[];
+  suppliers?: SupplierOption[];
 }
 
 // ── Optional column definitions ────────────────────────────
@@ -121,7 +127,7 @@ function nextKey() { return `po-${Date.now()}-${++_keyCounter}`; }
 
 // ── Main Component ─────────────────────────────────────────
 
-export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageId, initialNotes, sourceMessages }: Props) {
+export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageId, initialNotes, sourceMessages, suppliers = [] }: Props) {
   const router = useRouter();
 
   // ── Header state ──
@@ -174,8 +180,10 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
         visible.add(col.id);
       }
     }
+    // Always show supplier column when suppliers are available
+    if (suppliers.length > 0) visible.add("supplier");
     return visible;
-  }, [displayColumns]);
+  }, [displayColumns, suppliers]);
 
   const [visibleCols, setVisibleCols] = useState<Set<string>>(new Set());
   const [showColSettings, setShowColSettings] = useState(false);
@@ -787,7 +795,27 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                           </TableCell>
                         )}
                         {visibleCols.has("supplier") && (
-                          <TableCell className="text-xs truncate overflow-hidden" title={item.supplier_name ?? ""}>{item.supplier_name ?? "-"}</TableCell>
+                          <TableCell>
+                            <Select
+                              value={item.supplier_id != null ? String(item.supplier_id) : ""}
+                              onValueChange={(v) => {
+                                const sup = suppliers.find(s => String(s.id) === v);
+                                updateItem(item.key, {
+                                  supplier_id: sup ? sup.id : null,
+                                  supplier_name: sup ? sup.name : null,
+                                });
+                              }}
+                            >
+                              <SelectTrigger className="h-7 w-[110px] text-xs">
+                                <SelectValue placeholder="공급사 선택" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {suppliers.map((s) => (
+                                  <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
                         )}
                         <TableCell className="text-right">
                           <Input

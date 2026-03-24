@@ -1047,7 +1047,7 @@ export function MfdsSearchPanel({
       {/* Manual add dialog */}
       {showManualAdd && (
         <Dialog open onOpenChange={() => setShowManualAdd(false)}>
-          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+          <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col overflow-hidden">
             <DialogHeader className="shrink-0">
               <DialogTitle>
                 {tab === "drug" ? "의약품" : "의료기기"} 수동 추가
@@ -1056,7 +1056,12 @@ export function MfdsSearchPanel({
             <div className="flex-1 min-h-0 overflow-y-auto pr-2">
               {(() => {
                 const fields = tab === "drug" ? DRUG_FIELDS_GROUPED : DEVICE_FIELDS_GROUPED;
-                const groups = [...new Set(fields.map((f) => f.group))];
+                const primaryGroups = tab === "drug"
+                  ? ["기본 정보", "코드/허가"]
+                  : ["기본 정보", "허가/코드"];
+                const secondaryGroups = tab === "drug"
+                  ? ["보관/포장", "분류", "변경 이력"]
+                  : ["사용/보관", "속성"];
 
                 function renderField(f: typeof fields[number]) {
                   if (f.type === "yn") {
@@ -1102,40 +1107,47 @@ export function MfdsSearchPanel({
                   );
                 }
 
-                return (
-                  <div className="space-y-5 py-2">
-                    {groups.map((groupName) => {
-                      const groupFields = fields.filter((f) => f.group === groupName);
-                      const ynFields = groupFields.filter((f) => f.type === "yn");
-                      const otherFields = groupFields.filter((f) => f.type !== "yn");
+                function renderGroups(groupNames: string[]) {
+                  return groupNames.map((groupName) => {
+                    const groupFields = fields.filter((f) => f.group === groupName);
+                    const ynFields = groupFields.filter((f) => f.type === "yn");
+                    const otherFields = groupFields.filter((f) => f.type !== "yn");
+                    return (
+                      <div key={groupName}>
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2.5 border-b pb-1">{groupName}</h4>
+                        {otherFields.length > 0 && (
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                            {otherFields.map(renderField)}
+                          </div>
+                        )}
+                        {ynFields.length > 0 && (
+                          <div className={`grid grid-cols-2 gap-2 ${otherFields.length > 0 ? "mt-3" : ""}`}>
+                            {ynFields.map(renderField)}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                }
 
-                      return (
-                        <div key={groupName}>
-                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2.5 border-b pb-1">{groupName}</h4>
-                          {/* Regular fields in 2-column grid */}
-                          {otherFields.length > 0 && (
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                              {otherFields.map(renderField)}
-                            </div>
-                          )}
-                          {/* Y/N toggle fields in compact grid */}
-                          {ynFields.length > 0 && (
-                            <div className={`grid grid-cols-2 gap-2 ${otherFields.length > 0 ? "mt-3" : ""}`}>
-                              {ynFields.map(renderField)}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {/* 가격 */}
-                    <div>
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2.5 border-b pb-1">가격</h4>
-                      <div className="grid grid-cols-2 gap-x-4">
+                return (
+                  <div className="flex gap-8 py-2">
+                    {/* Left: primary fields */}
+                    <div className="flex-1 min-w-0 space-y-5">
+                      {renderGroups(primaryGroups)}
+                      {/* 가격 always on primary side */}
+                      <div>
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2.5 border-b pb-1">가격</h4>
                         <div className="space-y-1">
                           <Label htmlFor="manual-unit_price" className="text-xs text-muted-foreground">단가</Label>
                           <Input id="manual-unit_price" type="number" value={manualForm.unit_price ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, unit_price: e.target.value }))} placeholder="원 단위 입력" className="h-9 text-sm" />
                         </div>
                       </div>
+                    </div>
+                    {/* Right: secondary fields */}
+                    <div className="w-[280px] shrink-0 space-y-5 border-l pl-6">
+                      <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">부가 정보</p>
+                      {renderGroups(secondaryGroups)}
                     </div>
                   </div>
                 );

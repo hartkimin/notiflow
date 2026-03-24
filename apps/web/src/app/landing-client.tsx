@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
 
 export default function LandingClient() {
   const [scrolled, setScrolled] = useState(false);
@@ -11,6 +12,18 @@ export default function LandingClient() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  const fadeInUp = {
+    hidden: { opacity: 0, y: 30 },
+    visible: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.6, delay: i * 0.2, ease: [0.25, 0.46, 0.45, 0.94] },
+    }),
+  };
+
+  const { scrollYProgress } = useScroll();
+  const heroParallaxY = useTransform(scrollYProgress, [0, 0.3], [0, -60]);
 
   return (
     <div className="bg-surface font-body text-on-surface selection:bg-primary-container selection:text-on-primary-container min-h-screen">
@@ -43,57 +56,99 @@ export default function LandingClient() {
 
 {/* Hero Section */}
 <section className="relative min-h-[921px] flex items-center overflow-hidden px-8">
-<div className="absolute inset-0 digital-meadow-gradient opacity-40 -z-10"></div>
+<motion.div className="absolute inset-0 digital-meadow-gradient opacity-40 -z-10" style={{ y: heroParallaxY }}></motion.div>
 <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center w-full">
-<div className="space-y-8">
-<div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-tertiary-container text-on-tertiary-container text-xs font-bold font-headline tracking-wider uppercase">
-<span className="material-symbols-outlined text-sm" data-icon="local_hospital">local_hospital</span>
-혈액투석 의료물품 주문관리
-</div>
-<h1 className="text-6xl md:text-8xl font-headline font-bold text-on-surface tracking-tighter leading-[0.9] text-glow">
-주문부터<br/>납품까지,<br/><span className="text-primary">한눈에.</span>
-</h1>
-<p className="text-xl text-on-surface-variant leading-relaxed max-w-lg">
-카카오톡·문자 수신 알림을 자동 수집하고, AI가 주문 내용을 파싱하여 체계적으로 관리합니다. 투석실 의료물품 발주의 모든 과정을 NotiFlow 하나로 통합하세요.
-</p>
-<div className="flex flex-wrap gap-4">
-<Link href="/login" className="bg-primary text-on-primary px-10 py-4 rounded-full font-bold text-lg shadow-xl hover:shadow-primary/20 transition-all hover:-translate-y-1">무료로 시작하기</Link>
-<a href="#features" className="flex items-center gap-2 text-on-surface font-bold px-8 py-4 rounded-full border border-outline-variant hover:bg-surface-container transition-all">
-<span className="material-symbols-outlined" data-icon="arrow_downward">arrow_downward</span>
-자세히 보기
-</a>
-</div>
-</div>
-<div className="relative group">
-<div className="absolute -inset-4 bg-primary-container/20 blur-3xl rounded-full"></div>
-<div className="relative rounded-xl overflow-hidden shadow-2xl border-4 border-white">
-<div className="w-full h-[600px] bg-gradient-to-br from-primary/5 via-surface-container to-primary-container/20 flex items-center justify-center">
-<div className="text-center space-y-4 p-8">
-<div className="text-8xl">📱💊</div>
-<p className="text-lg text-on-surface-variant font-medium">알림 → 파싱 → 주문 → 납품</p>
-</div>
-</div>
-<div className="absolute inset-0 bg-gradient-to-t from-primary/20 to-transparent"></div>
-
-<div className="absolute bottom-8 left-8 right-8 glass-panel p-6 rounded-lg shadow-lg border border-white/50 animate-float">
-<div className="flex items-center justify-between mb-4">
-<div className="flex items-center gap-3">
-<div className="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center">
-<span className="material-symbols-outlined text-on-primary-fixed" data-icon="monitoring">monitoring</span>
-</div>
-<div>
-<div className="text-xs font-bold text-primary font-headline uppercase">실시간 현황</div>
-<div className="text-sm font-medium text-on-surface">이번 달 주문 처리율</div>
-</div>
-</div>
-<div className="text-primary font-bold">98.7%</div>
-</div>
-<div className="h-2 w-full bg-surface-container rounded-full overflow-hidden">
-<div className="h-full bg-primary w-[98%] rounded-full"></div>
-</div>
-</div>
-</div>
-</div>
+<motion.div className="space-y-8" initial="hidden" animate="visible">
+  <motion.div custom={0} variants={fadeInUp} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-tertiary-container text-on-tertiary-container text-xs font-bold font-headline tracking-wider uppercase">
+    <span className="material-symbols-outlined text-sm" data-icon="local_hospital">local_hospital</span>
+    혈액투석 의료물품 주문관리
+  </motion.div>
+  <motion.h1 custom={1} variants={fadeInUp} className="text-6xl md:text-8xl font-headline font-bold text-on-surface tracking-tighter leading-[0.9] text-glow">
+    주문부터<br/>납품까지,<br/><span className="text-primary">한눈에.</span>
+  </motion.h1>
+  <motion.p custom={2} variants={fadeInUp} className="text-xl text-on-surface-variant leading-relaxed max-w-lg">
+    카카오톡·문자 수신 알림을 자동 수집하고, AI가 주문 내용을 파싱하여 체계적으로 관리합니다. 투석실 의료물품 발주의 모든 과정을 NotiFlow 하나로 통합하세요.
+  </motion.p>
+  <motion.div custom={3} variants={fadeInUp} className="flex flex-wrap gap-4">
+    <Link href="/login" className="bg-primary text-on-primary px-10 py-4 rounded-full font-bold text-lg shadow-xl hover:shadow-primary/20 transition-all hover:-translate-y-1">무료로 시작하기</Link>
+    <a href="#features" className="flex items-center gap-2 text-on-surface font-bold px-8 py-4 rounded-full border border-outline-variant hover:bg-surface-container transition-all">
+      <span className="material-symbols-outlined" data-icon="arrow_downward">arrow_downward</span>
+      자세히 보기
+    </a>
+  </motion.div>
+</motion.div>
+<motion.div
+  className="relative"
+  initial={{ opacity: 0, scale: 0.95, rotateY: -5 }}
+  animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+  transition={{ duration: 0.8, delay: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+  style={{ perspective: 1000 }}
+>
+  <div className="absolute -inset-4 bg-primary/10 blur-3xl rounded-full animate-pulse"></div>
+  <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-white/50 bg-white">
+    {/* Browser chrome */}
+    <div className="flex items-center gap-2 px-4 py-3 bg-surface-container-low border-b border-outline-variant/30">
+      <div className="flex gap-1.5">
+        <div className="w-3 h-3 rounded-full bg-red-400"></div>
+        <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+        <div className="w-3 h-3 rounded-full bg-green-400"></div>
+      </div>
+      <div className="flex-1 mx-4">
+        <div className="bg-surface-container rounded-md px-3 py-1 text-xs text-on-surface-variant text-center">notiflow.life/dashboard</div>
+      </div>
+    </div>
+    {/* Dashboard content */}
+    <div className="p-6 space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-surface-container-low p-4 rounded-xl text-center">
+          <div className="text-2xl font-headline font-bold text-primary">127</div>
+          <div className="text-xs text-on-surface-variant mt-1">이번 달 주문</div>
+        </div>
+        <div className="bg-surface-container-low p-4 rounded-xl text-center">
+          <div className="text-2xl font-headline font-bold text-primary">98.7%</div>
+          <div className="text-xs text-on-surface-variant mt-1">파싱 정확도</div>
+        </div>
+        <div className="bg-surface-container-low p-4 rounded-xl text-center">
+          <div className="text-2xl font-headline font-bold text-primary">23</div>
+          <div className="text-xs text-on-surface-variant mt-1">거래처</div>
+        </div>
+      </div>
+      <div className="rounded-xl border border-outline-variant/30 overflow-hidden">
+        <div className="bg-surface-container-low px-4 py-2 text-xs font-bold text-on-surface-variant font-headline">최근 주문</div>
+        <div className="divide-y divide-outline-variant/20">
+          <div className="flex justify-between items-center px-4 py-2.5 text-sm">
+            <span className="font-medium text-on-surface">ORD-20260324-001</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">확인됨</span>
+          </div>
+          <div className="flex justify-between items-center px-4 py-2.5 text-sm">
+            <span className="font-medium text-on-surface">ORD-20260324-002</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-semibold">대기중</span>
+          </div>
+          <div className="flex justify-between items-center px-4 py-2.5 text-sm">
+            <span className="font-medium text-on-surface">ORD-20260323-015</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-primary-container text-on-primary-container font-semibold">납품완료</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {/* Floating status card */}
+  <motion.div
+    className="absolute -bottom-4 -left-4 glass-panel p-4 rounded-xl shadow-lg border border-white/50"
+    animate={{ y: [0, -8, 0] }}
+    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+  >
+    <div className="flex items-center gap-3">
+      <div className="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center">
+        <span className="material-symbols-outlined text-on-primary-fixed text-sm" data-icon="monitoring">monitoring</span>
+      </div>
+      <div>
+        <div className="text-xs font-bold text-primary font-headline">실시간 현황</div>
+        <div className="text-sm font-medium text-on-surface">처리율 <span className="text-primary font-bold">98.7%</span></div>
+      </div>
+    </div>
+  </motion.div>
+</motion.div>
 </div>
 </section>
 

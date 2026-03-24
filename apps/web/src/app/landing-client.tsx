@@ -322,39 +322,53 @@ export default function LandingClient() {
 {/* Workflow Section */}
 <section id="workflow" className="py-32 bg-surface">
 <div className="max-w-7xl mx-auto px-8">
-<div className="text-center mb-20 space-y-4">
+<motion.div
+  className="text-center mb-20 space-y-4"
+  initial={{ opacity: 0, y: 20 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, amount: 0.5 }}
+  transition={{ duration: 0.6 }}
+>
 <h2 className="text-4xl md:text-5xl font-headline font-bold tracking-tight"><span className="text-primary">업무 흐름</span></h2>
 <p className="text-on-surface-variant max-w-2xl mx-auto">4단계로 완성되는 의료물품 주문관리</p>
-</div>
-<div className="grid md:grid-cols-4 gap-8">
-<div className="bg-surface-container-low p-8 rounded-xl text-center space-y-4">
-<div className="w-16 h-16 rounded-full bg-primary-container mx-auto flex items-center justify-center">
-<span className="text-2xl font-bold text-primary">1</span>
-</div>
-<h3 className="font-headline font-bold text-lg">알림 수집</h3>
-<p className="text-sm text-on-surface-variant">카카오톡·문자 알림을 안드로이드 앱이 자동으로 캡처합니다</p>
-</div>
-<div className="bg-surface-container-low p-8 rounded-xl text-center space-y-4">
-<div className="w-16 h-16 rounded-full bg-primary-container mx-auto flex items-center justify-center">
-<span className="text-2xl font-bold text-primary">2</span>
-</div>
-<h3 className="font-headline font-bold text-lg">AI 파싱</h3>
-<p className="text-sm text-on-surface-variant">Claude AI가 메시지에서 품목·수량·단가를 자동으로 추출합니다</p>
-</div>
-<div className="bg-surface-container-low p-8 rounded-xl text-center space-y-4">
-<div className="w-16 h-16 rounded-full bg-primary-container mx-auto flex items-center justify-center">
-<span className="text-2xl font-bold text-primary">3</span>
-</div>
-<h3 className="font-headline font-bold text-lg">주문 생성</h3>
-<p className="text-sm text-on-surface-variant">파싱된 데이터로 발주서를 생성하고 거래처별로 관리합니다</p>
-</div>
-<div className="bg-surface-container-low p-8 rounded-xl text-center space-y-4">
-<div className="w-16 h-16 rounded-full bg-primary-container mx-auto flex items-center justify-center">
-<span className="text-2xl font-bold text-primary">4</span>
-</div>
-<h3 className="font-headline font-bold text-lg">납품·정산</h3>
-<p className="text-sm text-on-surface-variant">배송 추적, 납품 확인, 세금계산서 발행까지 한 곳에서 처리합니다</p>
-</div>
+</motion.div>
+<div className="grid md:grid-cols-4 gap-8 relative">
+  {/* Connecting line (desktop) */}
+  <motion.div
+    className="hidden md:block absolute top-8 left-[12.5%] right-[12.5%] h-0.5 bg-primary-container origin-left"
+    initial={{ scaleX: 0 }}
+    whileInView={{ scaleX: 1 }}
+    viewport={{ once: true, amount: 0.3 }}
+    transition={{ duration: 1.2, delay: 0.3, ease: "easeOut" }}
+  />
+
+  {[
+    { num: "1", title: "알림 수집", desc: "카카오톡·문자 알림을 안드로이드 앱이 자동으로 캡처합니다" },
+    { num: "2", title: "AI 파싱", desc: "Claude AI가 메시지에서 품목·수량·단가를 자동으로 추출합니다" },
+    { num: "3", title: "주문 생성", desc: "파싱된 데이터로 발주서를 생성하고 거래처별로 관리합니다" },
+    { num: "4", title: "납품·정산", desc: "배송 추적, 납품 확인, 세금계산서 발행까지 한 곳에서 처리합니다" },
+  ].map((step, i) => (
+    <motion.div
+      key={step.num}
+      className="bg-surface-container-low p-8 rounded-xl text-center space-y-4 relative z-10"
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.5, delay: i * 0.2 }}
+    >
+      <motion.div
+        className="w-16 h-16 rounded-full bg-primary-container mx-auto flex items-center justify-center"
+        initial={{ scale: 0 }}
+        whileInView={{ scale: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.4, delay: i * 0.2 + 0.2, type: "spring", stiffness: 200 }}
+      >
+        <span className="text-2xl font-bold text-primary">{step.num}</span>
+      </motion.div>
+      <h3 className="font-headline font-bold text-lg">{step.title}</h3>
+      <p className="text-sm text-on-surface-variant">{step.desc}</p>
+    </motion.div>
+  ))}
 </div>
 </div>
 </section>

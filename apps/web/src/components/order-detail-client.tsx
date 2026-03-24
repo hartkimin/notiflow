@@ -13,6 +13,7 @@ import {
   Save,
   Trash2,
   X,
+  Copy,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -412,6 +413,16 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
             {isPending ? "처리중..." : "배송 완료"}
           </Button>
         )}
+
+        {/* Copy order */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => router.push(`/orders/new?copy_from=${order.id}`)}
+        >
+          <Copy className="h-3.5 w-3.5 mr-1" />
+          복사
+        </Button>
 
         {/* Delete */}
         <AlertDialog>

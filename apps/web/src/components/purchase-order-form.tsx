@@ -98,6 +98,24 @@ interface SupplierOption {
   name: string;
 }
 
+interface CopyData {
+  hospitalId: number;
+  hospitalName: string;
+  notes: string;
+  items: Array<{
+    product_id: number;
+    product_name: string;
+    source_type: "drug" | "device" | "product";
+    supplier_id: number | null;
+    supplier_name: string | null;
+    quantity: number;
+    unit_type: string;
+    purchase_price: number | null;
+    selling_price: number | null;
+    sales_rep: string;
+  }>;
+}
+
 interface Props {
   displayColumns: OrderDisplayColumns;
   columnWidths?: Record<string, number>;
@@ -105,6 +123,7 @@ interface Props {
   initialNotes?: string;
   sourceMessages?: SourceMessage[];
   suppliers?: SupplierOption[];
+  copyData?: CopyData;
 }
 
 // ── Optional column definitions ────────────────────────────
@@ -127,12 +146,12 @@ function nextKey() { return `po-${Date.now()}-${++_keyCounter}`; }
 
 // ── Main Component ─────────────────────────────────────────
 
-export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageId, initialNotes, sourceMessages, suppliers = [] }: Props) {
+export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageId, initialNotes, sourceMessages, suppliers = [], copyData }: Props) {
   const router = useRouter();
 
   // ── Header state ──
-  const [hospitalId, setHospitalId] = useState<number | null>(null);
-  const [hospitalName, setHospitalName] = useState("");
+  const [hospitalId, setHospitalId] = useState<number | null>(copyData?.hospitalId ?? null);
+  const [hospitalName, setHospitalName] = useState(copyData?.hospitalName ?? "");
   const [hospitalContactPerson, setHospitalContactPerson] = useState<string | null>(null);
 
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
@@ -143,8 +162,27 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
   const [partnerProducts, setPartnerProducts] = useState<PartnerProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
 
-  // ── Line items ──
-  const [items, setItems] = useState<LineItem[]>([]);
+  // ── Line items (pre-filled from copyData if available) ──
+  const [items, setItems] = useState<LineItem[]>(() => {
+    if (!copyData?.items.length) return [];
+    return copyData.items.map((i, idx) => ({
+      key: `copy-${idx}-${Date.now()}`,
+      product_id: i.product_id,
+      product_name: i.product_name,
+      standard_code: null,
+      supplier_id: i.supplier_id,
+      supplier_name: i.supplier_name,
+      suppliers: [],
+      quantity: i.quantity,
+      unit_type: i.unit_type,
+      custom_unit: false,
+      purchase_price: i.purchase_price,
+      selling_price: i.selling_price,
+      kpis_number: "",
+      source_type: i.source_type,
+      sales_rep: i.sales_rep,
+    }));
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ── Unsaved changes warning ──

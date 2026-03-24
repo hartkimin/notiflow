@@ -11,22 +11,19 @@ interface ServiceAccount {
 }
 
 function pemToArrayBuffer(pem: string): ArrayBuffer {
-  const b64 = pem.replace(/-----[^-]+-----/g, '').replace(/\s/g, '');
-  const binary = atob(b64);
-  const buffer = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) buffer[i] = binary.charCodeAt(i);
-  return buffer.buffer;
+  // Handle escaped \\n from env vars
+  const normalized = pem.replace(/\\n/g, '\n');
+  const b64 = normalized.replace(/-----[^-]+-----/g, '').replace(/\s/g, '');
+  const buf = Buffer.from(b64, 'base64');
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 }
 
 function arrayBufferToBase64url(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return Buffer.from(buffer).toString('base64url');
 }
 
 function stringToBase64url(str: string): string {
-  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return Buffer.from(str).toString('base64url');
 }
 
 let cachedToken: { token: string; expiresAt: number } | null = null;

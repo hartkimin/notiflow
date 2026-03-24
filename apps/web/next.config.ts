@@ -14,6 +14,22 @@ const securityHeaders = [
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
   },
+  {
+    key: "X-DNS-Prefetch-Control",
+    value: "on",
+  },
+  {
+    key: "Content-Security-Policy",
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com",
+      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+      "font-src 'self' https://cdn.jsdelivr.net",
+      "img-src 'self' data: blob:",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co http://localhost:* https://fcm.googleapis.com https://oauth2.googleapis.com https://www.gstatic.com",
+      "frame-ancestors 'none'",
+    ].join("; "),
+  },
 ];
 
 const nextConfig: NextConfig = {

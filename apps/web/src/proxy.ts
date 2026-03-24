@@ -14,6 +14,6 @@ export const config = {
      * - favicon.ico, static assets
      * - API cron routes (use CRON_SECRET auth)
      */
-    "/((?!_next/static|_next/image|favicon.ico|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|icons/|manifest\\.json|sw\\.js|firebase-messaging-sw\\.js|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

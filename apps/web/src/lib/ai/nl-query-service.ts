@@ -406,7 +406,7 @@ function fmt(n: number): string {
   return `${n.toLocaleString()}원`;
 }
 
-const STATUS_KO: Record<string, string> = { draft: "초안", confirmed: "접수확인", delivered: "배송완료", invoiced: "정산완료", cancelled: "취소" };
+const STATUS_KO: Record<string, string> = { confirmed: "주문완료", delivered: "배송완료" };
 
 function tryDirectFormat(intent: string, _question: string, data: unknown): string | null {
   const d = data as Record<string, unknown>;
@@ -514,8 +514,16 @@ export async function processNaturalLanguageQuery(question: string): Promise<NLQ
     };
   }
 
-  // General question (no DB)
+  // General/unknown → try text-to-SQL fallback
   if (intent === "general_question" || intent === "unknown") {
+    try {
+      const sqlResult = await executeTextToSQL(question);
+      if (sqlResult) {
+        return { question, intent: "unknown", confidence: 0.8, answer: sqlResult, durationMs: Date.now() - startMs };
+      }
+    } catch (err) {
+      console.warn("[NL Query] Text-to-SQL fallback failed:", (err as Error).message);
+    }
     try {
       const res = await ollamaChat(
         "의료기기 유통 전문가. 간결 한국어 답변.",
@@ -551,12 +559,93 @@ export async function processNaturalLanguageQuery(question: string): Promise<NLQ
   // Complex queries: generate natural language response via LLM
   try {
     const resultStr = JSON.stringify(queryResult, null, 2);
-    // Truncate large results to keep prompt small
     const truncated = resultStr.length > 2000 ? resultStr.slice(0, 2000) + "\n..." : resultStr;
     const responsePrompt = `질문: ${question}\n의도: ${intent}\n결과:\n${truncated}`;
     const res = await ollamaChat(RESPONSE_SYSTEM_PROMPT, responsePrompt, { maxTokens: 512, json: false });
     return { question, intent, confidence, answer: res.text, durationMs: Date.now() - startMs };
   } catch {
     return { question, intent, confidence, answer: formatFallback(queryResult), durationMs: Date.now() - startMs };
+  }
+}
+
+// ─── Text-to-SQL Fallback ────────────────────────
+
+const DB_SCHEMA = `
+테이블 구조 (PostgreSQL):
+
+orders (주문): id, order_number(ORD-YYYYMMDD-NNN), order_date(date), hospital_id(FK→hospitals), status(confirmed=주문완료/delivered=배송완료), total_items, total_amount, delivery_date, notes, source_message_id, created_at
+order_items (주문품목): id, order_id(FK→orders), product_id, product_name, supplier_id(FK→suppliers), quantity, unit_type, unit_price(매출단가,VAT별도), purchase_price(매입단가,VAT별도), line_total, sales_rep, created_at
+hospitals (거래처/병원): id, name, short_name, phone, address, contact_person, business_number, is_active, ceo_name
+suppliers (공급사): id, name, short_name, phone, address, business_number, is_active, ceo_name
+my_drugs (내 의약품): id, alias(별칭), item_name(품목명), entp_name(업체명), bar_code, edi_code, unit_price, material_name
+my_devices (내 의료기기): id, alias(별칭), prdlst_nm(품목명), mnft_iprt_entp_nm(업체명), udidi_cd, unit_price, foml_info(모델명)
+captured_messages (수신메시지): id, app_name, sender, content, received_at(bigint epoch ms), is_read, is_deleted, room_name, device_id
+mobile_devices (모바일기기): id, device_name, device_model, app_version, os_version, is_active, last_sync_at, fcm_token
+user_profiles (사용자): id, name, role(admin/viewer), is_active
+partner_products (거래처품목): id, partner_type(hospital/supplier), partner_id, product_source(drug/device), product_id, unit_price
+mfds_drugs (식약처 의약품 DB): id, item_name, entp_name, bar_code, item_permit_date
+mfds_devices (식약처 의료기기 DB): id, prdlst_nm, mnft_iprt_entp_nm, udidi_cd, prmsn_ymd
+
+주의: VAT포함 금액 = 단가 × 1.1. supply_amount는 NULL이므로 사용 금지. order_items에서 직접 계산.
+captured_messages.received_at은 epoch milliseconds(bigint).
+`;
+
+const SQL_SYSTEM_PROMPT = `PostgreSQL 전문가. 사용자 질문을 읽고 SELECT SQL만 생성.
+${DB_SCHEMA}
+규칙:
+- SELECT만 허용. INSERT/UPDATE/DELETE/DROP/ALTER 절대 금지.
+- LIMIT 50 이하만 사용
+- 금액 계산 시 VAT포함: ROUND(단가 * 1.1) * quantity
+- JSON 출력: {"sql":"SELECT ...", "description":"설명"}
+- 복잡한 질문이라도 반드시 SQL 생성. 생성 불가 시 {"sql":null,"description":"이유"}`;
+
+async function executeTextToSQL(question: string): Promise<string | null> {
+  // Step 1: Generate SQL
+  const res = await ollamaChat(SQL_SYSTEM_PROMPT, question, { maxTokens: 512 });
+  const cleaned = res.text.replace(/\`\`\`json\n?|\`\`\`\n?/g, "").trim();
+  let parsed: { sql: string | null; description: string };
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    return null;
+  }
+
+  if (!parsed.sql) return null;
+
+  // Safety check: only SELECT allowed
+  const sqlUpper = parsed.sql.trim().toUpperCase();
+  if (!sqlUpper.startsWith("SELECT") || /\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE)\b/.test(sqlUpper)) {
+    console.warn("[Text-to-SQL] Blocked unsafe SQL:", parsed.sql);
+    return null;
+  }
+
+  // Step 2: Execute SQL
+  const sb = createAdminClient();
+  const { data, error } = await sb.rpc("exec_readonly_sql", { query: parsed.sql });
+
+  if (error) {
+    // Fallback: try direct query via postgres function
+    console.error("[Text-to-SQL] Execution error:", error.message);
+    return `SQL 실행 오류: ${error.message}\n생성된 SQL: \`${parsed.sql}\``;
+  }
+
+  if (!data || (Array.isArray(data) && data.length === 0)) {
+    return `${parsed.description}\n\n결과가 없습니다.`;
+  }
+
+  // Step 3: Format result with LLM
+  const resultStr = JSON.stringify(data, null, 2);
+  const truncated = resultStr.length > 3000 ? resultStr.slice(0, 3000) + "\n..." : resultStr;
+
+  try {
+    const fmtRes = await ollamaChat(
+      "데이터 분석가. 한국어로 간결하게 답변. 숫자는 쉼표, 금액은 원 단위. 마크다운 사용 가능.",
+      `질문: ${question}\n설명: ${parsed.description}\nSQL 결과:\n${truncated}`,
+      { maxTokens: 512, json: false },
+    );
+    return fmtRes.text;
+  } catch {
+    // Raw format fallback
+    return `${parsed.description}\n\n\`\`\`\n${truncated}\n\`\`\``;
   }
 }

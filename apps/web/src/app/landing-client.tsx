@@ -1,7 +1,7 @@
 'use client';
 
 import Link from "next/link";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, useScroll, useTransform, useInView } from "framer-motion";
 
 function useCountUp(end: number, duration = 2000, decimals = 0) {
@@ -75,7 +75,7 @@ export default function LandingClient() {
     visible: (i: number) => ({
       opacity: 1,
       y: 0,
-      transition: { duration: 0.6, delay: i * 0.2, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
+      transition: { duration: 0.6, delay: [0, 0.2, 0.6, 0.8][i] ?? i * 0.2, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
     }),
   };
 
@@ -142,7 +142,11 @@ export default function LandingClient() {
   style={{ perspective: 1000 }}
 >
   <div className="absolute -inset-4 bg-primary/10 blur-3xl rounded-full animate-pulse"></div>
-  <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-white/50 bg-white">
+  <motion.div
+    className="relative rounded-2xl overflow-hidden shadow-2xl border border-white/50 bg-white"
+    animate={{ y: [0, -6, 0] }}
+    transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+  >
     {/* Browser chrome */}
     <div className="flex items-center gap-2 px-4 py-3 bg-surface-container-low border-b border-outline-variant/30">
       <div className="flex gap-1.5">
@@ -188,7 +192,7 @@ export default function LandingClient() {
         </div>
       </div>
     </div>
-  </div>
+  </motion.div>
   {/* Floating status card */}
   <motion.div
     className="absolute -bottom-4 -left-4 glass-panel p-4 rounded-xl shadow-lg border border-white/50"
@@ -335,7 +339,8 @@ export default function LandingClient() {
 <div className="grid md:grid-cols-4 gap-8 relative">
   {/* Connecting line (desktop) */}
   <motion.div
-    className="hidden md:block absolute top-8 left-[12.5%] right-[12.5%] h-0.5 bg-primary-container origin-left"
+    className="hidden md:block absolute top-8 left-[12.5%] right-[12.5%] h-0.5 bg-primary-container"
+    style={{ originX: 0 }}
     initial={{ scaleX: 0 }}
     whileInView={{ scaleX: 1 }}
     viewport={{ once: true, amount: 0.3 }}
@@ -388,7 +393,7 @@ export default function LandingClient() {
 <div className="relative p-12 rounded-xl glass-panel border border-primary/10 shadow-sm">
 <span className="material-symbols-outlined text-6xl text-primary/20 absolute top-4 left-4" data-icon="format_quote">format_quote</span>
 <p className="text-2xl text-on-surface leading-relaxed italic relative z-10">
-"카카오톡으로 오는 발주 메시지를 일일이 엑셀에 옮겨 적던 시절이 생각나지 않을 정도예요. NotiFlow 도입 후 주문 처리 시간이 80% 이상 줄었습니다."
+{"\u201C카카오톡으로 오는 발주 메시지를 일일이 엑셀에 옮겨 적던 시절이 생각나지 않을 정도예요. NotiFlow 도입 후 주문 처리 시간이 80% 이상 줄었습니다.\u201D"}
 </p>
 <div className="mt-8 flex items-center gap-4">
 <div className="w-14 h-14 rounded-full bg-primary-container flex items-center justify-center">
@@ -417,7 +422,7 @@ export default function LandingClient() {
 <span className="material-symbols-outlined text-sm" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
 <span className="material-symbols-outlined text-sm" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
 </div>
-<p className="text-sm font-medium">"알림 놓칠 걱정이 없어졌어요."</p>
+<p className="text-sm font-medium">{"\u201C알림 놓칠 걱정이 없어졌어요.\u201D"}</p>
 <div className="text-xs text-on-surface-variant">박OO 간호사</div>
 </motion.div>
 <motion.div
@@ -434,7 +439,7 @@ export default function LandingClient() {
 <span className="material-symbols-outlined text-sm" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
 <span className="material-symbols-outlined text-sm" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
 </div>
-<p className="text-sm font-medium">"세금계산서까지 자동 정리돼서 편해요."</p>
+<p className="text-sm font-medium">{"\u201C세금계산서까지 자동 정리돼서 편해요.\u201D"}</p>
 <div className="text-xs text-on-surface-variant">이OO 사무장</div>
 </motion.div>
 </div>
@@ -453,7 +458,7 @@ export default function LandingClient() {
 <span className="material-symbols-outlined text-sm" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
 <span className="material-symbols-outlined text-sm" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
 </div>
-<p className="text-sm font-medium">"식약처 코드 자동 매칭이 정말 좋아요."</p>
+<p className="text-sm font-medium">{"\u201C식약처 코드 자동 매칭이 정말 좋아요.\u201D"}</p>
 <div className="text-xs text-on-surface-variant">최OO 원장</div>
 </motion.div>
 <motion.div
@@ -470,7 +475,7 @@ export default function LandingClient() {
 <span className="material-symbols-outlined text-sm" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
 <span className="material-symbols-outlined text-sm" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
 </div>
-<p className="text-sm font-medium">"모바일 연동이 너무 깔끔합니다."</p>
+<p className="text-sm font-medium">{"\u201C모바일 연동이 너무 깔끔합니다.\u201D"}</p>
 <div className="text-xs text-on-surface-variant">정OO 팀장</div>
 </motion.div>
 </div>

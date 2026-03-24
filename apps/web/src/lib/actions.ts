@@ -846,8 +846,8 @@ export async function addToMyDrugs(item: Record<string, unknown>): Promise<{ suc
   const insertRow: Record<string, unknown> = { ...row };
   if (item.unit_price != null && String(item.unit_price).trim() !== "") insertRow.unit_price = Number(item.unit_price);
   const { data, error } = await supabase.from("my_drugs").insert(insertRow).select("id").single();
-  if (error) { console.error("addToMyDrugs error:", error); return { success: false }; }
-  revalidatePath("/products"); return { success: true, id: data.id };
+  if (error) { console.error("addToMyDrugs error:", error); throw new Error(error.message); }
+  revalidatePath("/products"); revalidatePath("/products/my"); return { success: true, id: data.id };
 }
 
 export async function addToMyDevices(item: Record<string, unknown>): Promise<{ success: boolean; id?: number }> {
@@ -864,8 +864,8 @@ export async function addToMyDevices(item: Record<string, unknown>): Promise<{ s
   const insertRow: Record<string, unknown> = { ...row };
   if (item.unit_price != null && String(item.unit_price).trim() !== "") insertRow.unit_price = Number(item.unit_price);
   const { data, error } = await supabase.from("my_devices").insert(insertRow).select("id").single();
-  if (error) { console.error("addToMyDevices error:", error); return { success: false }; }
-  revalidatePath("/products"); return { success: true, id: data.id };
+  if (error) { console.error("addToMyDevices error:", error); throw new Error(error.message); }
+  revalidatePath("/products"); revalidatePath("/products/my"); return { success: true, id: data.id };
 }
 
 export async function deleteMyDrug(id: number) { const supabase = await createClient(); await supabase.from("my_drugs").delete().eq("id", id); revalidatePath("/products/my"); return { success: true }; }

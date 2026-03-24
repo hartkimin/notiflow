@@ -80,8 +80,8 @@ export interface ProductOption {
 }
 
 const ORDER_COL_DEFAULTS: Record<string, number> = {
-  checkbox: 32, expand: 24, order_number: 110, order_date: 65, delivery_date: 65,
-  hospital: 100, item_count: 45, purchase_total: 80, sales_total: 80, profit: 70, margin: 50, sales_rep: 60, status: 100, copy: 32, actions: 32,
+  checkbox: 32, expand: 24, order_number: 105, order_date: 62, delivery_date: 62,
+  hospital: 95, item_count: 42, purchase_total: 78, sales_total: 78, profit: 68, margin: 48, sales_rep: 55, status: 95, invoice: 45, copy: 30, actions: 30,
 };
 
 const KPIS_LABEL: Record<string, string> = {
@@ -117,9 +117,11 @@ function formatMMDD(dateStr: string | null): string {
 export function OrderTable({
   items,
   products = [],
+  invoicedOrderIds = new Set(),
 }: {
   items: OrderItemFlat[];
   products?: ProductOption[];
+  invoicedOrderIds?: Set<number>;
 }) {
   const vatMultiplier = 1.1;
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -154,7 +156,7 @@ export function OrderTable({
     setExpandedId((prev) => (prev === orderId ? null : orderId));
   }
 
-  const colCount = 15;
+  const colCount = 16;
 
   return (
     <>
@@ -181,6 +183,7 @@ export function OrderTable({
               <ResizableTh width={widths.margin} colKey="margin" onResizeStart={onMouseDown} className="text-right">이익률</ResizableTh>
               <ResizableTh width={widths.sales_rep} colKey="sales_rep" onResizeStart={onMouseDown}>담당자</ResizableTh>
               <ResizableTh width={widths.status} colKey="status" onResizeStart={onMouseDown}>상태</ResizableTh>
+              <ResizableTh width={widths.invoice} colKey="invoice" onResizeStart={onMouseDown}>계산서</ResizableTh>
               <ResizableTh width={widths.copy} colKey="copy" onResizeStart={onMouseDown} />
               <ResizableTh width={widths.actions} colKey="actions" onResizeStart={onMouseDown} />
             </TableRow>
@@ -208,6 +211,7 @@ export function OrderTable({
                     onToggle={() => toggleExpand(group.order_id)}
                     onToggleSelect={() => rowSelection.toggle(group.order_id)}
                     colCount={colCount}
+                    invoicedOrderIds={invoicedOrderIds}
                   />
                 );
               })
@@ -234,6 +238,7 @@ const OrderGroupRow = memo(function OrderGroupRow({
   onToggle,
   onToggleSelect,
   colCount,
+  invoicedOrderIds = new Set(),
 }: {
   group: OrderGroup;
   products: ProductOption[];
@@ -242,6 +247,7 @@ const OrderGroupRow = memo(function OrderGroupRow({
   onToggle: () => void;
   onToggleSelect: () => void;
   colCount: number;
+  invoicedOrderIds?: Set<number>;
 }) {
   const vatMultiplier = 1.1;
   return (
@@ -326,6 +332,13 @@ const OrderGroupRow = memo(function OrderGroupRow({
             <span className={`flex-1 flex items-center justify-center transition-all ${group.status === "confirmed" ? "bg-red-500 text-white" : "text-muted-foreground"}`}>미완료</span>
             <span className={`flex-1 flex items-center justify-center transition-all ${group.status === "delivered" ? "bg-green-600 text-white" : "text-muted-foreground"}`}>완료</span>
           </button>
+        </TableCell>
+        <TableCell className="text-center">
+          {invoicedOrderIds.has(group.order_id) ? (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-100 text-green-700">발행</span>
+          ) : (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-100 text-red-500">미발행</span>
+          )}
         </TableCell>
         <TableCell className="px-1" onClick={(e) => e.stopPropagation()}>
           <Button variant="ghost" size="icon" className="h-6 w-6" asChild title="주문 복사">

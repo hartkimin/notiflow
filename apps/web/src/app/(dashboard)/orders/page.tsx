@@ -95,6 +95,15 @@ export default async function OrdersPage({ searchParams }: Props) {
   const productOptions: ProductOption[] = allProducts.map((p) => ({
     id: p.id, name: p.official_name,
   }));
+
+  // Get invoiced order IDs
+  const { createClient: createSC } = await import("@/lib/supabase/server");
+  const sbInvoice = await createSC();
+  const { data: invoicedLinks } = await sbInvoice
+    .from("tax_invoice_orders")
+    .select("order_id, tax_invoices!inner(status)")
+    .neq("tax_invoices.status", "cancelled");
+  const invoicedOrderIds = new Set((invoicedLinks ?? []).map(l => l.order_id));
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
   const sourceMessageId = sourceMessage?.id?.toString();
 
@@ -184,7 +193,7 @@ export default async function OrdersPage({ searchParams }: Props) {
                 {/* Table */}
                 <Card>
                   <CardContent className="p-0">
-                    <OrderTable items={result.items} products={productOptions} />
+                    <OrderTable items={result.items} products={productOptions} invoicedOrderIds={invoicedOrderIds} />
                   </CardContent>
                   <CardFooter className="justify-between">
                     <span className="text-xs text-muted-foreground">

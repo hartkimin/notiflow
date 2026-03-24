@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useMemo, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { MessageSquare } from "lucide-react";
 import { MessageTable } from "./message-table";
 import { AccordionDetail } from "./accordion-detail";
 import { BulkActionBar } from "./bulk-action-bar";
 import { useMessageLocalState } from "@/hooks/use-message-local-state";
 import { useRowSelection } from "@/hooks/use-row-selection";
+import { markMessagesAsRead } from "@/lib/actions";
 import type { UnifiedMessage, LinkedOrder } from "@/lib/queries/messages";
 
 interface MessageInboxProps {
@@ -28,15 +29,21 @@ export function MessageInbox({
   const localState = useMessageLocalState();
   const allIds = useMemo(() => messages.map((m) => m.id), [messages]);
   const rowSelection = useRowSelection(allIds);
+  const router = useRouter();
 
   const selectedMsg = useMemo(
     () => messages.find((m) => m.id === selectedId) ?? null,
     [messages, selectedId],
   );
 
-  function handleSelect(id: string) {
+  const handleSelect = useCallback((id: string) => {
     setSelectedId((prev) => (prev === id ? null : id));
-  }
+    // Mark as read when selecting an unread message
+    const msg = messages.find((m) => m.id === id);
+    if (msg && msg.is_read === false) {
+      markMessagesAsRead([id]).then(() => router.refresh());
+    }
+  }, [messages, router]);
 
   return (
     <div className="flex h-[calc(100vh-9rem)] gap-0">

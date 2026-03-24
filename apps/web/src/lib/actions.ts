@@ -62,6 +62,16 @@ export async function deleteMessages(ids: (number | string)[]) {
   return { success: true };
 }
 
+export async function markMessagesAsRead(ids: string[]) {
+  if (ids.length === 0) return;
+  const supabase = await createClient();
+  await supabase
+    .from("captured_messages")
+    .update({ is_read: true })
+    .in("id", ids)
+    .eq("is_read", false);
+}
+
 // --- Hospitals ---
 
 export async function createHospital(data: {

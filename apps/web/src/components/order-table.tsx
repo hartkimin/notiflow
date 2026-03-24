@@ -775,16 +775,6 @@ function OrderAccordionContent({
 
       {/* Actions */}
       <div className="flex items-center gap-2">
-        {group.status === "draft" && (
-          <Button size="sm" onClick={handleConfirm}>
-            주문 확인
-          </Button>
-        )}
-        {group.status === "draft" && (
-          <Button size="sm" variant="destructive" onClick={handleCancel}>
-            취소
-          </Button>
-        )}
         <div className="flex-1" />
         <AlertDialog>
           <AlertDialogTrigger asChild>

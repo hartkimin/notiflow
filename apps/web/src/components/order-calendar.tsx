@@ -7,11 +7,8 @@ import type { CalendarView } from "@/lib/schedule-utils";
 import type { OrderDetail } from "@/lib/types";
 
 const STATUS_MAP: Record<string, { label: string; color: string; bgClass: string }> = {
-  draft: { label: "초안", color: "bg-gray-400", bgClass: "text-gray-700 bg-gray-100 border-gray-300" },
-  confirmed: { label: "접수확인", color: "bg-blue-500", bgClass: "text-blue-700 bg-blue-50 border-blue-300" },
+  confirmed: { label: "주문완료", color: "bg-blue-500", bgClass: "text-blue-700 bg-blue-50 border-blue-300" },
   delivered: { label: "배송완료", color: "bg-green-500", bgClass: "text-green-700 bg-green-50 border-green-300" },
-  invoiced: { label: "발행완료", color: "bg-emerald-600", bgClass: "text-emerald-700 bg-emerald-50 border-emerald-300" },
-  cancelled: { label: "취소", color: "bg-red-500", bgClass: "text-red-700 bg-red-50 border-red-300" },
 };
 
 function formatDate(dateStr: string) {
@@ -45,9 +42,7 @@ function MonthItem({ order }: { order: OrderDetail }) {
 function WeekItem({ order }: { order: OrderDetail }) {
   const st = STATUS_MAP[order.status];
   const borderColor = order.status === "delivered" ? "border-l-green-500" :
-                      order.status === "confirmed" ? "border-l-blue-500" :
-                      order.status === "invoiced" ? "border-l-emerald-600" :
-                      order.status === "cancelled" ? "border-l-red-500" : "border-l-gray-400";
+                      order.status === "confirmed" ? "border-l-blue-500" : "border-l-gray-400";
   return (
     <div className={`border-l-2 ${borderColor} pl-1.5`}>
       <div className="flex items-center justify-between gap-1">

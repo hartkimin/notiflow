@@ -147,7 +147,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
     new Date().toISOString().slice(0, 10),
   );
 
-  const isEditable = !["delivered", "invoiced", "cancelled"].includes(order.status);
+  const isEditable = order.status === "confirmed";
   const canCreateInvoice = order.status === "delivered";
 
   // --- Status actions ---
@@ -155,11 +155,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
   function handleStatusChange(targetStatus: string) {
     startTransition(async () => {
       try {
-        if (order.status === "draft" && targetStatus === "confirmed") {
-          await confirmOrderAction(order.id);
-        } else {
-          await updateOrderStatusAction(order.id, targetStatus);
-        }
+        await updateOrderStatusAction(order.id, targetStatus);
         toast.success("주문 상태가 변경되었습니다.");
         router.refresh();
       } catch {
@@ -406,44 +402,15 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
 
         <div className="flex-1" />
 
-        {/* Status progression buttons */}
-        {order.status === "draft" && (
-          <>
-            <Button
-              size="sm"
-              onClick={() => handleStatusChange("confirmed")}
-              disabled={isPending}
-            >
-              {isPending ? "처리중..." : "접수 확인"}
-            </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => handleStatusChange("cancelled")}
-              disabled={isPending}
-            >
-              주문 취소
-            </Button>
-          </>
-        )}
+        {/* Status progression button */}
         {order.status === "confirmed" && (
-          <>
-            <Button
-              size="sm"
-              onClick={() => handleStatusChange("delivered")}
-              disabled={isPending}
-            >
-              {isPending ? "처리중..." : "배송 완료"}
-            </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => handleStatusChange("cancelled")}
-              disabled={isPending}
-            >
-              주문 취소
-            </Button>
-          </>
+          <Button
+            size="sm"
+            onClick={() => handleStatusChange("delivered")}
+            disabled={isPending}
+          >
+            {isPending ? "처리중..." : "배송 완료"}
+          </Button>
         )}
 
         {/* Delete */}

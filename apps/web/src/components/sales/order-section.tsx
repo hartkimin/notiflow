@@ -25,8 +25,8 @@ function fmtWon(n: number) {
   return n.toLocaleString();
 }
 
-const STATUS_LABEL: Record<string, string> = { draft: "임시", confirmed: "접수", delivered: "배송완료", invoiced: "정산완료", cancelled: "취소" };
-const STATUS_COLORS: Record<string, string> = { draft: "#a78bfa", confirmed: "#63b3ed", delivered: "#38a169", invoiced: "#006a34", cancelled: "#fc8181" };
+const STATUS_LABEL: Record<string, string> = { confirmed: "주문완료", delivered: "배송완료" };
+const STATUS_COLORS: Record<string, string> = { confirmed: "#63b3ed", delivered: "#38a169" };
 
 export function OrderSection({ initialData, initialMonth }: { initialData: OrderDetailRow[]; initialMonth: string }) {
   const [data, setData] = useState(initialData);

@@ -53,11 +53,8 @@ export function OrderFilters({ hospitals = [] }: OrderFiltersProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">전체</SelectItem>
-            <SelectItem value="draft">초안</SelectItem>
-            <SelectItem value="confirmed">접수확인</SelectItem>
+            <SelectItem value="confirmed">주문완료</SelectItem>
             <SelectItem value="delivered">배송완료</SelectItem>
-            <SelectItem value="invoiced">발행완료</SelectItem>
-            <SelectItem value="cancelled">취소</SelectItem>
           </SelectContent>
         </Select>
       </div>

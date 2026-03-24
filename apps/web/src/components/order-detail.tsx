@@ -96,12 +96,6 @@ export function OrderDetail({ orderId }: { orderId: number }) {
       <Separator />
 
       <div className="flex gap-2">
-        {order.status === "draft" && (
-          <Button size="sm" onClick={handleConfirm}>주문 확인</Button>
-        )}
-        {order.status === "draft" && (
-          <Button size="sm" variant="destructive" onClick={handleCancel}>취소</Button>
-        )}
         <Button size="sm" variant="outline" asChild>
           <a href={`/api/v1/orders/${orderId}/pdf`} target="_blank" rel="noreferrer">PDF</a>
         </Button>

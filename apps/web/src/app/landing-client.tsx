@@ -377,7 +377,13 @@ export default function LandingClient() {
 <section id="reviews" className="py-32 bg-surface-container-low">
 <div className="max-w-7xl mx-auto px-8">
 <div className="grid lg:grid-cols-2 gap-24 items-center">
-<div className="space-y-8">
+<motion.div
+  className="space-y-8"
+  initial={{ opacity: 0, x: -30 }}
+  whileInView={{ opacity: 1, x: 0 }}
+  viewport={{ once: true, amount: 0.3 }}
+  transition={{ duration: 0.6 }}
+>
 <h2 className="text-5xl font-headline font-bold tracking-tight"><span className="text-primary">현장의</span> 목소리</h2>
 <div className="relative p-12 rounded-xl glass-panel border border-primary/10 shadow-sm">
 <span className="material-symbols-outlined text-6xl text-primary/20 absolute top-4 left-4" data-icon="format_quote">format_quote</span>
@@ -394,10 +400,16 @@ export default function LandingClient() {
 </div>
 </div>
 </div>
-</div>
+</motion.div>
 <div className="grid grid-cols-2 gap-6">
 <div className="space-y-6 pt-12">
-<div className="bg-surface-container p-6 rounded-lg space-y-3">
+<motion.div
+  className="bg-surface-container p-6 rounded-lg space-y-3"
+  initial={{ opacity: 0, y: 20 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, amount: 0.3 }}
+  transition={{ duration: 0.4, delay: 0 * 0.1 }}
+>
 <div className="flex text-primary">
 <span className="material-symbols-outlined text-sm" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
 <span className="material-symbols-outlined text-sm" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
@@ -407,8 +419,14 @@ export default function LandingClient() {
 </div>
 <p className="text-sm font-medium">"알림 놓칠 걱정이 없어졌어요."</p>
 <div className="text-xs text-on-surface-variant">박OO 간호사</div>
-</div>
-<div className="bg-surface-container p-6 rounded-lg space-y-3">
+</motion.div>
+<motion.div
+  className="bg-surface-container p-6 rounded-lg space-y-3"
+  initial={{ opacity: 0, y: 20 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, amount: 0.3 }}
+  transition={{ duration: 0.4, delay: 1 * 0.1 }}
+>
 <div className="flex text-primary">
 <span className="material-symbols-outlined text-sm" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
 <span className="material-symbols-outlined text-sm" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
@@ -418,10 +436,16 @@ export default function LandingClient() {
 </div>
 <p className="text-sm font-medium">"세금계산서까지 자동 정리돼서 편해요."</p>
 <div className="text-xs text-on-surface-variant">이OO 사무장</div>
-</div>
+</motion.div>
 </div>
 <div className="space-y-6">
-<div className="bg-surface-container p-6 rounded-lg space-y-3">
+<motion.div
+  className="bg-surface-container p-6 rounded-lg space-y-3"
+  initial={{ opacity: 0, y: 20 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, amount: 0.3 }}
+  transition={{ duration: 0.4, delay: 2 * 0.1 }}
+>
 <div className="flex text-primary">
 <span className="material-symbols-outlined text-sm" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
 <span className="material-symbols-outlined text-sm" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
@@ -431,8 +455,14 @@ export default function LandingClient() {
 </div>
 <p className="text-sm font-medium">"식약처 코드 자동 매칭이 정말 좋아요."</p>
 <div className="text-xs text-on-surface-variant">최OO 원장</div>
-</div>
-<div className="bg-surface-container p-6 rounded-lg space-y-3">
+</motion.div>
+<motion.div
+  className="bg-surface-container p-6 rounded-lg space-y-3"
+  initial={{ opacity: 0, y: 20 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, amount: 0.3 }}
+  transition={{ duration: 0.4, delay: 3 * 0.1 }}
+>
 <div className="flex text-primary">
 <span className="material-symbols-outlined text-sm" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
 <span className="material-symbols-outlined text-sm" data-icon="star" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
@@ -442,7 +472,7 @@ export default function LandingClient() {
 </div>
 <p className="text-sm font-medium">"모바일 연동이 너무 깔끔합니다."</p>
 <div className="text-xs text-on-surface-variant">정OO 팀장</div>
-</div>
+</motion.div>
 </div>
 </div>
 </div>

@@ -1047,13 +1047,13 @@ export function MfdsSearchPanel({
       {/* Manual add dialog */}
       {showManualAdd && (
         <Dialog open onOpenChange={() => setShowManualAdd(false)}>
-          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+            <DialogHeader className="shrink-0">
               <DialogTitle>
                 {tab === "drug" ? "의약품" : "의료기기"} 수동 추가
               </DialogTitle>
             </DialogHeader>
-            <ScrollArea className="flex-1 pr-4 -mr-4">
+            <ScrollArea className="flex-1 min-h-0 pr-4 -mr-4">
               {tab === "drug" ? (
                 /* Drug: grouped layout */
                 <div className="space-y-5 py-2">
@@ -1189,7 +1189,7 @@ export function MfdsSearchPanel({
                 </div>
               )}
             </ScrollArea>
-            <DialogFooter className="flex items-center justify-between sm:justify-between">
+            <DialogFooter className="shrink-0 flex items-center justify-between sm:justify-between">
               <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
                 <input type="checkbox" checked={addAnother} onChange={(e) => setAddAnother(e.target.checked)} className="rounded border-gray-300" />
                 연속 추가

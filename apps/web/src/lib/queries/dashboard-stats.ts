@@ -64,8 +64,8 @@ export async function getDashboardKpis(month?: string): Promise<DashboardKpis> {
       .select("quantity, unit_price, purchase_price")
       .in("order_id", orderIds);
     for (const i of items ?? []) {
-      monthlyRevenue += (Number(i.unit_price ?? 0)) * (i.quantity ?? 0);
-      monthlyPurchase += (Number(i.purchase_price ?? 0)) * (i.quantity ?? 0);
+      monthlyRevenue += Math.round((Number(i.unit_price ?? 0)) * 1.1) * (i.quantity ?? 0);
+      monthlyPurchase += Math.round((Number(i.purchase_price ?? 0)) * 1.1) * (i.quantity ?? 0);
     }
   }
 
@@ -85,7 +85,7 @@ export async function getDashboardKpis(month?: string): Promise<DashboardKpis> {
       .from("order_items")
       .select("quantity, unit_price")
       .in("order_id", prevOrderIds);
-    prevMonthRevenue = (prevItems ?? []).reduce((s, i) => s + (Number(i.unit_price ?? 0)) * (i.quantity ?? 0), 0);
+    prevMonthRevenue = (prevItems ?? []).reduce((s, i) => s + Math.round((Number(i.unit_price ?? 0)) * 1.1) * (i.quantity ?? 0), 0);
   }
   const revenueGrowth = prevMonthRevenue > 0 ? ((monthlyRevenue - prevMonthRevenue) / prevMonthRevenue) * 100 : 0;
 
@@ -167,8 +167,8 @@ export async function getYearlyKpis(year?: number): Promise<YearlyKpis> {
       .select("quantity, unit_price, purchase_price")
       .in("order_id", orderIds);
     for (const i of items ?? []) {
-      revenue += (Number(i.unit_price ?? 0)) * (i.quantity ?? 0);
-      purchase += (Number(i.purchase_price ?? 0)) * (i.quantity ?? 0);
+      revenue += Math.round((Number(i.unit_price ?? 0)) * 1.1) * (i.quantity ?? 0);
+      purchase += Math.round((Number(i.purchase_price ?? 0)) * 1.1) * (i.quantity ?? 0);
     }
   }
 
@@ -185,7 +185,7 @@ export async function getYearlyKpis(year?: number): Promise<YearlyKpis> {
       .from("order_items")
       .select("quantity, unit_price")
       .in("order_id", prevOrderIds);
-    prevYearRevenue = (prevItems ?? []).reduce((s, i) => s + (Number(i.unit_price ?? 0)) * (i.quantity ?? 0), 0);
+    prevYearRevenue = (prevItems ?? []).reduce((s, i) => s + Math.round((Number(i.unit_price ?? 0)) * 1.1) * (i.quantity ?? 0), 0);
   }
 
   // Status counts & invoices

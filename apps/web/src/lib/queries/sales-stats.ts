@@ -47,8 +47,8 @@ export async function getSalesRepDetail(month: string): Promise<SalesRepDetail[]
     const entry = map.get(rep)!;
     entry.orderIds.add(item.order_id);
     entry.itemCount++;
-    entry.revenue += (item.unit_price ?? 0) * item.quantity;
-    entry.purchase += (item.purchase_price ?? 0) * item.quantity;
+    entry.revenue += Math.round((item.unit_price ?? 0) * 1.1) * item.quantity;
+    entry.purchase += Math.round((item.purchase_price ?? 0) * 1.1) * item.quantity;
   }
 
   return Array.from(map, ([rep, e]) => ({
@@ -112,8 +112,8 @@ export async function getSalesRepHospitalDetail(month: string): Promise<SalesRep
     if (!map.has(key)) map.set(key, { rep, hid: hosp.hid, hname: hosp.name, orderIds: new Set(), revenue: 0, purchase: 0 });
     const e = map.get(key)!;
     e.orderIds.add(item.order_id);
-    e.revenue += (item.unit_price ?? 0) * item.quantity;
-    e.purchase += (item.purchase_price ?? 0) * item.quantity;
+    e.revenue += Math.round((item.unit_price ?? 0) * 1.1) * item.quantity;
+    e.purchase += Math.round((item.purchase_price ?? 0) * 1.1) * item.quantity;
   }
 
   return Array.from(map.values()).map((e) => ({
@@ -181,8 +181,8 @@ export async function getHospitalDetail(month: string): Promise<HospitalDetail[]
     entry.orderIds.add(item.order_id);
     if (item.sales_rep) entry.reps.add(item.sales_rep);
     entry.itemCount++;
-    entry.revenue += (item.unit_price ?? 0) * item.quantity;
-    entry.purchase += (item.purchase_price ?? 0) * item.quantity;
+    entry.revenue += Math.round((item.unit_price ?? 0) * 1.1) * item.quantity;
+    entry.purchase += Math.round((item.purchase_price ?? 0) * 1.1) * item.quantity;
   }
 
   return Array.from(map, ([hid, e]) => ({
@@ -236,8 +236,8 @@ export async function getProductPerformance(month: string): Promise<ProductPerfo
     const e = map.get(name)!;
     e.orderIds.add(item.order_id);
     e.qty += item.quantity;
-    e.revenue += (item.unit_price ?? 0) * item.quantity;
-    e.purchase += (item.purchase_price ?? 0) * item.quantity;
+    e.revenue += Math.round((item.unit_price ?? 0) * 1.1) * item.quantity;
+    e.purchase += Math.round((item.purchase_price ?? 0) * 1.1) * item.quantity;
   }
 
   return Array.from(map, ([name, e]) => ({
@@ -300,8 +300,8 @@ export async function getHospitalItemDetail(month: string): Promise<HospitalItem
     if (!map.has(key)) map.set(key, { hid: hosp.hid, hname: hosp.name, pname, qty: 0, revenue: 0, purchase: 0 });
     const e = map.get(key)!;
     e.qty += item.quantity;
-    e.revenue += (item.unit_price ?? 0) * item.quantity;
-    e.purchase += (item.purchase_price ?? 0) * item.quantity;
+    e.revenue += Math.round((item.unit_price ?? 0) * 1.1) * item.quantity;
+    e.purchase += Math.round((item.purchase_price ?? 0) * 1.1) * item.quantity;
   }
 
   return Array.from(map.values()).map((e) => ({
@@ -358,8 +358,8 @@ export async function getOrderDetail(month: string): Promise<OrderDetailRow[]> {
     const e = itemMap.get(item.order_id)!;
     e.count++;
     if (item.sales_rep) e.reps.add(item.sales_rep);
-    e.revenue += (item.unit_price ?? 0) * item.quantity;
-    e.purchase += (item.purchase_price ?? 0) * item.quantity;
+    e.revenue += Math.round((item.unit_price ?? 0) * 1.1) * item.quantity;
+    e.purchase += Math.round((item.purchase_price ?? 0) * 1.1) * item.quantity;
   }
 
   return orders.map((o) => {

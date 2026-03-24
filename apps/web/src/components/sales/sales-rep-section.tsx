@@ -114,8 +114,8 @@ export function SalesRepSection({ initialData, initialHospitalData, initialMonth
                 <TableHead>담당자</TableHead>
                 <TableHead className="text-right">주문</TableHead>
                 <TableHead className="text-right">품목</TableHead>
-                <TableHead className="text-right">매출</TableHead>
-                <TableHead className="text-right">매입</TableHead>
+                <TableHead className="text-right">매출(VAT)</TableHead>
+                <TableHead className="text-right">매입(VAT)</TableHead>
                 <TableHead className="text-right">이익</TableHead>
                 <TableHead className="text-right w-16">이익률</TableHead>
               </TableRow>

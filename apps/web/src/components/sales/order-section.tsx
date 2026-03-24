@@ -85,8 +85,8 @@ export function OrderSection({ initialData, initialMonth }: { initialData: Order
                   <TableHead>거래처</TableHead>
                   <TableHead>상태</TableHead>
                   <TableHead className="text-right">품목</TableHead>
-                  <TableHead className="text-right">매입</TableHead>
-                  <TableHead className="text-right">매출</TableHead>
+                  <TableHead className="text-right">매입(VAT)</TableHead>
+                  <TableHead className="text-right">매출(VAT)</TableHead>
                   <TableHead className="text-right">이익</TableHead>
                   <TableHead className="text-right w-14">이익률</TableHead>
                   <TableHead>담당자</TableHead>

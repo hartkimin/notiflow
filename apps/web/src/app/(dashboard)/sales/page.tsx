@@ -66,7 +66,7 @@ export default async function SalesPage({ searchParams }: Props) {
                   </Button>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-muted-foreground text-xs">매출</span>
+                  <span className="text-muted-foreground text-xs">매출(VAT포함)</span>
                   <span className="font-bold text-xs">₩{fmt(yearKpis.revenue)}</span>
                 </div>
                 <div className="flex items-center gap-1 shrink-0 ml-2">
@@ -99,7 +99,7 @@ export default async function SalesPage({ searchParams }: Props) {
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <TrendingUp className="h-3 w-3 text-blue-500" />
-                  <span className="text-muted-foreground text-xs">매출</span>
+                  <span className="text-muted-foreground text-xs">매출(VAT포함)</span>
                   <span className="font-bold text-xs">₩{fmt(kpis.monthlyRevenue)}</span>
                   {kpis.revenueGrowth >= 0 ? (
                     <span className="text-[10px] text-green-600">▲{kpis.revenueGrowth.toFixed(1)}%</span>

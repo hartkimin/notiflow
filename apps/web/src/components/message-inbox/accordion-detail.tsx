@@ -12,7 +12,7 @@ import {
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Trash2, Pin, PinOff, Copy, Pencil, MessageSquare, Sparkles, X, ExternalLink,
+  Trash2, Pin, PinOff, Copy, Pencil, MessageSquare, Sparkles, X, ExternalLink, ShoppingCart,
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -170,6 +170,14 @@ export function AccordionDetail({ message, localState, linkedOrder }: AccordionD
           <span>{formatDateTime(msg.received_at)}</span>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
+          {!linkedOrder && (
+            <Link href={`/orders/new?source_message_id=${msg.id}`}>
+              <Button variant="ghost" size="sm" className="h-7 px-1.5 text-primary hover:text-primary" title="주문 생성">
+                <ShoppingCart className="h-3.5 w-3.5 mr-0.5" />
+                <span className="text-[10px] font-medium">주문</span>
+              </Button>
+            </Link>
+          )}
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
             onClick={() => localState.togglePin(msg.id)}
             title={msgLocal.isPinned ? "핀 해제" : "핀 고정"}

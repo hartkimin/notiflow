@@ -55,8 +55,6 @@ export default async function OrdersPage({ searchParams }: Props) {
   const status = params.status;
   const hospitalId = params.hospital ? parseInt(params.hospital, 10) : undefined;
   const search = params.search;
-  const vatMultiplier = 1.1;
-
   // Calendar month range
   let calYear: number, calMonth: number;
   if (params.month) {
@@ -155,16 +153,16 @@ export default async function OrdersPage({ searchParams }: Props) {
               <div className="h-4 w-px bg-border shrink-0" />
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-muted-foreground">매입(VAT포함)</span>
-                <span className="font-bold">₩{Math.round(orderStats.total_purchase_amount * vatMultiplier).toLocaleString()}</span>
+                <span className="font-bold">₩{orderStats.total_purchase_amount.toLocaleString()}</span>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-muted-foreground">매출(VAT포함)</span>
-                <span className="font-bold">₩{Math.round(orderStats.total_supply_amount * vatMultiplier).toLocaleString()}</span>
+                <span className="font-bold">₩{orderStats.total_supply_amount.toLocaleString()}</span>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-muted-foreground">이익</span>
                 <span className={`font-bold ${orderStats.total_profit < 0 ? "text-red-500" : "text-green-600"}`}>
-                  ₩{Math.round(orderStats.total_profit * vatMultiplier).toLocaleString()}
+                  ₩{orderStats.total_profit.toLocaleString()}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">

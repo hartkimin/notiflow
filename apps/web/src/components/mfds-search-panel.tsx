@@ -139,6 +139,7 @@ export function MfdsSearchPanel({
   const [editingItem, setEditingItem] = useState<{ id: number; data: Record<string, string> } | null>(null);
   const [editingAliasId, setEditingAliasId] = useState<number | null>(null);
   const [editingAliasValue, setEditingAliasValue] = useState<string>("");
+  const composingRef = useRef(false);
 
   interface DrugField { key: string; label: string; required?: boolean; type?: FieldType; options?: string[]; group: string; placeholder?: string }
 
@@ -482,16 +483,26 @@ export function MfdsSearchPanel({
 
         if (isEditing) {
           return (
-            <Input
+            <input
               autoFocus
-              className="h-7 text-xs w-full"
+              className="h-7 text-xs w-full rounded-md border border-input bg-background px-2"
               placeholder="별칭 입력"
-              value={editingAliasValue}
+              defaultValue={editingAliasValue}
               onClick={(e) => e.stopPropagation()}
-              onChange={(e) => setEditingAliasValue(e.target.value)}
-              onBlur={() => handleAliasSave(itemId)}
+              onCompositionStart={() => { composingRef.current = true; }}
+              onCompositionEnd={(e) => {
+                composingRef.current = false;
+                setEditingAliasValue(e.currentTarget.value);
+              }}
+              onChange={(e) => {
+                if (!composingRef.current) setEditingAliasValue(e.target.value);
+              }}
+              onBlur={(e) => {
+                handleAliasSave(itemId, e.target.value);
+              }}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleAliasSave(itemId);
+                if (composingRef.current) return;
+                if (e.key === "Enter") { handleAliasSave(itemId, e.currentTarget.value); }
                 if (e.key === "Escape") setEditingAliasId(null);
               }}
             />
@@ -901,8 +912,8 @@ export function MfdsSearchPanel({
     });
   }
 
-  function handleAliasSave(itemId: number) {
-    const alias = editingAliasValue.trim() || null;
+  function handleAliasSave(itemId: number, value?: string) {
+    const alias = (value ?? editingAliasValue).trim() || null;
     setEditingAliasId(null);
     startTransition(async () => {
       try {

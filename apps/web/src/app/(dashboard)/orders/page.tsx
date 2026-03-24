@@ -135,11 +135,11 @@ export default async function OrdersPage({ searchParams }: Props) {
               </div>
               <div className="h-4 w-px bg-border shrink-0" />
               <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-muted-foreground">주문완료</span>
+                <span className="text-muted-foreground">미완료</span>
                 <span className="font-bold text-blue-600">{orderStats.status_counts.confirmed ?? 0}</span>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-muted-foreground">배송완료</span>
+                <span className="text-muted-foreground">완료</span>
                 <span className="font-bold text-green-600">{orderStats.status_counts.delivered ?? 0}</span>
               </div>
               <div className="h-4 w-px bg-border shrink-0" />

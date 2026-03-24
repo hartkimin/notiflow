@@ -38,7 +38,7 @@ export async function createManualOrder(
       order_date: new Date().toISOString().slice(0, 10),
       hospital_id: hospitalId,
       message_id: messageId,
-      status: "confirmed",
+      status: "delivered",
       total_items: totalItems,
       supply_amount: supplyAmount,
       tax_amount: taxAmount,

@@ -22,7 +22,7 @@ import type { UnifiedMessage, LinkedOrder } from "@/lib/queries/messages";
 import type { MessageLocalStateHook } from "@/hooks/use-message-local-state";
 
 const ORDER_STATUS_LABEL: Record<string, string> = {
-  confirmed: "주문완료", delivered: "배송완료",
+  confirmed: "미완료", delivered: "완료",
 };
 
 interface AccordionDetailProps {

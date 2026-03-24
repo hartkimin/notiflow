@@ -160,9 +160,9 @@ export default async function DashboardHome({ searchParams }: Props) {
                   <span className="text-muted-foreground text-xs">주문</span>
                   <span className="font-bold text-xs">{kpis.monthlyOrderCount}건</span>
                   <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                    <span className="text-blue-600">주문 {kpis.ordersConfirmed}</span>
+                    <span className="text-blue-600">미완료 {kpis.ordersConfirmed}</span>
                     <span className="text-muted-foreground/30">|</span>
-                    <span className="text-green-600">배송 {kpis.ordersDelivered}</span>
+                    <span className="text-green-600">완료 {kpis.ordersDelivered}</span>
                   </span>
                 </div>
                 <div className="flex items-center gap-1 shrink-0 ml-2">

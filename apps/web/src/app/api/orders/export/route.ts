@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 const STATUS_LABEL: Record<string, string> = {
   draft: "초안",
   confirmed: "접수확인",
-  delivered: "배송완료",
+  delivered: "완료",
   invoiced: "정산완료",
   cancelled: "취소",
 };
@@ -58,7 +58,7 @@ export async function GET(req: Request) {
         "거래처": hospitalName,
         "상태": STATUS_LABEL[order.status] ?? order.status,
         "배송예정일": order.delivery_date ?? "",
-        "배송완료일": order.delivered_at ? new Date(order.delivered_at).toISOString().slice(0, 10) : "",
+        "완료일": order.delivered_at ? new Date(order.delivered_at).toISOString().slice(0, 10) : "",
         "품목명": "",
         "수량": "",
         "단위": "",
@@ -80,7 +80,7 @@ export async function GET(req: Request) {
           "거래처": hospitalName,
           "상태": STATUS_LABEL[order.status] ?? order.status,
           "배송예정일": order.delivery_date ?? "",
-          "배송완료일": order.delivered_at ? new Date(order.delivered_at).toISOString().slice(0, 10) : "",
+          "완료일": order.delivered_at ? new Date(order.delivered_at).toISOString().slice(0, 10) : "",
           "품목명": item.product_name ?? "",
           "수량": item.quantity,
           "단위": item.unit_type ?? "",
@@ -112,7 +112,7 @@ export async function GET(req: Request) {
     { wch: 18 }, // 거래처
     { wch: 10 }, // 상태
     { wch: 12 }, // 배송예정일
-    { wch: 12 }, // 배송완료일
+    { wch: 12 }, // 완료일
     { wch: 30 }, // 품목명
     { wch: 8 },  // 수량
     { wch: 8 },  // 단위

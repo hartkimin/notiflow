@@ -25,7 +25,7 @@ function fmtWon(n: number) {
   return n.toLocaleString();
 }
 
-const STATUS_LABEL: Record<string, string> = { confirmed: "주문완료", delivered: "배송완료" };
+const STATUS_LABEL: Record<string, string> = { confirmed: "미완료", delivered: "완료" };
 const STATUS_COLORS: Record<string, string> = { confirmed: "#63b3ed", delivered: "#38a169" };
 
 export function OrderSection({ initialData, initialMonth }: { initialData: OrderDetailRow[]; initialMonth: string }) {

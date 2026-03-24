@@ -148,7 +148,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
     new Date().toISOString().slice(0, 10),
   );
 
-  const isEditable = order.status === "confirmed";
+  const isEditable = true; // Both statuses are editable
   const canCreateInvoice = order.status === "confirmed" || order.status === "delivered";
 
   // --- Status actions ---
@@ -403,16 +403,15 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
 
         <div className="flex-1" />
 
-        {/* Status progression button */}
-        {order.status === "confirmed" && (
-          <Button
-            size="sm"
-            onClick={() => handleStatusChange("delivered")}
-            disabled={isPending}
-          >
-            {isPending ? "처리중..." : "배송 완료"}
-          </Button>
-        )}
+        {/* Status toggle */}
+        <Button
+          size="sm"
+          variant={order.status === "delivered" ? "outline" : "default"}
+          onClick={() => handleStatusChange(order.status === "delivered" ? "confirmed" : "delivered")}
+          disabled={isPending}
+        >
+          {isPending ? "처리중..." : order.status === "delivered" ? "미완료로 변경" : "완료 처리"}
+        </Button>
 
         {/* Copy order */}
         <Button

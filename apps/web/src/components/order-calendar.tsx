@@ -7,8 +7,8 @@ import type { CalendarView } from "@/lib/schedule-utils";
 import type { OrderDetail } from "@/lib/types";
 
 const STATUS_MAP: Record<string, { label: string; color: string; bgClass: string }> = {
-  confirmed: { label: "주문완료", color: "bg-blue-500", bgClass: "text-blue-700 bg-blue-50 border-blue-300" },
-  delivered: { label: "배송완료", color: "bg-green-500", bgClass: "text-green-700 bg-green-50 border-green-300" },
+  confirmed: { label: "미완료", color: "bg-blue-500", bgClass: "text-blue-700 bg-blue-50 border-blue-300" },
+  delivered: { label: "완료", color: "bg-green-500", bgClass: "text-green-700 bg-green-50 border-green-300" },
 };
 
 function formatDate(dateStr: string) {

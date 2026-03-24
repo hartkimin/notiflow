@@ -39,6 +39,7 @@ import {
   Check,
   ChevronRight,
   ChevronsUpDown,
+  Copy,
   ExternalLink,
   Pencil,
   Save,
@@ -79,8 +80,8 @@ export interface ProductOption {
 }
 
 const ORDER_COL_DEFAULTS: Record<string, number> = {
-  checkbox: 36, expand: 28, order_number: 120, order_date: 70, delivery_date: 70,
-  hospital: 120, item_count: 50, purchase_total: 90, sales_total: 90, profit: 80, margin: 55, sales_rep: 70, status: 75, actions: 36,
+  checkbox: 32, expand: 24, order_number: 110, order_date: 65, delivery_date: 65,
+  hospital: 100, item_count: 45, purchase_total: 80, sales_total: 80, profit: 70, margin: 50, sales_rep: 60, status: 100, copy: 32, actions: 32,
 };
 
 const KPIS_LABEL: Record<string, string> = {
@@ -153,7 +154,7 @@ export function OrderTable({
     setExpandedId((prev) => (prev === orderId ? null : orderId));
   }
 
-  const colCount = 14;
+  const colCount = 15;
 
   return (
     <>
@@ -180,6 +181,7 @@ export function OrderTable({
               <ResizableTh width={widths.margin} colKey="margin" onResizeStart={onMouseDown} className="text-right">이익률</ResizableTh>
               <ResizableTh width={widths.sales_rep} colKey="sales_rep" onResizeStart={onMouseDown}>담당자</ResizableTh>
               <ResizableTh width={widths.status} colKey="status" onResizeStart={onMouseDown}>상태</ResizableTh>
+              <ResizableTh width={widths.copy} colKey="copy" onResizeStart={onMouseDown} />
               <ResizableTh width={widths.actions} colKey="actions" onResizeStart={onMouseDown} />
             </TableRow>
           </TableHeader>
@@ -325,10 +327,17 @@ const OrderGroupRow = memo(function OrderGroupRow({
             <span className={`flex-1 flex items-center justify-center transition-all ${group.status === "delivered" ? "bg-green-600 text-white" : "text-muted-foreground"}`}>완료</span>
           </button>
         </TableCell>
-        <TableCell className="px-2" onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+        <TableCell className="px-1" onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="icon" className="h-6 w-6" asChild title="주문 복사">
+            <Link href={`/orders/new?copy_from=${group.order_id}`}>
+              <Copy className="h-3 w-3" />
+            </Link>
+          </Button>
+        </TableCell>
+        <TableCell className="px-1" onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
             <Link href={`/orders/${group.order_id}`}>
-              <ExternalLink className="h-3.5 w-3.5" />
+              <ExternalLink className="h-3 w-3" />
             </Link>
           </Button>
         </TableCell>

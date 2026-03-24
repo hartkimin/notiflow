@@ -1047,9 +1047,9 @@ export function MfdsSearchPanel({
       {/* Manual add dialog */}
       {showManualAdd && (
         <Dialog open onOpenChange={() => setShowManualAdd(false)}>
-          <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col overflow-hidden">
+          <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
             <DialogHeader className="shrink-0">
-              <DialogTitle>
+              <DialogTitle className="text-lg">
                 {tab === "drug" ? "의약품" : "의료기기"} 수동 추가
               </DialogTitle>
             </DialogHeader>
@@ -1066,20 +1066,20 @@ export function MfdsSearchPanel({
                 function renderField(f: typeof fields[number]) {
                   if (f.type === "yn") {
                     return (
-                      <label key={f.key} className="flex items-center gap-2 px-2.5 py-2 rounded-md border hover:bg-muted/50 cursor-pointer text-sm">
+                      <label key={f.key} className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border hover:bg-muted/50 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={manualForm[f.key] === "Y"}
                           onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.checked ? "Y" : "N" }))}
-                          className="rounded border-gray-300"
+                          className="rounded border-gray-300 h-4 w-4"
                         />
                         {f.label}
                       </label>
                     );
                   }
                   return (
-                    <div key={f.key} className="space-y-1">
-                      <Label htmlFor={`manual-${f.key}`} className="text-xs text-muted-foreground">
+                    <div key={f.key} className="space-y-1.5">
+                      <Label htmlFor={`manual-${f.key}`} className="text-muted-foreground">
                         {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
                       </Label>
                       {f.type === "select" && f.options ? (
@@ -1087,7 +1087,7 @@ export function MfdsSearchPanel({
                           id={`manual-${f.key}`}
                           value={manualForm[f.key] ?? ""}
                           onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                          className="w-full h-9 text-sm rounded-md border border-input bg-background px-3"
+                          className="w-full h-10 rounded-md border border-input bg-background px-3"
                         >
                           <option value="">선택하세요</option>
                           {f.options.map((opt) => (
@@ -1100,55 +1100,67 @@ export function MfdsSearchPanel({
                           value={manualForm[f.key] ?? ""}
                           onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
                           placeholder={f.placeholder ?? f.label}
-                          className="h-9 text-sm"
+                          className="h-10"
                         />
                       )}
                     </div>
                   );
                 }
 
-                function renderGroups(groupNames: string[]) {
-                  return groupNames.map((groupName) => {
-                    const groupFields = fields.filter((f) => f.group === groupName);
-                    const ynFields = groupFields.filter((f) => f.type === "yn");
-                    const otherFields = groupFields.filter((f) => f.type !== "yn");
-                    return (
-                      <div key={groupName}>
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2.5 border-b pb-1">{groupName}</h4>
-                        {otherFields.length > 0 && (
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                            {otherFields.map(renderField)}
-                          </div>
-                        )}
-                        {ynFields.length > 0 && (
-                          <div className={`grid grid-cols-2 gap-2 ${otherFields.length > 0 ? "mt-3" : ""}`}>
-                            {ynFields.map(renderField)}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  });
+                function renderGroup(groupName: string) {
+                  const groupFields = fields.filter((f) => f.group === groupName);
+                  const ynFields = groupFields.filter((f) => f.type === "yn");
+                  const otherFields = groupFields.filter((f) => f.type !== "yn");
+                  return (
+                    <>
+                      {otherFields.length > 0 && (
+                        <div className="space-y-4">
+                          {otherFields.map(renderField)}
+                        </div>
+                      )}
+                      {ynFields.length > 0 && (
+                        <div className={`grid grid-cols-2 gap-2.5 ${otherFields.length > 0 ? "mt-4" : ""}`}>
+                          {ynFields.map(renderField)}
+                        </div>
+                      )}
+                    </>
+                  );
                 }
 
                 return (
-                  <div className="flex gap-8 py-2">
-                    {/* Left: primary fields */}
-                    <div className="flex-1 min-w-0 space-y-5">
-                      {renderGroups(primaryGroups)}
-                      {/* 가격 always on primary side */}
-                      <div>
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2.5 border-b pb-1">가격</h4>
-                        <div className="space-y-1">
-                          <Label htmlFor="manual-unit_price" className="text-xs text-muted-foreground">단가</Label>
-                          <Input id="manual-unit_price" type="number" value={manualForm.unit_price ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, unit_price: e.target.value }))} placeholder="원 단위 입력" className="h-9 text-sm" />
-                        </div>
+                  <div className="space-y-6 py-2">
+                    {/* Primary groups — always visible */}
+                    {primaryGroups.map((groupName) => (
+                      <div key={groupName}>
+                        <h4 className="font-semibold text-muted-foreground uppercase tracking-wider text-xs mb-3 border-b pb-1.5">{groupName}</h4>
+                        {renderGroup(groupName)}
+                      </div>
+                    ))}
+
+                    {/* 가격 */}
+                    <div>
+                      <h4 className="font-semibold text-muted-foreground uppercase tracking-wider text-xs mb-3 border-b pb-1.5">가격</h4>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="manual-unit_price" className="text-muted-foreground">단가</Label>
+                        <Input id="manual-unit_price" type="number" value={manualForm.unit_price ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, unit_price: e.target.value }))} placeholder="원 단위 입력" className="h-10" />
                       </div>
                     </div>
-                    {/* Right: secondary fields */}
-                    <div className="w-[280px] shrink-0 space-y-5 border-l pl-6">
-                      <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">부가 정보</p>
-                      {renderGroups(secondaryGroups)}
-                    </div>
+
+                    {/* Secondary groups — accordion */}
+                    <details className="group rounded-lg border">
+                      <summary className="flex items-center justify-between cursor-pointer px-4 py-3 hover:bg-muted/50 rounded-lg select-none">
+                        <span className="font-semibold text-sm">부가 정보</span>
+                        <svg className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                      </summary>
+                      <div className="px-4 pb-4 space-y-6">
+                        {secondaryGroups.map((groupName) => (
+                          <div key={groupName}>
+                            <h4 className="font-semibold text-muted-foreground uppercase tracking-wider text-xs mb-3 border-b pb-1.5">{groupName}</h4>
+                            {renderGroup(groupName)}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
                   </div>
                 );
               })()}

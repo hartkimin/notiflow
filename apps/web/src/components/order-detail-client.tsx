@@ -404,14 +404,14 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
         <div className="flex-1" />
 
         {/* Status toggle */}
-        <Button
-          size="sm"
-          variant={order.status === "delivered" ? "outline" : "default"}
-          onClick={() => handleStatusChange(order.status === "delivered" ? "confirmed" : "delivered")}
+        <button
+          className="relative flex h-7 w-[110px] rounded-full border text-[11px] font-medium overflow-hidden cursor-pointer transition-colors disabled:opacity-50"
           disabled={isPending}
+          onClick={() => handleStatusChange(order.status === "delivered" ? "confirmed" : "delivered")}
         >
-          {isPending ? "처리중..." : order.status === "delivered" ? "미완료로 변경" : "완료 처리"}
-        </Button>
+          <span className={`flex-1 flex items-center justify-center transition-all ${order.status === "confirmed" ? "bg-red-500 text-white" : "text-muted-foreground"}`}>미완료</span>
+          <span className={`flex-1 flex items-center justify-center transition-all ${order.status === "delivered" ? "bg-green-600 text-white" : "text-muted-foreground"}`}>완료</span>
+        </button>
 
         {/* Copy order */}
         <Button

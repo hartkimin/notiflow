@@ -230,13 +230,26 @@ export default function LandingClient() {
 
 {/* Features Section */}
 <section id="features" className="py-32 px-8 max-w-7xl mx-auto">
-<div className="text-center mb-20 space-y-4">
+<motion.div
+  className="text-center mb-20 space-y-4"
+  initial={{ opacity: 0, y: 20 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, amount: 0.5 }}
+  transition={{ duration: 0.6 }}
+>
 <h2 className="text-4xl md:text-5xl font-headline font-bold tracking-tight"><span className="text-primary">의료물품 주문관리</span>의 모든 것</h2>
 <p className="text-on-surface-variant max-w-2xl mx-auto">알림 수집부터 주문 생성, 납품 관리, 세금계산서 발행까지 — 하나의 플랫폼에서 모두 해결합니다.</p>
-</div>
+</motion.div>
 <div className="grid md:grid-cols-3 gap-8">
 
-<div className="md:col-span-2 rounded-xl bg-surface-container-low p-12 flex flex-col justify-between group overflow-hidden relative">
+<motion.div
+  className="md:col-span-2 rounded-xl bg-surface-container-low p-12 flex flex-col justify-between group overflow-hidden relative"
+  initial={{ opacity: 0, y: 30 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, amount: 0.3 }}
+  transition={{ duration: 0.5, delay: 0 * 0.1 }}
+  whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+>
 <div className="relative z-10 space-y-4">
 <div className="w-14 h-14 rounded-lg bg-primary-container flex items-center justify-center">
 <span className="material-symbols-outlined text-primary text-3xl" data-icon="notifications_active">notifications_active</span>
@@ -250,25 +263,46 @@ export default function LandingClient() {
 </Link>
 </div>
 <div className="absolute -right-16 -bottom-16 w-80 h-80 bg-white rounded-full blur-3xl opacity-50 group-hover:scale-125 transition-transform duration-1000"></div>
-</div>
+</motion.div>
 
-<div className="rounded-xl bg-primary text-on-primary p-12 flex flex-col justify-between shadow-xl shadow-primary/10">
+<motion.div
+  className="rounded-xl bg-primary text-on-primary p-12 flex flex-col justify-between shadow-xl shadow-primary/10"
+  initial={{ opacity: 0, y: 30 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, amount: 0.3 }}
+  transition={{ duration: 0.5, delay: 1 * 0.1 }}
+  whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+>
 <div className="space-y-4">
 <span className="material-symbols-outlined text-4xl" data-icon="auto_awesome">auto_awesome</span>
 <h3 className="text-2xl font-headline font-bold">AI 자동 파싱</h3>
 <p className="opacity-80">Claude AI가 수신된 메시지에서 품목명, 수량, 단가를 자동으로 추출합니다. 정확도 0.7 미만 시 정규식 파서가 보완합니다.</p>
 </div>
-</div>
+</motion.div>
 
-<div className="rounded-xl bg-tertiary-container p-12 flex flex-col justify-between">
+<motion.div
+  className="rounded-xl bg-tertiary-container p-12 flex flex-col justify-between"
+  initial={{ opacity: 0, y: 30 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, amount: 0.3 }}
+  transition={{ duration: 0.5, delay: 2 * 0.1 }}
+  whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+>
 <div className="space-y-4">
 <span className="material-symbols-outlined text-3xl text-on-tertiary-container" data-icon="local_pharmacy">local_pharmacy</span>
 <h3 className="text-2xl font-headline font-bold text-on-tertiary-container">식약처 연동</h3>
 <p className="text-on-tertiary-container/80">MFDS 의약품·의료기기 표준코드 데이터를 자동으로 동기화하여 정확한 품목 매칭을 지원합니다.</p>
 </div>
-</div>
+</motion.div>
 
-<div className="md:col-span-2 rounded-xl bg-surface-container p-12 flex flex-col md:flex-row items-center gap-12 overflow-hidden">
+<motion.div
+  className="md:col-span-2 rounded-xl bg-surface-container p-12 flex flex-col md:flex-row items-center gap-12 overflow-hidden"
+  initial={{ opacity: 0, y: 30 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, amount: 0.3 }}
+  transition={{ duration: 0.5, delay: 3 * 0.1 }}
+  whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+>
 <div className="flex-1 space-y-4">
 <h3 className="text-3xl font-headline font-bold">모바일 · 웹 동기화</h3>
 <p className="text-on-surface-variant">안드로이드 앱에서 수집된 알림이 실시간으로 웹 대시보드에 동기화됩니다. 어디서든 주문 현황을 확인하세요.</p>
@@ -281,7 +315,7 @@ export default function LandingClient() {
 <div className="flex-1 flex items-center justify-center">
 <div className="text-6xl">📱 ↔️ 💻</div>
 </div>
-</div>
+</motion.div>
 </div>
 </section>
 

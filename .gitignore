@@ -67,3 +67,5 @@ supabase-docker/
 *.png
 *.tmp
 ~$*
+.gstack/
+.superpowers/

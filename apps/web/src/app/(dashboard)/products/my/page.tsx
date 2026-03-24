@@ -9,10 +9,13 @@ export default async function MyProductsPage() {
   ]);
 
   return (
-    <MfdsSearchPanel
-      mode="manage"
-      existingStandardCodes={existingStandardCodes}
-      syncStatus={syncStatus ?? undefined}
-    />
+    <div className="space-y-3">
+      <h1 className="text-lg font-semibold">내 관리 품목</h1>
+      <MfdsSearchPanel
+        mode="manage"
+        existingStandardCodes={existingStandardCodes}
+        syncStatus={syncStatus ?? undefined}
+      />
+    </div>
   );
 }

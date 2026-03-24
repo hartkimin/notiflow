@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useTransition, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,17 @@ import { ChevronLeft, ChevronRight, ChevronDown, Download, Building2 } from "luc
 import { getHospitalDetailAction, getHospitalItemDetailAction } from "@/app/(dashboard)/sales/actions";
 import { downloadExcel } from "./excel-download";
 import type { HospitalDetail, HospitalItemDetail } from "@/lib/queries/sales-stats";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+
+const CHART_COLORS = ["#006a34", "#38a169", "#68d391", "#f6ad55", "#fc8181", "#a78bfa", "#63b3ed", "#f687b3"];
 
 function fmt(n: number) {
+  if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)}억`;
+  if (Math.abs(n) >= 1e4) return `${Math.round(n / 1e4).toLocaleString()}만`;
+  return n.toLocaleString();
+}
+
+function fmtWon(n: number) {
   if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)}억`;
   if (Math.abs(n) >= 1e4) return `${Math.round(n / 1e4).toLocaleString()}만`;
   return n.toLocaleString();
@@ -53,6 +62,15 @@ export function HospitalSection({ initialData, initialItemData, initialMonth }: 
   const totalProfit = data.reduce((s, d) => s + d.profit, 0);
   const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
+  const hospChartData = useMemo(
+    () =>
+      [...data]
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 10)
+        .map((h) => ({ name: h.hospital_name.slice(0, 12), 매출: h.revenue, 매입: h.purchase })),
+    [data]
+  );
+
   function handleDownload() {
     const rows: Record<string, unknown>[] = [];
     for (const h of data) {
@@ -92,7 +110,26 @@ export function HospitalSection({ initialData, initialItemData, initialMonth }: 
         ) : data.length === 0 ? (
           <div className="text-sm text-muted-foreground text-center py-6">해당 기간 데이터가 없습니다.</div>
         ) : (
-          <Table>
+          <>
+            {data.length > 0 && (
+              <div className="rounded-lg border p-4 mb-4">
+                <h4 className="text-sm font-semibold mb-3">거래처별 매출 Top {Math.min(10, data.length)}</h4>
+                <ResponsiveContainer width="100%" height={Math.max(200, Math.min(10, data.length) * 45)}>
+                  <BarChart data={hospChartData} layout="vertical" margin={{ left: 80, right: 20, top: 5, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" tickFormatter={fmtWon} />
+                    <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(v) => `₩${fmtWon(Number(v))}`} />
+                    <Bar dataKey="매출" fill="#006a34" radius={[0, 4, 4, 0]}>
+                      {hospChartData.map((_, i) => (
+                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-8" />
@@ -155,6 +192,7 @@ export function HospitalSection({ initialData, initialItemData, initialMonth }: 
               </TableRow>
             </TableBody>
           </Table>
+          </>
         )}
       </CardContent>
     </Card>

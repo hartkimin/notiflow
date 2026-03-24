@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,17 @@ import { ChevronLeft, ChevronRight, Download, Package } from "lucide-react";
 import { getProductPerformanceAction } from "@/app/(dashboard)/sales/actions";
 import { downloadExcel } from "./excel-download";
 import type { ProductPerformance } from "@/lib/queries/sales-stats";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+
+const CHART_COLORS = ["#006a34", "#38a169", "#68d391", "#f6ad55", "#fc8181", "#a78bfa", "#63b3ed", "#f687b3"];
 
 function fmt(n: number) {
+  if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)}억`;
+  if (Math.abs(n) >= 1e4) return `${Math.round(n / 1e4).toLocaleString()}만`;
+  return n.toLocaleString();
+}
+
+function fmtWon(n: number) {
   if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)}억`;
   if (Math.abs(n) >= 1e4) return `${Math.round(n / 1e4).toLocaleString()}만`;
   return n.toLocaleString();
@@ -40,6 +49,14 @@ export function ProductSection({ initialData, initialMonth }: { initialData: Pro
   const totalProfit = data.reduce((s, d) => s + d.profit, 0);
   const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
+  const prodChartData = useMemo(
+    () =>
+      data
+        .slice(0, 10)
+        .map((p) => ({ name: p.product_name.slice(0, 15), 매출: p.revenue, 이익: p.profit })),
+    [data]
+  );
+
   function handleDownload() {
     downloadExcel(data as unknown as Record<string, unknown>[], `품목별실적_${month}`, {
       product_name: "품목명", order_count: "주문건수", total_quantity: "수량",
@@ -68,7 +85,26 @@ export function ProductSection({ initialData, initialMonth }: { initialData: Pro
         ) : data.length === 0 ? (
           <div className="text-sm text-muted-foreground text-center py-6">해당 기간 데이터가 없습니다.</div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {data.length > 0 && (
+              <div className="rounded-lg border p-4 mb-4">
+                <h4 className="text-sm font-semibold mb-3">품목별 매출 Top {Math.min(10, data.length)}</h4>
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={prodChartData} margin={{ left: 10, right: 10, top: 5, bottom: 40 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" fontSize={10} angle={-30} textAnchor="end" height={60} interval={0} />
+                    <YAxis tickFormatter={fmtWon} />
+                    <Tooltip formatter={(v) => `₩${fmtWon(Number(v))}`} />
+                    <Bar dataKey="매출" radius={[4, 4, 0, 0]}>
+                      {prodChartData.map((_, i) => (
+                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -107,6 +143,7 @@ export function ProductSection({ initialData, initialMonth }: { initialData: Pro
               </TableBody>
             </Table>
           </div>
+          </>
         )}
       </CardContent>
     </Card>

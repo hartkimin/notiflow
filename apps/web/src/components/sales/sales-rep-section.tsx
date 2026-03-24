@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useTransition, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,17 @@ import { ChevronLeft, ChevronRight, ChevronDown, Download, Users } from "lucide-
 import { getSalesRepDetailAction, getSalesRepHospitalDetailAction } from "@/app/(dashboard)/sales/actions";
 import { downloadExcel } from "./excel-download";
 import type { SalesRepDetail, SalesRepHospitalDetail } from "@/lib/queries/sales-stats";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+
+const CHART_COLORS = ["#006a34", "#38a169", "#68d391", "#f6ad55", "#fc8181", "#a78bfa", "#63b3ed", "#f687b3"];
 
 function fmt(n: number) {
+  if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)}억`;
+  if (Math.abs(n) >= 1e4) return `${Math.round(n / 1e4).toLocaleString()}만`;
+  return n.toLocaleString();
+}
+
+function fmtWon(n: number) {
   if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)}억`;
   if (Math.abs(n) >= 1e4) return `${Math.round(n / 1e4).toLocaleString()}만`;
   return n.toLocaleString();
@@ -52,6 +61,11 @@ export function SalesRepSection({ initialData, initialHospitalData, initialMonth
   const totalPurchase = data.reduce((s, d) => s + d.purchase, 0);
   const totalProfit = data.reduce((s, d) => s + d.profit, 0);
   const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+  const chartData = useMemo(
+    () => data.map((rep) => ({ name: rep.sales_rep, 매출: rep.revenue, 매입: rep.purchase, 이익: rep.profit })),
+    [data]
+  );
 
   function handleDownload() {
     // Export both summary and hospital detail
@@ -107,7 +121,24 @@ export function SalesRepSection({ initialData, initialHospitalData, initialMonth
         ) : data.length === 0 ? (
           <div className="text-sm text-muted-foreground text-center py-6">해당 기간 데이터가 없습니다.</div>
         ) : (
-          <Table>
+          <>
+            {data.length > 0 && (
+              <div className="rounded-lg border p-4 mb-4">
+                <h4 className="text-sm font-semibold mb-3">담당자별 매출·매입 비교</h4>
+                <ResponsiveContainer width="100%" height={Math.max(200, data.length * 50)}>
+                  <BarChart data={chartData} layout="vertical" margin={{ left: 60, right: 20, top: 5, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" tickFormatter={fmtWon} />
+                    <YAxis type="category" dataKey="name" width={55} tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(v) => `₩${fmtWon(Number(v))}`} />
+                    <Legend />
+                    <Bar dataKey="매출" fill="#006a34" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="매입" fill="#fc8181" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-8" />
@@ -168,6 +199,7 @@ export function SalesRepSection({ initialData, initialHospitalData, initialMonth
               </TableRow>
             </TableBody>
           </Table>
+          </>
         )}
       </CardContent>
     </Card>

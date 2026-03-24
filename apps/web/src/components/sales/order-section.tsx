@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,12 +11,22 @@ import { getOrderDetailAction } from "@/app/(dashboard)/sales/actions";
 import { downloadExcel } from "./excel-download";
 import { ORDER_STATUS_LABELS, ORDER_STATUS_VARIANT } from "@/lib/order-status";
 import type { OrderDetailRow } from "@/lib/queries/sales-stats";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 
 function fmt(n: number) {
   if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)}억`;
   if (Math.abs(n) >= 1e4) return `${Math.round(n / 1e4).toLocaleString()}만`;
   return n.toLocaleString();
 }
+
+function fmtWon(n: number) {
+  if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)}억`;
+  if (Math.abs(n) >= 1e4) return `${Math.round(n / 1e4).toLocaleString()}만`;
+  return n.toLocaleString();
+}
+
+const STATUS_LABEL: Record<string, string> = { draft: "임시", confirmed: "접수", delivered: "배송완료", invoiced: "정산완료", cancelled: "취소" };
+const STATUS_COLORS: Record<string, string> = { draft: "#a78bfa", confirmed: "#63b3ed", delivered: "#38a169", invoiced: "#006a34", cancelled: "#fc8181" };
 
 export function OrderSection({ initialData, initialMonth }: { initialData: OrderDetailRow[]; initialMonth: string }) {
   const [data, setData] = useState(initialData);
@@ -42,6 +52,21 @@ export function OrderSection({ initialData, initialMonth }: { initialData: Order
   const totalPurchase = data.reduce((s, d) => s + d.purchase, 0);
   const totalProfit = data.reduce((s, d) => s + d.profit, 0);
   const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+  const dailyData = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const o of data) {
+      const d = o.order_date;
+      map.set(d, (map.get(d) ?? 0) + o.revenue);
+    }
+    return [...map.entries()].sort().map(([date, revenue]) => ({ date: date.slice(5), 매출: revenue }));
+  }, [data]);
+
+  const statusData = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const o of data) map.set(o.status, (map.get(o.status) ?? 0) + 1);
+    return [...map.entries()].map(([status, count]) => ({ name: STATUS_LABEL[status] ?? status, value: count, status }));
+  }, [data]);
 
   function handleDownload() {
     const exportData = data.map((o) => ({
@@ -76,7 +101,38 @@ export function OrderSection({ initialData, initialMonth }: { initialData: Order
         ) : data.length === 0 ? (
           <div className="text-sm text-muted-foreground text-center py-6">해당 기간 데이터가 없습니다.</div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {data.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="rounded-lg border p-4">
+                  <h4 className="text-sm font-semibold mb-3">일별 매출 추이</h4>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <LineChart data={dailyData} margin={{ left: 10, right: 10, top: 5, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                      <YAxis tickFormatter={fmtWon} />
+                      <Tooltip formatter={(v) => `₩${fmtWon(Number(v))}`} />
+                      <Line type="monotone" dataKey="매출" stroke="#006a34" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <h4 className="text-sm font-semibold mb-3">주문 상태 분포</h4>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie data={statusData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={({ name, percent }: { name?: string; percent?: number }) => `${name ?? ""} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
+                        {statusData.map((d) => (
+                          <Cell key={d.name} fill={STATUS_COLORS[d.status] ?? "#ccc"} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -125,6 +181,7 @@ export function OrderSection({ initialData, initialMonth }: { initialData: Order
               </TableBody>
             </Table>
           </div>
+          </>
         )}
       </CardContent>
     </Card>

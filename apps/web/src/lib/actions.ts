@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { geocodeAddress } from "@/lib/geocode";
+import { sendFCMDataMessage } from "@/lib/fcm-admin";
 
 
 // --- Messages (captured_messages table) ---
@@ -250,66 +251,96 @@ export async function deleteDevice(id: string) {
 
 export async function requestDeviceSync(id: string) {
   const supabase = await createClient();
-  try {
-    const { data, error } = await supabase.functions.invoke("trigger-sync", {
-      body: { device_id: id },
+
+  // Query the target device
+  const { data: device } = await supabase
+    .from("mobile_devices")
+    .select("id, device_name, fcm_token, is_active")
+    .eq("id", id)
+    .single();
+
+  if (!device) return { success: false, fcm_sent: 0, fcm_failed: 1, realtime_updated: 0, error: "기기를 찾을 수 없습니다" };
+
+  // Always update sync_requested_at as Realtime fallback
+  await supabase
+    .from("mobile_devices")
+    .update({ sync_requested_at: new Date().toISOString() })
+    .eq("id", id);
+
+  // Send FCM data-only push directly (no Edge Function needed)
+  let fcmSent = 0;
+  let fcmFailed = 0;
+
+  if (device.fcm_token) {
+    const result = await sendFCMDataMessage(device.fcm_token, {
+      type: "sync_request",
+      requested_at: new Date().toISOString(),
     });
-    if (error) {
-      // Supabase functions.invoke wraps non-2xx as FunctionsHttpError
-      const msg = data?.error ?? error.message ?? "동기화 요청 실패";
-      console.error("requestDeviceSync error:", msg);
-      // Fallback: directly update sync_requested_at via DB (bypasses Edge Function)
-      await supabase
-        .from("mobile_devices")
-        .update({ sync_requested_at: new Date().toISOString() })
-        .eq("id", id);
-      revalidatePath("/settings/devices");
-      return { success: true, fcm_sent: 0, fcm_failed: 0, realtime_updated: 1, fallback: true, error: `Edge Function 실패 — Realtime 대체: ${msg}` };
+
+    if (result.success) {
+      fcmSent = 1;
+    } else {
+      fcmFailed = 1;
+      console.error("FCM send failed:", result.error);
+      // Clear invalid token
+      if (result.status === 404 || result.status === 400) {
+        await supabase.from("mobile_devices").update({ fcm_token: null }).eq("id", id);
+      }
     }
-    revalidatePath("/settings/devices");
-    revalidatePath("/dashboard");
-    return data as { success: boolean; fcm_sent: number; fcm_failed: number; realtime_updated: number };
-  } catch (err) {
-    // Network-level errors (Edge Function unreachable)
-    console.error("requestDeviceSync catch:", err);
-    await supabase
-      .from("mobile_devices")
-      .update({ sync_requested_at: new Date().toISOString() })
-      .eq("id", id);
-    revalidatePath("/settings/devices");
-    return { success: true, fcm_sent: 0, fcm_failed: 0, realtime_updated: 1, fallback: true, error: "Edge Function 연결 실패 — Realtime으로 대체 요청됨" };
+  } else {
+    fcmFailed = 1;
   }
+
+  revalidatePath("/settings/devices");
+  revalidatePath("/dashboard");
+  return { success: true, fcm_sent: fcmSent, fcm_failed: fcmFailed, realtime_updated: 1 };
 }
 
 export async function requestAllDevicesSync() {
   const supabase = await createClient();
-  try {
-    const { data, error } = await supabase.functions.invoke("trigger-sync", {
-      body: { device_id: "all" },
-    });
-    if (error) {
-      const msg = data?.error ?? error.message ?? "동기화 요청 실패";
-      console.error("requestAllDevicesSync error:", msg);
-      // Fallback: update all active devices' sync_requested_at
-      await supabase
-        .from("mobile_devices")
-        .update({ sync_requested_at: new Date().toISOString() })
-        .eq("is_active", true);
-      revalidatePath("/settings/devices");
-      return { success: true, fcm_sent: 0, fcm_failed: 0, realtime_updated: 1, fallback: true, error: `Edge Function 실패 — Realtime 대체: ${msg}` };
-    }
-    revalidatePath("/settings/devices");
-    revalidatePath("/dashboard");
-    return data as { success: boolean; fcm_sent: number; fcm_failed: number; realtime_updated: number };
-  } catch (err) {
-    console.error("requestAllDevicesSync catch:", err);
-    await supabase
-      .from("mobile_devices")
-      .update({ sync_requested_at: new Date().toISOString() })
-      .eq("is_active", true);
-    revalidatePath("/settings/devices");
-    return { success: true, fcm_sent: 0, fcm_failed: 0, realtime_updated: 1, fallback: true, error: "Edge Function 연결 실패 — Realtime으로 대체 요청됨" };
+
+  // Query all active devices
+  const { data: devices } = await supabase
+    .from("mobile_devices")
+    .select("id, device_name, fcm_token")
+    .eq("is_active", true);
+
+  if (!devices || devices.length === 0) {
+    return { success: true, fcm_sent: 0, fcm_failed: 0, realtime_updated: 0 };
   }
+
+  // Update sync_requested_at for all
+  const deviceIds = devices.map(d => d.id);
+  await supabase
+    .from("mobile_devices")
+    .update({ sync_requested_at: new Date().toISOString() })
+    .in("id", deviceIds);
+
+  // Send FCM to each device with a token
+  let fcmSent = 0;
+  let fcmFailed = 0;
+
+  for (const device of devices) {
+    if (!device.fcm_token) { fcmFailed++; continue; }
+
+    const result = await sendFCMDataMessage(device.fcm_token, {
+      type: "sync_request",
+      requested_at: new Date().toISOString(),
+    });
+
+    if (result.success) {
+      fcmSent++;
+    } else {
+      fcmFailed++;
+      if (result.status === 404 || result.status === 400) {
+        await supabase.from("mobile_devices").update({ fcm_token: null }).eq("id", device.id);
+      }
+    }
+  }
+
+  revalidatePath("/settings/devices");
+  revalidatePath("/dashboard");
+  return { success: true, fcm_sent: fcmSent, fcm_failed: fcmFailed, realtime_updated: devices.length };
 }
 
 // --- Users (direct admin client — no Edge Function dependency) ---

@@ -1053,7 +1053,7 @@ export function MfdsSearchPanel({
                 {tab === "drug" ? "의약품" : "의료기기"} 수동 추가
               </DialogTitle>
             </DialogHeader>
-            <ScrollArea className="flex-1 min-h-0 pr-4 -mr-4">
+            <div className="flex-1 min-h-0 overflow-y-auto pr-2">
               {(() => {
                 const fields = tab === "drug" ? DRUG_FIELDS_GROUPED : DEVICE_FIELDS_GROUPED;
                 const groups = [...new Set(fields.map((f) => f.group))];
@@ -1140,7 +1140,7 @@ export function MfdsSearchPanel({
                   </div>
                 );
               })()}
-            </ScrollArea>
+            </div>
             <DialogFooter className="shrink-0 flex items-center justify-between sm:justify-between">
               <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
                 <input type="checkbox" checked={addAnother} onChange={(e) => setAddAnother(e.target.checked)} className="rounded border-gray-300" />

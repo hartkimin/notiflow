@@ -281,4 +281,12 @@
         .text-glow {
             text-shadow: 0 0 20px rgba(0, 106, 52, 0.1);
         }
-    
+
+@keyframes pulse-shadow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 106, 52, 0.3); }
+  50% { box-shadow: 0 0 0 12px rgba(0, 106, 52, 0); }
+}
+.animate-pulse-shadow {
+  animation: pulse-shadow 2s ease-in-out infinite;
+}
+

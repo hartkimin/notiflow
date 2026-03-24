@@ -481,21 +481,33 @@ export default function LandingClient() {
 
 {/* CTA Section */}
 <section id="contact" className="px-8 pb-32">
-<div className="max-w-7xl mx-auto relative rounded-xl bg-primary-container overflow-hidden p-16 md:p-32 text-center">
+<motion.div
+  className="max-w-7xl mx-auto relative rounded-xl bg-primary-container overflow-hidden p-16 md:p-32 text-center"
+  initial={{ opacity: 0, scale: 0.9 }}
+  whileInView={{ opacity: 1, scale: 1 }}
+  viewport={{ once: true, amount: 0.3 }}
+  transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] }}
+>
 <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent"></div>
 <div className="relative z-10 space-y-8">
 <h2 className="text-5xl md:text-7xl font-headline font-bold text-on-primary-container tracking-tighter">지금 바로<br/><span className="text-primary">시작하세요</span></h2>
 <p className="text-xl text-on-primary-container/80 max-w-2xl mx-auto">카카오톡 주문 메시지, 아직 수작업으로 정리하고 계신가요? NotiFlow로 주문관리를 자동화하세요.</p>
 <div className="flex flex-col md:flex-row justify-center gap-4">
-<Link href="/login" className="bg-primary text-on-primary px-12 py-5 rounded-full font-bold text-xl shadow-lg hover:shadow-primary/30 transition-all">무료로 시작하기</Link>
+<Link href="/login" className="bg-primary text-on-primary px-12 py-5 rounded-full font-bold text-xl shadow-lg hover:shadow-primary/30 transition-all animate-pulse-shadow">무료로 시작하기</Link>
 <a href="mailto:support@notiflow.life" className="bg-white/50 backdrop-blur-sm text-primary px-12 py-5 rounded-full font-bold text-xl border border-primary/20 hover:bg-white transition-all">문의하기</a>
 </div>
 </div>
-</div>
+</motion.div>
 </section>
 </main>
 
-<footer className="w-full rounded-t-[3rem] mt-20 bg-emerald-50">
+<motion.footer
+  className="w-full rounded-t-[3rem] mt-20 bg-emerald-50"
+  initial={{ opacity: 0 }}
+  whileInView={{ opacity: 1 }}
+  viewport={{ once: true }}
+  transition={{ duration: 0.6 }}
+>
 <div className="flex flex-col md:flex-row justify-between items-center px-12 py-16 w-full max-w-7xl mx-auto">
 <div className="space-y-4 text-center md:text-left">
 <div className="text-lg font-bold text-emerald-900 font-headline">NotiFlow</div>
@@ -507,7 +519,7 @@ export default function LandingClient() {
 <a className="font-body text-sm text-emerald-900/60 hover:text-emerald-500 transition-all underline decoration-emerald-200 decoration-2 underline-offset-4 hover:translate-x-1 duration-200" href="mailto:support@notiflow.life">문의하기</a>
 </div>
 </div>
-</footer>
+</motion.footer>
 
     </div>
   );

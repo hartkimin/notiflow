@@ -1054,140 +1054,92 @@ export function MfdsSearchPanel({
               </DialogTitle>
             </DialogHeader>
             <ScrollArea className="flex-1 min-h-0 pr-4 -mr-4">
-              {tab === "drug" ? (
-                /* Drug: grouped layout */
-                <div className="space-y-5 py-2">
-                  {(() => {
-                    const groups = [...new Set(DRUG_FIELDS_GROUPED.map((f) => f.group))];
-                    return groups.map((groupName) => (
-                      <div key={groupName}>
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 border-b pb-1">{groupName}</h4>
-                        {DRUG_FIELDS_GROUPED.filter((f) => f.group === groupName).some((f) => f.type === "yn") ? (
-                          <div className="grid grid-cols-2 gap-2">
-                            {DRUG_FIELDS_GROUPED.filter((f) => f.group === groupName).map((f) =>
-                              f.type === "yn" ? (
-                                <label key={f.key} className="flex items-center gap-2 px-2 py-1.5 rounded border hover:bg-muted/50 cursor-pointer text-sm">
-                                  <input type="checkbox" checked={manualForm[f.key] === "Y"} onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.checked ? "Y" : "N" }))} className="rounded border-gray-300" />
-                                  {f.label}
-                                </label>
-                              ) : f.type === "select" && f.options ? (
-                                <div key={f.key} className="grid grid-cols-[100px_1fr] items-center gap-2 col-span-2">
-                                  <Label className="text-xs text-right text-muted-foreground">{f.label}</Label>
-                                  <select value={manualForm[f.key] ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))} className="h-8 text-sm rounded-md border border-input bg-background px-3">
-                                    <option value="">선택하세요</option>
-                                    {f.options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                                  </select>
-                                </div>
-                              ) : (
-                                <div key={f.key} className="grid grid-cols-[100px_1fr] items-center gap-2 col-span-2">
-                                  <Label className="text-xs text-right text-muted-foreground">{f.label}</Label>
-                                  <Input value={manualForm[f.key] ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))} placeholder={f.placeholder ?? f.label} className="h-8 text-sm" />
-                                </div>
-                              )
-                            )}
-                          </div>
-                        ) : (
-                          <div className="grid gap-2.5">
-                            {DRUG_FIELDS_GROUPED.filter((f) => f.group === groupName).map((f) => (
-                              <div key={f.key} className="grid grid-cols-[120px_1fr] items-center gap-2">
-                                <Label htmlFor={`manual-${f.key}`} className="text-xs text-right text-muted-foreground">
-                                  {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
-                                </Label>
-                                {f.type === "select" && f.options ? (
-                                  <select id={`manual-${f.key}`} value={manualForm[f.key] ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))} className="h-8 text-sm rounded-md border border-input bg-background px-3">
-                                    <option value="">선택하세요</option>
-                                    {f.options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                                  </select>
-                                ) : (
-                                  <Input id={`manual-${f.key}`} value={manualForm[f.key] ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))} placeholder={f.placeholder ?? f.label} className="h-8 text-sm" />
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
+              {(() => {
+                const fields = tab === "drug" ? DRUG_FIELDS_GROUPED : DEVICE_FIELDS_GROUPED;
+                const groups = [...new Set(fields.map((f) => f.group))];
+
+                function renderField(f: typeof fields[number]) {
+                  if (f.type === "yn") {
+                    return (
+                      <label key={f.key} className="flex items-center gap-2 px-2.5 py-2 rounded-md border hover:bg-muted/50 cursor-pointer text-sm">
+                        <input
+                          type="checkbox"
+                          checked={manualForm[f.key] === "Y"}
+                          onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.checked ? "Y" : "N" }))}
+                          className="rounded border-gray-300"
+                        />
+                        {f.label}
+                      </label>
+                    );
+                  }
+                  return (
+                    <div key={f.key} className="space-y-1">
+                      <Label htmlFor={`manual-${f.key}`} className="text-xs text-muted-foreground">
+                        {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
+                      </Label>
+                      {f.type === "select" && f.options ? (
+                        <select
+                          id={`manual-${f.key}`}
+                          value={manualForm[f.key] ?? ""}
+                          onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                          className="w-full h-9 text-sm rounded-md border border-input bg-background px-3"
+                        >
+                          <option value="">선택하세요</option>
+                          {f.options.map((opt) => (
+                            <option key={opt} value={opt}>{opt}{f.key === "clsf_no_grad_cd" ? "등급" : ""}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <Input
+                          id={`manual-${f.key}`}
+                          value={manualForm[f.key] ?? ""}
+                          onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                          placeholder={f.placeholder ?? f.label}
+                          className="h-9 text-sm"
+                        />
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-5 py-2">
+                    {groups.map((groupName) => {
+                      const groupFields = fields.filter((f) => f.group === groupName);
+                      const ynFields = groupFields.filter((f) => f.type === "yn");
+                      const otherFields = groupFields.filter((f) => f.type !== "yn");
+
+                      return (
+                        <div key={groupName}>
+                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2.5 border-b pb-1">{groupName}</h4>
+                          {/* Regular fields in 2-column grid */}
+                          {otherFields.length > 0 && (
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                              {otherFields.map(renderField)}
+                            </div>
+                          )}
+                          {/* Y/N toggle fields in compact grid */}
+                          {ynFields.length > 0 && (
+                            <div className={`grid grid-cols-2 gap-2 ${otherFields.length > 0 ? "mt-3" : ""}`}>
+                              {ynFields.map(renderField)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {/* 가격 */}
+                    <div>
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2.5 border-b pb-1">가격</h4>
+                      <div className="grid grid-cols-2 gap-x-4">
+                        <div className="space-y-1">
+                          <Label htmlFor="manual-unit_price" className="text-xs text-muted-foreground">단가</Label>
+                          <Input id="manual-unit_price" type="number" value={manualForm.unit_price ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, unit_price: e.target.value }))} placeholder="원 단위 입력" className="h-9 text-sm" />
+                        </div>
                       </div>
-                    ));
-                  })()}
-                  <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 border-b pb-1">가격</h4>
-                    <div className="grid grid-cols-[120px_1fr] items-center gap-2">
-                      <Label htmlFor="manual-unit_price" className="text-xs text-right text-muted-foreground">단가</Label>
-                      <Input id="manual-unit_price" type="number" value={manualForm.unit_price ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, unit_price: e.target.value }))} placeholder="원 단위 입력" className="h-8 text-sm" />
                     </div>
                   </div>
-                </div>
-              ) : (
-                /* Device: grouped layout with proper input types */
-                <div className="space-y-5 py-2">
-                  {(() => {
-                    const groups = [...new Set(DEVICE_FIELDS_GROUPED.map((f) => f.group))];
-                    return groups.map((groupName) => (
-                      <div key={groupName}>
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 border-b pb-1">{groupName}</h4>
-                        {groupName === "속성" ? (
-                          /* Y/N fields in a compact grid */
-                          <div className="grid grid-cols-2 gap-2">
-                            {DEVICE_FIELDS_GROUPED.filter((f) => f.group === groupName).map((f) => (
-                              f.type === "yn" ? (
-                                <label key={f.key} className="flex items-center gap-2 px-2 py-1.5 rounded border hover:bg-muted/50 cursor-pointer text-sm">
-                                  <input
-                                    type="checkbox"
-                                    checked={manualForm[f.key] === "Y"}
-                                    onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.checked ? "Y" : "N" }))}
-                                    className="rounded border-gray-300"
-                                  />
-                                  {f.label}
-                                </label>
-                              ) : (
-                                <div key={f.key} className="grid grid-cols-[100px_1fr] items-center gap-2">
-                                  <Label className="text-xs text-right text-muted-foreground">{f.label}</Label>
-                                  <Input value={manualForm[f.key] ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))} placeholder={f.placeholder ?? f.label} className="h-8 text-sm" />
-                                </div>
-                              )
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="grid gap-2.5">
-                            {DEVICE_FIELDS_GROUPED.filter((f) => f.group === groupName).map((f) => (
-                              <div key={f.key} className="grid grid-cols-[120px_1fr] items-center gap-2">
-                                <Label htmlFor={`manual-${f.key}`} className="text-xs text-right text-muted-foreground">
-                                  {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
-                                </Label>
-                                {f.type === "select" && f.options ? (
-                                  <select
-                                    id={`manual-${f.key}`}
-                                    value={manualForm[f.key] ?? ""}
-                                    onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                                    className="h-8 text-sm rounded-md border border-input bg-background px-3"
-                                  >
-                                    <option value="">선택하세요</option>
-                                    {f.options.map((opt) => <option key={opt} value={opt}>{opt}등급</option>)}
-                                  </select>
-                                ) : (
-                                  <Input
-                                    id={`manual-${f.key}`}
-                                    value={manualForm[f.key] ?? ""}
-                                    onChange={(e) => setManualForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                                    placeholder={f.placeholder ?? f.label}
-                                    className="h-8 text-sm"
-                                  />
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ));
-                  })()}
-                  <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 border-b pb-1">가격</h4>
-                    <div className="grid grid-cols-[120px_1fr] items-center gap-2">
-                      <Label htmlFor="manual-unit_price" className="text-xs text-right text-muted-foreground">단가</Label>
-                      <Input id="manual-unit_price" type="number" value={manualForm.unit_price ?? ""} onChange={(e) => setManualForm((prev) => ({ ...prev, unit_price: e.target.value }))} placeholder="원 단위 입력" className="h-8 text-sm" />
-                    </div>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
             </ScrollArea>
             <DialogFooter className="shrink-0 flex items-center justify-between sm:justify-between">
               <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">

@@ -44,37 +44,3 @@ self.addEventListener("fetch", (event) => {
     );
   }
 });
-
-// Push notification handler
-self.addEventListener("push", (event) => {
-  const data = event.data ? event.data.json() : {};
-  const title = data.title || "NotiFlow";
-  const options = {
-    body: data.body || "새로운 알림이 있습니다.",
-    icon: "/icons/icon.svg",
-    badge: "/icons/icon.svg",
-    data: { url: data.url || "/orders" },
-    tag: data.tag || "notiflow-notification",
-    renotify: true,
-  };
-
-  event.waitUntil(self.registration.showNotification(title, options));
-});
-
-// Notification click handler
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-  const url = event.notification.data?.url || "/orders";
-
-  event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
-      for (const client of windowClients) {
-        if (client.url.includes(self.location.origin) && "focus" in client) {
-          client.navigate(url);
-          return client.focus();
-        }
-      }
-      return clients.openWindow(url);
-    })
-  );
-});

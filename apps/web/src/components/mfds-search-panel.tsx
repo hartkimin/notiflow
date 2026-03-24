@@ -110,6 +110,9 @@ export function MfdsSearchPanel({
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnSizing, setColumnSizing] = useState<Record<string, number>>({});
 
+  // Manufacturer filter (manage mode)
+  const [mfgFilter, setMfgFilter] = useState<string | null>(null);
+
   // Accordion + action state
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
@@ -541,7 +544,12 @@ export function MfdsSearchPanel({
   // ── Table instance ────────────────────────────────────────────────
 
   const table = useReactTable({
-    data: results,
+    data: mode === "manage" && mfgFilter
+      ? results.filter(r => {
+          const key = tab === "drug" ? "entp_name" : "mnft_iprt_entp_nm";
+          return ((r[key] as string) || "기타") === mfgFilter;
+        })
+      : results,
     columns,
     state: { sorting, columnVisibility, globalFilter, columnSizing, columnFilters },
     onSortingChange: setSorting,
@@ -940,6 +948,7 @@ export function MfdsSearchPanel({
 
   function handleTabChange(newTab: MfdsApiSource) {
     setTab(newTab);
+    setMfgFilter(null);
     // Keep query, reset everything else
     setActiveFilters([]);
     setSearchField("_all");
@@ -975,6 +984,20 @@ export function MfdsSearchPanel({
   }
 
   // ── Render ────────────────────────────────────────────────────────
+
+  // Manufacturer chips for manage mode
+  const mfgChips = useMemo(() => {
+    if (mode !== "manage" || results.length === 0) return [];
+    const mfgKey = tab === "drug" ? "entp_name" : "mnft_iprt_entp_nm";
+    const counts = new Map<string, number>();
+    for (const r of results) {
+      const name = (r[mfgKey] as string) || "기타";
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count }));
+  }, [mode, results, tab]);
 
   const drugPct = syncStatus?.drugApiCount && syncStatus.drugApiCount > 0
     ? Math.min(100, Math.round((syncStatus.drugCount / syncStatus.drugApiCount) * 100))
@@ -1079,6 +1102,35 @@ export function MfdsSearchPanel({
           </div>
         )}
       </div>
+
+      {/* Manufacturer filter chips (manage mode) */}
+      {mode === "manage" && mfgChips.length > 1 && (
+        <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+          <button
+            onClick={() => setMfgFilter(null)}
+            className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+              mfgFilter === null
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-muted-foreground border-border hover:bg-muted"
+            }`}
+          >
+            전체 ({results.length})
+          </button>
+          {mfgChips.map(({ name, count }) => (
+            <button
+              key={name}
+              onClick={() => setMfgFilter(mfgFilter === name ? null : name)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                mfgFilter === name
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-muted-foreground border-border hover:bg-muted"
+              }`}
+            >
+              {name} ({count})
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Table fills remaining space */}
       <div className={mode === "manage" ? "mt-1.5 [&_td]:py-1.5 [&_th]:py-1.5 text-sm" : "flex-1 min-h-0 overflow-auto mt-1.5"}>

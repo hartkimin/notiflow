@@ -1,14 +1,29 @@
 'use client';
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 export default function LandingClient() {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 50);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
     <div className="bg-surface font-body text-on-surface selection:bg-primary-container selection:text-on-primary-container min-h-screen">
       {/* Top Navigation Shell */}
 
-<nav className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-md shadow-[0_8px_32px_0_rgba(0,106,52,0.06)]">
-<div className="flex justify-between items-center px-8 py-4 max-w-7xl mx-auto">
+<nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${
+  scrolled
+    ? "bg-white/90 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,106,52,0.10)] py-0"
+    : "bg-white/70 backdrop-blur-md shadow-[0_8px_32px_0_rgba(0,106,52,0.06)]"
+}`}>
+<div className={`flex justify-between items-center px-8 max-w-7xl mx-auto transition-all duration-300 ${
+  scrolled ? "py-2" : "py-4"
+}`}>
 <div className="flex items-center gap-2">
 <span className="text-2xl font-bold tracking-tighter text-primary font-headline">NotiFlow</span>
 </div>

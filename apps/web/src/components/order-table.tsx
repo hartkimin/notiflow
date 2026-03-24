@@ -116,12 +116,11 @@ function formatMMDD(dateStr: string | null): string {
 export function OrderTable({
   items,
   products = [],
-  vatMultiplier = 1,
 }: {
   items: OrderItemFlat[];
   products?: ProductOption[];
-  vatMultiplier?: number;
 }) {
+  const vatMultiplier = 1.1;
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const groups = useMemo(() => {
@@ -175,8 +174,8 @@ export function OrderTable({
               <ResizableTh width={widths.delivery_date} colKey="delivery_date" onResizeStart={onMouseDown}>배송일</ResizableTh>
               <ResizableTh width={widths.hospital} colKey="hospital" onResizeStart={onMouseDown}>거래처</ResizableTh>
               <ResizableTh width={widths.item_count} colKey="item_count" onResizeStart={onMouseDown} className="text-right">품목수</ResizableTh>
-              <ResizableTh width={widths.purchase_total} colKey="purchase_total" onResizeStart={onMouseDown} className="text-right">매입총액(VAT별도)</ResizableTh>
-              <ResizableTh width={widths.sales_total} colKey="sales_total" onResizeStart={onMouseDown} className="text-right">매출총액(VAT별도)</ResizableTh>
+              <ResizableTh width={widths.purchase_total} colKey="purchase_total" onResizeStart={onMouseDown} className="text-right">매입총액</ResizableTh>
+              <ResizableTh width={widths.sales_total} colKey="sales_total" onResizeStart={onMouseDown} className="text-right">매출총액</ResizableTh>
               <ResizableTh width={widths.profit} colKey="profit" onResizeStart={onMouseDown} className="text-right">매출이익</ResizableTh>
               <ResizableTh width={widths.margin} colKey="margin" onResizeStart={onMouseDown} className="text-right">이익률</ResizableTh>
               <ResizableTh width={widths.sales_rep} colKey="sales_rep" onResizeStart={onMouseDown}>담당자</ResizableTh>
@@ -207,7 +206,6 @@ export function OrderTable({
                     onToggle={() => toggleExpand(group.order_id)}
                     onToggleSelect={() => rowSelection.toggle(group.order_id)}
                     colCount={colCount}
-                    vatMultiplier={vatMultiplier}
                   />
                 );
               })
@@ -234,7 +232,6 @@ const OrderGroupRow = memo(function OrderGroupRow({
   onToggle,
   onToggleSelect,
   colCount,
-  vatMultiplier = 1,
 }: {
   group: OrderGroup;
   products: ProductOption[];
@@ -243,8 +240,8 @@ const OrderGroupRow = memo(function OrderGroupRow({
   onToggle: () => void;
   onToggleSelect: () => void;
   colCount: number;
-  vatMultiplier?: number;
 }) {
+  const vatMultiplier = 1.1;
   return (
     <>
       {/* Summary row */}
@@ -556,10 +553,10 @@ function OrderAccordionContent({
                 <TableHead className="text-xs text-right w-[60px]">수량</TableHead>
                 <TableHead className="text-xs text-right w-[60px]">박스</TableHead>
                 <TableHead className="text-xs w-[80px]">매입처</TableHead>
-                <TableHead className="text-xs text-right w-[80px]">매입단가(VAT별도)</TableHead>
-                <TableHead className="text-xs text-right w-[80px]">매입총액(VAT별도)</TableHead>
-                <TableHead className="text-xs text-right w-[80px]">매출단가(VAT별도)</TableHead>
-                <TableHead className="text-xs text-right w-[80px]">매출총액(VAT별도)</TableHead>
+                <TableHead className="text-xs text-right w-[80px]">매입단가</TableHead>
+                <TableHead className="text-xs text-right w-[80px]">매입총액</TableHead>
+                <TableHead className="text-xs text-right w-[80px]">매출단가</TableHead>
+                <TableHead className="text-xs text-right w-[80px]">매출총액</TableHead>
                 <TableHead className="text-xs text-right w-[80px]">매출이익</TableHead>
                 <TableHead className="text-xs text-right w-[60px]">이익률</TableHead>
                 <TableHead className="text-xs w-[70px]">담당자</TableHead>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,6 +15,10 @@ export function OrderFilters({ hospitals = [] }: OrderFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const [status, setStatus] = useState(searchParams.get("status") || "all");
+  const [hospital, setHospital] = useState(searchParams.get("hospital") || "all");
+  const [size, setSize] = useState(searchParams.get("size") || "15");
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -21,10 +26,8 @@ export function OrderFilters({ hospitals = [] }: OrderFiltersProps) {
 
     const from = fd.get("from") as string;
     const to = fd.get("to") as string;
-    const status = fd.get("status") as string;
-    const hospital = fd.get("hospital") as string;
     const search = fd.get("search") as string;
-    const size = fd.get("size") as string;
+
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     if (status && status !== "all") params.set("status", status);
@@ -47,7 +50,7 @@ export function OrderFilters({ hospitals = [] }: OrderFiltersProps) {
       </div>
       <div>
         <label className="text-[10px] text-muted-foreground">상태</label>
-        <Select name="status" defaultValue={searchParams.get("status") || "all"}>
+        <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="h-8 w-[100px] text-xs">
             <SelectValue />
           </SelectTrigger>
@@ -60,7 +63,7 @@ export function OrderFilters({ hospitals = [] }: OrderFiltersProps) {
       </div>
       <div>
         <label className="text-[10px] text-muted-foreground">거래처</label>
-        <Select name="hospital" defaultValue={searchParams.get("hospital") || "all"}>
+        <Select value={hospital} onValueChange={setHospital}>
           <SelectTrigger className="h-8 w-[140px] text-xs">
             <SelectValue />
           </SelectTrigger>
@@ -76,12 +79,12 @@ export function OrderFilters({ hospitals = [] }: OrderFiltersProps) {
       </div>
       <div>
         <label className="text-[10px] text-muted-foreground">검색</label>
-        <Input name="search" placeholder="품목명 검색" defaultValue={searchParams.get("search") || ""} className="h-8 w-[140px] text-xs" />
+        <Input name="search" placeholder="주문번호, 품목명, 거래처" defaultValue={searchParams.get("search") || ""} className="h-8 w-[180px] text-xs" />
       </div>
       <div>
-        <label className="text-[10px] text-muted-foreground">표시 개수</label>
-        <Select name="size" defaultValue={searchParams.get("size") || "15"}>
-          <SelectTrigger className="h-8 w-[80px] text-xs">
+        <label className="text-[10px] text-muted-foreground">표시</label>
+        <Select value={size} onValueChange={setSize}>
+          <SelectTrigger className="h-8 w-[75px] text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

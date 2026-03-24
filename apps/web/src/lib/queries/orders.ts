@@ -60,15 +60,40 @@ export async function getOrderItems(params: {
   if (params.from) orderQuery = orderQuery.gte("order_date", params.from);
   if (params.to) orderQuery = orderQuery.lte("order_date", params.to);
 
-  // If searching by product name, find matching order IDs first
+  // Search across order_number, hospital name, and product name
   if (params.search) {
-    const { data: matchItems } = await supabase
+    const q = escapeLikeValue(params.search);
+
+    // Match by order_number directly
+    const { data: orderNumMatches } = await supabase
+      .from("orders")
+      .select("id")
+      .ilike("order_number", `%${q}%`);
+
+    // Match by hospital name
+    const { data: hospMatches } = await supabase
+      .from("hospitals")
+      .select("id")
+      .ilike("name", `%${q}%`);
+    const hospIds = (hospMatches ?? []).map(h => h.id);
+    const { data: hospOrderMatches } = hospIds.length > 0
+      ? await supabase.from("orders").select("id").in("hospital_id", hospIds)
+      : { data: [] };
+
+    // Match by product name in order items
+    const { data: itemMatches } = await supabase
       .from("order_items")
       .select("order_id")
-      .ilike("product_name", `%${escapeLikeValue(params.search)}%`);
-    const matchOrderIds = [...new Set((matchItems ?? []).map((i) => i.order_id))];
-    if (matchOrderIds.length === 0) return { items: [], total: 0 };
-    orderQuery = orderQuery.in("id", matchOrderIds);
+      .ilike("product_name", `%${q}%`);
+
+    const allMatchIds = new Set([
+      ...(orderNumMatches ?? []).map(o => o.id),
+      ...(hospOrderMatches ?? []).map(o => o.id),
+      ...(itemMatches ?? []).map(i => i.order_id),
+    ]);
+
+    if (allMatchIds.size === 0) return { items: [], total: 0 };
+    orderQuery = orderQuery.in("id", [...allMatchIds]);
   }
 
   orderQuery = orderQuery

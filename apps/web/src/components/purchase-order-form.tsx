@@ -301,8 +301,8 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
   }
 
   // ── Calculations ──
-  const totalPurchase = items.reduce((s, i) => s + (i.purchase_price ?? 0) * i.quantity, 0);
-  const totalSelling = items.reduce((s, i) => s + (i.selling_price ?? 0) * i.quantity, 0);
+  const totalPurchase = items.reduce((s, i) => s + Math.round((i.purchase_price ?? 0) * 1.1) * i.quantity, 0);
+  const totalSelling = items.reduce((s, i) => s + Math.round((i.selling_price ?? 0) * 1.1) * i.quantity, 0);
   const totalMargin = totalSelling - totalPurchase;
   const marginRate = totalSelling > 0 ? (totalMargin / totalSelling) * 100 : 0;
 
@@ -718,17 +718,25 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("unit", e)} />
                       </TableHead>
                     )}
-                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["purchase_price"] ?? 90 }}>
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["purchase_price"] ?? 80 }}>
                       매입단가
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("purchase_price", e)} />
+                    </TableHead>
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["purchase_vat"] ?? 90 }}>
+                      매입(VAT)
+                      <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("purchase_vat", e)} />
                     </TableHead>
                     <TableHead className="text-xs text-right relative" style={{ width: colWidths["purchase_total"] ?? 100 }}>
                       매입총액
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("purchase_total", e)} />
                     </TableHead>
-                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["selling_price"] ?? 90 }}>
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["selling_price"] ?? 80 }}>
                       매출단가
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("selling_price", e)} />
+                    </TableHead>
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["selling_vat"] ?? 90 }}>
+                      매출(VAT)
+                      <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("selling_vat", e)} />
                     </TableHead>
                     <TableHead className="text-xs text-right relative" style={{ width: colWidths["amount"] ?? 100 }}>
                       매출총액
@@ -757,7 +765,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                 </TableHeader>
                 <TableBody>
                   {items.map((item, idx) => {
-                    const lineTotal = (item.selling_price ?? 0) * item.quantity;
+                    const lineTotal = Math.round((item.selling_price ?? 0) * 1.1) * item.quantity;
                     return (
                       <TableRow key={item.key} className={`${idx % 2 === 1 ? "bg-muted/20" : ""} ${flashKey === item.key ? "animate-pulse bg-green-50" : ""} transition-colors`}>
                         <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
@@ -814,33 +822,62 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                           <Input
                             type="number" min={0} value={item.purchase_price ?? ""}
                             onChange={(e) => updateItem(item.key, { purchase_price: e.target.value ? parseFloat(e.target.value) : null })}
+                            className="h-7 w-[70px] text-xs text-right ml-auto"
+                            placeholder="단가"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number" min={0}
+                            value={item.purchase_price != null ? Math.round(item.purchase_price * 1.1) : ""}
+                            onChange={(e) => {
+                              const vatIncl = e.target.value ? parseFloat(e.target.value) : null;
+                              updateItem(item.key, { purchase_price: vatIncl != null ? Math.round(vatIncl / 1.1) : null });
+                            }}
                             className="h-7 w-[80px] text-xs text-right ml-auto"
-                            placeholder="매입가"
+                            placeholder="VAT포함"
                           />
                         </TableCell>
                         <TableCell className="text-xs text-right font-mono">
-                          {((item.purchase_price ?? 0) * item.quantity).toLocaleString()}
+                          {(Math.round((item.purchase_price ?? 0) * 1.1) * item.quantity).toLocaleString()}
                         </TableCell>
                         <TableCell className="text-right">
                           <Input
                             type="number" min={0} value={item.selling_price ?? ""}
                             onChange={(e) => updateItem(item.key, { selling_price: e.target.value ? parseFloat(e.target.value) : null })}
+                            className="h-7 w-[70px] text-xs text-right ml-auto"
+                            placeholder="단가"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number" min={0}
+                            value={item.selling_price != null ? Math.round(item.selling_price * 1.1) : ""}
+                            onChange={(e) => {
+                              const vatIncl = e.target.value ? parseFloat(e.target.value) : null;
+                              updateItem(item.key, { selling_price: vatIncl != null ? Math.round(vatIncl / 1.1) : null });
+                            }}
                             className="h-7 w-[80px] text-xs text-right ml-auto"
+                            placeholder="VAT포함"
                           />
                         </TableCell>
                         <TableCell className="text-right text-xs tabular-nums font-medium">
-                          {lineTotal.toLocaleString()}
+                          {(Math.round((item.selling_price ?? 0) * 1.1) * item.quantity).toLocaleString()}
                         </TableCell>
                         <TableCell className="text-xs text-right font-mono">
                           {(() => {
-                            const profit = ((item.selling_price ?? 0) - (item.purchase_price ?? 0)) * item.quantity;
+                            const sellVat = Math.round((item.selling_price ?? 0) * 1.1);
+                            const purchVat = Math.round((item.purchase_price ?? 0) * 1.1);
+                            const profit = (sellVat - purchVat) * item.quantity;
                             return <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{profit.toLocaleString()}</span>;
                           })()}
                         </TableCell>
                         <TableCell className="text-xs text-right font-mono">
                           {(() => {
-                            const revenue = (item.selling_price ?? 0) * item.quantity;
-                            const profit = ((item.selling_price ?? 0) - (item.purchase_price ?? 0)) * item.quantity;
+                            const sellVat = Math.round((item.selling_price ?? 0) * 1.1);
+                            const purchVat = Math.round((item.purchase_price ?? 0) * 1.1);
+                            const revenue = sellVat * item.quantity;
+                            const profit = (sellVat - purchVat) * item.quantity;
                             const rate = revenue > 0 ? (profit / revenue) * 100 : 0;
                             return <span className={rate < 0 ? "text-red-500" : ""}>{rate.toFixed(1)}%</span>;
                           })()}
@@ -889,15 +926,13 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                       {items.reduce((s, i) => s + i.quantity, 0)}
                     </TableCell>
                     {visibleCols.has("unit") && <TableCell />}
-                    <TableCell className="text-right text-xs tabular-nums">
-                      {totalPurchase.toLocaleString()}
-                    </TableCell>
+                    <TableCell />
+                    <TableCell />
                     <TableCell className="text-right text-xs tabular-nums font-bold">
                       {totalPurchase.toLocaleString()}원
                     </TableCell>
-                    <TableCell className="text-right text-xs tabular-nums">
-                      {items.reduce((s, i) => s + (i.selling_price ?? 0), 0).toLocaleString()}
-                    </TableCell>
+                    <TableCell />
+                    <TableCell />
                     <TableCell className="text-right text-xs tabular-nums font-bold">
                       {totalSelling.toLocaleString()}원
                     </TableCell>

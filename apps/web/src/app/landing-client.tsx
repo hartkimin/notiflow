@@ -1,8 +1,65 @@
 'use client';
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { motion, useScroll, useTransform, useInView } from "framer-motion";
+
+function useCountUp(end: number, duration = 2000, decimals = 0) {
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, amount: 0.5 });
+  const [display, setDisplay] = useState(decimals > 0 ? "0.0" : "0");
+
+  useEffect(() => {
+    if (!isInView) return;
+    const start = performance.now();
+    const step = (now: number) => {
+      const elapsed = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - elapsed, 3);
+      const current = eased * end;
+      setDisplay(current.toFixed(decimals));
+      if (elapsed < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, [isInView, end, duration, decimals]);
+
+  return { ref, display };
+}
+
+function TrustStat({ end, decimals = 0, suffix = "", label, delay }: {
+  end: number; decimals?: number; suffix?: string; label: string; delay: number;
+}) {
+  const { ref, display } = useCountUp(end, 2000, decimals);
+  return (
+    <motion.div
+      ref={ref}
+      className="text-center"
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.5 }}
+      transition={{ duration: 0.5, delay }}
+    >
+      <div className="text-3xl font-headline font-bold text-primary tabular-nums">
+        {display}{suffix}
+      </div>
+      <div className="text-sm text-on-surface-variant mt-1">{label}</div>
+    </motion.div>
+  );
+}
+
+function TrustStatStatic({ value, label, delay }: { value: string; label: string; delay: number }) {
+  return (
+    <motion.div
+      className="text-center"
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.5 }}
+      transition={{ duration: 0.5, delay }}
+    >
+      <div className="text-3xl font-headline font-bold text-primary">{value}</div>
+      <div className="text-sm text-on-surface-variant mt-1">{label}</div>
+    </motion.div>
+  );
+}
 
 export default function LandingClient() {
   const [scrolled, setScrolled] = useState(false);
@@ -18,7 +75,7 @@ export default function LandingClient() {
     visible: (i: number) => ({
       opacity: 1,
       y: 0,
-      transition: { duration: 0.6, delay: i * 0.2, ease: [0.25, 0.46, 0.45, 0.94] },
+      transition: { duration: 0.6, delay: i * 0.2, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
     }),
   };
 
@@ -152,29 +209,23 @@ export default function LandingClient() {
 </div>
 </section>
 
-{/* Trust Section */}
 <section className="py-24 bg-surface-container-low">
-<div className="max-w-7xl mx-auto px-8">
-<p className="text-center text-label-md font-headline font-semibold text-on-surface-variant/60 uppercase tracking-[0.2em] mb-12">NotiFlow 핵심 수치</p>
-<div className="flex flex-wrap justify-center gap-12 md:gap-24">
-<div className="text-center">
-<div className="text-3xl font-headline font-bold text-primary">98.7%</div>
-<div className="text-sm text-on-surface-variant mt-1">AI 파싱 정확도</div>
-</div>
-<div className="text-center">
-<div className="text-3xl font-headline font-bold text-primary">5초</div>
-<div className="text-sm text-on-surface-variant mt-1">알림 수집 속도</div>
-</div>
-<div className="text-center">
-<div className="text-3xl font-headline font-bold text-primary">24/7</div>
-<div className="text-sm text-on-surface-variant mt-1">실시간 모니터링</div>
-</div>
-<div className="text-center">
-<div className="text-3xl font-headline font-bold text-primary">100%</div>
-<div className="text-sm text-on-surface-variant mt-1">식약처 연동</div>
-</div>
-</div>
-</div>
+  <div className="max-w-7xl mx-auto px-8">
+    <motion.p
+      initial={{ opacity: 0 }}
+      whileInView={{ opacity: 1 }}
+      viewport={{ once: true }}
+      className="text-center text-label-md font-headline font-semibold text-on-surface-variant/60 uppercase tracking-[0.2em] mb-12"
+    >
+      NotiFlow 핵심 수치
+    </motion.p>
+    <div className="flex flex-wrap justify-center gap-12 md:gap-24">
+      <TrustStat end={98.7} decimals={1} suffix="%" label="AI 파싱 정확도" delay={0} />
+      <TrustStat end={5} suffix="초" label="알림 수집 속도" delay={0.15} />
+      <TrustStatStatic value="24/7" label="실시간 모니터링" delay={0.3} />
+      <TrustStat end={100} suffix="%" label="식약처 연동" delay={0.45} />
+    </div>
+  </div>
 </section>
 
 {/* Features Section */}

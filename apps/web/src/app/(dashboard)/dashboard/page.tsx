@@ -77,7 +77,7 @@ export default async function DashboardHome({ searchParams }: Props) {
     getSalesRepPerformance(selectedMonth).catch(() => []),
     getRecentOrders(10).catch(() => []),
     getRecentInvoices(5).catch(() => []),
-    getMonthlySalesTrend(6).catch((e) => { console.error("getMonthlySalesTrend error:", e); return []; }),
+    getMonthlySalesTrend(12).catch((e) => { console.error("getMonthlySalesTrend error:", e); return []; }),
   ]);
 
   return (
@@ -189,7 +189,7 @@ export default async function DashboardHome({ searchParams }: Props) {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
             월별 매출·이익 추이
           </CardTitle>
-          <CardDescription>최근 6개월간 매출과 이익률 변동</CardDescription>
+          <CardDescription>최근 12개월간 매출과 이익률 변동</CardDescription>
         </CardHeader>
         <CardContent>
           {monthlyTrend.length > 0 ? (

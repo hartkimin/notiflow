@@ -286,32 +286,33 @@ export default function InvoiceDetailClient({ invoice }: Props) {
       </Card>
 
       {/* Amount summary */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-4 text-center">
-            <p className="text-sm text-muted-foreground">공급가액</p>
-            <p className="text-lg font-medium">
-              {formatAmount(invoice.supply_amount)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 text-center">
-            <p className="text-sm text-muted-foreground">세액</p>
-            <p className="text-lg font-medium">
-              {formatAmount(invoice.tax_amount)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 text-center">
-            <p className="text-sm text-muted-foreground">합계금액</p>
-            <p className="text-lg font-bold">
-              {formatAmount(invoice.total_amount)}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      {(() => {
+        const calcSupply = invoice.supply_amount || invoice.items.reduce((s, i) => s + (i.unit_price ?? 0) * (i.quantity ?? 0), 0);
+        const calcTax = invoice.tax_amount || Math.round(calcSupply * 0.1);
+        const calcTotal = invoice.total_amount || (calcSupply + calcTax);
+        return (
+          <div className="grid grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="pt-4 text-center">
+                <p className="text-sm text-muted-foreground">공급가액</p>
+                <p className="text-lg font-medium">{formatAmount(calcSupply)}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 text-center">
+                <p className="text-sm text-muted-foreground">세액 (10%)</p>
+                <p className="text-lg font-medium">{formatAmount(calcTax)}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 text-center">
+                <p className="text-sm text-muted-foreground">합계금액 (VAT포함)</p>
+                <p className="text-lg font-bold">{formatAmount(calcTotal)}</p>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* Items table */}
       <Card>
@@ -327,10 +328,10 @@ export default function InvoiceDetailClient({ invoice }: Props) {
                 <TableHead>품명</TableHead>
                 <TableHead>규격</TableHead>
                 <TableHead className="w-16 text-right">수량</TableHead>
-                <TableHead className="w-24 text-right">매입단가(VAT별도)</TableHead>
-                <TableHead className="w-24 text-right">매입총액(VAT별도)</TableHead>
-                <TableHead className="w-24 text-right">매출단가(VAT별도)</TableHead>
-                <TableHead className="w-24 text-right">매출총액(VAT별도)</TableHead>
+                <TableHead className="w-24 text-right">매입단가</TableHead>
+                <TableHead className="w-24 text-right">매입(VAT)</TableHead>
+                <TableHead className="w-24 text-right">매출단가</TableHead>
+                <TableHead className="w-24 text-right">매출(VAT)</TableHead>
                 <TableHead className="w-24 text-right">매출이익</TableHead>
                 <TableHead className="w-16 text-right">이익률</TableHead>
                 <TableHead className="w-20 text-right">세액</TableHead>
@@ -354,27 +355,31 @@ export default function InvoiceDetailClient({ invoice }: Props) {
                       {item.quantity.toLocaleString("ko-KR")}
                     </TableCell>
                     <TableCell className="text-right">
-                      {item.purchase_price != null ? formatAmount(item.purchase_price) : "-"}
+                      {item.purchase_price != null ? formatAmount(Math.round(item.purchase_price * 1.1)) : "-"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {item.purchase_price != null ? formatAmount(item.purchase_price * item.quantity) : "-"}
+                      {item.purchase_price != null ? formatAmount(Math.round(item.purchase_price * 1.1) * item.quantity) : "-"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatAmount(item.unit_price)}
+                      {formatAmount(Math.round(item.unit_price * 1.1))}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatAmount(item.supply_amount)}
+                      {formatAmount(Math.round(item.unit_price * 1.1) * item.quantity)}
                     </TableCell>
                     <TableCell className="text-right">
                       {item.purchase_price != null ? (() => {
-                        const profit = (item.unit_price - item.purchase_price) * item.quantity;
+                        const sellVat = Math.round(item.unit_price * 1.1) * item.quantity;
+                        const purchVat = Math.round(item.purchase_price * 1.1) * item.quantity;
+                        const profit = sellVat - purchVat;
                         return <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{formatAmount(profit)}</span>;
                       })() : "-"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {item.purchase_price != null && item.supply_amount > 0 ? (() => {
-                        const profit = (item.unit_price - item.purchase_price) * item.quantity;
-                        const rate = (profit / item.supply_amount) * 100;
+                      {item.purchase_price != null ? (() => {
+                        const sellVat = Math.round(item.unit_price * 1.1) * item.quantity;
+                        const purchVat = Math.round(item.purchase_price * 1.1) * item.quantity;
+                        const profit = sellVat - purchVat;
+                        const rate = sellVat > 0 ? (profit / sellVat) * 100 : 0;
                         return <span className={rate < 0 ? "text-red-500" : ""}>{rate.toFixed(1)}%</span>;
                       })() : "-"}
                     </TableCell>

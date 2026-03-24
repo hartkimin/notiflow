@@ -836,7 +836,7 @@ export async function addToMyDrugs(item: Record<string, unknown>): Promise<{ suc
   const supabase = await createClient();
   const row: Record<string, string | null> = {};
   const cols = [
-    "item_seq", "item_name", "item_eng_name", "entp_name", "entp_no",
+    "alias", "item_seq", "item_name", "item_eng_name", "entp_name", "entp_no",
     "item_permit_date", "cnsgn_manuf", "etc_otc_code", "chart", "bar_code",
     "material_name", "ee_doc_id", "ud_doc_id", "nb_doc_id", "storage_method",
     "valid_term", "pack_unit", "edi_code", "permit_kind_name", "cancel_date",
@@ -854,7 +854,7 @@ export async function addToMyDevices(item: Record<string, unknown>): Promise<{ s
   const supabase = await createClient();
   const row: Record<string, string | null> = {};
   const cols = [
-    "udidi_cd", "prdlst_nm", "mnft_iprt_entp_nm", "mdeq_clsf_no", "clsf_no_grad_cd",
+    "alias", "udidi_cd", "prdlst_nm", "mnft_iprt_entp_nm", "mdeq_clsf_no", "clsf_no_grad_cd",
     "permit_no", "prmsn_ymd", "foml_info", "prdt_nm_info", "hmbd_trspt_mdeq_yn",
     "dspsbl_mdeq_yn", "trck_mng_trgt_yn", "total_dev", "cmbnmd_yn",
     "use_before_strlzt_need_yn", "sterilization_method_nm", "use_purps_cont",

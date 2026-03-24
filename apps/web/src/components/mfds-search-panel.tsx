@@ -137,11 +137,14 @@ export function MfdsSearchPanel({
   const [manualForm, setManualForm] = useState<Record<string, string>>({});
   const [isAdding, setIsAdding] = useState(false);
   const [editingItem, setEditingItem] = useState<{ id: number; data: Record<string, string> } | null>(null);
+  const [editingAliasId, setEditingAliasId] = useState<number | null>(null);
+  const [editingAliasValue, setEditingAliasValue] = useState<string>("");
 
   interface DrugField { key: string; label: string; required?: boolean; type?: FieldType; options?: string[]; group: string; placeholder?: string }
 
   const DRUG_FIELDS_GROUPED: DrugField[] = [
     // 기본 정보
+    { key: "alias", label: "별칭", group: "기본 정보", placeholder: "예: 헤파린주사 (관리용 별칭)" },
     { key: "item_name", label: "품목명", required: true, group: "기본 정보", placeholder: "예: 헤파린나트륨주사액" },
     { key: "entp_name", label: "업체명", group: "기본 정보", placeholder: "예: ㈜대한제약" },
     { key: "item_eng_name", label: "영문 품목명", group: "기본 정보" },
@@ -176,6 +179,7 @@ export function MfdsSearchPanel({
 
   const DEVICE_FIELDS_GROUPED: DeviceField[] = [
     // 기본 정보
+    { key: "alias", label: "별칭", group: "기본 정보", placeholder: "예: HD필터 (관리용 별칭)" },
     { key: "prdlst_nm", label: "품목명", required: true, group: "기본 정보", placeholder: "예: 혈액투석용 필터세트" },
     { key: "mnft_iprt_entp_nm", label: "제조/수입업체", group: "기본 정보", placeholder: "예: ㈜한국메디컬" },
     { key: "foml_info", label: "모델명", group: "기본 정보", placeholder: "예: HD-2000F" },
@@ -465,13 +469,57 @@ export function MfdsSearchPanel({
       },
     };
 
+    const aliasCol: ColumnDef<Record<string, unknown>> = {
+      id: "alias",
+      accessorKey: "alias",
+      header: "별칭",
+      size: 120,
+      cell: ({ row }) => {
+        const item = row.original;
+        const itemId = item.id as number;
+        const currentAlias = (item.alias as string) ?? "";
+        const isEditing = editingAliasId === itemId;
+
+        if (isEditing) {
+          return (
+            <Input
+              autoFocus
+              className="h-7 text-xs w-full"
+              placeholder="별칭 입력"
+              value={editingAliasValue}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setEditingAliasValue(e.target.value)}
+              onBlur={() => handleAliasSave(itemId)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAliasSave(itemId);
+                if (e.key === "Escape") setEditingAliasId(null);
+              }}
+            />
+          );
+        }
+
+        return (
+          <span
+            className="cursor-pointer rounded px-1.5 py-0.5 text-xs hover:bg-muted block truncate"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditingAliasId(itemId);
+              setEditingAliasValue(currentAlias);
+            }}
+          >
+            {currentAlias || <span className="text-muted-foreground/50">클릭하여 입력</span>}
+          </span>
+        );
+      },
+    };
+
     const dataCols = tab === "drug" ? drugDataCols : deviceDataCols;
     if (mode === "manage") {
-      return [expandCol, ...dataCols, priceCol, actionCol];
+      return [expandCol, aliasCol, ...dataCols, priceCol, actionCol];
     }
     return [expandCol, ...dataCols, actionCol];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, mode, existingStandardCodes, isPending, addingId, expandedRowId, syncingId, deletingId, editingPriceId, editingPriceValue]);
+  }, [tab, mode, existingStandardCodes, isPending, addingId, expandedRowId, syncingId, deletingId, editingPriceId, editingPriceValue, editingAliasId, editingAliasValue]);
 
   // ── Table instance ────────────────────────────────────────────────
 
@@ -849,6 +897,24 @@ export function MfdsSearchPanel({
         doSearch(page);
       } catch (err) {
         toast.error(`가격 저장 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
+      }
+    });
+  }
+
+  function handleAliasSave(itemId: number) {
+    const alias = editingAliasValue.trim() || null;
+    setEditingAliasId(null);
+    startTransition(async () => {
+      try {
+        if (tab === "drug") {
+          await updateMyDrug(itemId, { alias });
+        } else {
+          await updateMyDevice(itemId, { alias });
+        }
+        toast.success("별칭이 저장되었습니다.");
+        doSearch(page);
+      } catch (err) {
+        toast.error(`별칭 저장 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
       }
     });
   }

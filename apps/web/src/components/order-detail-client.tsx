@@ -149,7 +149,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
   );
 
   const isEditable = order.status === "confirmed";
-  const canCreateInvoice = order.status === "delivered";
+  const canCreateInvoice = order.status === "confirmed" || order.status === "delivered";
 
   // --- Status actions ---
 

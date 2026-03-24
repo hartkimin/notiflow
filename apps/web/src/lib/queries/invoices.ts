@@ -95,11 +95,11 @@ export async function getInvoiceStats(params: {
     .neq("tax_invoices.status", "cancelled");
   const billedIds = new Set((billedOrderIds ?? []).map((l) => l.order_id));
 
-  const { data: deliveredOrders } = await supabase
+  const { data: activeOrders } = await supabase
     .from("orders")
     .select("id")
-    .eq("status", "delivered");
-  const unbilledCount = (deliveredOrders ?? []).filter((o) => !billedIds.has(o.id)).length;
+    .in("status", ["confirmed", "delivered"]);
+  const unbilledCount = (activeOrders ?? []).filter((o) => !billedIds.has(o.id)).length;
 
   return {
     total_count: rows.length,
@@ -133,7 +133,7 @@ export async function getUnbilledOrders(hospitalId?: number): Promise<UnbilledOr
   let query = supabase
     .from("orders")
     .select("id, order_number, order_date, hospital_id, status, total_amount, supply_amount, tax_amount, delivery_date, delivered_at, hospitals(name), order_items(id, product_name, quantity, unit_price, purchase_price, line_total, sales_rep)")
-    .eq("status", "delivered")
+    .in("status", ["confirmed", "delivered"])
     .order("order_date", { ascending: false });
 
   if (hospitalId) query = query.eq("hospital_id", hospitalId);

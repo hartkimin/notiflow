@@ -77,7 +77,7 @@ export default async function DashboardHome({ searchParams }: Props) {
     getSalesRepPerformance(selectedMonth).catch(() => []),
     getRecentOrders(10).catch(() => []),
     getRecentInvoices(5).catch(() => []),
-    getMonthlySalesTrend(6).catch(() => []),
+    getMonthlySalesTrend(6).catch((e) => { console.error("getMonthlySalesTrend error:", e); return []; }),
   ]);
 
   return (

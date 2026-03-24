@@ -771,7 +771,7 @@ export async function searchMyItems(params: { query: string; sourceType: string;
   const { data, error } = await supabase.rpc("search_my_items", {
     query: q,
     source_type: sourceType === "drug" ? "drug" : "device",
-    result_limit: pageSize * page,
+    result_limit: 1000,
   });
 
   if (error) throw error;

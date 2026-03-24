@@ -310,13 +310,21 @@ const OrderGroupRow = memo(function OrderGroupRow({
             </>
           );
         })()}
-        <TableCell>
-          <Badge
-            variant={STATUS_VARIANT[group.status] ?? "secondary"}
-            className="text-xs"
+        <TableCell onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant={group.status === "delivered" ? "default" : "secondary"}
+            size="sm"
+            className="h-6 text-[11px] px-2"
+            onClick={async () => {
+              const next = group.status === "delivered" ? "confirmed" : "delivered";
+              try {
+                await updateOrderStatusAction(group.order_id, next);
+                toast.success(next === "delivered" ? "완료 처리됨" : "미완료로 변경됨");
+              } catch { toast.error("상태 변경 실패"); }
+            }}
           >
             {STATUS_LABEL[group.status] ?? group.status}
-          </Badge>
+          </Button>
         </TableCell>
         <TableCell className="px-2" onClick={(e) => e.stopPropagation()}>
           <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
@@ -500,9 +508,20 @@ function OrderAccordionContent({
         <div>
           <span className="text-muted-foreground text-xs">상태</span>
           <p>
-            <Badge variant={STATUS_VARIANT[group.status] ?? "secondary"}>
+            <Button
+              variant={group.status === "delivered" ? "default" : "secondary"}
+              size="sm"
+              className="h-7 text-xs mt-0.5"
+              onClick={async () => {
+                const next = group.status === "delivered" ? "confirmed" : "delivered";
+                try {
+                  await updateOrderStatusAction(group.order_id, next);
+                  toast.success(next === "delivered" ? "완료 처리됨" : "미완료로 변경됨");
+                } catch { toast.error("상태 변경 실패"); }
+              }}
+            >
               {STATUS_LABEL[group.status] ?? group.status}
-            </Badge>
+            </Button>
           </p>
         </div>
       </div>

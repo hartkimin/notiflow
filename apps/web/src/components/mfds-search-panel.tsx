@@ -541,15 +541,18 @@ export function MfdsSearchPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, mode, existingStandardCodes, isPending, addingId, expandedRowId, syncingId, deletingId, editingPriceId, editingPriceValue, editingAliasId, editingAliasValue]);
 
+  // ── Filtered data for table ──────────────────────────────────────
+
+  const tableData = useMemo(() => {
+    if (mode !== "manage" || !mfgFilter) return results;
+    const key = tab === "drug" ? "entp_name" : "mnft_iprt_entp_nm";
+    return results.filter(r => ((r[key] as string) || "기타") === mfgFilter);
+  }, [results, mfgFilter, mode, tab]);
+
   // ── Table instance ────────────────────────────────────────────────
 
   const table = useReactTable({
-    data: mode === "manage" && mfgFilter
-      ? results.filter(r => {
-          const key = tab === "drug" ? "entp_name" : "mnft_iprt_entp_nm";
-          return ((r[key] as string) || "기타") === mfgFilter;
-        })
-      : results,
+    data: tableData,
     columns,
     state: { sorting, columnVisibility, globalFilter, columnSizing, columnFilters },
     onSortingChange: setSorting,
@@ -1107,6 +1110,7 @@ export function MfdsSearchPanel({
       {mode === "manage" && mfgChips.length > 1 && (
         <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
           <button
+            type="button"
             onClick={() => setMfgFilter(null)}
             className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
               mfgFilter === null
@@ -1118,6 +1122,7 @@ export function MfdsSearchPanel({
           </button>
           {mfgChips.map(({ name, count }) => (
             <button
+              type="button"
               key={name}
               onClick={() => setMfgFilter(mfgFilter === name ? null : name)}
               className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${

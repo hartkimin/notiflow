@@ -246,9 +246,11 @@ export default async function DashboardHome({ searchParams }: Props) {
                       <TableCell className="text-right text-sm tabular-nums">₩{fmt(order.supply_amount)}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{order.order_date?.slice(5) || "-"}</TableCell>
                       <TableCell>
-                        <Badge variant={ORDER_STATUS_VARIANT[order.status] ?? "secondary"} className="text-[10px]">
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                          order.status === "confirmed" ? "bg-red-100 text-red-600" : "bg-green-100 text-green-700"
+                        }`}>
                           {ORDER_STATUS_LABELS[order.status] || order.status}
-                        </Badge>
+                        </span>
                       </TableCell>
                     </TableRow>
                   ))}

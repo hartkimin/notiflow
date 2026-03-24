@@ -265,8 +265,8 @@ export async function getHospitalRanking(limit = 10, month?: string): Promise<Ho
   const revenueByOrder = new Map<number, number>();
   const purchaseByOrder = new Map<number, number>();
   for (const item of items ?? []) {
-    revenueByOrder.set(item.order_id, (revenueByOrder.get(item.order_id) || 0) + (Number(item.unit_price ?? 0)) * (item.quantity ?? 0));
-    purchaseByOrder.set(item.order_id, (purchaseByOrder.get(item.order_id) || 0) + (Number(item.purchase_price ?? 0)) * (item.quantity ?? 0));
+    revenueByOrder.set(item.order_id, (revenueByOrder.get(item.order_id) || 0) + Math.round(Number(item.unit_price ?? 0) * 1.1) * (item.quantity ?? 0));
+    purchaseByOrder.set(item.order_id, (purchaseByOrder.get(item.order_id) || 0) + Math.round(Number(item.purchase_price ?? 0) * 1.1) * (item.quantity ?? 0));
   }
 
   const result: HospitalRanking[] = [];

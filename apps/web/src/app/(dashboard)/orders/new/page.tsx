@@ -88,7 +88,7 @@ export default async function NewOrderPage({ searchParams }: Props) {
       copyData = {
         hospitalId: order.hospital_id,
         hospitalName: (order.hospitals as unknown as { name: string })?.name ?? "",
-        notes: order.notes ?? "",
+        notes: "",
         items,
       };
     }

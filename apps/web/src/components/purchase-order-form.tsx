@@ -740,7 +740,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                       #
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("no", e)} />
                     </TableHead>
-                    <TableHead className="text-xs relative" style={{ width: colWidths["name"] ?? 200 }}>
+                    <TableHead className="text-xs relative" style={{ width: colWidths["name"] ?? 160 }}>
                       품목명
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("name", e)} />
                     </TableHead>
@@ -756,7 +756,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("supplier", e)} />
                       </TableHead>
                     )}
-                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["qty"] ?? 70 }}>
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["qty"] ?? 55 }}>
                       수량
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("qty", e)} />
                     </TableHead>
@@ -766,31 +766,31 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("unit", e)} />
                       </TableHead>
                     )}
-                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["purchase_price"] ?? 80 }}>
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["purchase_price"] ?? 110 }}>
                       매입단가
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("purchase_price", e)} />
                     </TableHead>
-                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["purchase_vat"] ?? 90 }}>
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["purchase_vat"] ?? 110 }}>
                       매입(VAT)
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("purchase_vat", e)} />
                     </TableHead>
-                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["purchase_total"] ?? 100 }}>
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["purchase_total"] ?? 110 }}>
                       매입총액
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("purchase_total", e)} />
                     </TableHead>
-                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["selling_price"] ?? 80 }}>
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["selling_price"] ?? 110 }}>
                       판매단가
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("selling_price", e)} />
                     </TableHead>
-                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["selling_vat"] ?? 90 }}>
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["selling_vat"] ?? 110 }}>
                       판매(VAT)
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("selling_vat", e)} />
                     </TableHead>
-                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["amount"] ?? 100 }}>
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["amount"] ?? 110 }}>
                       매출총액
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("amount", e)} />
                     </TableHead>
-                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["profit"] ?? 100 }}>
+                    <TableHead className="text-xs text-right relative" style={{ width: colWidths["profit"] ?? 110 }}>
                       매출이익
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("profit", e)} />
                     </TableHead>
@@ -798,7 +798,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                       이익률
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("profit_rate", e)} />
                     </TableHead>
-                    <TableHead className="text-xs relative" style={{ width: colWidths["sales_rep"] ?? 90 }}>
+                    <TableHead className="text-xs relative" style={{ width: colWidths["sales_rep"] ?? 65 }}>
                       담당자
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("sales_rep", e)} />
                     </TableHead>
@@ -890,7 +890,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                           <Input
                             type="number" min={0} value={item.purchase_price ?? ""}
                             onChange={(e) => updateItem(item.key, { purchase_price: e.target.value ? parseFloat(e.target.value) : null })}
-                            className="h-7 w-[70px] text-xs text-right ml-auto"
+                            className="h-7 w-[100px] text-xs text-right ml-auto"
                             placeholder="단가"
                           />
                         </TableCell>
@@ -902,7 +902,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                               const vatIncl = e.target.value ? parseFloat(e.target.value) : null;
                               updateItem(item.key, { purchase_price: vatIncl != null ? Math.round(vatIncl / 1.1) : null });
                             }}
-                            className="h-7 w-[80px] text-xs text-right ml-auto"
+                            className="h-7 w-[100px] text-xs text-right ml-auto"
                             placeholder="VAT포함"
                           />
                         </TableCell>
@@ -913,7 +913,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                           <Input
                             type="number" min={0} value={item.selling_price ?? ""}
                             onChange={(e) => updateItem(item.key, { selling_price: e.target.value ? parseFloat(e.target.value) : null })}
-                            className="h-7 w-[70px] text-xs text-right ml-auto"
+                            className="h-7 w-[100px] text-xs text-right ml-auto"
                             placeholder="단가"
                           />
                         </TableCell>
@@ -925,7 +925,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                               const vatIncl = e.target.value ? parseFloat(e.target.value) : null;
                               updateItem(item.key, { selling_price: vatIncl != null ? Math.round(vatIncl / 1.1) : null });
                             }}
-                            className="h-7 w-[80px] text-xs text-right ml-auto"
+                            className="h-7 w-[100px] text-xs text-right ml-auto"
                             placeholder="VAT포함"
                           />
                         </TableCell>

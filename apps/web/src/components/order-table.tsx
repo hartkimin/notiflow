@@ -595,20 +595,20 @@ function OrderAccordionContent({
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs">품목</TableHead>
-                <TableHead className="text-xs text-right w-[60px]">수량</TableHead>
-                <TableHead className="text-xs text-right w-[60px]">박스</TableHead>
-                <TableHead className="text-xs w-[50px]">단위</TableHead>
-                <TableHead className="text-xs w-[80px]">매입처</TableHead>
-                <TableHead className="text-xs text-right w-[80px]">매입단가</TableHead>
-                <TableHead className="text-xs text-right w-[80px]">매입(VAT)</TableHead>
-                <TableHead className="text-xs text-right w-[80px]">매입총액</TableHead>
-                <TableHead className="text-xs text-right w-[80px]">판매단가</TableHead>
-                <TableHead className="text-xs text-right w-[80px]">판매(VAT)</TableHead>
-                <TableHead className="text-xs text-right w-[80px]">매출총액</TableHead>
-                <TableHead className="text-xs text-right w-[80px]">매출이익</TableHead>
-                <TableHead className="text-xs text-right w-[60px]">이익률</TableHead>
-                <TableHead className="text-xs w-[70px]">담당자</TableHead>
-                <TableHead className="text-xs w-[80px]">KPIS</TableHead>
+                <TableHead className="text-xs text-right w-[50px]">수량</TableHead>
+                <TableHead className="text-xs text-right w-[50px]">박스</TableHead>
+                <TableHead className="text-xs w-[40px]">단위</TableHead>
+                <TableHead className="text-xs w-[70px]">매입처</TableHead>
+                <TableHead className="text-xs text-right w-[110px]">매입단가</TableHead>
+                <TableHead className="text-xs text-right w-[110px]">매입(VAT)</TableHead>
+                <TableHead className="text-xs text-right w-[110px]">매입총액</TableHead>
+                <TableHead className="text-xs text-right w-[110px]">판매단가</TableHead>
+                <TableHead className="text-xs text-right w-[110px]">판매(VAT)</TableHead>
+                <TableHead className="text-xs text-right w-[110px]">매출총액</TableHead>
+                <TableHead className="text-xs text-right w-[110px]">매출이익</TableHead>
+                <TableHead className="text-xs text-right w-[55px]">이익률</TableHead>
+                <TableHead className="text-xs w-[55px]">담당자</TableHead>
+                <TableHead className="text-xs w-[70px]">KPIS</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -693,7 +693,7 @@ function OrderAccordionContent({
                         onChange={(e) =>
                           updateItemField(item.id, "quantity", Number(e.target.value))
                         }
-                        className="h-7 w-[70px] text-right text-sm ml-auto"
+                        className="h-7 w-[50px] text-right text-sm ml-auto"
                       />
                     ) : (
                       item.quantity.toLocaleString()
@@ -717,7 +717,7 @@ function OrderAccordionContent({
                         searchPlaceholder="공급처 검색..."
                         onSelect={(id) => updateItemField(item.id, "supplier_id", id)}
                         searchAction={searchSuppliersAction}
-                        className="w-[160px]"
+                        className="w-[120px]"
                       />
                     ) : (
                       item.supplier_name ?? "-"
@@ -733,7 +733,7 @@ function OrderAccordionContent({
                         onChange={(e) =>
                           updateItemField(item.id, "purchase_price", Number(e.target.value))
                         }
-                        className="h-7 w-[80px] text-right text-sm ml-auto"
+                        className="h-7 w-[100px] text-right text-sm ml-auto"
                       />
                     ) : (
                       pp > 0 ? pp.toLocaleString() : "-"
@@ -749,7 +749,7 @@ function OrderAccordionContent({
                         onChange={(e) =>
                           updateItemField(item.id, "purchase_price", Math.round(Number(e.target.value) / 1.1))
                         }
-                        className="h-7 w-[80px] text-right text-sm ml-auto"
+                        className="h-7 w-[100px] text-right text-sm ml-auto"
                       />
                     ) : (
                       pp > 0 ? ppVat.toLocaleString() : "-"
@@ -769,7 +769,7 @@ function OrderAccordionContent({
                         onChange={(e) =>
                           updateItemField(item.id, "unit_price", Number(e.target.value))
                         }
-                        className="h-7 w-[80px] text-right text-sm ml-auto"
+                        className="h-7 w-[100px] text-right text-sm ml-auto"
                       />
                     ) : (
                       sp > 0 ? sp.toLocaleString() : "-"
@@ -785,7 +785,7 @@ function OrderAccordionContent({
                         onChange={(e) =>
                           updateItemField(item.id, "unit_price", Math.round(Number(e.target.value) / 1.1))
                         }
-                        className="h-7 w-[80px] text-right text-sm ml-auto"
+                        className="h-7 w-[100px] text-right text-sm ml-auto"
                       />
                     ) : (
                       sp > 0 ? spVat.toLocaleString() : "-"

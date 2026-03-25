@@ -96,10 +96,10 @@ const STATUS_VARIANT: Record<
 };
 
 const DETAIL_COL_DEFAULTS: Record<string, number> = {
-  idx: 40, product: 180, supplier: 100, quantity: 60, unit_type: 50,
-  purchase_price: 80, purchase_vat: 80, purchase_total: 90,
-  unit_price: 80, selling_vat: 80, sales_total: 90,
-  profit: 90, profit_rate: 60, sales_rep: 80,
+  idx: 35, product: 150, supplier: 80, quantity: 50, unit_type: 45,
+  purchase_price: 110, purchase_vat: 110, purchase_total: 110,
+  unit_price: 110, selling_vat: 110, sales_total: 110,
+  profit: 110, profit_rate: 55, sales_rep: 65,
 };
 
 interface EditItemState {
@@ -727,7 +727,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                           onChange={(e) =>
                             updateEditItem(item.id, "quantity", Number(e.target.value))
                           }
-                          className="h-7 w-[70px] text-right text-sm ml-auto"
+                          className="h-7 w-[50px] text-right text-sm ml-auto"
                         />
                       ) : (
                         item.quantity
@@ -742,7 +742,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                         <Input type="number" min={0}
                           value={pp}
                           onChange={(e) => updateEditItem(item.id, "purchase_price", Number(e.target.value))}
-                          className="h-7 w-[80px] text-right text-sm ml-auto"
+                          className="h-7 w-[100px] text-right text-sm ml-auto"
                         />
                       ) : (
                         pp > 0 ? pp.toLocaleString("ko-KR") : "-"
@@ -757,7 +757,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                             const v = e.target.value ? parseFloat(e.target.value) : 0;
                             updateEditItem(item.id, "purchase_price", Math.round(v / 1.1));
                           }}
-                          className="h-7 w-[80px] text-right text-sm ml-auto"
+                          className="h-7 w-[100px] text-right text-sm ml-auto"
                         />
                       ) : (
                         pp > 0 ? ppVat.toLocaleString("ko-KR") : "-"
@@ -773,7 +773,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                         <Input type="number" min={0}
                           value={sp}
                           onChange={(e) => updateEditItem(item.id, "unit_price", Number(e.target.value))}
-                          className="h-7 w-[80px] text-right text-sm ml-auto"
+                          className="h-7 w-[100px] text-right text-sm ml-auto"
                         />
                       ) : (
                         sp > 0 ? sp.toLocaleString("ko-KR") : "-"
@@ -788,7 +788,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                             const v = e.target.value ? parseFloat(e.target.value) : 0;
                             updateEditItem(item.id, "unit_price", Math.round(v / 1.1));
                           }}
-                          className="h-7 w-[80px] text-right text-sm ml-auto"
+                          className="h-7 w-[100px] text-right text-sm ml-auto"
                         />
                       ) : (
                         sp > 0 ? spVat.toLocaleString("ko-KR") : "-"

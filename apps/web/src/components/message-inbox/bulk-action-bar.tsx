@@ -44,10 +44,10 @@ export function BulkActionBar({ rowSelection }: BulkActionBarProps) {
   }
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg border bg-background/95 backdrop-blur px-4 py-2.5 shadow-lg">
-      <span className="text-sm font-medium whitespace-nowrap">{rowSelection.count}개 선택됨</span>
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border border-slate-200 bg-white/95 backdrop-blur px-5 py-3 shadow-lg shadow-slate-200/50">
+      <span className="text-sm font-semibold text-indigo-700 whitespace-nowrap">{rowSelection.count}개 선택됨</span>
 
-      <Button size="sm" onClick={handleCreateOrder} disabled={isPending}>
+      <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-white transition-all duration-200 shadow-sm" onClick={handleCreateOrder} disabled={isPending}>
         <ShoppingCart className="h-4 w-4 mr-1" />주문 생성
       </Button>
 
@@ -72,7 +72,7 @@ export function BulkActionBar({ rowSelection }: BulkActionBarProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Button size="sm" variant="ghost" onClick={rowSelection.clear} className="h-8 w-8 p-0">
+      <Button size="sm" variant="ghost" onClick={rowSelection.clear} className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all duration-200">
         <X className="h-4 w-4" />
       </Button>
     </div>

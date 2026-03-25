@@ -42,7 +42,7 @@ export function MessageTable({
   return (
     <div className="flex flex-col h-full">
       {/* Header row */}
-      <div className="grid grid-cols-[36px_110px_65px_100px_1fr_75px_110px] items-center gap-1 px-3 py-2 border-b bg-muted/50 text-xs font-medium text-muted-foreground sticky top-0 z-10">
+      <div className="grid grid-cols-[36px_110px_65px_100px_1fr_75px_110px] items-center gap-1 px-3 py-2 border-b bg-gradient-to-r from-slate-50 to-indigo-50/30 text-xs font-medium text-slate-500 sticky top-0 z-10">
         <div>
           <Checkbox
             checked={rowSelection.someSelected ? "indeterminate" : rowSelection.allSelected}

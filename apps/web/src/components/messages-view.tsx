@@ -145,12 +145,12 @@ export function MessagesView({
       {/* ──── Unified Toolbar ──── */}
       <div className="flex items-center gap-2 py-1.5">
         {/* Tab toggle */}
-        <div className="flex items-center gap-0.5 rounded-lg border p-0.5 shrink-0">
+        <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-50 p-0.5 shrink-0">
           <button
             onClick={() => handleTabChange("list")}
             className={[
-              "px-3 py-1 text-xs rounded-md transition-colors",
-              tab === "list" ? "bg-primary text-primary-foreground" : "hover:bg-muted",
+              "px-3 py-1 text-xs rounded-md transition-all duration-200",
+              tab === "list" ? "bg-white text-indigo-700 font-semibold shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-white/60",
             ].join(" ")}
           >
             목록
@@ -158,8 +158,8 @@ export function MessagesView({
           <button
             onClick={() => handleTabChange("calendar")}
             className={[
-              "px-3 py-1 text-xs rounded-md transition-colors",
-              tab === "calendar" ? "bg-primary text-primary-foreground" : "hover:bg-muted",
+              "px-3 py-1 text-xs rounded-md transition-all duration-200",
+              tab === "calendar" ? "bg-white text-indigo-700 font-semibold shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-white/60",
             ].join(" ")}
           >
             캘린더
@@ -186,11 +186,11 @@ export function MessagesView({
                 <SelectItem value="manual">수동</SelectItem>
               </SelectContent>
             </Select>
-            <Button type="submit" size="sm" variant="outline" className="h-8 px-2">
+            <Button type="submit" size="sm" variant="outline" className="h-8 px-2.5 border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200">
               <Search className="h-3.5 w-3.5" />
             </Button>
             {(searchParams.get("from") || searchParams.get("to") || searchParams.get("source_app") || searchParams.get("q")) && (
-              <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-muted-foreground" onClick={() => router.push("/messages")}>
+              <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-all duration-200" onClick={() => router.push("/messages")}>
                 <FilterX className="h-3.5 w-3.5" />
               </Button>
             )}
@@ -200,25 +200,25 @@ export function MessagesView({
           </form>
         ) : (
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={handleCalPrev}>
-              <ChevronLeft className="h-4 w-4" />
+            <Button variant="outline" size="icon" className="h-8 w-8 shrink-0 border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200" onClick={handleCalPrev}>
+              <ChevronLeft className="h-4 w-4 text-slate-500" />
             </Button>
-            <Button variant="outline" size="sm" className="h-8 shrink-0" onClick={handleCalToday}>
+            <Button variant="outline" size="sm" className="h-8 shrink-0 border-indigo-200 text-indigo-600 hover:bg-indigo-50 font-medium transition-all duration-200" onClick={handleCalToday}>
               오늘
             </Button>
-            <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={handleCalNext}>
-              <ChevronRight className="h-4 w-4" />
+            <Button variant="outline" size="icon" className="h-8 w-8 shrink-0 border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200" onClick={handleCalNext}>
+              <ChevronRight className="h-4 w-4 text-slate-500" />
             </Button>
             <span className="text-sm font-semibold whitespace-nowrap">{calLabel}</span>
 
-            <div className="ml-auto flex items-center gap-1 rounded-lg border p-0.5 shrink-0">
+            <div className="ml-auto flex items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-50 p-0.5 shrink-0">
               {(["day", "week", "month"] as CalendarView[]).map((v) => (
                 <button
                   key={v}
                   onClick={() => setCalView(v)}
                   className={[
-                    "px-3 py-1 text-xs rounded-md transition-colors",
-                    calView === v ? "bg-primary text-primary-foreground" : "hover:bg-muted",
+                    "px-3 py-1 text-xs rounded-md transition-all duration-200",
+                    calView === v ? "bg-white text-indigo-700 font-semibold shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-white/60",
                   ].join(" ")}
                 >
                   {v === "day" ? "일" : v === "week" ? "주" : "월"}
@@ -227,10 +227,10 @@ export function MessagesView({
             </div>
 
             {/* Forecast buttons */}
-            <Button variant="outline" size="sm" className="h-8 text-xs shrink-0" onClick={() => setForecastDialogOpen(true)}>
+            <Button variant="outline" size="sm" className="h-8 text-xs shrink-0 border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-all duration-200" onClick={() => setForecastDialogOpen(true)}>
               <CalendarPlus className="h-3.5 w-3.5 mr-1" />예상 등록
             </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs shrink-0" onClick={() => setBatchDialogOpen(true)}>
+            <Button variant="outline" size="sm" className="h-8 text-xs shrink-0 border-violet-200 text-violet-600 hover:bg-violet-50 hover:border-violet-300 transition-all duration-200" onClick={() => setBatchDialogOpen(true)}>
               <CalendarRange className="h-3.5 w-3.5 mr-1" />주간 예상
             </Button>
           </div>

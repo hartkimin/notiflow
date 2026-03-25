@@ -161,7 +161,7 @@ export function AccordionDetail({ message, localState, linkedOrder }: AccordionD
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       {/* Header: meta + actions */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/30 shrink-0">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b bg-gradient-to-r from-slate-50 to-sky-50/30 shrink-0">
         <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap min-w-0">
           <span className="font-medium text-foreground">{msg.sender || "(발신자 없음)"}</span>
           <span className="text-muted-foreground/30">·</span>
@@ -172,24 +172,24 @@ export function AccordionDetail({ message, localState, linkedOrder }: AccordionD
         <div className="flex items-center gap-0.5 shrink-0">
           {!linkedOrder && (
             <Link href={`/orders/new?source_message_id=${msg.id}`}>
-              <Button variant="ghost" size="sm" className="h-7 px-1.5 text-primary hover:text-primary" title="주문 생성">
+              <Button variant="ghost" size="sm" className="h-7 px-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 transition-all duration-200" title="주문 생성">
                 <ShoppingCart className="h-3.5 w-3.5 mr-0.5" />
                 <span className="text-[10px] font-medium">주문</span>
               </Button>
             </Link>
           )}
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-amber-50 hover:text-amber-600 transition-all duration-200"
             onClick={() => localState.togglePin(msg.id)}
             title={msgLocal.isPinned ? "핀 해제" : "핀 고정"}
           >
-            {msgLocal.isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+            {msgLocal.isPinned ? <PinOff className="h-3.5 w-3.5 text-amber-500" /> : <Pin className="h-3.5 w-3.5" />}
           </Button>
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleCopyContent} title="복사">
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-sky-50 hover:text-sky-600 transition-all duration-200" onClick={handleCopyContent} title="복사">
             <Copy className="h-3.5 w-3.5" />
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" disabled={isPending} title="삭제">
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-all duration-200" disabled={isPending} title="삭제">
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </AlertDialogTrigger>
@@ -238,8 +238,8 @@ export function AccordionDetail({ message, localState, linkedOrder }: AccordionD
               </div>
             </div>
           ) : (
-            <div className="rounded-lg bg-muted/40 p-3 border">
-              <pre className="text-sm whitespace-pre-wrap font-sans leading-snug">{displayContent}</pre>
+            <div className="rounded-lg bg-slate-50/60 p-3 border border-slate-100">
+              <pre className="text-sm whitespace-pre-wrap font-sans leading-snug text-slate-700">{displayContent}</pre>
             </div>
           )}
         </div>
@@ -272,11 +272,11 @@ export function AccordionDetail({ message, localState, linkedOrder }: AccordionD
         {/* AI Parse */}
         <div>
           <div className="flex items-center gap-2 mb-1.5">
-            <Sparkles className="h-3 w-3 text-primary" />
-            <span className="text-xs font-medium text-muted-foreground">AI 파싱</span>
+            <Sparkles className="h-3 w-3 text-violet-500" />
+            <span className="text-xs font-medium text-violet-600">AI 파싱</span>
           </div>
           <div className="flex gap-2 mb-2">
-            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleAiParse} disabled={isParsing || isCreatingOrder}>
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-violet-200 text-violet-600 hover:bg-violet-50 hover:border-violet-300 transition-all duration-200" onClick={handleAiParse} disabled={isParsing || isCreatingOrder}>
               <Sparkles className="h-3 w-3" />{isParsing ? "분석중..." : "AI 파싱"}
             </Button>
           </div>
@@ -370,8 +370,8 @@ export function AccordionDetail({ message, localState, linkedOrder }: AccordionD
         {/* Comments */}
         <div>
           <div className="flex items-center gap-2 mb-1.5">
-            <MessageSquare className="h-3 w-3 text-muted-foreground" />
-            <span className="text-xs font-medium text-muted-foreground">코멘트 ({msgLocal.comments.length})</span>
+            <MessageSquare className="h-3 w-3 text-teal-500" />
+            <span className="text-xs font-medium text-teal-600">코멘트 ({msgLocal.comments.length})</span>
           </div>
           <div className="flex items-center gap-2 mb-2">
             <Input
@@ -383,7 +383,7 @@ export function AccordionDetail({ message, localState, linkedOrder }: AccordionD
               placeholder="코멘트..."
               className="text-xs h-7 flex-1"
             />
-            <Button size="sm" variant="secondary" className="h-7 text-xs px-2"
+            <Button size="sm" variant="secondary" className="h-7 text-xs px-2 bg-teal-50 text-teal-700 hover:bg-teal-100 border border-teal-200 transition-all duration-200"
               onClick={handleAddComment} disabled={!commentDraft.trim()}>추가</Button>
           </div>
           {msgLocal.comments.length > 0 && (

@@ -18,10 +18,10 @@ import Link from "next/link";
 type StringRowSelection = RowSelectionHook<string>;
 
 const SOURCE_COLOR: Record<string, string> = {
-  kakaotalk: "bg-yellow-100 text-yellow-800 border-yellow-300",
-  sms: "bg-green-100 text-green-800 border-green-300",
-  telegram: "bg-blue-100 text-blue-800 border-blue-300",
-  manual: "bg-gray-100 text-gray-800 border-gray-300",
+  kakaotalk: "bg-amber-50 text-amber-700 border-amber-200",
+  sms: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  telegram: "bg-sky-50 text-sky-700 border-sky-200",
+  manual: "bg-slate-50 text-slate-600 border-slate-200",
 };
 
 interface MessageRowProps {
@@ -48,11 +48,12 @@ export function MessageRow({
     <div ref={ref}>
       <div
         className={cn(
-          "grid grid-cols-[36px_110px_65px_100px_1fr_75px_110px] items-center gap-1 px-3 py-2 border-b cursor-pointer transition-colors text-sm",
-          "hover:bg-muted/50",
-          isChecked && "bg-blue-50 dark:bg-blue-950/30",
-          isExpanded && !isChecked && "bg-blue-50/50 dark:bg-blue-950/15",
-          isUnread && !isExpanded && !isChecked && "bg-orange-50/40",
+          "grid grid-cols-[36px_110px_65px_100px_1fr_75px_110px] items-center gap-1 px-3 py-2 border-b cursor-pointer transition-all duration-150 text-sm",
+          "hover:bg-indigo-50/40",
+          isChecked && "bg-indigo-50/60 border-l-2 border-l-indigo-400",
+          isExpanded && !isChecked && "bg-sky-50/40 border-l-2 border-l-sky-400",
+          isUnread && !isExpanded && !isChecked && "bg-amber-50/30 border-l-2 border-l-amber-300",
+          !isChecked && !isExpanded && !isUnread && "border-l-2 border-l-transparent",
         )}
         onClick={onToggleExpand}
       >
@@ -120,7 +121,7 @@ export function MessageRow({
               {statusStep.name}
             </Badge>
           ) : isUnread ? (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-orange-300 text-orange-600 bg-orange-50">
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-amber-300 text-amber-600 bg-amber-50">
               새 메시지
             </Badge>
           ) : (
@@ -131,7 +132,7 @@ export function MessageRow({
         {/* Linked order */}
         <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
           {linkedOrder ? (
-            <Link href={`/orders/${linkedOrder.id}`} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-600 text-white text-[10px] font-bold hover:bg-blue-700 transition-colors shadow-sm">
+            <Link href={`/orders/${linkedOrder.id}`} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-500 text-white text-[10px] font-bold hover:bg-indigo-600 transition-all duration-200 shadow-sm hover:shadow">
               📋 {linkedOrder.order_number.replace("ORD-", "")}
             </Link>
           ) : (

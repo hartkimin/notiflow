@@ -70,7 +70,7 @@ export function MessageInbox({
   return (
     <div className="flex h-[calc(100vh-9rem)] gap-0">
       {/* Left: Table */}
-      <div className="flex-1 border rounded-l-lg overflow-hidden min-w-0">
+      <div className="flex-1 border border-slate-200 rounded-l-lg overflow-hidden min-w-0 bg-white">
         <MessageTable
           messages={messages}
           expandedId={selectedId}
@@ -90,10 +90,10 @@ export function MessageInbox({
         <>
           {/* Resize handle */}
           <div
-            className="w-1.5 shrink-0 cursor-col-resize hover:bg-primary/20 active:bg-primary/30 transition-colors"
+            className="w-1.5 shrink-0 cursor-col-resize hover:bg-indigo-100 active:bg-indigo-200 transition-all duration-200 rounded-full"
             onMouseDown={handleResizeStart}
           />
-          <div style={{ width: panelWidth }} className="shrink-0 border-y border-r rounded-r-lg overflow-hidden bg-background">
+          <div style={{ width: panelWidth }} className="shrink-0 border-y border-r border-slate-200 rounded-r-lg overflow-hidden bg-white">
             <AccordionDetail message={selectedMsg} localState={localState} linkedOrder={linkedOrders?.[selectedMsg.id]} />
           </div>
         </>

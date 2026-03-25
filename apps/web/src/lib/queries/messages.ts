@@ -148,10 +148,11 @@ export interface LinkedOrder {
 export async function getLinkedOrders(messageIds: string[]): Promise<Record<string, LinkedOrder>> {
   if (messageIds.length === 0) return {};
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("orders")
     .select("id, order_number, status, order_date, source_message_id, hospitals(name)")
     .in("source_message_id", messageIds);
+  if (error) console.error("getLinkedOrders error:", JSON.stringify(error, null, 2));
   const map: Record<string, LinkedOrder> = {};
   for (const o of data ?? []) {
     if (!o.source_message_id) continue;

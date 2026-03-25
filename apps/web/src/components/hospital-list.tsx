@@ -36,7 +36,7 @@ import type { Hospital } from "@/lib/types";
 const HOSPITAL_COL_DEFAULTS: Record<string, number> = {
   checkbox: 40, id: 50, name: 140, short_name: 90, hospital_type: 80, phone: 120,
   contact_person: 80, address: 180, business_number: 120, payment_terms: 90,
-  lead_time_days: 80, is_active: 70, actions: 90,
+  lead_time_days: 80, is_active: 90, actions: 90,
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -256,10 +256,20 @@ export function HospitalTable({ hospitals }: { hospitals: Hospital[] }) {
                         <TableCell className="text-sm font-mono overflow-hidden text-ellipsis">{h.business_number || "-"}</TableCell>
                         <TableCell className="text-sm overflow-hidden text-ellipsis">{h.payment_terms || "-"}</TableCell>
                         <TableCell className="text-sm text-center overflow-hidden text-ellipsis">{h.lead_time_days ?? "-"}</TableCell>
-                        <TableCell className="overflow-hidden text-ellipsis">
-                          <Badge variant={h.is_active ? "default" : "secondary"} className="text-[10px] h-5">
-                            {h.is_active ? "활성" : "비활성"}
-                          </Badge>
+                        <TableCell className="overflow-hidden text-ellipsis" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            className="relative flex h-5 w-[80px] rounded-full border text-[10px] font-medium overflow-hidden cursor-pointer transition-colors"
+                            onClick={async () => {
+                              try {
+                                await updateHospital(h.id, { is_active: !h.is_active });
+                                router.refresh();
+                              } catch { /* ignore */ }
+                            }}
+                          >
+                            <span className={`flex-1 flex items-center justify-center transition-all ${!h.is_active ? "bg-red-500 text-white" : "text-muted-foreground"}`}>비활성</span>
+                            <span className={`flex-1 flex items-center justify-center transition-all ${h.is_active ? "bg-green-600 text-white" : "text-muted-foreground"}`}>활성</span>
+                          </button>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1">
@@ -294,7 +304,7 @@ export function HospitalTable({ hospitals }: { hospitals: Hospital[] }) {
                         <h3 className="font-bold text-zinc-950 truncate">{h.name}</h3>
                         <div className="flex items-center gap-1 shrink-0">
                           <Badge variant="outline" className="text-[10px]">{TYPE_LABEL[h.hospital_type] || h.hospital_type}</Badge>
-                          {!h.is_active && <Badge variant="secondary" className="text-[10px]">비활성</Badge>}
+                          {!h.is_active && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-red-100 text-red-600">비활성</span>}
                         </div>
                       </div>
                       {h.short_name && <p className="text-[11px] text-muted-foreground truncate">약칭: {h.short_name}</p>}

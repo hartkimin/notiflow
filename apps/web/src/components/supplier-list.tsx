@@ -34,7 +34,7 @@ import { cn } from "@/lib/utils";
 import type { Supplier } from "@/lib/types";
 
 const SUPPLIER_COL_DEFAULTS: Record<string, number> = {
-  checkbox: 40, id: 50, name: 150, short_name: 100, ceo_name: 100, phone: 120, business_type: 100, notes: 150, is_active: 70, actions: 90,
+  checkbox: 40, id: 50, name: 150, short_name: 100, ceo_name: 100, phone: 120, business_type: 100, notes: 150, is_active: 90, actions: 90,
 };
 
 type SortKey = "id" | "name" | "short_name" | "ceo_name" | "phone" | "notes" | "is_active";
@@ -233,10 +233,20 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
                             : "-"}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground overflow-hidden text-ellipsis">{s.notes || "-"}</TableCell>
-                        <TableCell className="overflow-hidden text-ellipsis">
-                          <Badge variant={s.is_active ? "default" : "secondary"} className="font-medium text-[10px] h-5">
-                            {s.is_active ? "활성" : "비활성"}
-                          </Badge>
+                        <TableCell className="overflow-hidden text-ellipsis" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            className="relative flex h-5 w-[80px] rounded-full border text-[10px] font-medium overflow-hidden cursor-pointer transition-colors"
+                            onClick={async () => {
+                              try {
+                                await updateSupplier(s.id, { is_active: !s.is_active });
+                                router.refresh();
+                              } catch { /* ignore */ }
+                            }}
+                          >
+                            <span className={`flex-1 flex items-center justify-center transition-all ${!s.is_active ? "bg-red-500 text-white" : "text-muted-foreground"}`}>비활성</span>
+                            <span className={`flex-1 flex items-center justify-center transition-all ${s.is_active ? "bg-green-600 text-white" : "text-muted-foreground"}`}>활성</span>
+                          </button>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1">
@@ -269,9 +279,9 @@ export function SupplierTable({ suppliers }: { suppliers: Supplier[] }) {
                     <CardContent className="p-4 space-y-2">
                       <div className="flex items-center justify-between">
                         <h3 className="font-bold text-zinc-950 truncate">{s.name}</h3>
-                        <Badge variant={s.is_active ? "default" : "secondary"} className="text-[10px] shrink-0">
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 ${s.is_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
                           {s.is_active ? "활성" : "비활성"}
-                        </Badge>
+                        </span>
                       </div>
                       {s.short_name && <p className="text-[11px] text-muted-foreground truncate">{s.short_name}</p>}
                       <div className="space-y-1 text-[11px] text-zinc-500">

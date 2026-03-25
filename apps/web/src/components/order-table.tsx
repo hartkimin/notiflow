@@ -289,8 +289,8 @@ const OrderGroupRow = memo(function OrderGroupRow({
         </TableCell>
         {(() => {
           const v = vatMultiplier;
-          const purchaseTotal = Math.round(group.items.reduce((s, i) => s + (i.purchase_price ?? 0) * i.quantity, 0) * v);
-          const salesTotal = Math.round(group.items.reduce((s, i) => s + (i.unit_price ?? 0) * i.quantity, 0) * v);
+          const purchaseTotal = group.items.reduce((s, i) => s + Math.round((i.purchase_price ?? 0) * v) * i.quantity, 0);
+          const salesTotal = group.items.reduce((s, i) => s + Math.round((i.unit_price ?? 0) * v) * i.quantity, 0);
           const profit = salesTotal - purchaseTotal;
           const margin = salesTotal > 0 ? (profit / salesTotal) * 100 : 0;
           const reps = [...new Set(group.items.map((i) => i.sales_rep).filter(Boolean))];
@@ -370,6 +370,8 @@ const OrderGroupRow = memo(function OrderGroupRow({
 
 interface ItemEdits {
   quantity: number;
+  purchase_price: number;
+  unit_price: number;
   product_id: number | null;
   supplier_id: number | null;
 }
@@ -413,6 +415,8 @@ function OrderAccordionContent({
     for (const item of group.items) {
       initial[item.id] = {
         quantity: item.quantity,
+        purchase_price: item.purchase_price ?? 0,
+        unit_price: item.unit_price ?? 0,
         product_id: item.product_id,
         supplier_id: item.supplier_id ?? null,
       };
@@ -433,8 +437,10 @@ function OrderAccordionContent({
         for (const item of group.items) {
           const edits = editItems[item.id];
           if (!edits) continue;
-          const changes: { quantity?: number; product_id?: number; supplier_id?: number | null } = {};
+          const changes: { quantity?: number; purchase_price?: number; unit_price?: number; product_id?: number; supplier_id?: number | null } = {};
           if (edits.quantity !== item.quantity) changes.quantity = edits.quantity;
+          if (edits.purchase_price !== (item.purchase_price ?? 0)) changes.purchase_price = edits.purchase_price;
+          if (edits.unit_price !== (item.unit_price ?? 0)) changes.unit_price = edits.unit_price;
           if (edits.product_id !== item.product_id && edits.product_id != null) {
             changes.product_id = edits.product_id;
           }
@@ -584,17 +590,20 @@ function OrderAccordionContent({
             </div>
           )}
         </div>
-        <div className="rounded-md border bg-background">
+        <div className="rounded-md border bg-background overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs">품목</TableHead>
                 <TableHead className="text-xs text-right w-[60px]">수량</TableHead>
                 <TableHead className="text-xs text-right w-[60px]">박스</TableHead>
+                <TableHead className="text-xs w-[50px]">단위</TableHead>
                 <TableHead className="text-xs w-[80px]">매입처</TableHead>
                 <TableHead className="text-xs text-right w-[80px]">매입단가</TableHead>
+                <TableHead className="text-xs text-right w-[80px]">매입(VAT)</TableHead>
                 <TableHead className="text-xs text-right w-[80px]">매입총액</TableHead>
-                <TableHead className="text-xs text-right w-[80px]">매출단가</TableHead>
+                <TableHead className="text-xs text-right w-[80px]">판매단가</TableHead>
+                <TableHead className="text-xs text-right w-[80px]">판매(VAT)</TableHead>
                 <TableHead className="text-xs text-right w-[80px]">매출총액</TableHead>
                 <TableHead className="text-xs text-right w-[80px]">매출이익</TableHead>
                 <TableHead className="text-xs text-right w-[60px]">이익률</TableHead>
@@ -603,8 +612,20 @@ function OrderAccordionContent({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {group.items.map((item) => (
+              {group.items.map((item) => {
+                const pp = isEditing ? (editItems[item.id]?.purchase_price ?? 0) : (item.purchase_price ?? 0);
+                const sp = isEditing ? (editItems[item.id]?.unit_price ?? 0) : (item.unit_price ?? 0);
+                const qty = isEditing ? (editItems[item.id]?.quantity ?? item.quantity) : item.quantity;
+                const ppVat = Math.round(pp * 1.1);
+                const spVat = Math.round(sp * 1.1);
+                const purchaseTotal = ppVat * qty;
+                const salesTotal = spVat * qty;
+                const profit = salesTotal - purchaseTotal;
+                const margin = salesTotal > 0 ? (profit / salesTotal) * 100 : 0;
+
+                return (
                 <TableRow key={item.id}>
+                  {/* 품목 */}
                   <TableCell className="text-sm font-medium">
                     {isEditing ? (
                       <div className="flex items-center gap-1">
@@ -662,6 +683,7 @@ function OrderAccordionContent({
                       </>
                     )}
                   </TableCell>
+                  {/* 수량 */}
                   <TableCell className="text-right text-sm tabular-nums">
                     {isEditing ? (
                       <Input
@@ -677,9 +699,15 @@ function OrderAccordionContent({
                       item.quantity.toLocaleString()
                     )}
                   </TableCell>
+                  {/* 박스 */}
                   <TableCell className="text-right text-sm tabular-nums">
                     {item.box_quantity != null ? item.box_quantity.toLocaleString() : "-"}
                   </TableCell>
+                  {/* 단위 */}
+                  <TableCell className="text-sm">
+                    {item.unit_type ?? "-"}
+                  </TableCell>
+                  {/* 매입처 */}
                   <TableCell className="text-sm">
                     {isEditing ? (
                       <SearchableCombobox
@@ -695,35 +723,95 @@ function OrderAccordionContent({
                       item.supplier_name ?? "-"
                     )}
                   </TableCell>
+                  {/* 매입단가 */}
                   <TableCell className="text-right text-sm tabular-nums">
-                    {item.purchase_price != null ? item.purchase_price.toLocaleString() : "-"}
+                    {isEditing ? (
+                      <Input
+                        type="number"
+                        min={0}
+                        value={pp}
+                        onChange={(e) =>
+                          updateItemField(item.id, "purchase_price", Number(e.target.value))
+                        }
+                        className="h-7 w-[80px] text-right text-sm ml-auto"
+                      />
+                    ) : (
+                      pp > 0 ? pp.toLocaleString() : "-"
+                    )}
                   </TableCell>
+                  {/* 매입(VAT) */}
                   <TableCell className="text-right text-sm tabular-nums">
-                    {item.purchase_price != null ? (item.purchase_price * item.quantity).toLocaleString() : "-"}
+                    {isEditing ? (
+                      <Input
+                        type="number"
+                        min={0}
+                        value={ppVat}
+                        onChange={(e) =>
+                          updateItemField(item.id, "purchase_price", Math.round(Number(e.target.value) / 1.1))
+                        }
+                        className="h-7 w-[80px] text-right text-sm ml-auto"
+                      />
+                    ) : (
+                      pp > 0 ? ppVat.toLocaleString() : "-"
+                    )}
                   </TableCell>
+                  {/* 매입총액 */}
                   <TableCell className="text-right text-sm tabular-nums">
-                    {item.unit_price != null ? item.unit_price.toLocaleString() : "-"}
+                    {pp > 0 ? purchaseTotal.toLocaleString() : "-"}
                   </TableCell>
+                  {/* 판매단가 */}
                   <TableCell className="text-right text-sm tabular-nums">
-                    {item.unit_price != null ? (item.unit_price * item.quantity).toLocaleString() : "-"}
+                    {isEditing ? (
+                      <Input
+                        type="number"
+                        min={0}
+                        value={sp}
+                        onChange={(e) =>
+                          updateItemField(item.id, "unit_price", Number(e.target.value))
+                        }
+                        className="h-7 w-[80px] text-right text-sm ml-auto"
+                      />
+                    ) : (
+                      sp > 0 ? sp.toLocaleString() : "-"
+                    )}
                   </TableCell>
+                  {/* 판매(VAT) */}
                   <TableCell className="text-right text-sm tabular-nums">
-                    {item.unit_price != null && item.purchase_price != null ? (() => {
-                      const profit = (item.unit_price - item.purchase_price) * item.quantity;
-                      return <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{profit.toLocaleString()}</span>;
-                    })() : "-"}
+                    {isEditing ? (
+                      <Input
+                        type="number"
+                        min={0}
+                        value={spVat}
+                        onChange={(e) =>
+                          updateItemField(item.id, "unit_price", Math.round(Number(e.target.value) / 1.1))
+                        }
+                        className="h-7 w-[80px] text-right text-sm ml-auto"
+                      />
+                    ) : (
+                      sp > 0 ? spVat.toLocaleString() : "-"
+                    )}
                   </TableCell>
+                  {/* 매출총액 */}
                   <TableCell className="text-right text-sm tabular-nums">
-                    {item.unit_price != null && item.purchase_price != null ? (() => {
-                      const revenue = item.unit_price * item.quantity;
-                      const profit = (item.unit_price - item.purchase_price) * item.quantity;
-                      const rate = revenue > 0 ? (profit / revenue) * 100 : 0;
-                      return <span className={rate < 0 ? "text-red-500" : ""}>{rate.toFixed(1)}%</span>;
-                    })() : "-"}
+                    {sp > 0 ? salesTotal.toLocaleString() : "-"}
                   </TableCell>
+                  {/* 매출이익 */}
+                  <TableCell className="text-right text-sm tabular-nums">
+                    {pp > 0 || sp > 0 ? (
+                      <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{profit.toLocaleString()}</span>
+                    ) : "-"}
+                  </TableCell>
+                  {/* 이익률 */}
+                  <TableCell className="text-right text-sm tabular-nums">
+                    {pp > 0 || sp > 0 ? (
+                      <span className={margin < 0 ? "text-red-500" : ""}>{margin.toFixed(1)}%</span>
+                    ) : "-"}
+                  </TableCell>
+                  {/* 담당자 */}
                   <TableCell className="text-sm">
                     {item.sales_rep ?? "-"}
                   </TableCell>
+                  {/* KPIS */}
                   <TableCell>
                     {kpisEditId === item.id ? (
                       <div className="space-y-1">
@@ -804,9 +892,55 @@ function OrderAccordionContent({
                     )}
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
+        </div>
+
+        {/* Footer totals */}
+        <div className="flex justify-end mt-2">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            <span className="text-muted-foreground text-right">매입합계</span>
+            <span className="text-right tabular-nums">
+              {group.items.reduce((s, i) => s + Math.round((i.purchase_price ?? 0) * 1.1) * i.quantity, 0).toLocaleString()}원
+            </span>
+            <span className="text-muted-foreground text-right">매출합계</span>
+            <span className="text-right tabular-nums font-medium">
+              {group.items.reduce((s, i) => s + Math.round((i.unit_price ?? 0) * 1.1) * i.quantity, 0).toLocaleString()}원
+            </span>
+            {(() => {
+              const pt = group.items.reduce((s, i) => s + Math.round((i.purchase_price ?? 0) * 1.1) * i.quantity, 0);
+              const st = group.items.reduce((s, i) => s + Math.round((i.unit_price ?? 0) * 1.1) * i.quantity, 0);
+              const mg = st - pt;
+              const mr = st > 0 ? (mg / st) * 100 : 0;
+              return (
+                <>
+                  <span className="text-muted-foreground text-right">마진</span>
+                  <span className={cn("text-right tabular-nums", mg >= 0 ? "text-green-600" : "text-red-500")}>
+                    {mg.toLocaleString()}원 ({st > 0 ? mr.toFixed(1) : "-"}%)
+                  </span>
+                </>
+              );
+            })()}
+            <Separator className="col-span-2 my-1" />
+            <span className="text-muted-foreground text-right">공급가액</span>
+            <span className="text-right tabular-nums">
+              {group.items.reduce((s, i) => s + (i.unit_price ?? 0) * i.quantity, 0).toLocaleString()}원
+            </span>
+            <span className="text-muted-foreground text-right">세액</span>
+            <span className="text-right tabular-nums">
+              {group.items.reduce((s, i) => s + Math.round((i.unit_price ?? 0) * 0.1) * i.quantity, 0).toLocaleString()}원
+            </span>
+            <span className="font-medium text-right">합계</span>
+            <span className="font-medium text-right tabular-nums">
+              {(() => {
+                const supply = group.items.reduce((s, i) => s + (i.unit_price ?? 0) * i.quantity, 0);
+                const tax = group.items.reduce((s, i) => s + Math.round((i.unit_price ?? 0) * 0.1) * i.quantity, 0);
+                return (supply + tax).toLocaleString();
+              })()}원
+            </span>
+          </div>
         </div>
       </div>
 

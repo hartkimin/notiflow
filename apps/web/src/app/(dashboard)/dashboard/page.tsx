@@ -191,7 +191,7 @@ export default async function DashboardHome({ searchParams }: Props) {
         </CardHeader>
         <CardContent>
           {monthlyTrend.length > 0 ? (
-            <SalesTrendChart data={monthlyTrend} />
+            <SalesTrendChart data={monthlyTrend} currentMonth={selectedMonth} />
           ) : (
             <div className="text-sm text-muted-foreground text-center py-12">
               <Calendar className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />

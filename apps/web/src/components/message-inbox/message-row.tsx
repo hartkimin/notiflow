@@ -48,7 +48,7 @@ export function MessageRow({
     <div ref={ref}>
       <div
         className={cn(
-          "grid grid-cols-[36px_120px_70px_110px_1fr_80px_100px] items-center gap-1 px-3 py-2 border-b cursor-pointer transition-colors text-sm",
+          "grid grid-cols-[36px_110px_65px_100px_1fr_75px_110px] items-center gap-1 px-3 py-2 border-b cursor-pointer transition-colors text-sm",
           "hover:bg-muted/50",
           isChecked && "bg-blue-50 dark:bg-blue-950/30",
           isExpanded && !isChecked && "bg-blue-50/50 dark:bg-blue-950/15",
@@ -131,10 +131,8 @@ export function MessageRow({
         {/* Linked order */}
         <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
           {linkedOrder ? (
-            <Link href={`/orders/${linkedOrder.id}`}>
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200 transition-colors cursor-pointer truncate max-w-[95px] inline-block">
-                {linkedOrder.order_number.replace("ORD-", "")}
-              </span>
+            <Link href={`/orders/${linkedOrder.id}`} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-600 text-white text-[10px] font-bold hover:bg-blue-700 transition-colors shadow-sm">
+              📋 {linkedOrder.order_number.replace("ORD-", "")}
             </Link>
           ) : (
             <span className="text-[10px] text-muted-foreground/30">-</span>

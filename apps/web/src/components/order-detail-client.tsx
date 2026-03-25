@@ -96,12 +96,16 @@ const STATUS_VARIANT: Record<
 };
 
 const DETAIL_COL_DEFAULTS: Record<string, number> = {
-  idx: 40, product: 180, supplier: 100, quantity: 60, unit_type: 50, purchase_price: 90, unit_price: 90, total: 90, sales_rep: 80,
+  idx: 40, product: 180, supplier: 100, quantity: 60, unit_type: 50,
+  purchase_price: 80, purchase_vat: 80, purchase_total: 90,
+  unit_price: 80, selling_vat: 80, sales_total: 90,
+  profit: 90, profit_rate: 60, sales_rep: 80,
 };
 
 interface EditItemState {
   quantity: number;
   unit_price: number;
+  purchase_price: number;
   product_id: number | null;
   supplier_id: number | null;
 }
@@ -187,6 +191,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
       initial[item.id] = {
         quantity: item.quantity,
         unit_price: item.unit_price ?? 0,
+        purchase_price: item.purchase_price ?? 0,
         product_id: item.product_id,
         supplier_id: item.supplier_id,
       };
@@ -244,12 +249,15 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
         // Update changed items (skip deleted ones)
         for (const item of order.items) {
           if (deletedIds.has(item.id)) continue;
-          const edit = editItems[item.id];
-          if (!edit) continue;
+          const rawEdit = editItems[item.id];
+          if (!rawEdit) continue;
 
-          const changes: { quantity?: number; unit_price?: number; product_id?: number; supplier_id?: number | null } = {};
+          const edit = rawEdit;
+
+          const changes: { quantity?: number; unit_price?: number; purchase_price?: number; product_id?: number; supplier_id?: number | null } = {};
           if (edit.quantity !== item.quantity) changes.quantity = edit.quantity;
           if (edit.unit_price !== (item.unit_price ?? 0)) changes.unit_price = edit.unit_price;
+          if (edit.purchase_price !== (item.purchase_price ?? 0)) changes.purchase_price = edit.purchase_price;
           if (edit.product_id !== item.product_id && edit.product_id !== null) {
             changes.product_id = edit.product_id;
           }
@@ -326,21 +334,38 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
   }
 
   // --- Computed totals ---
-
   const visibleItems = order.items.filter((item) => !deletedIds.has(item.id));
+
+  const purchaseTotal = visibleItems.reduce((sum, item) => {
+    const edit = editItems[item.id];
+    const qty = edit?.quantity ?? item.quantity;
+    const pp = edit?.purchase_price ?? (item.purchase_price ?? 0);
+    return sum + Math.round(pp * 1.1) * qty;
+  }, 0);
+
+  const salesTotal = visibleItems.reduce((sum, item) => {
+    const edit = editItems[item.id];
+    const qty = edit ? edit.quantity : item.quantity;
+    const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
+    return sum + Math.round(sp * 1.1) * qty;
+  }, 0);
+
   const supplyTotal = visibleItems.reduce((sum, item) => {
     const edit = editItems[item.id];
     const qty = edit ? edit.quantity : item.quantity;
-    const price = edit ? edit.unit_price : (item.unit_price ?? 0);
-    return sum + qty * price;
+    const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
+    return sum + sp * qty;
   }, 0);
-  const purchaseTotal = visibleItems.reduce((sum, item) => {
-    const qty = editItems[item.id]?.quantity ?? item.quantity;
-    return sum + qty * (item.purchase_price ?? 0);
+
+  const taxTotal = visibleItems.reduce((sum, item) => {
+    const edit = editItems[item.id];
+    const qty = edit ? edit.quantity : item.quantity;
+    const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
+    return sum + Math.round(sp * 0.1) * qty;
   }, 0);
-  const taxTotal = Math.round(supplyTotal * 0.1);
-  const profit = supplyTotal - purchaseTotal;
-  const profitRate = supplyTotal > 0 ? Math.round(profit / supplyTotal * 100) : 0;
+
+  const totalMargin = salesTotal - purchaseTotal;
+  const marginRate = salesTotal > 0 ? (totalMargin / salesTotal) * 100 : 0;
 
   return (
     <div className="space-y-4">
@@ -540,8 +565,13 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                 <ResizableTh width={widths.quantity} colKey="quantity" onResizeStart={onMouseDown} className="text-right">수량</ResizableTh>
                 <ResizableTh width={widths.unit_type} colKey="unit_type" onResizeStart={onMouseDown}>단위</ResizableTh>
                 <ResizableTh width={widths.purchase_price} colKey="purchase_price" onResizeStart={onMouseDown} className="text-right">매입단가</ResizableTh>
+                <ResizableTh width={widths.purchase_vat} colKey="purchase_vat" onResizeStart={onMouseDown} className="text-right">매입(VAT)</ResizableTh>
+                <ResizableTh width={widths.purchase_total} colKey="purchase_total" onResizeStart={onMouseDown} className="text-right">매입총액</ResizableTh>
                 <ResizableTh width={widths.unit_price} colKey="unit_price" onResizeStart={onMouseDown} className="text-right">판매단가</ResizableTh>
-                <ResizableTh width={widths.total} colKey="total" onResizeStart={onMouseDown} className="text-right">금액</ResizableTh>
+                <ResizableTh width={widths.selling_vat} colKey="selling_vat" onResizeStart={onMouseDown} className="text-right">판매(VAT)</ResizableTh>
+                <ResizableTh width={widths.sales_total} colKey="sales_total" onResizeStart={onMouseDown} className="text-right">매출총액</ResizableTh>
+                <ResizableTh width={widths.profit} colKey="profit" onResizeStart={onMouseDown} className="text-right">매출이익</ResizableTh>
+                <ResizableTh width={widths.profit_rate} colKey="profit_rate" onResizeStart={onMouseDown} className="text-right">이익률</ResizableTh>
                 <ResizableTh width={widths.sales_rep} colKey="sales_rep" onResizeStart={onMouseDown} className="pr-6">담당자</ResizableTh>
                 {isEditing && <th className="w-[40px] print:hidden" />}
               </TableRow>
@@ -555,8 +585,14 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
 
                 const edit = editItems[item.id];
                 const qty = edit ? edit.quantity : item.quantity;
-                const unitPrice = edit ? edit.unit_price : (item.unit_price ?? 0);
-                const lineTotal = qty * unitPrice;
+                const pp = edit ? edit.purchase_price : (item.purchase_price ?? 0);
+                const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
+                const ppVat = Math.round(pp * 1.1);
+                const spVat = Math.round(sp * 1.1);
+                const linePurchaseTotal = ppVat * qty;
+                const lineSalesTotal = spVat * qty;
+                const lineProfit = lineSalesTotal - linePurchaseTotal;
+                const lineMargin = lineSalesTotal > 0 ? (lineProfit / lineSalesTotal) * 100 : 0;
 
                 return (
                   <TableRow
@@ -583,7 +619,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                                 {(() => {
                                   const pid = edit?.product_id ?? item.product_id;
                                   const found = products.find((p) => p.id === pid);
-                                  return found ? found.name : "품목 검색...";
+                                  return found ? found.name : (item.product_name || productName);
                                 })()}
                               </span>
                               <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
@@ -700,26 +736,83 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                     <TableCell className="text-sm text-muted-foreground">
                       {item.unit_type ?? "piece"}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {(item.purchase_price ?? 0).toLocaleString("ko-KR")}
-                    </TableCell>
+                    {/* 매입단가 */}
                     <TableCell className="text-right tabular-nums">
                       {isEditing && !isDeleted ? (
-                        <Input
-                          type="number"
-                          min={0}
-                          value={edit?.unit_price ?? (item.unit_price ?? 0)}
-                          onChange={(e) =>
-                            updateEditItem(item.id, "unit_price", Number(e.target.value))
-                          }
-                          className="h-7 w-[90px] text-right text-sm ml-auto"
+                        <Input type="number" min={0}
+                          value={pp}
+                          onChange={(e) => updateEditItem(item.id, "purchase_price", Number(e.target.value))}
+                          className="h-7 w-[80px] text-right text-sm ml-auto"
                         />
                       ) : (
-                        (item.unit_price ?? 0).toLocaleString("ko-KR")
+                        pp > 0 ? pp.toLocaleString("ko-KR") : "-"
                       )}
                     </TableCell>
+                    {/* 매입(VAT) */}
+                    <TableCell className="text-right tabular-nums">
+                      {isEditing && !isDeleted ? (
+                        <Input type="number" min={0}
+                          value={ppVat}
+                          onChange={(e) => {
+                            const v = e.target.value ? parseFloat(e.target.value) : 0;
+                            updateEditItem(item.id, "purchase_price", Math.round(v / 1.1));
+                          }}
+                          className="h-7 w-[80px] text-right text-sm ml-auto"
+                        />
+                      ) : (
+                        pp > 0 ? ppVat.toLocaleString("ko-KR") : "-"
+                      )}
+                    </TableCell>
+                    {/* 매입총액 */}
+                    <TableCell className="text-right tabular-nums">
+                      {pp > 0 ? linePurchaseTotal.toLocaleString("ko-KR") : "-"}
+                    </TableCell>
+                    {/* 판매단가 */}
+                    <TableCell className="text-right tabular-nums">
+                      {isEditing && !isDeleted ? (
+                        <Input type="number" min={0}
+                          value={sp}
+                          onChange={(e) => updateEditItem(item.id, "unit_price", Number(e.target.value))}
+                          className="h-7 w-[80px] text-right text-sm ml-auto"
+                        />
+                      ) : (
+                        sp > 0 ? sp.toLocaleString("ko-KR") : "-"
+                      )}
+                    </TableCell>
+                    {/* 판매(VAT) */}
+                    <TableCell className="text-right tabular-nums">
+                      {isEditing && !isDeleted ? (
+                        <Input type="number" min={0}
+                          value={spVat}
+                          onChange={(e) => {
+                            const v = e.target.value ? parseFloat(e.target.value) : 0;
+                            updateEditItem(item.id, "unit_price", Math.round(v / 1.1));
+                          }}
+                          className="h-7 w-[80px] text-right text-sm ml-auto"
+                        />
+                      ) : (
+                        sp > 0 ? spVat.toLocaleString("ko-KR") : "-"
+                      )}
+                    </TableCell>
+                    {/* 매출총액 */}
                     <TableCell className="text-right tabular-nums font-medium">
-                      {lineTotal.toLocaleString("ko-KR")}
+                      {sp > 0 ? lineSalesTotal.toLocaleString("ko-KR") : "-"}
+                    </TableCell>
+                    {/* 매출이익 */}
+                    <TableCell className="text-right tabular-nums">
+                      {sp > 0 && pp > 0 ? (
+                        <span className={lineProfit < 0 ? "text-red-500" : "text-green-600"}>
+                          {lineProfit.toLocaleString("ko-KR")}
+                        </span>
+                      ) : "-"}
+                    </TableCell>
+                    {/* 이익률 */}
+                    <TableCell className="text-right tabular-nums">
+                      {lineSalesTotal > 0 ? (
+                        <span className={lineMargin < 0 ? "text-red-500" : ""}>
+                          {lineMargin.toFixed(1)}%
+                        </span>
+                      ) : "-"}
                     </TableCell>
                     <TableCell className="pr-6 text-sm text-muted-foreground">
                       {item.sales_rep ?? "-"}
@@ -758,7 +851,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
       </div>
 
       {/* Totals */}
-      {supplyTotal > 0 && (
+      {salesTotal > 0 && (
         <>
           <Separator />
           <div className="flex justify-end">
@@ -767,13 +860,20 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
               <span className="text-right tabular-nums">
                 {purchaseTotal.toLocaleString("ko-KR")}원
               </span>
+              <span className="text-muted-foreground text-right">매출합계</span>
+              <span className="text-right tabular-nums font-medium">
+                {salesTotal.toLocaleString("ko-KR")}원
+              </span>
+              <span className="text-muted-foreground text-right">마진</span>
+              <span className={cn("text-right tabular-nums", totalMargin >= 0 ? "text-green-600" : "text-red-500")}>
+                {totalMargin.toLocaleString("ko-KR")}원 ({salesTotal > 0 ? marginRate.toFixed(1) : "-"}%)
+              </span>
+              <Separator className="col-span-2 my-1" />
               <span className="text-muted-foreground text-right">공급가액</span>
               <span className="text-right tabular-nums">
                 {supplyTotal.toLocaleString("ko-KR")}원
               </span>
-              <span className="text-muted-foreground text-right">
-                세액 (10%)
-              </span>
+              <span className="text-muted-foreground text-right">세액</span>
               <span className="text-right tabular-nums">
                 {taxTotal.toLocaleString("ko-KR")}원
               </span>
@@ -781,14 +881,6 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
               <span className="font-semibold text-right tabular-nums">
                 {(supplyTotal + taxTotal).toLocaleString("ko-KR")}원
               </span>
-              {purchaseTotal > 0 && (
-                <>
-                  <span className="text-muted-foreground text-right">이익</span>
-                  <span className={cn("text-right tabular-nums", profit >= 0 ? "text-green-600" : "text-red-500")}>
-                    {profit.toLocaleString("ko-KR")}원 ({profitRate}%)
-                  </span>
-                </>
-              )}
             </div>
           </div>
         </>

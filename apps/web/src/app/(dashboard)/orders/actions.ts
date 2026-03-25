@@ -232,10 +232,22 @@ export async function createOrderWithDetailsAction(data: {
   if (orderErr) throw orderErr;
 
   if (data.items.length > 0) {
-    // product_id FK references products table only — set null for drug/device sources
+    // product_id FK references products table only — validate before insert
+    const productIds = data.items
+      .filter((i) => i.source_type === "product" && i.product_id)
+      .map((i) => i.product_id);
+    const validProductIds = new Set<number>();
+    if (productIds.length > 0) {
+      const { data: existing } = await supabase
+        .from("products")
+        .select("id")
+        .in("id", productIds);
+      for (const p of existing ?? []) validProductIds.add(p.id);
+    }
+
     const orderItems = data.items.map((item) => ({
       order_id: order.id,
-      product_id: item.source_type === "product" ? item.product_id : null,
+      product_id: item.source_type === "product" && validProductIds.has(item.product_id) ? item.product_id : null,
       product_name: item.product_name,
       supplier_id: item.supplier_id,
       quantity: item.quantity,

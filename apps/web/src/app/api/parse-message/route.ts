@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { escapeLikeValue } from "@/lib/supabase/sanitize";
 import { parseMessage } from "@/lib/ai/parse-message";
 import { matchProductsBulk } from "@/lib/ai/match-products";
 import { createOrderFromParsedItems } from "@/lib/ai/create-order-from-parse";

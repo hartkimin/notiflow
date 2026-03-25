@@ -198,19 +198,19 @@ function DayItem({ item }: { item: MessageCalendarItem }) {
 function MessageDetailContent({ msg }: { msg: RawMessage }) {
   const router = useRouter();
   const [candidates, setCandidates] = useState<OrderForecast[]>([]);
-  const [loadingCandidates, setLoadingCandidates] = useState(true);
+  const needsFetch = !msg.forecast_id && !!msg.hospital_id;
+  const [loadingCandidates, setLoadingCandidates] = useState(needsFetch);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (msg.forecast_id || !msg.hospital_id) {
-      setLoadingCandidates(false);
+    if (!needsFetch) {
       return;
     }
     getMatchingForecasts(msg.hospital_id, msg.received_at)
       .then(setCandidates)
       .catch(() => setCandidates([]))
       .finally(() => setLoadingCandidates(false));
-  }, [msg.hospital_id, msg.received_at, msg.forecast_id]);
+  }, [needsFetch, msg.hospital_id, msg.received_at]);
 
   function handleMatch(forecastId: number) {
     startTransition(async () => {
@@ -539,7 +539,7 @@ export function MessageCalendar({
   referenceDate,
   onDateChange,
   onDateDoubleClick,
-  onMessageClick,
+  onMessageClick: _onMessageClick,
 }: MessageCalendarProps) {
   const items: MessageCalendarItem[] = useMemo(() => [
     ...forecasts.map((f) => ({ kind: "forecast" as const, data: f })),

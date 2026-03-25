@@ -200,7 +200,7 @@ const QUERY_MAP: Record<string, QueryExecutor> = {
   profit_analysis: async (p) => {
     const sb = createAdminClient();
     const { dateFrom, dateTo } = resolvePeriod(p.period as string);
-    let q = sb.from("order_items")
+    const q = sb.from("order_items")
       .select("product_name, quantity, unit_price, purchase_price, sales_rep, orders!inner(order_date, status, hospital_id, hospitals(name))")
       .gte("orders.order_date", dateFrom).lte("orders.order_date", dateTo);
     if (p.hospital_name) {

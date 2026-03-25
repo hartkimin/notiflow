@@ -1,8 +1,8 @@
 import {
   BookOpen, Smartphone, MessageSquare, ClipboardList, Zap,
-  BarChart3, Building2, Package, Search, Bot, Settings,
-  ArrowRight, CheckCircle2, Sparkles, CalendarDays, FileText,
-  Users, Truck, Receipt,
+  BarChart3, Building2, Package, Bot, Settings,
+  ArrowRight, Sparkles,
+  Truck, Receipt,
 } from "lucide-react";
 import {
   Card, CardContent, CardHeader, CardTitle, CardDescription,

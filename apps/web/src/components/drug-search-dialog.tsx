@@ -86,7 +86,7 @@ export function DrugSearchDialog({
     setPage(1);
   }
 
-  function switchTab(newTab: SearchTab) {
+  function _switchTab(newTab: SearchTab) {
     setTab(newTab);
     clearResults();
   }

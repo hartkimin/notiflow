@@ -112,6 +112,7 @@ export function MfdsSearchPanel({
 
   // Manufacturer filter (manage mode)
   const [mfgFilter, setMfgFilter] = useState<string | null>(null);
+  const [mfgExpanded, setMfgExpanded] = useState(false);
 
   // Accordion + action state
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
@@ -1106,7 +1107,7 @@ export function MfdsSearchPanel({
         )}
       </div>
 
-      {/* Manufacturer filter chips (manage mode) — horizontal scroll, no layout shift */}
+      {/* Manufacturer filter chips (manage mode) */}
       {mode === "manage" && mfgChips.length > 1 && (() => {
         const MFG_COLORS = [
           { bg: "bg-blue-500", bgLight: "bg-blue-50 text-blue-700 border-blue-200", dot: "bg-blue-500" },
@@ -1120,40 +1121,59 @@ export function MfdsSearchPanel({
           { bg: "bg-teal-500", bgLight: "bg-teal-50 text-teal-700 border-teal-200", dot: "bg-teal-500" },
           { bg: "bg-pink-500", bgLight: "bg-pink-50 text-pink-700 border-pink-200", dot: "bg-pink-500" },
         ];
+
+        const renderChip = (name: string, count: number, i: number) => {
+          const c = MFG_COLORS[i % MFG_COLORS.length];
+          const isActive = mfgFilter === name;
+          return (
+            <button
+              type="button"
+              key={name}
+              onClick={() => setMfgFilter(isActive ? null : name)}
+              className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all ${
+                isActive
+                  ? `${c.bg} text-white border-transparent shadow-sm`
+                  : `${c.bgLight} hover:opacity-80`
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${isActive ? "bg-white" : c.dot}`} />
+              {name}
+              <span className={`text-[10px] ${isActive ? "text-white/80" : "opacity-60"}`}>{count}</span>
+            </button>
+          );
+        };
+
         return (
-          <div className="mt-1.5 overflow-x-auto scrollbar-none">
-            <div className="flex items-center gap-1.5 pb-1" style={{ minWidth: "max-content" }}>
-              <button
-                type="button"
-                onClick={() => setMfgFilter(null)}
-                className={`shrink-0 px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors ${
-                  mfgFilter === null
-                    ? "bg-zinc-800 text-white border-zinc-800 shadow-sm"
-                    : "bg-background text-muted-foreground border-border hover:bg-muted"
-                }`}
-              >
-                전체 {results.length}
-              </button>
-              {mfgChips.map(({ name, count }, i) => {
-                const c = MFG_COLORS[i % MFG_COLORS.length];
-                const isActive = mfgFilter === name;
-                return (
+          <div className="mt-1.5">
+            <div className="flex items-center gap-1.5">
+              {/* 전체 + 칩들 (1줄, overflow hidden) */}
+              <div className={`flex-1 min-w-0 overflow-hidden ${mfgExpanded ? "" : "max-h-[34px]"}`}>
+                <div className={`flex items-center gap-1.5 ${mfgExpanded ? "flex-wrap" : ""}`}>
                   <button
                     type="button"
-                    key={name}
-                    onClick={() => setMfgFilter(isActive ? null : name)}
-                    className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all ${
-                      isActive
-                        ? `${c.bg} text-white border-transparent shadow-sm scale-105`
-                        : `${c.bgLight} hover:opacity-80`
+                    onClick={() => setMfgFilter(null)}
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors ${
+                      mfgFilter === null
+                        ? "bg-zinc-800 text-white border-zinc-800 shadow-sm"
+                        : "bg-background text-muted-foreground border-border hover:bg-muted"
                     }`}
                   >
-                    <span className={`w-2 h-2 rounded-full ${isActive ? "bg-white" : c.dot}`} />
-                    {name}
-                    <span className={`text-[10px] ${isActive ? "text-white/80" : "opacity-60"}`}>{count}</span>
+                    전체 {results.length}
                   </button>
-                );
-              })}
+                  {mfgChips.map(({ name, count }, i) => renderChip(name, count, i))}
+                </div>
+              </div>
+              {/* 펼침/접힘 버튼 */}
+              <button
+                type="button"
+                onClick={() => setMfgExpanded(!mfgExpanded)}
+                className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full border border-border text-muted-foreground hover:bg-muted transition-colors"
+                title={mfgExpanded ? "접기" : "펼치기"}
+              >
+                <svg className={`h-3.5 w-3.5 transition-transform ${mfgExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
             </div>
           </div>
         );

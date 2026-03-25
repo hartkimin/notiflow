@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { MessageSquare } from "lucide-react";
 import { MessageTable } from "./message-table";
@@ -31,6 +31,28 @@ export function MessageInbox({
   const rowSelection = useRowSelection(allIds);
   const router = useRouter();
 
+  // Resizable detail panel
+  const [panelWidth, setPanelWidth] = useState(400);
+  const resizing = useRef(false);
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    resizing.current = true;
+    const startX = e.clientX;
+    const startW = panelWidth;
+    const onMove = (ev: MouseEvent) => {
+      if (!resizing.current) return;
+      const delta = startX - ev.clientX;
+      setPanelWidth(Math.max(300, Math.min(700, startW + delta)));
+    };
+    const onUp = () => {
+      resizing.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [panelWidth]);
+
   const selectedMsg = useMemo(
     () => messages.find((m) => m.id === selectedId) ?? null,
     [messages, selectedId],
@@ -59,20 +81,23 @@ export function MessageInbox({
           totalPages={totalPages}
           totalCount={totalCount}
           highlightId={highlightId}
+          linkedOrders={linkedOrders}
         />
       </div>
 
-      {/* Right: Detail Panel */}
-      <div className="w-[380px] shrink-0 border-y border-r rounded-r-lg overflow-hidden bg-background">
-        {selectedMsg ? (
-          <AccordionDetail message={selectedMsg} localState={localState} linkedOrder={linkedOrders?.[selectedMsg.id]} />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center gap-2">
-            <MessageSquare className="h-10 w-10 text-muted-foreground/20" />
-            <p className="text-sm text-muted-foreground">메시지를 선택하세요</p>
+      {/* Right: Detail Panel (resizable) */}
+      {selectedMsg && (
+        <>
+          {/* Resize handle */}
+          <div
+            className="w-1.5 shrink-0 cursor-col-resize hover:bg-primary/20 active:bg-primary/30 transition-colors"
+            onMouseDown={handleResizeStart}
+          />
+          <div style={{ width: panelWidth }} className="shrink-0 border-y border-r rounded-r-lg overflow-hidden bg-background">
+            <AccordionDetail message={selectedMsg} localState={localState} linkedOrder={linkedOrders?.[selectedMsg.id]} />
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       <BulkActionBar rowSelection={rowSelection} />
     </div>

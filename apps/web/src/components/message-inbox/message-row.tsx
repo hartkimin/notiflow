@@ -10,9 +10,10 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { SOURCE_LABEL, formatDate } from "./constants";
-import type { UnifiedMessage } from "@/lib/queries/messages";
+import type { UnifiedMessage, LinkedOrder } from "@/lib/queries/messages";
 import type { MessageLocalStateHook } from "@/hooks/use-message-local-state";
 import type { RowSelectionHook } from "@/hooks/use-row-selection";
+import Link from "next/link";
 
 type StringRowSelection = RowSelectionHook<string>;
 
@@ -29,11 +30,12 @@ interface MessageRowProps {
   onToggleExpand: () => void;
   localState: MessageLocalStateHook;
   rowSelection: StringRowSelection;
+  linkedOrder?: LinkedOrder;
   ref?: React.Ref<HTMLDivElement>;
 }
 
 export function MessageRow({
-  message, isExpanded, onToggleExpand, localState, rowSelection, ref,
+  message, isExpanded, onToggleExpand, localState, rowSelection, linkedOrder, ref,
 }: MessageRowProps) {
   const msg = message;
   const msgLocal = localState.getState(msg.id);
@@ -46,7 +48,7 @@ export function MessageRow({
     <div ref={ref}>
       <div
         className={cn(
-          "grid grid-cols-[36px_130px_80px_120px_1fr_90px] items-center gap-1 px-3 py-2 border-b cursor-pointer transition-colors text-sm",
+          "grid grid-cols-[36px_120px_70px_110px_1fr_80px_100px] items-center gap-1 px-3 py-2 border-b cursor-pointer transition-colors text-sm",
           "hover:bg-muted/50",
           isChecked && "bg-blue-50 dark:bg-blue-950/30",
           isExpanded && !isChecked && "bg-blue-50/50 dark:bg-blue-950/15",
@@ -123,6 +125,19 @@ export function MessageRow({
             </Badge>
           ) : (
             <span className="text-[10px] text-muted-foreground">-</span>
+          )}
+        </div>
+
+        {/* Linked order */}
+        <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
+          {linkedOrder ? (
+            <Link href={`/orders/${linkedOrder.id}`}>
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200 transition-colors cursor-pointer truncate max-w-[95px] inline-block">
+                {linkedOrder.order_number.replace("ORD-", "")}
+              </span>
+            </Link>
+          ) : (
+            <span className="text-[10px] text-muted-foreground/30">-</span>
           )}
         </div>
       </div>

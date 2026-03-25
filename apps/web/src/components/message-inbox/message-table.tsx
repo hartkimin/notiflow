@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Pagination } from "@/components/pagination";
 import { MessageRow } from "./message-row";
-import type { UnifiedMessage } from "@/lib/queries/messages";
+import type { UnifiedMessage, LinkedOrder } from "@/lib/queries/messages";
 import type { MessageLocalStateHook } from "@/hooks/use-message-local-state";
 import type { RowSelectionHook } from "@/hooks/use-row-selection";
 
@@ -20,11 +20,12 @@ interface MessageTableProps {
   totalPages: number;
   totalCount: number;
   highlightId?: string | null;
+  linkedOrders?: Record<string, LinkedOrder>;
 }
 
 export function MessageTable({
   messages, expandedId, onToggleExpand, localState, rowSelection,
-  currentPage, totalPages, totalCount, highlightId,
+  currentPage, totalPages, totalCount, highlightId, linkedOrders,
 }: MessageTableProps) {
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -41,7 +42,7 @@ export function MessageTable({
   return (
     <div className="flex flex-col h-full">
       {/* Header row */}
-      <div className="grid grid-cols-[36px_130px_80px_120px_120px_1fr_80px] items-center gap-1 px-3 py-2 border-b bg-muted/50 text-xs font-medium text-muted-foreground sticky top-0 z-10">
+      <div className="grid grid-cols-[36px_120px_70px_110px_1fr_80px_100px] items-center gap-1 px-3 py-2 border-b bg-muted/50 text-xs font-medium text-muted-foreground sticky top-0 z-10">
         <div>
           <Checkbox
             checked={rowSelection.someSelected ? "indeterminate" : rowSelection.allSelected}
@@ -51,9 +52,9 @@ export function MessageTable({
         <span>수신시간</span>
         <span>출처</span>
         <span>발신자</span>
-        <span>채팅방</span>
         <span>내용</span>
         <span className="text-center">상태</span>
+        <span className="text-right">주문</span>
       </div>
 
       {/* Row list */}
@@ -73,6 +74,7 @@ export function MessageTable({
               onToggleExpand={() => onToggleExpand(msg.id)}
               localState={localState}
               rowSelection={rowSelection}
+              linkedOrder={linkedOrders?.[msg.id]}
             />
           ))
         )}

@@ -349,6 +349,8 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
   // ── Calculations ──
   const totalPurchase = items.reduce((s, i) => s + Math.round((i.purchase_price ?? 0) * 1.1) * i.quantity, 0);
   const totalSelling = items.reduce((s, i) => s + Math.round((i.selling_price ?? 0) * 1.1) * i.quantity, 0);
+  const totalSupply = items.reduce((s, i) => s + (i.selling_price ?? 0) * i.quantity, 0);
+  const totalTax = items.reduce((s, i) => s + Math.round((i.selling_price ?? 0) * 0.1) * i.quantity, 0);
   const totalMargin = totalSelling - totalPurchase;
   const marginRate = totalSelling > 0 ? (totalMargin / totalSelling) * 100 : 0;
 
@@ -777,11 +779,11 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("purchase_total", e)} />
                     </TableHead>
                     <TableHead className="text-xs text-right relative" style={{ width: colWidths["selling_price"] ?? 80 }}>
-                      매출단가
+                      판매단가
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("selling_price", e)} />
                     </TableHead>
                     <TableHead className="text-xs text-right relative" style={{ width: colWidths["selling_vat"] ?? 90 }}>
-                      매출(VAT)
+                      판매(VAT)
                       <span className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400/50" onMouseDown={(e) => handleResizeStart("selling_vat", e)} />
                     </TableHead>
                     <TableHead className="text-xs text-right relative" style={{ width: colWidths["amount"] ?? 100 }}>
@@ -1048,6 +1050,19 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">이익률</span>
                     <span className="tabular-nums">{marginRate.toFixed(1)}%</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">공급가액</span>
+                    <span className="tabular-nums">₩{totalSupply.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">세액</span>
+                    <span className="tabular-nums">₩{totalTax.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-semibold">합계</span>
+                    <span className="tabular-nums font-semibold">₩{(totalSupply + totalTax).toLocaleString()}</span>
                   </div>
                 </div>
               </div>

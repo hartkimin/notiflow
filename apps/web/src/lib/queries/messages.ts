@@ -147,7 +147,9 @@ export interface LinkedOrder {
  */
 export async function getLinkedOrders(messageIds: string[]): Promise<Record<string, LinkedOrder>> {
   if (messageIds.length === 0) return {};
-  const supabase = await createClient();
+  // Use admin client to bypass RLS — this is server-side only, called from authenticated pages
+  const { createAdminClient } = await import("@/lib/supabase/server");
+  const supabase = await createAdminClient();
   const { data, error } = await supabase
     .from("orders")
     .select("id, order_number, status, order_date, source_message_id, hospitals(name)")

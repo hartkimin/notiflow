@@ -1107,35 +1107,106 @@ export function MfdsSearchPanel({
       </div>
 
       {/* Manufacturer filter chips (manage mode) */}
-      {mode === "manage" && mfgChips.length > 1 && (
-        <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-          <button
-            type="button"
-            onClick={() => setMfgFilter(null)}
-            className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
-              mfgFilter === null
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background text-muted-foreground border-border hover:bg-muted"
-            }`}
-          >
-            전체 ({results.length})
-          </button>
-          {mfgChips.map(({ name, count }) => (
-            <button
-              type="button"
-              key={name}
-              onClick={() => setMfgFilter(mfgFilter === name ? null : name)}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
-                mfgFilter === name
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background text-muted-foreground border-border hover:bg-muted"
-              }`}
-            >
-              {name} ({count})
-            </button>
-          ))}
-        </div>
-      )}
+      {mode === "manage" && mfgChips.length > 1 && (() => {
+        const MFG_COLORS = [
+          { bg: "bg-blue-500", bgLight: "bg-blue-50 text-blue-700 border-blue-200", dot: "bg-blue-500" },
+          { bg: "bg-emerald-500", bgLight: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" },
+          { bg: "bg-purple-500", bgLight: "bg-purple-50 text-purple-700 border-purple-200", dot: "bg-purple-500" },
+          { bg: "bg-amber-500", bgLight: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-500" },
+          { bg: "bg-rose-500", bgLight: "bg-rose-50 text-rose-700 border-rose-200", dot: "bg-rose-500" },
+          { bg: "bg-cyan-500", bgLight: "bg-cyan-50 text-cyan-700 border-cyan-200", dot: "bg-cyan-500" },
+          { bg: "bg-indigo-500", bgLight: "bg-indigo-50 text-indigo-700 border-indigo-200", dot: "bg-indigo-500" },
+          { bg: "bg-orange-500", bgLight: "bg-orange-50 text-orange-700 border-orange-200", dot: "bg-orange-500" },
+          { bg: "bg-teal-500", bgLight: "bg-teal-50 text-teal-700 border-teal-200", dot: "bg-teal-500" },
+          { bg: "bg-pink-500", bgLight: "bg-pink-50 text-pink-700 border-pink-200", dot: "bg-pink-500" },
+        ];
+        const MAX_VISIBLE = 6;
+        const showAll = mfgChips.length <= MAX_VISIBLE;
+        const visibleChips = showAll ? mfgChips : mfgChips.slice(0, MAX_VISIBLE);
+        const hiddenChips = showAll ? [] : mfgChips.slice(MAX_VISIBLE);
+
+        return (
+          <div className="mt-1.5 space-y-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setMfgFilter(null)}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                  mfgFilter === null
+                    ? "bg-zinc-800 text-white border-zinc-800"
+                    : "bg-background text-muted-foreground border-border hover:bg-muted"
+                }`}
+              >
+                전체 ({results.length})
+              </button>
+              {visibleChips.map(({ name, count }, i) => {
+                const c = MFG_COLORS[i % MFG_COLORS.length];
+                const isActive = mfgFilter === name;
+                return (
+                  <button
+                    type="button"
+                    key={name}
+                    onClick={() => setMfgFilter(isActive ? null : name)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                      isActive
+                        ? `${c.bg} text-white border-transparent`
+                        : `${c.bgLight} hover:opacity-80`
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-white" : c.dot}`} />
+                    {name} ({count})
+                  </button>
+                );
+              })}
+              {hiddenChips.length > 0 && !mfgFilter && (
+                <details className="inline">
+                  <summary className="px-2.5 py-1 rounded-full text-[11px] font-medium border border-border text-muted-foreground hover:bg-muted cursor-pointer list-none inline-flex items-center gap-1">
+                    +{hiddenChips.length}개 더
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </summary>
+                  <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                    {hiddenChips.map(({ name, count }, i) => {
+                      const c = MFG_COLORS[(MAX_VISIBLE + i) % MFG_COLORS.length];
+                      const isActive = mfgFilter === name;
+                      return (
+                        <button
+                          type="button"
+                          key={name}
+                          onClick={() => setMfgFilter(isActive ? null : name)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                            isActive
+                              ? `${c.bg} text-white border-transparent`
+                              : `${c.bgLight} hover:opacity-80`
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-white" : c.dot}`} />
+                          {name} ({count})
+                        </button>
+                      );
+                    })}
+                  </div>
+                </details>
+              )}
+              {/* Show selected hidden chip inline when filtered */}
+              {hiddenChips.length > 0 && mfgFilter && hiddenChips.some(c => c.name === mfgFilter) && (() => {
+                const idx = hiddenChips.findIndex(c => c.name === mfgFilter);
+                const c = MFG_COLORS[(MAX_VISIBLE + idx) % MFG_COLORS.length];
+                const chip = hiddenChips[idx];
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setMfgFilter(null)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${c.bg} text-white border-transparent`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                    {chip.name} ({chip.count})
+                  </button>
+                );
+              })()}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Table fills remaining space */}
       <div className={mode === "manage" ? "mt-1.5 [&_td]:py-1.5 [&_th]:py-1.5 text-sm" : "flex-1 min-h-0 overflow-auto mt-1.5"}>

@@ -22,7 +22,7 @@ export async function deleteOrdersAction(ids: number[]) {
 
 export async function updateOrderItemAction(
   itemId: number,
-  data: { quantity?: number; unit_price?: number; product_id?: number; supplier_id?: number | null },
+  data: { quantity?: number; unit_price?: number; purchase_price?: number; product_id?: number; supplier_id?: number | null },
 ) {
   await updateOrderItem(itemId, data);
 }
@@ -203,6 +203,7 @@ export async function createOrderWithDetailsAction(data: {
     unit_price: number | null;
     kpis_reference_number: string | null;
     sales_rep: string | null;
+    box_spec_id?: number | null;
   }>;
 }) {
   const { createClient } = await import("@/lib/supabase/server");
@@ -250,6 +251,7 @@ export async function createOrderWithDetailsAction(data: {
       product_id: item.source_type === "product" && validProductIds.has(item.product_id) ? item.product_id : null,
       product_name: item.product_name,
       supplier_id: item.supplier_id,
+      box_spec_id: item.box_spec_id ?? null,
       quantity: item.quantity,
       unit_type: item.unit_type,
       unit_price: item.unit_price,

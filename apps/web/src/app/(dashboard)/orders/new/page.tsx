@@ -35,6 +35,8 @@ export default async function NewOrderPage({ searchParams }: Props) {
   let copyData: {
     hospitalId: number;
     hospitalName: string;
+    orderDate: string;
+    deliveryDate: string;
     notes: string;
     items: Array<{
       product_id: number;
@@ -47,6 +49,9 @@ export default async function NewOrderPage({ searchParams }: Props) {
       purchase_price: number | null;
       selling_price: number | null;
       sales_rep: string;
+      box_spec_id: number | null;
+      calculated_pieces: number | null;
+      line_total: number | null;
     }>;
   } | undefined;
 
@@ -55,7 +60,7 @@ export default async function NewOrderPage({ searchParams }: Props) {
     const orderId = parseInt(params.copy_from);
     const { data: order } = await supabase
       .from("orders")
-      .select("hospital_id, notes, hospitals(name), order_items(product_id, product_name, supplier_id, quantity, unit_type, unit_price, purchase_price, sales_rep)")
+      .select("hospital_id, order_date, delivery_date, notes, hospitals(name), order_items(product_id, product_name, supplier_id, box_spec_id, quantity, unit_type, calculated_pieces, unit_price, purchase_price, line_total, sales_rep)")
       .eq("id", orderId)
       .single();
 
@@ -71,8 +76,9 @@ export default async function NewOrderPage({ searchParams }: Props) {
 
       const items = ((order.order_items ?? []) as Array<{
         product_id: number | null; product_name: string; supplier_id: number | null;
-        quantity: number; unit_type: string; unit_price: number | null;
-        purchase_price: number | null; sales_rep: string | null;
+        box_spec_id: number | null; quantity: number; unit_type: string;
+        calculated_pieces: number | null; unit_price: number | null;
+        purchase_price: number | null; line_total: number | null; sales_rep: string | null;
       }>).map((i) => ({
         product_id: i.product_id ?? 0,
         product_name: i.product_name,
@@ -84,11 +90,16 @@ export default async function NewOrderPage({ searchParams }: Props) {
         purchase_price: i.purchase_price,
         selling_price: i.unit_price,
         sales_rep: i.sales_rep ?? "",
+        box_spec_id: i.box_spec_id,
+        calculated_pieces: i.calculated_pieces,
+        line_total: i.line_total,
       }));
       copyData = {
         hospitalId: order.hospital_id,
         hospitalName: (order.hospitals as unknown as { name: string })?.name ?? "",
-        notes: "",
+        orderDate: order.order_date ?? "",
+        deliveryDate: order.delivery_date ?? "",
+        notes: order.notes ?? "",
         items,
       };
     }

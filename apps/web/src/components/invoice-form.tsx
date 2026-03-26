@@ -197,7 +197,11 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
                     <TableCell>{order.hospital_name || "-"}</TableCell>
                     <TableCell className="text-right">{order.items?.length ?? 0}</TableCell>
                     <TableCell className="text-right">
-                      ₩{(order.total_amount || 0).toLocaleString()}
+                      ₩{(() => {
+                        const itemTotal = (order.items ?? []).reduce(
+                          (s, i) => s + (Number(i.unit_price ?? 0)) * (i.quantity ?? 0), 0);
+                        return Math.round(itemTotal * 1.1).toLocaleString();
+                      })()}
                     </TableCell>
                   </TableRow>
                   );

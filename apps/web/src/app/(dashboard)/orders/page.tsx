@@ -42,6 +42,7 @@ interface Props {
     view?: string;
     month?: string;
     vat?: string;
+    invoice?: string;
     create_from_message?: string;
   }>;
 }
@@ -81,8 +82,27 @@ export default async function OrdersPage({ searchParams }: Props) {
     ? getMessageById(params.create_from_message)
     : Promise.resolve(null);
 
+  // Get invoiced order IDs (needed early for invoice filter)
+  const { createClient: createSC } = await import("@/lib/supabase/server");
+  const sbInvoice = await createSC();
+  const { data: invoicedLinks } = await sbInvoice
+    .from("tax_invoice_orders")
+    .select("order_id, tax_invoices!inner(status)")
+    .neq("tax_invoices.status", "cancelled");
+  const invoicedOrderIds = new Set((invoicedLinks ?? []).map(l => l.order_id));
+
+  // Build invoice filter order IDs
+  const invoiceFilter = params.invoice; // "issued" | "not_issued" | undefined
+  let invoiceFilterIds: number[] | undefined;
+  if (invoiceFilter === "issued") {
+    invoiceFilterIds = [...invoicedOrderIds];
+  } else if (invoiceFilter === "not_issued") {
+    // Will be applied post-query as exclusion set
+    invoiceFilterIds = undefined;
+  }
+
   const [result, allProducts, , sourceMessage, orderStats, calendarOrders, { hospitals }] = await Promise.all([
-    getOrderItems({ status, hospital_id: hospitalId, search, from: params.from, to: params.to, limit, offset })
+    getOrderItems({ status, hospital_id: hospitalId, search, from: params.from, to: params.to, limit, offset, order_ids: invoiceFilterIds, exclude_order_ids: invoiceFilter === "not_issued" ? [...invoicedOrderIds] : undefined })
       .catch(() => ({ items: [], total: 0 })),
     getProductsCatalog().catch(() => []),
     getOrderDisplayColumns(),
@@ -95,15 +115,6 @@ export default async function OrdersPage({ searchParams }: Props) {
   const productOptions: ProductOption[] = allProducts.map((p) => ({
     id: p.id, name: p.official_name,
   }));
-
-  // Get invoiced order IDs
-  const { createClient: createSC } = await import("@/lib/supabase/server");
-  const sbInvoice = await createSC();
-  const { data: invoicedLinks } = await sbInvoice
-    .from("tax_invoice_orders")
-    .select("order_id, tax_invoices!inner(status)")
-    .neq("tax_invoices.status", "cancelled");
-  const invoicedOrderIds = new Set((invoicedLinks ?? []).map(l => l.order_id));
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
   const sourceMessageId = sourceMessage?.id?.toString();
 
@@ -112,26 +123,6 @@ export default async function OrdersPage({ searchParams }: Props) {
   return (
     <>
       <RealtimeListener tables={["orders", "order_items"]} />
-
-      {/* Header */}
-      <div className="flex items-center">
-        <h1 className="text-lg font-semibold md:text-2xl">주문 관리</h1>
-        <div className="ml-auto flex items-center gap-2">
-          <OrderExportButton params={{
-            status: params.status,
-            hospital_id: params.hospital,
-            from: params.from,
-            to: params.to,
-            search: params.search,
-          }} />
-          <Button size="sm" className="h-8 gap-1" asChild>
-            <Link href={sourceMessageId ? `/orders/new?source_message_id=${sourceMessageId}` : "/orders/new"}>
-              <PlusCircle className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">주문 추가</span>
-            </Link>
-          </Button>
-        </div>
-      </div>
 
       {/* Stats bar */}
       {orderStats && (
@@ -177,32 +168,47 @@ export default async function OrdersPage({ searchParams }: Props) {
         </Card>
       )}
 
-      {/* Tabs: list / calendar */}
+      {/* Compact header: Title | Tabs | Filters | Actions — all in 1 row */}
       <ClientTabs
         initialTab={initialTab}
         basePath="/orders"
+        toolbarLeft={
+          <h1 className="text-base font-semibold shrink-0">주문 관리</h1>
+        }
+        toolbarRight={
+          <div className="flex items-center gap-1.5 ml-auto">
+            <OrderFilters hospitals={hospitalOptions} />
+            <div className="h-4 w-px bg-border shrink-0" />
+            <OrderExportButton params={{
+              status: params.status,
+              hospital_id: params.hospital,
+              from: params.from,
+              to: params.to,
+              search: params.search,
+            }} />
+            <Button size="icon" variant="outline" className="h-7 w-7 shrink-0" asChild>
+              <Link href={sourceMessageId ? `/orders/new?source_message_id=${sourceMessageId}` : "/orders/new"}>
+                <PlusCircle className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </div>
+        }
         tabs={[
           {
             value: "list",
             label: "목록",
             content: (
-              <div className="space-y-3">
-                {/* Filters */}
-                <OrderFilters hospitals={hospitalOptions} />
-
-                {/* Table */}
-                <Card>
-                  <CardContent className="p-0">
-                    <OrderTable items={result.items} products={productOptions} invoicedOrderIds={invoicedOrderIds} />
-                  </CardContent>
-                  <CardFooter className="justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      총 {result.total}건 중 {offset + 1}~{Math.min(offset + limit, result.total)}건
-                    </span>
-                    <Pagination currentPage={page} totalPages={totalPages} totalCount={result.total} />
-                  </CardFooter>
-                </Card>
-              </div>
+              <Card>
+                <CardContent className="p-0">
+                  <OrderTable items={result.items} products={productOptions} invoicedOrderIds={invoicedOrderIds} />
+                </CardContent>
+                <CardFooter className="justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    총 {result.total}건 중 {offset + 1}~{Math.min(offset + limit, result.total)}건
+                  </span>
+                  <Pagination currentPage={page} totalPages={totalPages} totalCount={result.total} />
+                </CardFooter>
+              </Card>
             ),
           },
           {

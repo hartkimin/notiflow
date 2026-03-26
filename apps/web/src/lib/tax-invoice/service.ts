@@ -28,12 +28,22 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
 
   const hospital = order.hospitals as Record<string, unknown>;
 
+  // Calculate supply/tax/total from order_items (orders.supply_amount is NULL)
+  const orderItems = (order.order_items ?? []) as Array<Record<string, unknown>>;
+  const supplyAmount = orderItems.reduce(
+    (sum, item) => sum + ((item.line_total as number) || ((item.quantity as number) * ((item.unit_price as number) || 0))),
+    0,
+  );
+  const taxAmount = Math.round(supplyAmount * 0.1);
+  const totalAmount = supplyAmount + taxAmount;
+
   const { data: invoice, error: invoiceErr } = await supabase
     .from("tax_invoices")
     .insert({
       invoice_number: invoiceNumber,
       tax_type: company.default_tax_type || "tax",
-      status: "draft",
+      status: "issued",
+      issued_at: new Date().toISOString(),
       issue_date: issueDate,
       supply_date: order.delivery_date,
       supplier_id: company.supplier_id ?? null,
@@ -52,15 +62,14 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
       buyer_biz_type: hospital.biz_type as string | null,
       buyer_biz_item: hospital.biz_item as string | null,
       buyer_email: hospital.email as string | null,
-      supply_amount: order.supply_amount || 0,
-      tax_amount: order.tax_amount || 0,
-      total_amount: order.total_amount || 0,
+      supply_amount: supplyAmount,
+      tax_amount: taxAmount,
+      total_amount: totalAmount,
     })
     .select()
     .single();
   if (invoiceErr) throw invoiceErr;
 
-  const orderItems = (order.order_items ?? []) as Array<Record<string, unknown>>;
   const items = orderItems.map((item, idx) => ({
     invoice_id: invoice.id,
     item_seq: idx + 1,
@@ -90,6 +99,13 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
     amount: order.total_amount,
   });
   if (linkErr) throw linkErr;
+
+  // Transition linked order: delivered → invoiced
+  await supabase
+    .from("orders")
+    .update({ status: "invoiced" })
+    .eq("id", orderId)
+    .eq("status", "delivered");
 
   revalidatePath("/invoices");
   revalidatePath("/orders");
@@ -123,12 +139,21 @@ export async function createConsolidatedInvoice(
     .single();
   if (!company || !company.biz_no) throw new Error("공급자 정보가 설정되지 않았습니다.");
 
+  // Calculate from order_items (orders.supply_amount is NULL)
   const totals = orders.reduce(
-    (acc, o) => ({
-      supply: acc.supply + (o.supply_amount || 0),
-      tax: acc.tax + (o.tax_amount || 0),
-      total: acc.total + (o.total_amount || 0),
-    }),
+    (acc, o) => {
+      const items = (o.order_items ?? []) as Array<Record<string, unknown>>;
+      const orderSupply = items.reduce(
+        (s, item) => s + ((item.line_total as number) || ((item.quantity as number) * ((item.unit_price as number) || 0))),
+        0,
+      );
+      const orderTax = Math.round(orderSupply * 0.1);
+      return {
+        supply: acc.supply + orderSupply,
+        tax: acc.tax + orderTax,
+        total: acc.total + orderSupply + orderTax,
+      };
+    },
     { supply: 0, tax: 0, total: 0 }
   );
 
@@ -144,7 +169,8 @@ export async function createConsolidatedInvoice(
     .insert({
       invoice_number: invoiceNumber,
       tax_type: company.default_tax_type || "tax",
-      status: "draft",
+      status: "issued",
+      issued_at: new Date().toISOString(),
       issue_date: issueDate,
       supply_date_from: supplyDateFrom,
       supply_date_to: supplyDateTo,
@@ -203,6 +229,13 @@ export async function createConsolidatedInvoice(
       amount: order.total_amount,
     });
     if (linkErr) throw linkErr;
+
+    // Transition linked order: delivered → invoiced
+    await supabase
+      .from("orders")
+      .update({ status: "invoiced" })
+      .eq("id", order.id)
+      .eq("status", "delivered");
   }
 
   revalidatePath("/invoices");
@@ -218,9 +251,9 @@ export async function issueInvoice(invoiceId: number) {
     .from("tax_invoices")
     .select("*")
     .eq("id", invoiceId)
-    .eq("status", "draft")
+    .in("status", ["draft", "cancelled"])
     .single();
-  if (!invoice) throw new Error("발행 가능한 초안 세금계산서를 찾을 수 없습니다.");
+  if (!invoice) throw new Error("발행 가능한 세금계산서를 찾을 수 없습니다.");
 
   const { data: items } = await supabase
     .from("tax_invoice_items")

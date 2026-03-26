@@ -87,19 +87,6 @@ export default async function InvoicesPage({
 
   return (
     <>
-      {/* Header */}
-      <div className="flex items-center">
-        <h1 className="text-lg font-semibold md:text-2xl">세금계산서</h1>
-        <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" className="h-8 gap-1" asChild>
-            <Link href="/invoices/new">
-              <Plus className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">신규 발행</span>
-            </Link>
-          </Button>
-        </div>
-      </div>
-
       {/* Stats bar */}
       {stats && (
         <Card>
@@ -136,29 +123,40 @@ export default async function InvoicesPage({
         </Card>
       )}
 
-      {/* Tabs: list / calendar */}
+      {/* Compact header: Title | Tabs | Filters | Actions — all in 1 row */}
       <ClientTabs
         initialTab={initialTab}
         basePath="/invoices"
+        toolbarLeft={
+          <h1 className="text-base font-semibold shrink-0">세금계산서</h1>
+        }
+        toolbarRight={
+          <div className="flex items-center gap-1.5 ml-auto">
+            <InvoiceFilters hospitals={hospitalOptions} />
+            <div className="h-4 w-px bg-border shrink-0" />
+            <Button size="icon" variant="outline" className="h-7 w-7 shrink-0" asChild>
+              <Link href="/invoices/new">
+                <Plus className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </div>
+        }
         tabs={[
           {
             value: "list",
             label: "목록",
             content: (
-              <div className="space-y-3">
-                <InvoiceFilters hospitals={hospitalOptions} />
-                <Card>
-                  <CardContent className="p-0">
-                    <InvoiceTable invoices={result.invoices} />
-                  </CardContent>
-                  <CardFooter className="justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      총 {result.total}건 중 {result.total > 0 ? offset + 1 : 0}~{Math.min(offset + limit, result.total)}건
-                    </span>
-                    <Pagination currentPage={page} totalPages={totalPages} totalCount={result.total} />
-                  </CardFooter>
-                </Card>
-              </div>
+              <Card>
+                <CardContent className="p-0">
+                  <InvoiceTable invoices={result.invoices} />
+                </CardContent>
+                <CardFooter className="justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    총 {result.total}건 중 {result.total > 0 ? offset + 1 : 0}~{Math.min(offset + limit, result.total)}건
+                  </span>
+                  <Pagination currentPage={page} totalPages={totalPages} totalCount={result.total} />
+                </CardFooter>
+              </Card>
             ),
           },
           {

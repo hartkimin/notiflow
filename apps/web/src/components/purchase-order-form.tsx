@@ -83,6 +83,7 @@ interface LineItem {
   kpis_number: string;
   source_type: "drug" | "device" | "product";
   sales_rep: string;
+  box_spec_id?: number | null;
 }
 
 export interface SourceMessage {
@@ -101,6 +102,8 @@ interface SupplierOption {
 interface CopyData {
   hospitalId: number;
   hospitalName: string;
+  orderDate?: string;
+  deliveryDate?: string;
   notes: string;
   items: Array<{
     product_id: number;
@@ -113,6 +116,9 @@ interface CopyData {
     purchase_price: number | null;
     selling_price: number | null;
     sales_rep: string;
+    box_spec_id?: number | null;
+    calculated_pieces?: number | null;
+    line_total?: number | null;
   }>;
 }
 
@@ -154,9 +160,9 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
   const [hospitalName, setHospitalName] = useState(copyData?.hospitalName ?? "");
   const [hospitalContactPerson, setHospitalContactPerson] = useState<string | null>(null);
 
-  const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
-  const [deliveryDate, setDeliveryDate] = useState("");
-  const [notes, setNotes] = useState(initialNotes || "");
+  const [orderDate, setOrderDate] = useState(copyData?.orderDate || new Date().toISOString().split("T")[0]);
+  const [deliveryDate, setDeliveryDate] = useState(copyData?.deliveryDate || "");
+  const [notes, setNotes] = useState(copyData?.notes || initialNotes || "");
 
   // ── Partner products (거래처 등록 품목) ──
   const [partnerProducts, setPartnerProducts] = useState<PartnerProduct[]>([]);
@@ -181,6 +187,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
       kpis_number: "",
       source_type: i.source_type,
       sales_rep: i.sales_rep,
+      box_spec_id: i.box_spec_id ?? null,
     }));
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -378,6 +385,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
           unit_price: i.selling_price,
           kpis_reference_number: i.kpis_number || null,
           sales_rep: i.sales_rep || null,
+          box_spec_id: i.box_spec_id ?? null,
         })),
       });
       toast.success(`주문이 생성되었습니다 (${result.orderNumber})`);

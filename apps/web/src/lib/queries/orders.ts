@@ -45,6 +45,8 @@ export async function getOrderItems(params: {
   to?: string;
   limit?: number;
   offset?: number;
+  order_ids?: number[];
+  exclude_order_ids?: number[];
 } = {}): Promise<{ items: OrderItemFlat[]; total: number }> {
   const supabase = await createClient();
   const limit = params.limit || 15;
@@ -59,6 +61,13 @@ export async function getOrderItems(params: {
   if (params.hospital_id) orderQuery = orderQuery.eq("hospital_id", params.hospital_id);
   if (params.from) orderQuery = orderQuery.gte("order_date", params.from);
   if (params.to) orderQuery = orderQuery.lte("order_date", params.to);
+  if (params.order_ids) {
+    if (params.order_ids.length === 0) return { items: [], total: 0 };
+    orderQuery = orderQuery.in("id", params.order_ids);
+  }
+  if (params.exclude_order_ids && params.exclude_order_ids.length > 0) {
+    orderQuery = orderQuery.not("id", "in", `(${params.exclude_order_ids.join(",")})`);
+  }
 
   // Search across order_number, hospital name, and product name
   if (params.search) {

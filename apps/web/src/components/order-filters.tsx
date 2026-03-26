@@ -17,6 +17,7 @@ export function OrderFilters({ hospitals = [] }: OrderFiltersProps) {
 
   const [status, setStatus] = useState(searchParams.get("status") || "all");
   const [hospital, setHospital] = useState(searchParams.get("hospital") || "all");
+  const [invoice, setInvoice] = useState(searchParams.get("invoice") || "all");
   const [size, setSize] = useState(searchParams.get("size") || "15");
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -32,6 +33,7 @@ export function OrderFilters({ hospitals = [] }: OrderFiltersProps) {
     if (to) params.set("to", to);
     if (status && status !== "all") params.set("status", status);
     if (hospital && hospital !== "all") params.set("hospital", hospital);
+    if (invoice && invoice !== "all") params.set("invoice", invoice);
     if (search) params.set("search", search);
     if (size && size !== "15") params.set("size", size);
 
@@ -39,65 +41,62 @@ export function OrderFilters({ hospitals = [] }: OrderFiltersProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2">
-      <div>
-        <label className="text-[10px] text-muted-foreground">시작일</label>
-        <Input type="date" name="from" defaultValue={searchParams.get("from") || ""} className="h-8 w-[130px] text-xs" />
+    <form onSubmit={handleSubmit} className="flex items-center gap-1.5 flex-wrap">
+      <Select value={status} onValueChange={setStatus}>
+        <SelectTrigger className="h-7 w-[80px] text-[11px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">전체 상태</SelectItem>
+          <SelectItem value="confirmed">미완료</SelectItem>
+          <SelectItem value="delivered">완료</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select value={hospital} onValueChange={setHospital}>
+        <SelectTrigger className="h-7 w-[110px] text-[11px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">전체 거래처</SelectItem>
+          {hospitals.map((h) => (
+            <SelectItem key={h.id} value={String(h.id)}>
+              {h.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select value={invoice} onValueChange={setInvoice}>
+        <SelectTrigger className="h-7 w-[80px] text-[11px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">계산서</SelectItem>
+          <SelectItem value="issued">발행</SelectItem>
+          <SelectItem value="not_issued">미발행</SelectItem>
+        </SelectContent>
+      </Select>
+      <div className="h-4 w-px bg-border shrink-0" />
+      <Input type="date" name="from" defaultValue={searchParams.get("from") || ""} className="h-7 w-[115px] text-[11px]" />
+      <span className="text-muted-foreground text-[10px]">~</span>
+      <Input type="date" name="to" defaultValue={searchParams.get("to") || ""} className="h-7 w-[115px] text-[11px]" />
+      <div className="h-4 w-px bg-border shrink-0" />
+      <div className="relative">
+        <Search className="absolute left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+        <Input name="search" placeholder="검색..." defaultValue={searchParams.get("search") || ""} className="h-7 w-[120px] pl-6 text-[11px]" />
       </div>
-      <div>
-        <label className="text-[10px] text-muted-foreground">종료일</label>
-        <Input type="date" name="to" defaultValue={searchParams.get("to") || ""} className="h-8 w-[130px] text-xs" />
-      </div>
-      <div>
-        <label className="text-[10px] text-muted-foreground">상태</label>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="h-8 w-[100px] text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">전체</SelectItem>
-            <SelectItem value="confirmed">미완료</SelectItem>
-            <SelectItem value="delivered">완료</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <label className="text-[10px] text-muted-foreground">거래처</label>
-        <Select value={hospital} onValueChange={setHospital}>
-          <SelectTrigger className="h-8 w-[140px] text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">전체 거래처</SelectItem>
-            {hospitals.map((h) => (
-              <SelectItem key={h.id} value={String(h.id)}>
-                {h.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <label className="text-[10px] text-muted-foreground">검색</label>
-        <Input name="search" placeholder="주문번호, 품목명, 거래처" defaultValue={searchParams.get("search") || ""} className="h-8 w-[180px] text-xs" />
-      </div>
-      <div>
-        <label className="text-[10px] text-muted-foreground">표시</label>
-        <Select value={size} onValueChange={setSize}>
-          <SelectTrigger className="h-8 w-[75px] text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="15">15건</SelectItem>
-            <SelectItem value="30">30건</SelectItem>
-            <SelectItem value="50">50건</SelectItem>
-            <SelectItem value="100">100건</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <Button type="submit" size="sm" className="h-8 gap-1">
-        <Search className="h-3.5 w-3.5" />
-        검색
+      <Select value={size} onValueChange={setSize}>
+        <SelectTrigger className="h-7 w-[65px] text-[11px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="15">15건</SelectItem>
+          <SelectItem value="30">30건</SelectItem>
+          <SelectItem value="50">50건</SelectItem>
+          <SelectItem value="100">100건</SelectItem>
+        </SelectContent>
+      </Select>
+      <Button type="submit" size="icon" variant="outline" className="h-7 w-7 shrink-0">
+        <Search className="h-3 w-3" />
       </Button>
     </form>
   );

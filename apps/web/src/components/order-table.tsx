@@ -34,7 +34,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { cn } from "@/lib/utils";
+import { cn, round4, fmt4 } from "@/lib/utils";
 import {
   Check,
   ChevronRight,
@@ -81,7 +81,7 @@ export interface ProductOption {
 
 const ORDER_COL_DEFAULTS: Record<string, number> = {
   checkbox: 32, expand: 24, order_number: 105, order_date: 62, delivery_date: 62,
-  hospital: 95, item_count: 42, purchase_total: 78, sales_total: 78, profit: 68, margin: 48, sales_rep: 55, status: 95, invoice: 45, copy: 30, actions: 30,
+  hospital: 95, item_count: 42, purchase_total: 78, sales_total: 78, profit: 68, margin: 48, sales_rep: 42, status: 95, invoice: 45, copy: 38, actions: 42,
 };
 
 const KPIS_LABEL: Record<string, string> = {
@@ -289,8 +289,8 @@ const OrderGroupRow = memo(function OrderGroupRow({
         </TableCell>
         {(() => {
           const v = vatMultiplier;
-          const purchaseTotal = group.items.reduce((s, i) => s + Math.round((i.purchase_price ?? 0) * v) * i.quantity, 0);
-          const salesTotal = group.items.reduce((s, i) => s + Math.round((i.unit_price ?? 0) * v) * i.quantity, 0);
+          const purchaseTotal = group.items.reduce((s, i) => s + round4((i.purchase_price ?? 0) * v) * i.quantity, 0);
+          const salesTotal = group.items.reduce((s, i) => s + round4((i.unit_price ?? 0) * v) * i.quantity, 0);
           const profit = salesTotal - purchaseTotal;
           const margin = salesTotal > 0 ? (profit / salesTotal) * 100 : 0;
           const reps = [...new Set(group.items.map((i) => i.sales_rep).filter(Boolean))];
@@ -340,17 +340,17 @@ const OrderGroupRow = memo(function OrderGroupRow({
             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-100 text-red-500">미발행</span>
           )}
         </TableCell>
-        <TableCell className="px-1" onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="icon" className="h-6 w-6" asChild title="주문 복사">
+        <TableCell className="px-0.5" onClick={(e) => e.stopPropagation()}>
+          <Button variant="outline" size="sm" className="h-5 px-1.5 text-[10px] text-blue-600 border-blue-200 hover:bg-blue-50" asChild>
             <Link href={`/orders/new?copy_from=${group.order_id}`}>
-              <Copy className="h-3 w-3" />
+              복사
             </Link>
           </Button>
         </TableCell>
-        <TableCell className="px-1" onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
+        <TableCell className="px-0.5" onClick={(e) => e.stopPropagation()}>
+          <Button variant="outline" size="sm" className="h-5 px-1.5 text-[10px] text-violet-600 border-violet-200 hover:bg-violet-50" asChild>
             <Link href={`/orders/${group.order_id}`}>
-              <ExternalLink className="h-3 w-3" />
+              상세
             </Link>
           </Button>
         </TableCell>
@@ -616,8 +616,8 @@ function OrderAccordionContent({
                 const pp = isEditing ? (editItems[item.id]?.purchase_price ?? 0) : (item.purchase_price ?? 0);
                 const sp = isEditing ? (editItems[item.id]?.unit_price ?? 0) : (item.unit_price ?? 0);
                 const qty = isEditing ? (editItems[item.id]?.quantity ?? item.quantity) : item.quantity;
-                const ppVat = Math.round(pp * 1.1);
-                const spVat = Math.round(sp * 1.1);
+                const ppVat = round4(pp * 1.1);
+                const spVat = round4(sp * 1.1);
                 const purchaseTotal = ppVat * qty;
                 const salesTotal = spVat * qty;
                 const profit = salesTotal - purchaseTotal;
@@ -729,6 +729,7 @@ function OrderAccordionContent({
                       <Input
                         type="number"
                         min={0}
+                        step="any"
                         value={pp}
                         onChange={(e) =>
                           updateItemField(item.id, "purchase_price", Number(e.target.value))
@@ -736,7 +737,7 @@ function OrderAccordionContent({
                         className="h-7 w-[100px] text-right text-sm ml-auto"
                       />
                     ) : (
-                      pp > 0 ? pp.toLocaleString() : "-"
+                      pp > 0 ? fmt4(pp) : "-"
                     )}
                   </TableCell>
                   {/* 매입(VAT) */}
@@ -745,19 +746,20 @@ function OrderAccordionContent({
                       <Input
                         type="number"
                         min={0}
+                        step="any"
                         value={ppVat}
                         onChange={(e) =>
-                          updateItemField(item.id, "purchase_price", Math.round(Number(e.target.value) / 1.1))
+                          updateItemField(item.id, "purchase_price", round4(Number(e.target.value) / 1.1))
                         }
                         className="h-7 w-[100px] text-right text-sm ml-auto"
                       />
                     ) : (
-                      pp > 0 ? ppVat.toLocaleString() : "-"
+                      pp > 0 ? fmt4(ppVat) : "-"
                     )}
                   </TableCell>
                   {/* 매입총액 */}
                   <TableCell className="text-right text-sm tabular-nums">
-                    {pp > 0 ? purchaseTotal.toLocaleString() : "-"}
+                    {pp > 0 ? fmt4(purchaseTotal) : "-"}
                   </TableCell>
                   {/* 판매단가 */}
                   <TableCell className="text-right text-sm tabular-nums">
@@ -765,6 +767,7 @@ function OrderAccordionContent({
                       <Input
                         type="number"
                         min={0}
+                        step="any"
                         value={sp}
                         onChange={(e) =>
                           updateItemField(item.id, "unit_price", Number(e.target.value))
@@ -772,7 +775,7 @@ function OrderAccordionContent({
                         className="h-7 w-[100px] text-right text-sm ml-auto"
                       />
                     ) : (
-                      sp > 0 ? sp.toLocaleString() : "-"
+                      sp > 0 ? fmt4(sp) : "-"
                     )}
                   </TableCell>
                   {/* 판매(VAT) */}
@@ -781,24 +784,25 @@ function OrderAccordionContent({
                       <Input
                         type="number"
                         min={0}
+                        step="any"
                         value={spVat}
                         onChange={(e) =>
-                          updateItemField(item.id, "unit_price", Math.round(Number(e.target.value) / 1.1))
+                          updateItemField(item.id, "unit_price", round4(Number(e.target.value) / 1.1))
                         }
                         className="h-7 w-[100px] text-right text-sm ml-auto"
                       />
                     ) : (
-                      sp > 0 ? spVat.toLocaleString() : "-"
+                      sp > 0 ? fmt4(spVat) : "-"
                     )}
                   </TableCell>
                   {/* 매출총액 */}
                   <TableCell className="text-right text-sm tabular-nums">
-                    {sp > 0 ? salesTotal.toLocaleString() : "-"}
+                    {sp > 0 ? fmt4(salesTotal) : "-"}
                   </TableCell>
                   {/* 매출이익 */}
                   <TableCell className="text-right text-sm tabular-nums">
                     {pp > 0 || sp > 0 ? (
-                      <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{profit.toLocaleString()}</span>
+                      <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{fmt4(profit)}</span>
                     ) : "-"}
                   </TableCell>
                   {/* 이익률 */}
@@ -903,15 +907,15 @@ function OrderAccordionContent({
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
             <span className="text-muted-foreground text-right">매입합계</span>
             <span className="text-right tabular-nums">
-              {group.items.reduce((s, i) => s + Math.round((i.purchase_price ?? 0) * 1.1) * i.quantity, 0).toLocaleString()}원
+              {group.items.reduce((s, i) => s + round4((i.purchase_price ?? 0) * 1.1) * i.quantity, 0).toLocaleString()}원
             </span>
             <span className="text-muted-foreground text-right">매출합계</span>
             <span className="text-right tabular-nums font-medium">
-              {group.items.reduce((s, i) => s + Math.round((i.unit_price ?? 0) * 1.1) * i.quantity, 0).toLocaleString()}원
+              {group.items.reduce((s, i) => s + round4((i.unit_price ?? 0) * 1.1) * i.quantity, 0).toLocaleString()}원
             </span>
             {(() => {
-              const pt = group.items.reduce((s, i) => s + Math.round((i.purchase_price ?? 0) * 1.1) * i.quantity, 0);
-              const st = group.items.reduce((s, i) => s + Math.round((i.unit_price ?? 0) * 1.1) * i.quantity, 0);
+              const pt = group.items.reduce((s, i) => s + round4((i.purchase_price ?? 0) * 1.1) * i.quantity, 0);
+              const st = group.items.reduce((s, i) => s + round4((i.unit_price ?? 0) * 1.1) * i.quantity, 0);
               const mg = st - pt;
               const mr = st > 0 ? (mg / st) * 100 : 0;
               return (
@@ -930,13 +934,13 @@ function OrderAccordionContent({
             </span>
             <span className="text-muted-foreground text-right">세액</span>
             <span className="text-right tabular-nums">
-              {group.items.reduce((s, i) => s + Math.round((i.unit_price ?? 0) * 0.1) * i.quantity, 0).toLocaleString()}원
+              {group.items.reduce((s, i) => s + round4((i.unit_price ?? 0) * 0.1) * i.quantity, 0).toLocaleString()}원
             </span>
             <span className="font-medium text-right">합계</span>
             <span className="font-medium text-right tabular-nums">
               {(() => {
                 const supply = group.items.reduce((s, i) => s + (i.unit_price ?? 0) * i.quantity, 0);
-                const tax = group.items.reduce((s, i) => s + Math.round((i.unit_price ?? 0) * 0.1) * i.quantity, 0);
+                const tax = group.items.reduce((s, i) => s + round4((i.unit_price ?? 0) * 0.1) * i.quantity, 0);
                 return (supply + tax).toLocaleString();
               })()}원
             </span>

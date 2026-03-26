@@ -10,6 +10,7 @@ import {
   ChevronsUpDown,
   Hash,
   Pencil,
+  Plus,
   Save,
   Trash2,
   X,
@@ -43,7 +44,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { cn } from "@/lib/utils";
+import { cn, round4, fmt4 } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -57,6 +58,8 @@ import {
   confirmOrderAction,
   deleteOrdersAction,
   deleteOrderItemAction,
+  addOrderItemAction,
+  updateOrderTotalsAction,
   updateDeliveredAtAction,
   updateDeliveryDateAction,
   updateOrderItemAction,
@@ -95,11 +98,40 @@ const STATUS_VARIANT: Record<
   cancelled: "destructive",
 };
 
+interface NewItemState {
+  key: string;
+  product_id: number | null;
+  product_name: string;
+  supplier_id: number | null;
+  quantity: number;
+  unit_type: string;
+  unit_price: number;
+  purchase_price: number;
+  sales_rep: string;
+}
+
+let _newItemKey = 0;
+function nextNewItemKey() { return `new-${Date.now()}-${++_newItemKey}`; }
+
+function createBlankItem(): NewItemState {
+  return {
+    key: nextNewItemKey(),
+    product_id: null,
+    product_name: "",
+    supplier_id: null,
+    quantity: 1,
+    unit_type: "개",
+    unit_price: 0,
+    purchase_price: 0,
+    sales_rep: "",
+  };
+}
+
 const DETAIL_COL_DEFAULTS: Record<string, number> = {
   idx: 35, product: 150, supplier: 80, quantity: 50, unit_type: 45,
-  purchase_price: 110, purchase_vat: 110, purchase_total: 110,
-  unit_price: 110, selling_vat: 110, sales_total: 110,
-  profit: 110, profit_rate: 55, sales_rep: 65,
+  p_vat: 90, p_excl: 80, p_supply: 90, p_tax: 70,
+  s_vat: 90, s_excl: 80, s_supply: 90, s_tax: 70,
+  profit: 90, profit_rate: 55, sales_rep: 65,
 };
 
 interface EditItemState {
@@ -108,6 +140,7 @@ interface EditItemState {
   purchase_price: number;
   product_id: number | null;
   supplier_id: number | null;
+  sales_rep: string;
 }
 
 interface SupplierOption {
@@ -137,6 +170,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
   const [isEditing, setIsEditing] = useState(false);
   const [editItems, setEditItems] = useState<Record<number, EditItemState>>({});
   const [deletedIds, setDeletedIds] = useState<Set<number>>(new Set());
+  const [newItems, setNewItems] = useState<NewItemState[]>([]);
   const [productOpenId, setProductOpenId] = useState<number | null>(null);
   const [supplierOpenId, setSupplierOpenId] = useState<number | null>(null);
   const [showMfdsSearch, setShowMfdsSearch] = useState(false);
@@ -151,6 +185,13 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
   const [invoiceIssueDate, setInvoiceIssueDate] = useState(
     new Date().toISOString().slice(0, 10),
   );
+
+  // Manual total overrides (null = use calculated value)
+  const [manualPurchaseTotal, setManualPurchaseTotal] = useState<number | null>(null);
+  const [manualSalesTotal, setManualSalesTotal] = useState<number | null>(null);
+  const [manualSupply, setManualSupply] = useState<number | null>(order.supply_amount);
+  const [manualTax, setManualTax] = useState<number | null>(order.tax_amount);
+  const [totalsEditing, setTotalsEditing] = useState(false);
 
   const isEditable = true; // Both statuses are editable
   const canCreateInvoice = order.status === "confirmed" || order.status === "delivered";
@@ -194,6 +235,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
         purchase_price: item.purchase_price ?? 0,
         product_id: item.product_id,
         supplier_id: item.supplier_id,
+        sales_rep: item.sales_rep ?? "",
       };
     }
     setEditItems(initial);
@@ -205,9 +247,10 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
     setIsEditing(false);
     setEditItems({});
     setDeletedIds(new Set());
+    setNewItems([]);
   }
 
-  function updateEditItem(itemId: number, field: keyof EditItemState, value: number | null) {
+  function updateEditItem(itemId: number, field: keyof EditItemState, value: number | string | null) {
     setEditItems((prev) => ({
       ...prev,
       [itemId]: { ...prev[itemId], [field]: value },
@@ -236,6 +279,54 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
     });
   }
 
+  function addNewItem() {
+    setNewItems((prev) => [...prev, createBlankItem()]);
+  }
+
+  function updateNewItem(key: string, field: keyof NewItemState, value: unknown) {
+    setNewItems((prev) =>
+      prev.map((item) => item.key === key ? { ...item, [field]: value } : item),
+    );
+  }
+
+  function removeNewItem(key: string) {
+    setNewItems((prev) => prev.filter((item) => item.key !== key));
+  }
+
+  function handleNewItemProductChange(key: string, productIdStr: string) {
+    const pid = Number(productIdStr);
+    const product = products.find((p) => p.id === pid);
+    setNewItems((prev) =>
+      prev.map((item) =>
+        item.key === key
+          ? {
+              ...item,
+              product_id: pid,
+              product_name: product?.official_name ?? product?.name ?? "",
+              unit_price: product?.unit_price ?? item.unit_price,
+            }
+          : item,
+      ),
+    );
+  }
+
+  function handleSaveTotals() {
+    startTransition(async () => {
+      try {
+        await updateOrderTotalsAction(order.id, {
+          supply_amount: finalSupply,
+          tax_amount: finalTax,
+          total_amount: finalSupply + finalTax,
+        });
+        toast.success("합계가 저장되었습니다.");
+        setTotalsEditing(false);
+        router.refresh();
+      } catch {
+        toast.error("합계 저장에 실패했습니다.");
+      }
+    });
+  }
+
   function handleSaveItems() {
     startTransition(async () => {
       try {
@@ -254,7 +345,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
 
           const edit = rawEdit;
 
-          const changes: { quantity?: number; unit_price?: number; purchase_price?: number; product_id?: number; supplier_id?: number | null } = {};
+          const changes: { quantity?: number; unit_price?: number; purchase_price?: number; product_id?: number; supplier_id?: number | null; sales_rep?: string } = {};
           if (edit.quantity !== item.quantity) changes.quantity = edit.quantity;
           if (edit.unit_price !== (item.unit_price ?? 0)) changes.unit_price = edit.unit_price;
           if (edit.purchase_price !== (item.purchase_price ?? 0)) changes.purchase_price = edit.purchase_price;
@@ -264,9 +355,28 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
           if (edit.supplier_id !== item.supplier_id) {
             changes.supplier_id = edit.supplier_id;
           }
+          if (edit.sales_rep !== (item.sales_rep ?? "")) {
+            changes.sales_rep = edit.sales_rep;
+          }
           if (Object.keys(changes).length > 0) {
             ops.push(updateOrderItemAction(item.id, changes));
           }
+        }
+
+        // Add new items
+        const validNewItems = newItems.filter((ni) => ni.product_name.trim());
+        for (const ni of validNewItems) {
+          ops.push(addOrderItemAction({
+            order_id: order.id,
+            product_id: ni.product_id,
+            product_name: ni.product_name,
+            supplier_id: ni.supplier_id,
+            quantity: ni.quantity,
+            unit_type: ni.unit_type,
+            unit_price: ni.unit_price || null,
+            purchase_price: ni.purchase_price || null,
+            sales_rep: ni.sales_rep || null,
+          }));
         }
 
         if (ops.length === 0) {
@@ -275,14 +385,17 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
         }
         await Promise.all(ops);
         const delCount = deletedIds.size;
-        const updateCount = ops.length - delCount;
+        const addCount = validNewItems.length;
+        const updateCount = ops.length - delCount - addCount;
         const parts: string[] = [];
+        if (addCount > 0) parts.push(`${addCount}개 추가`);
         if (updateCount > 0) parts.push(`${updateCount}개 수정`);
         if (delCount > 0) parts.push(`${delCount}개 삭제`);
         toast.success(`품목 ${parts.join(", ")} 완료`);
         setIsEditing(false);
         setEditItems({});
         setDeletedIds(new Set());
+        setNewItems([]);
         router.refresh();
       } catch {
         toast.error("품목 수정에 실패했습니다.");
@@ -340,14 +453,14 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
     const edit = editItems[item.id];
     const qty = edit?.quantity ?? item.quantity;
     const pp = edit?.purchase_price ?? (item.purchase_price ?? 0);
-    return sum + Math.round(pp * 1.1) * qty;
+    return sum + round4(pp * 1.1) * qty;
   }, 0);
 
   const salesTotal = visibleItems.reduce((sum, item) => {
     const edit = editItems[item.id];
     const qty = edit ? edit.quantity : item.quantity;
     const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
-    return sum + Math.round(sp * 1.1) * qty;
+    return sum + round4(sp * 1.1) * qty;
   }, 0);
 
   const supplyTotal = visibleItems.reduce((sum, item) => {
@@ -364,8 +477,13 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
     return sum + Math.round(sp * 0.1) * qty;
   }, 0);
 
-  const totalMargin = salesTotal - purchaseTotal;
-  const marginRate = salesTotal > 0 ? (totalMargin / salesTotal) * 100 : 0;
+  // Final values: manual override takes precedence
+  const finalPurchaseTotal = manualPurchaseTotal ?? purchaseTotal;
+  const finalSalesTotal = manualSalesTotal ?? salesTotal;
+  const finalSupply = manualSupply ?? supplyTotal;
+  const finalTax = manualTax ?? taxTotal;
+  const totalMargin = finalSalesTotal - finalPurchaseTotal;
+  const marginRate = finalSalesTotal > 0 ? (totalMargin / finalSalesTotal) * 100 : 0;
 
   return (
     <div className="space-y-4">
@@ -564,12 +682,14 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                 <ResizableTh width={widths.supplier} colKey="supplier" onResizeStart={onMouseDown}>매입처</ResizableTh>
                 <ResizableTh width={widths.quantity} colKey="quantity" onResizeStart={onMouseDown} className="text-right">수량</ResizableTh>
                 <ResizableTh width={widths.unit_type} colKey="unit_type" onResizeStart={onMouseDown}>단위</ResizableTh>
-                <ResizableTh width={widths.purchase_price} colKey="purchase_price" onResizeStart={onMouseDown} className="text-right">매입단가</ResizableTh>
-                <ResizableTh width={widths.purchase_vat} colKey="purchase_vat" onResizeStart={onMouseDown} className="text-right">매입(VAT)</ResizableTh>
-                <ResizableTh width={widths.purchase_total} colKey="purchase_total" onResizeStart={onMouseDown} className="text-right">매입총액</ResizableTh>
-                <ResizableTh width={widths.unit_price} colKey="unit_price" onResizeStart={onMouseDown} className="text-right">판매단가</ResizableTh>
-                <ResizableTh width={widths.selling_vat} colKey="selling_vat" onResizeStart={onMouseDown} className="text-right">판매(VAT)</ResizableTh>
-                <ResizableTh width={widths.sales_total} colKey="sales_total" onResizeStart={onMouseDown} className="text-right">매출총액</ResizableTh>
+                <ResizableTh width={widths.p_vat} colKey="p_vat" onResizeStart={onMouseDown} className="text-right">매입(VAT)</ResizableTh>
+                <ResizableTh width={widths.p_excl} colKey="p_excl" onResizeStart={onMouseDown} className="text-right">매입단가</ResizableTh>
+                <ResizableTh width={widths.p_supply} colKey="p_supply" onResizeStart={onMouseDown} className="text-right">매입공급가</ResizableTh>
+                <ResizableTh width={widths.p_tax} colKey="p_tax" onResizeStart={onMouseDown} className="text-right">매입부가세</ResizableTh>
+                <ResizableTh width={widths.s_vat} colKey="s_vat" onResizeStart={onMouseDown} className="text-right">판매(VAT)</ResizableTh>
+                <ResizableTh width={widths.s_excl} colKey="s_excl" onResizeStart={onMouseDown} className="text-right">판매단가</ResizableTh>
+                <ResizableTh width={widths.s_supply} colKey="s_supply" onResizeStart={onMouseDown} className="text-right">판매공급가</ResizableTh>
+                <ResizableTh width={widths.s_tax} colKey="s_tax" onResizeStart={onMouseDown} className="text-right">판매부가세</ResizableTh>
                 <ResizableTh width={widths.profit} colKey="profit" onResizeStart={onMouseDown} className="text-right">매출이익</ResizableTh>
                 <ResizableTh width={widths.profit_rate} colKey="profit_rate" onResizeStart={onMouseDown} className="text-right">이익률</ResizableTh>
                 <ResizableTh width={widths.sales_rep} colKey="sales_rep" onResizeStart={onMouseDown} className="pr-6">담당자</ResizableTh>
@@ -587,12 +707,15 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                 const qty = edit ? edit.quantity : item.quantity;
                 const pp = edit ? edit.purchase_price : (item.purchase_price ?? 0);
                 const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
-                const ppVat = Math.round(pp * 1.1);
-                const spVat = Math.round(sp * 1.1);
-                const linePurchaseTotal = ppVat * qty;
-                const lineSalesTotal = spVat * qty;
-                const lineProfit = lineSalesTotal - linePurchaseTotal;
-                const lineMargin = lineSalesTotal > 0 ? (lineProfit / lineSalesTotal) * 100 : 0;
+                const ppVat = round4(pp * 1.1);
+                const spVat = round4(sp * 1.1);
+                const pSupply = round4(pp * qty);
+                const pTax = round4(pSupply * 0.1);
+                const sSupply = round4(sp * qty);
+                const sTax = round4(sSupply * 0.1);
+                const lineProfit = round4(sSupply + sTax) - round4(pSupply + pTax);
+                const lineSalesVatTotal = round4(sSupply + sTax);
+                const lineMargin = lineSalesVatTotal > 0 ? (lineProfit / lineSalesVatTotal) * 100 : 0;
 
                 return (
                   <TableRow
@@ -736,86 +859,86 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                     <TableCell className="text-sm text-muted-foreground">
                       {item.unit_type ?? "piece"}
                     </TableCell>
-                    {/* 매입단가 */}
+                    {/* 매입(VAT) — 입력 */}
                     <TableCell className="text-right tabular-nums">
                       {isEditing && !isDeleted ? (
-                        <Input type="number" min={0}
-                          value={pp}
-                          onChange={(e) => updateEditItem(item.id, "purchase_price", Number(e.target.value))}
-                          className="h-7 w-[100px] text-right text-sm ml-auto"
-                        />
-                      ) : (
-                        pp > 0 ? pp.toLocaleString("ko-KR") : "-"
-                      )}
-                    </TableCell>
-                    {/* 매입(VAT) */}
-                    <TableCell className="text-right tabular-nums">
-                      {isEditing && !isDeleted ? (
-                        <Input type="number" min={0}
+                        <Input type="number" min={0} step="any"
                           value={ppVat}
                           onChange={(e) => {
                             const v = e.target.value ? parseFloat(e.target.value) : 0;
-                            updateEditItem(item.id, "purchase_price", Math.round(v / 1.1));
+                            updateEditItem(item.id, "purchase_price", round4(v / 1.1));
                           }}
-                          className="h-7 w-[100px] text-right text-sm ml-auto"
+                          className="h-7 w-[80px] text-right text-sm ml-auto"
                         />
                       ) : (
-                        pp > 0 ? ppVat.toLocaleString("ko-KR") : "-"
+                        pp > 0 ? fmt4(ppVat) : "-"
                       )}
                     </TableCell>
-                    {/* 매입총액 */}
-                    <TableCell className="text-right tabular-nums">
-                      {pp > 0 ? linePurchaseTotal.toLocaleString("ko-KR") : "-"}
+                    {/* 매입단가 — 자동 */}
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {pp > 0 ? fmt4(pp) : "-"}
                     </TableCell>
-                    {/* 판매단가 */}
+                    {/* 매입공급가 — 자동 */}
+                    <TableCell className="text-right tabular-nums">
+                      {pp > 0 ? fmt4(pSupply) : "-"}
+                    </TableCell>
+                    {/* 매입부가세 — 자동 */}
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {pp > 0 ? fmt4(pTax) : "-"}
+                    </TableCell>
+                    {/* 판매(VAT) — 입력 */}
                     <TableCell className="text-right tabular-nums">
                       {isEditing && !isDeleted ? (
-                        <Input type="number" min={0}
-                          value={sp}
-                          onChange={(e) => updateEditItem(item.id, "unit_price", Number(e.target.value))}
-                          className="h-7 w-[100px] text-right text-sm ml-auto"
-                        />
-                      ) : (
-                        sp > 0 ? sp.toLocaleString("ko-KR") : "-"
-                      )}
-                    </TableCell>
-                    {/* 판매(VAT) */}
-                    <TableCell className="text-right tabular-nums">
-                      {isEditing && !isDeleted ? (
-                        <Input type="number" min={0}
+                        <Input type="number" min={0} step="any"
                           value={spVat}
                           onChange={(e) => {
                             const v = e.target.value ? parseFloat(e.target.value) : 0;
-                            updateEditItem(item.id, "unit_price", Math.round(v / 1.1));
+                            updateEditItem(item.id, "unit_price", round4(v / 1.1));
                           }}
-                          className="h-7 w-[100px] text-right text-sm ml-auto"
+                          className="h-7 w-[80px] text-right text-sm ml-auto"
                         />
                       ) : (
-                        sp > 0 ? spVat.toLocaleString("ko-KR") : "-"
+                        sp > 0 ? fmt4(spVat) : "-"
                       )}
                     </TableCell>
-                    {/* 매출총액 */}
+                    {/* 판매단가 — 자동 */}
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {sp > 0 ? fmt4(sp) : "-"}
+                    </TableCell>
+                    {/* 판매공급가 — 자동 */}
                     <TableCell className="text-right tabular-nums font-medium">
-                      {sp > 0 ? lineSalesTotal.toLocaleString("ko-KR") : "-"}
+                      {sp > 0 ? fmt4(sSupply) : "-"}
+                    </TableCell>
+                    {/* 판매부가세 — 자동 */}
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {sp > 0 ? fmt4(sTax) : "-"}
                     </TableCell>
                     {/* 매출이익 */}
                     <TableCell className="text-right tabular-nums">
                       {sp > 0 && pp > 0 ? (
                         <span className={lineProfit < 0 ? "text-red-500" : "text-green-600"}>
-                          {lineProfit.toLocaleString("ko-KR")}
+                          {fmt4(lineProfit)}
                         </span>
                       ) : "-"}
                     </TableCell>
                     {/* 이익률 */}
                     <TableCell className="text-right tabular-nums">
-                      {lineSalesTotal > 0 ? (
+                      {lineSalesVatTotal > 0 ? (
                         <span className={lineMargin < 0 ? "text-red-500" : ""}>
                           {lineMargin.toFixed(1)}%
                         </span>
                       ) : "-"}
                     </TableCell>
                     <TableCell className="pr-6 text-sm text-muted-foreground">
-                      {item.sales_rep ?? "-"}
+                      {isEditing && !isDeleted ? (
+                        <Input
+                          value={edit?.sales_rep ?? item.sales_rep ?? ""}
+                          onChange={(e) => updateEditItem(item.id, "sales_rep", e.target.value)}
+                          className="h-7 w-full text-sm"
+                        />
+                      ) : (
+                        item.sales_rep ?? "-"
+                      )}
                     </TableCell>
                     {isEditing && (
                       <TableCell className="px-1 print:hidden">
@@ -845,42 +968,228 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                   </TableRow>
                 );
               })}
+              {/* New items rows */}
+              {isEditing && newItems.map((ni) => {
+                const niPpVat = round4(ni.purchase_price * 1.1);
+                const niSpVat = round4(ni.unit_price * 1.1);
+                const niPSupply = round4(ni.purchase_price * ni.quantity);
+                const niPTax = round4(niPSupply * 0.1);
+                const niSSupply = round4(ni.unit_price * ni.quantity);
+                const niSTax = round4(niSSupply * 0.1);
+                const niProfit = round4(niSSupply + niSTax) - round4(niPSupply + niPTax);
+                const niSalesVatTotal = round4(niSSupply + niSTax);
+                const niMargin = niSalesVatTotal > 0 ? (niProfit / niSalesVatTotal) * 100 : 0;
+                return (
+                <TableRow key={ni.key} className="bg-green-50/50">
+                  {/* # */}
+                  <TableCell className="pl-6 text-green-600 font-bold text-xs">+</TableCell>
+                  {/* 품목 */}
+                  <TableCell>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-7 text-xs">
+                          <span className="truncate">{ni.product_name || "품목 선택..."}</span>
+                          <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="품목명, 제조사 검색..." />
+                          <CommandList>
+                            <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
+                            <CommandGroup>
+                              {products.map((p) => (
+                                <CommandItem
+                                  key={p.id}
+                                  value={`${p.name} ${p.official_name ?? ""} ${p.short_name ?? ""} ${p.manufacturer ?? ""}`}
+                                  onSelect={() => handleNewItemProductChange(ni.key, String(p.id))}
+                                >
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="truncate text-xs">{p.name}</span>
+                                    <span className="text-[10px] text-muted-foreground truncate">
+                                      {[p.manufacturer, p.category].filter(Boolean).join(" · ")}
+                                    </span>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </TableCell>
+                  {/* 매입처 */}
+                  <TableCell className="text-sm">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-7 text-xs">
+                          <span className="truncate">{suppliers.find((s) => s.id === ni.supplier_id)?.name || "매입처 선택..."}</span>
+                          <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="매입처명 검색..." />
+                          <CommandList>
+                            <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
+                            <CommandGroup>
+                              {suppliers.map((s) => (
+                                <CommandItem key={s.id} value={s.name} onSelect={() => updateNewItem(ni.key, "supplier_id", s.id)}>
+                                  <span className="truncate text-xs">{s.name}</span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </TableCell>
+                  {/* 수량 */}
+                  <TableCell className="text-right tabular-nums">
+                    <Input type="number" min={0} step="any" value={ni.quantity} onChange={(e) => updateNewItem(ni.key, "quantity", Number(e.target.value) || 0)} className="h-7 w-[50px] text-right text-sm ml-auto" />
+                  </TableCell>
+                  {/* 단위 */}
+                  <TableCell className="text-sm text-muted-foreground">{ni.unit_type}</TableCell>
+                  {/* 매입(VAT) — 입력 */}
+                  <TableCell className="text-right tabular-nums">
+                    <Input type="number" min={0} step="any" value={niPpVat} onChange={(e) => { const v = e.target.value ? parseFloat(e.target.value) : 0; updateNewItem(ni.key, "purchase_price", round4(v / 1.1)); }} className="h-7 w-[80px] text-right text-sm ml-auto" />
+                  </TableCell>
+                  {/* 매입단가 — 자동 */}
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {ni.purchase_price > 0 ? fmt4(ni.purchase_price) : "-"}
+                  </TableCell>
+                  {/* 매입공급가 — 자동 */}
+                  <TableCell className="text-right tabular-nums">
+                    {ni.purchase_price > 0 ? fmt4(niPSupply) : "-"}
+                  </TableCell>
+                  {/* 매입부가세 — 자동 */}
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {ni.purchase_price > 0 ? fmt4(niPTax) : "-"}
+                  </TableCell>
+                  {/* 판매(VAT) — 입력 */}
+                  <TableCell className="text-right tabular-nums">
+                    <Input type="number" min={0} step="any" value={niSpVat} onChange={(e) => { const v = e.target.value ? parseFloat(e.target.value) : 0; updateNewItem(ni.key, "unit_price", round4(v / 1.1)); }} className="h-7 w-[80px] text-right text-sm ml-auto" />
+                  </TableCell>
+                  {/* 판매단가 — 자동 */}
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {ni.unit_price > 0 ? fmt4(ni.unit_price) : "-"}
+                  </TableCell>
+                  {/* 판매공급가 — 자동 */}
+                  <TableCell className="text-right tabular-nums font-medium">
+                    {ni.unit_price > 0 ? fmt4(niSSupply) : "-"}
+                  </TableCell>
+                  {/* 판매부가세 — 자동 */}
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {ni.unit_price > 0 ? fmt4(niSTax) : "-"}
+                  </TableCell>
+                  {/* 매출이익 */}
+                  <TableCell className="text-right tabular-nums">
+                    {ni.unit_price > 0 && ni.purchase_price > 0 ? (
+                      <span className={niProfit < 0 ? "text-red-500" : "text-green-600"}>{fmt4(niProfit)}</span>
+                    ) : "-"}
+                  </TableCell>
+                  {/* 이익률 */}
+                  <TableCell className="text-right tabular-nums">
+                    {niSalesVatTotal > 0 ? (
+                      <span className={niMargin < 0 ? "text-red-500" : ""}>{niMargin.toFixed(1)}%</span>
+                    ) : "-"}
+                  </TableCell>
+                  {/* 담당자 */}
+                  <TableCell className="pr-6">
+                    <Input className="h-7 w-full text-sm" value={ni.sales_rep} onChange={(e) => updateNewItem(ni.key, "sales_rep", e.target.value)} />
+                  </TableCell>
+                  {/* 삭제 */}
+                  <TableCell className="px-1 print:hidden">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeNewItem(ni.key)}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+                );
+              })}
+              {/* Add new item button */}
+              {isEditing && (
+                <TableRow>
+                  <TableCell colSpan={isEditing ? 15 : 14} className="print:hidden">
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-green-600 hover:text-green-700 gap-1" onClick={addNewItem}>
+                      <Plus className="h-3.5 w-3.5" />
+                      품목 추가
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
       </div>
 
       {/* Totals */}
-      {salesTotal > 0 && (
+      {(salesTotal > 0 || finalSalesTotal > 0) && (
         <>
           <Separator />
-          <div className="flex justify-end">
+          <div className="flex justify-end items-start gap-2">
             <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
               <span className="text-muted-foreground text-right">매입합계</span>
-              <span className="text-right tabular-nums">
-                {purchaseTotal.toLocaleString("ko-KR")}원
-              </span>
+              {totalsEditing ? (
+                <Input type="number" step="any" className="h-7 w-[160px] text-right text-sm" value={finalPurchaseTotal} onChange={(e) => setManualPurchaseTotal(Number(e.target.value) || 0)} />
+              ) : (
+                <span className="text-right tabular-nums">{finalPurchaseTotal.toLocaleString()}원</span>
+              )}
               <span className="text-muted-foreground text-right">매출합계</span>
-              <span className="text-right tabular-nums font-medium">
-                {salesTotal.toLocaleString("ko-KR")}원
-              </span>
+              {totalsEditing ? (
+                <Input type="number" step="any" className="h-7 w-[160px] text-right text-sm" value={finalSalesTotal} onChange={(e) => setManualSalesTotal(Number(e.target.value) || 0)} />
+              ) : (
+                <span className="text-right tabular-nums font-medium">{finalSalesTotal.toLocaleString()}원</span>
+              )}
               <span className="text-muted-foreground text-right">마진</span>
               <span className={cn("text-right tabular-nums", totalMargin >= 0 ? "text-green-600" : "text-red-500")}>
-                {totalMargin.toLocaleString("ko-KR")}원 ({salesTotal > 0 ? marginRate.toFixed(1) : "-"}%)
+                {totalMargin.toLocaleString()}원 ({finalSalesTotal > 0 ? marginRate.toFixed(1) : "-"}%)
               </span>
               <Separator className="col-span-2 my-1" />
               <span className="text-muted-foreground text-right">공급가액</span>
-              <span className="text-right tabular-nums">
-                {supplyTotal.toLocaleString("ko-KR")}원
-              </span>
+              {totalsEditing ? (
+                <Input type="number" step="any" className="h-7 w-[160px] text-right text-sm" value={finalSupply} onChange={(e) => setManualSupply(Number(e.target.value) || 0)} />
+              ) : (
+                <span className="text-right tabular-nums">{finalSupply.toLocaleString()}원</span>
+              )}
               <span className="text-muted-foreground text-right">세액</span>
-              <span className="text-right tabular-nums">
-                {taxTotal.toLocaleString("ko-KR")}원
-              </span>
+              {totalsEditing ? (
+                <Input type="number" step="any" className="h-7 w-[160px] text-right text-sm" value={finalTax} onChange={(e) => setManualTax(Number(e.target.value) || 0)} />
+              ) : (
+                <span className="text-right tabular-nums">{finalTax.toLocaleString()}원</span>
+              )}
               <span className="font-semibold text-right">합계</span>
               <span className="font-semibold text-right tabular-nums">
-                {(supplyTotal + taxTotal).toLocaleString("ko-KR")}원
+                {(finalSupply + finalTax).toLocaleString()}원
               </span>
+            </div>
+            <div className="flex flex-col gap-1 print:hidden">
+              {totalsEditing ? (
+                <>
+                  <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={handleSaveTotals} disabled={isPending}>
+                    <Save className="h-3 w-3" />저장
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => {
+                    setTotalsEditing(false);
+                    setManualPurchaseTotal(null);
+                    setManualSalesTotal(null);
+                    setManualSupply(order.supply_amount);
+                    setManualTax(order.tax_amount);
+                  }}>
+                    취소
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => {
+                  setManualPurchaseTotal(finalPurchaseTotal);
+                  setManualSalesTotal(finalSalesTotal);
+                  setManualSupply(finalSupply);
+                  setManualTax(finalTax);
+                  setTotalsEditing(true);
+                }}>
+                  <Pencil className="h-3 w-3" />수정
+                </Button>
+              )}
             </div>
           </div>
         </>
@@ -904,7 +1213,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                       <Badge variant={badge.variant} className="text-xs">{badge.label}</Badge>
                       <span className="text-muted-foreground">{inv.issue_date}</span>
                       <span className="ml-auto tabular-nums font-medium">
-                        {inv.total_amount.toLocaleString("ko-KR")}원
+                        {inv.total_amount.toLocaleString()}원
                       </span>
                     </div>
                   );

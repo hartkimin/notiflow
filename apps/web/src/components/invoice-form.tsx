@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { round4, fmt4 } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -100,7 +101,7 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
         supply += (Number(item.unit_price ?? 0)) * (item.quantity ?? 0);
       }
     }
-    const tax = Math.round(supply * 0.1);
+    const tax = round4(supply * 0.1);
     const total = supply + tax;
     return { supply, tax, total };
   }, [selectedOrders]);
@@ -197,7 +198,11 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
                     <TableCell>{order.hospital_name || "-"}</TableCell>
                     <TableCell className="text-right">{order.items?.length ?? 0}</TableCell>
                     <TableCell className="text-right">
-                      ₩{(order.total_amount || 0).toLocaleString()}
+                      ₩{(() => {
+                        const itemTotal = (order.items ?? []).reduce(
+                          (s, i) => s + (Number(i.unit_price ?? 0)) * (i.quantity ?? 0), 0);
+                        return round4(itemTotal * 1.1).toLocaleString();
+                      })()}
                     </TableCell>
                   </TableRow>
                   );
@@ -239,8 +244,8 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
                 </TableHeader>
                 <TableBody>
                   {allItems.map((item, idx) => {
-                    const purchaseVat = Math.round((item.purchase_price ?? 0) * 1.1) * item.quantity;
-                    const salesVat = Math.round((item.unit_price ?? 0) * 1.1) * item.quantity;
+                    const purchaseVat = round4((item.purchase_price ?? 0) * 1.1) * item.quantity;
+                    const salesVat = round4((item.unit_price ?? 0) * 1.1) * item.quantity;
                     const profit = salesVat - purchaseVat;
                     const margin = salesVat > 0 ? (profit / salesVat) * 100 : 0;
                     return (
@@ -248,9 +253,9 @@ export default function InvoiceForm({ orders, hospitals }: InvoiceFormProps) {
                         <TableCell className="text-xs text-muted-foreground">{item.order_number}</TableCell>
                         <TableCell className="text-xs">{item.product_name || "-"}</TableCell>
                         <TableCell className="text-xs text-right tabular-nums">{item.quantity}</TableCell>
-                        <TableCell className="text-xs text-right tabular-nums">{item.purchase_price != null ? Math.round(item.purchase_price * 1.1).toLocaleString() : "-"}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">{item.purchase_price != null ? round4(item.purchase_price * 1.1).toLocaleString() : "-"}</TableCell>
                         <TableCell className="text-xs text-right tabular-nums">{purchaseVat.toLocaleString()}</TableCell>
-                        <TableCell className="text-xs text-right tabular-nums">{item.unit_price != null ? Math.round(item.unit_price * 1.1).toLocaleString() : "-"}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">{item.unit_price != null ? round4(item.unit_price * 1.1).toLocaleString() : "-"}</TableCell>
                         <TableCell className="text-xs text-right tabular-nums">{salesVat.toLocaleString()}</TableCell>
                         <TableCell className={`text-xs text-right tabular-nums ${profit < 0 ? "text-red-500" : "text-green-600"}`}>
                           {profit.toLocaleString()}

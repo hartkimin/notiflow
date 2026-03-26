@@ -5,16 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
-import type {
-  TaxInvoiceDetail,
-  TaxInvoiceStatus,
-} from "@/lib/tax-invoice/types";
+import type { TaxInvoiceDetail } from "@/lib/tax-invoice/types";
+import { round4 } from "@/lib/utils";
 import {
   issueInvoice,
   cancelInvoice,
   deleteInvoice,
 } from "@/lib/tax-invoice/service";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -44,20 +41,6 @@ import { Textarea } from "@/components/ui/textarea";
 // Helpers
 // ---------------------------------------------------------------------------
 
-const STATUS_MAP: Record<
-  TaxInvoiceStatus,
-  {
-    label: string;
-    variant: "default" | "secondary" | "outline" | "destructive";
-    className?: string;
-  }
-> = {
-  draft: { label: "임시", variant: "secondary" },
-  issued: { label: "발행", variant: "default" },
-  sent: { label: "전송", variant: "outline", className: "text-blue-600" },
-  cancelled: { label: "취소", variant: "destructive" },
-  modified: { label: "수정", variant: "outline" },
-};
 
 function formatBizNo(biz: string | null): string {
   if (!biz || biz.length !== 10) return biz || "-";
@@ -90,8 +73,6 @@ export default function InvoiceDetailClient({ invoice }: Props) {
   const [cancelReason, setCancelReason] = useState("");
   const [issueOpen, setIssueOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-
-  const status = STATUS_MAP[invoice.status];
 
   // -- Actions ---------------------------------------------------------------
 
@@ -158,47 +139,54 @@ export default function InvoiceDetailClient({ invoice }: Props) {
             </Link>
           </Button>
           <h1 className="text-2xl font-bold">{invoice.invoice_number}</h1>
-          <Badge variant={status.variant} className={status.className}>
-            {status.label}
-          </Badge>
+          <div className="flex h-7 rounded-md border bg-muted/40 p-0.5">
+            <button
+              type="button"
+              disabled={isPending || invoice.status === "issued"}
+              onClick={() => invoice.status !== "issued" && setIssueOpen(true)}
+              className={`px-3 text-xs font-semibold rounded-sm transition-colors ${
+                invoice.status !== "cancelled"
+                  ? "bg-green-100 text-green-700 shadow-sm"
+                  : "text-muted-foreground hover:text-green-700"
+              }`}
+            >
+              완료
+            </button>
+            <button
+              type="button"
+              disabled={isPending || invoice.status === "cancelled"}
+              onClick={() => invoice.status !== "cancelled" && setCancelOpen(true)}
+              className={`px-3 text-xs font-semibold rounded-sm transition-colors ${
+                invoice.status === "cancelled"
+                  ? "bg-red-100 text-red-600 shadow-sm"
+                  : "text-muted-foreground hover:text-red-600"
+              }`}
+            >
+              취소
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <a
+              href={`/api/tax-invoice/${invoice.id}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              PDF 다운로드
+            </a>
+          </Button>
           {invoice.status === "draft" && (
-            <>
-              <Button onClick={() => setIssueOpen(true)} disabled={isPending}>
-                발행 확정
-              </Button>
-              <Button
-                variant="outline"
-                className="text-destructive"
-                onClick={() => setDeleteOpen(true)}
-                disabled={isPending}
-              >
-                삭제
-              </Button>
-            </>
-          )}
-          {invoice.status === "issued" && (
-            <>
-              <Button variant="outline" asChild>
-                <a
-                  href={`/api/tax-invoice/${invoice.id}/pdf`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  PDF 다운로드
-                </a>
-              </Button>
-              <Button
-                variant="outline"
-                className="text-destructive"
-                onClick={() => setCancelOpen(true)}
-                disabled={isPending}
-              >
-                취소
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive"
+              onClick={() => setDeleteOpen(true)}
+              disabled={isPending}
+            >
+              삭제
+            </Button>
           )}
         </div>
       </div>
@@ -287,9 +275,10 @@ export default function InvoiceDetailClient({ invoice }: Props) {
 
       {/* Amount summary */}
       {(() => {
-        const calcSupply = invoice.supply_amount || invoice.items.reduce((s, i) => s + (i.unit_price ?? 0) * (i.quantity ?? 0), 0);
-        const calcTax = invoice.tax_amount || Math.round(calcSupply * 0.1);
-        const calcTotal = invoice.total_amount || (calcSupply + calcTax);
+        const itemsSupply = invoice.items.reduce((s, i) => s + (i.unit_price ?? 0) * (i.quantity ?? 0), 0);
+        const calcSupply = (invoice.supply_amount != null && invoice.supply_amount > 0) ? invoice.supply_amount : itemsSupply;
+        const calcTax = (invoice.tax_amount != null && invoice.tax_amount > 0) ? invoice.tax_amount : round4(calcSupply * 0.1);
+        const calcTotal = (invoice.total_amount != null && invoice.total_amount > 0) ? invoice.total_amount : (calcSupply + calcTax);
         return (
           <div className="grid grid-cols-3 gap-4">
             <Card>
@@ -355,29 +344,29 @@ export default function InvoiceDetailClient({ invoice }: Props) {
                       {item.quantity.toLocaleString("ko-KR")}
                     </TableCell>
                     <TableCell className="text-right">
-                      {item.purchase_price != null ? formatAmount(Math.round(item.purchase_price * 1.1)) : "-"}
+                      {item.purchase_price != null ? formatAmount(round4(item.purchase_price * 1.1)) : "-"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {item.purchase_price != null ? formatAmount(Math.round(item.purchase_price * 1.1) * item.quantity) : "-"}
+                      {item.purchase_price != null ? formatAmount(round4(item.purchase_price * 1.1) * item.quantity) : "-"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatAmount(Math.round(item.unit_price * 1.1))}
+                      {formatAmount(round4(item.unit_price * 1.1))}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatAmount(Math.round(item.unit_price * 1.1) * item.quantity)}
+                      {formatAmount(round4(item.unit_price * 1.1) * item.quantity)}
                     </TableCell>
                     <TableCell className="text-right">
                       {item.purchase_price != null ? (() => {
-                        const sellVat = Math.round(item.unit_price * 1.1) * item.quantity;
-                        const purchVat = Math.round(item.purchase_price * 1.1) * item.quantity;
+                        const sellVat = round4(item.unit_price * 1.1) * item.quantity;
+                        const purchVat = round4(item.purchase_price * 1.1) * item.quantity;
                         const profit = sellVat - purchVat;
                         return <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{formatAmount(profit)}</span>;
                       })() : "-"}
                     </TableCell>
                     <TableCell className="text-right">
                       {item.purchase_price != null ? (() => {
-                        const sellVat = Math.round(item.unit_price * 1.1) * item.quantity;
-                        const purchVat = Math.round(item.purchase_price * 1.1) * item.quantity;
+                        const sellVat = round4(item.unit_price * 1.1) * item.quantity;
+                        const purchVat = round4(item.purchase_price * 1.1) * item.quantity;
                         const profit = sellVat - purchVat;
                         const rate = sellVat > 0 ? (profit / sellVat) * 100 : 0;
                         return <span className={rate < 0 ? "text-red-500" : ""}>{rate.toFixed(1)}%</span>;

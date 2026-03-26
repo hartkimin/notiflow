@@ -21,10 +21,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Loader2, Check, ChevronDown, ChevronRight, RefreshCw, Trash2, Database, Square, PenLine, Pencil } from "lucide-react";
+import { Plus, Loader2, ChevronDown, ChevronRight, RefreshCw, Trash2, Database, Square, PenLine, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   searchMfdsItems,
   searchMyItems,
@@ -177,7 +176,6 @@ export function MfdsSearchPanel({
     { key: "change_date", label: "변경일자", group: "변경 이력", placeholder: "YYYYMMDD" },
   ];
 
-  const DRUG_FIELDS = DRUG_FIELDS_GROUPED.map(({ key, label, required }) => ({ key, label, required }));
 
   type FieldType = "text" | "select" | "yn";
   interface DeviceField { key: string; label: string; required?: boolean; type?: FieldType; options?: string[]; group: string; placeholder?: string }
@@ -210,8 +208,6 @@ export function MfdsSearchPanel({
     { key: "total_dev", label: "총 기기수", group: "속성", placeholder: "숫자" },
   ];
 
-  // Flat version for backward compat
-  const DEVICE_FIELDS = DEVICE_FIELDS_GROUPED.map(({ key, label, required }) => ({ key, label, required }));
 
   const [addAnother, setAddAnother] = useState(false);
 

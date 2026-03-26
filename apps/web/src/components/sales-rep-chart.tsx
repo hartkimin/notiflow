@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useCallback } from "react";
+import { useState, useEffect, useTransition } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, Cell, LabelList,
@@ -18,6 +18,35 @@ function fmt(n: number) {
 }
 
 const COLORS = ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#84cc16"];
+
+interface ChartDataItem {
+  name: string;
+  매출: number;
+  이익: number;
+  이익률: number;
+  건수: number;
+  _color: string;
+}
+
+function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: ChartDataItem }> }) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  return (
+    <div className="rounded-lg border bg-background/95 backdrop-blur-sm p-3 shadow-xl text-sm space-y-1.5">
+      <p className="font-bold text-foreground">{d.name}</p>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+        <span className="text-muted-foreground">매출</span>
+        <span className="font-semibold tabular-nums text-right text-blue-600">₩{fmt(d.매출)}</span>
+        <span className="text-muted-foreground">이익</span>
+        <span className={`font-semibold tabular-nums text-right ${d.이익 >= 0 ? "text-emerald-600" : "text-red-500"}`}>₩{fmt(d.이익)}</span>
+        <span className="text-muted-foreground">이익률</span>
+        <span className="font-semibold tabular-nums text-right">{d.이익률}%</span>
+        <span className="text-muted-foreground">주문</span>
+        <span className="font-semibold tabular-nums text-right">{d.건수}건</span>
+      </div>
+    </div>
+  );
+}
 
 interface SalesRepChartProps {
   initialData: SalesRepPerformance[];
@@ -67,7 +96,6 @@ export function SalesRepChart({ initialData, initialMonth }: SalesRepChartProps)
         setData([]);
       }
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, viewMode]);
 
   function navigate(dir: -1 | 1) {
@@ -97,26 +125,6 @@ export function SalesRepChart({ initialData, initialMonth }: SalesRepChartProps)
   const totalRevenue = data.reduce((s, d) => s + d.revenue, 0);
   const totalProfit = data.reduce((s, d) => s + d.profit, 0);
   const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
-
-  const CustomTooltip = useCallback(({ active, payload }: { active?: boolean; payload?: Array<{ payload: typeof chartData[0] }> }) => {
-    if (!active || !payload?.length) return null;
-    const d = payload[0].payload;
-    return (
-      <div className="rounded-lg border bg-background/95 backdrop-blur-sm p-3 shadow-xl text-sm space-y-1.5">
-        <p className="font-bold text-foreground">{d.name}</p>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
-          <span className="text-muted-foreground">매출</span>
-          <span className="font-semibold tabular-nums text-right text-blue-600">₩{fmt(d.매출)}</span>
-          <span className="text-muted-foreground">이익</span>
-          <span className={`font-semibold tabular-nums text-right ${d.이익 >= 0 ? "text-emerald-600" : "text-red-500"}`}>₩{fmt(d.이익)}</span>
-          <span className="text-muted-foreground">이익률</span>
-          <span className="font-semibold tabular-nums text-right">{d.이익률}%</span>
-          <span className="text-muted-foreground">주문</span>
-          <span className="font-semibold tabular-nums text-right">{d.건수}건</span>
-        </div>
-      </div>
-    );
-  }, []);
 
   return (
     <Card className="shadow-sm">

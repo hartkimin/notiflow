@@ -5,8 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { confirmOrderAction, updateOrderStatusAction } from "@/app/(dashboard)/orders/actions";
-import { toast } from "sonner";
 import type { OrderDetail as OrderDetailType } from "@/lib/types";
 
 async function fetchOrderDetail(url: string): Promise<OrderDetailType> {
@@ -23,24 +21,6 @@ export function OrderDetail({ orderId }: { orderId: number }) {
 
   if (isLoading) return <p className="p-4 text-sm text-muted-foreground">로딩 중...</p>;
   if (error || !order) return <p className="p-4 text-sm text-destructive">주문 정보를 불러올 수 없습니다.</p>;
-
-  async function handleConfirm() {
-    try {
-      await confirmOrderAction(orderId);
-      toast.success("주문이 확인되었습니다.");
-    } catch {
-      toast.error("주문 확인에 실패했습니다.");
-    }
-  }
-
-  async function handleCancel() {
-    try {
-      await updateOrderStatusAction(orderId, "cancelled");
-      toast.success("주문이 취소되었습니다.");
-    } catch {
-      toast.error("주문 취소에 실패했습니다.");
-    }
-  }
 
   return (
     <div className="space-y-4 pt-4">

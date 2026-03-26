@@ -12,7 +12,6 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Plus, Pencil, Trash2, LayoutList, LayoutGrid, ArrowUp, ArrowDown,

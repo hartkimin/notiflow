@@ -39,15 +39,12 @@ import {
   Check,
   ChevronRight,
   ChevronsUpDown,
-  Copy,
-  ExternalLink,
   Pencil,
   Save,
   Trash2,
   X,
 } from "lucide-react";
 import {
-  confirmOrderAction,
   deleteOrdersAction,
   searchHospitalsAction,
   searchSuppliersAction,
@@ -72,7 +69,6 @@ import { useResizableColumns } from "@/hooks/use-resizable-columns";
 import { ResizableTh } from "@/components/resizable-th";
 import { toast } from "sonner";
 import type { OrderItemFlat } from "@/lib/types";
-import { ORDER_STATUS_LABELS as STATUS_LABEL, ORDER_STATUS_VARIANT as STATUS_VARIANT } from "@/lib/order-status";
 
 export interface ProductOption {
   id: number;
@@ -123,7 +119,6 @@ export function OrderTable({
   products?: ProductOption[];
   invoicedOrderIds?: Set<number>;
 }) {
-  const vatMultiplier = 1.1;
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const groups = useMemo(() => {
@@ -391,24 +386,6 @@ function OrderAccordionContent({
   const [productOpenId, setProductOpenId] = useState<number | null>(null);
   const [kpisEditId, setKpisEditId] = useState<number | null>(null);
   const [kpisNotes, setKpisNotes] = useState("");
-
-  async function handleConfirm() {
-    try {
-      await confirmOrderAction(group.order_id);
-      toast.success("주문이 확인되었습니다.");
-    } catch {
-      toast.error("주문 확인에 실패했습니다.");
-    }
-  }
-
-  async function handleCancel() {
-    try {
-      await updateOrderStatusAction(group.order_id, "cancelled");
-      toast.success("주문이 취소되었습니다.");
-    } catch {
-      toast.error("주문 취소에 실패했습니다.");
-    }
-  }
 
   function handleStartEdit() {
     const initial: Record<number, ItemEdits> = {};

@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { round4, fmt4 } from "@/lib/utils";
+import { round4 } from "@/lib/utils";
 import {
   Card,
   CardContent,

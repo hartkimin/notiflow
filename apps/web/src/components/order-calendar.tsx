@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataCalendar } from "@/components/data-calendar";
 import type { CalendarView } from "@/lib/schedule-utils";

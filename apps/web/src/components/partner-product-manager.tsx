@@ -72,6 +72,7 @@ export function PartnerProductManager({ partnerType, partnerId }: PartnerProduct
 
   useEffect(() => {
     loadProducts();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [partnerId]);
 
   // Cleanup delete timers on unmount

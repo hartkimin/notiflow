@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { MessageSquare } from "lucide-react";
 import { MessageTable } from "./message-table";
 import { AccordionDetail } from "./accordion-detail";
 import { BulkActionBar } from "./bulk-action-bar";

@@ -830,7 +830,6 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                 </TableHeader>
                 <TableBody>
                   {items.map((item, idx) => {
-                    const lineTotal = round4((item.selling_price ?? 0) * 1.1) * item.quantity;
                     return (
                       <TableRow key={item.key} className={`${idx % 2 === 1 ? "bg-muted/20" : ""} ${flashKey === item.key ? "animate-pulse bg-green-50" : ""} transition-colors`}>
                         <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>

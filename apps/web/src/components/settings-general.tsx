@@ -4,20 +4,16 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Bot, Key, Eye, EyeOff, Loader2, CheckCircle,
-  RefreshCw, Columns3, Pill,
+  Bot, RefreshCw, Columns3,
 } from "lucide-react";
 import { updateSettingAction, updateOrderDisplayColumnsAction } from "@/app/(dashboard)/settings/actions";
-import type { AISettings, AIProvider, OrderDisplayColumns } from "@/lib/queries/settings";
+import type { AISettings, OrderDisplayColumns } from "@/lib/queries/settings";
 
 // ─── Config ────────────────────────────────────────────────────────
 
@@ -31,37 +27,6 @@ const INTERVAL_OPTIONS = [
   { value: "30", label: "30분" },
   { value: "0", label: "비활성화" },
 ];
-
-const PROVIDERS = [
-  { value: "anthropic" as const, label: "Anthropic (Claude)", placeholder: "sk-ant-api03-..." },
-  { value: "google" as const, label: "Google (Gemini)", placeholder: "AIza..." },
-  { value: "openai" as const, label: "OpenAI (GPT)", placeholder: "sk-..." },
-  { value: "ollama" as const, label: "Ollama (로컬 LLM)", placeholder: "" },
-];
-
-const MODELS: Record<AIProvider, Array<{ value: string; label: string; desc: string }>> = {
-  anthropic: [
-    { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", desc: "빠르고 경제적" },
-    { value: "claude-sonnet-4-6-20260220", label: "Claude Sonnet 4.6", desc: "균형잡힌 성능" },
-    { value: "claude-opus-4-6-20260219", label: "Claude Opus 4.6", desc: "최고 품질" },
-  ],
-  google: [
-    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash", desc: "빠르고 경제적 (추천)" },
-    { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite", desc: "초저지연" },
-    { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro", desc: "고품질 추론" },
-  ],
-  openai: [
-    { value: "gpt-4.1-mini", label: "GPT-4.1 Mini", desc: "빠르고 경제적 (최신)" },
-    { value: "gpt-4.1", label: "GPT-4.1", desc: "고품질 (최신)" },
-    { value: "gpt-4o-mini", label: "GPT-4o Mini", desc: "빠르고 경제적" },
-    { value: "gpt-4o", label: "GPT-4o", desc: "고품질" },
-  ],
-  ollama: [
-    { value: "qwen3.5:latest", label: "Qwen 3.5 9.7B", desc: "고품질 추론 (추천)" },
-    { value: "qwen3.5:4b", label: "Qwen 3.5 4.7B", desc: "빠른 응답, 간단한 작업" },
-    { value: "llama3.3:latest", label: "Llama 3.3", desc: "Meta 오픈소스" },
-  ],
-};
 
 const MAX_COL_SELECTIONS = 4;
 
@@ -139,19 +104,6 @@ export function SettingsGeneral({ settings, displayColumns }: Props) {
   // Sync
   const [interval, setIntervalVal] = useState(String(settings.sync_interval_minutes));
 
-  // AI
-  const [enabled, setEnabled] = useState(settings.ai_enabled);
-  const [provider, setProvider] = useState<AIProvider>(settings.ai_provider);
-  const [model, setModel] = useState(settings.ai_model);
-
-  // API keys
-  const [apiKey, setApiKey] = useState("");
-  const [showKey, setShowKey] = useState(false);
-  const [isSavingKey, setIsSavingKey] = useState(false);
-  const [drugApiKey, setDrugApiKey] = useState("");
-  const [showDrugKey, setShowDrugKey] = useState(false);
-  const [isSavingDrugKey, setIsSavingDrugKey] = useState(false);
-
   // Columns
   const [drugCols, setDrugCols] = useState<string[]>(displayColumns.drug);
   const [deviceCols, setDeviceCols] = useState<string[]>(displayColumns.device);
@@ -166,49 +118,6 @@ export function SettingsGeneral({ settings, displayColumns }: Props) {
     });
   }
 
-  function handleProviderChange(v: AIProvider) {
-    setProvider(v);
-    const first = MODELS[v]?.[0]?.value ?? "";
-    setModel(first);
-    setApiKey(""); setShowKey(false);
-    startTransition(async () => {
-      try {
-        await updateSettingAction("ai_provider", v);
-        await updateSettingAction("ai_model", first);
-        toast.success("AI 제공자가 변경되었습니다.");
-        router.refresh();
-      } catch { toast.error("설정 저장에 실패했습니다."); }
-    });
-  }
-
-  async function saveApiKey(type: "ai" | "drug") {
-    const key = type === "ai" ? apiKey : drugApiKey;
-    if (!key.trim()) { toast.error("API 키를 입력하세요."); return; }
-    const setter = type === "ai" ? setIsSavingKey : setIsSavingDrugKey;
-    setter(true);
-    try {
-      const settingKey = type === "ai" ? `ai_api_key_${provider}` : "drug_api_service_key";
-      await updateSettingAction(settingKey, key.trim());
-      toast.success("API 키가 저장되었습니다.");
-      if (type === "ai") { setApiKey(""); setShowKey(false); }
-      else { setDrugApiKey(""); setShowDrugKey(false); }
-      router.refresh();
-    } catch { toast.error("API 키 저장에 실패했습니다."); }
-    finally { setter(false); }
-  }
-
-  async function deleteApiKey(type: "ai" | "drug") {
-    const setter = type === "ai" ? setIsSavingKey : setIsSavingDrugKey;
-    setter(true);
-    try {
-      const settingKey = type === "ai" ? `ai_api_key_${provider}` : "drug_api_service_key";
-      await updateSettingAction(settingKey, "");
-      toast.success("API 키가 삭제되었습니다.");
-      router.refresh();
-    } catch { toast.error("API 키 삭제에 실패했습니다."); }
-    finally { setter(false); }
-  }
-
   function handleSaveColumns() {
     startTransition(async () => {
       try {
@@ -217,10 +126,6 @@ export function SettingsGeneral({ settings, displayColumns }: Props) {
       } catch { toast.error("설정 저장에 실패했습니다."); }
     });
   }
-
-  const currentKeyInfo = settings.ai_api_keys[provider];
-  const providerModels = MODELS[provider] ?? [];
-  const providerConfig = PROVIDERS.find((p) => p.value === provider);
 
   return (
     <div className="grid gap-4 max-w-3xl">

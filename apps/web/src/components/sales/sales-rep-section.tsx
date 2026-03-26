@@ -10,7 +10,6 @@ import { downloadExcel } from "./excel-download";
 import type { SalesRepDetail, SalesRepHospitalDetail } from "@/lib/queries/sales-stats";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
-const CHART_COLORS = ["#006a34", "#38a169", "#68d391", "#f6ad55", "#fc8181", "#a78bfa", "#63b3ed", "#f687b3"];
 
 function fmt(n: number) {
   if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)}억`;

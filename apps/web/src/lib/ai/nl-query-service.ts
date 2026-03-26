@@ -26,6 +26,7 @@ export type NLQueryIntent =
   | "partner_products"
   | "kpis_report"
   | "order_comments"
+  | "sales_rep_info"
   | "general_question"
   | "unknown";
 
@@ -38,7 +39,7 @@ interface IntentResult {
 // ─── Intent Classification Prompt ───────────────
 
 const INTENT_SYSTEM_PROMPT = `의도분류기. JSON출력: {"intent":"카테고리","params":{},"confidence":0.9}
-의도: order_status(주문현황) order_detail(ORD-번호상세) order_stats(주문통계) product_search(제품검색) product_stock(제품수량) hospital_info(병원정보) hospital_orders(병원주문) supplier_info(공급사) delivery_status(배송) sales_report(매출) profit_analysis(이익/마진) invoice_status(세금계산서) mfds_search(식약처검색) period_comparison(기간비교) recent_messages(최근메시지) device_status(기기상태) user_list(사용자) audit_log(변경이력) partner_products(거래처품목) kpis_report(KPIS신고) order_comments(코멘트) general_question(일반) unknown
+의도: order_status(주문현황) order_detail(ORD-번호상세) order_stats(주문통계) product_search(제품검색) product_stock(제품수량) hospital_info(병원정보) hospital_orders(병원주문) supplier_info(공급사) delivery_status(배송) sales_report(매출) profit_analysis(이익/마진) invoice_status(세금계산서) mfds_search(식약처검색) period_comparison(기간비교) recent_messages(최근메시지) device_status(기기상태) user_list(사용자) audit_log(변경이력) partner_products(거래처품목) kpis_report(KPIS신고) order_comments(코멘트) sales_rep_info(영업담당자/담당자조회/담당자매출/매출1위/담당자순위/담당자실적) general_question(일반) unknown
 매개변수: hospital_name supplier_name product_name order_number period(today/this_week/this_month/last_month) compare_period(last_month) status(draft/confirmed/delivered/invoiced) sales_rep limit`;
 
 // ─── Response Generation Prompt ─────────────────
@@ -383,6 +384,77 @@ const QUERY_MAP: Record<string, QueryExecutor> = {
     return data;
   },
 
+  sales_rep_info: async (p) => {
+    const sb = createAdminClient();
+    const { dateFrom, dateTo } = resolvePeriod(p.period as string);
+
+    // Specific hospital lookup
+    if (p.hospital_name) {
+      const { data } = await sb.from("hospitals").select("id, name, contact_person, phone, address")
+        .ilike("name", `%${escapeLikeValue(p.hospital_name as string)}%`).eq("is_active", true).limit(5);
+      return { query: "거래처별 영업담당자", hospitals: (data ?? []).map(h => ({ name: h.name, sales_rep: h.contact_person ?? "미지정", phone: h.phone, address: h.address })) };
+    }
+
+    // Specific sales_rep lookup
+    if (p.sales_rep) {
+      const repName = escapeLikeValue(p.sales_rep as string);
+      // Hospital assignments
+      const { data: hospitals } = await sb.from("hospitals").select("id, name, contact_person, phone")
+        .ilike("contact_person", `%${repName}%`).eq("is_active", true);
+      // Sales performance from order_items
+      const { data: items } = await sb.from("order_items")
+        .select("quantity, unit_price, purchase_price, orders!inner(order_date, status, hospitals(name))")
+        .ilike("sales_rep", `%${repName}%`)
+        .gte("orders.order_date", dateFrom).lte("orders.order_date", dateTo);
+      const revenue = (items ?? []).reduce((s, i) => s + (Number(i.unit_price ?? 0) * i.quantity), 0);
+      const purchase = (items ?? []).reduce((s, i) => s + (Number(i.purchase_price ?? 0) * i.quantity), 0);
+      return {
+        query: `담당자 "${p.sales_rep}" 실적`,
+        rep_name: p.sales_rep,
+        period: `${dateFrom} ~ ${dateTo}`,
+        hospitals: (hospitals ?? []).map(h => ({ name: h.name, phone: h.phone })),
+        performance: { order_items: (items ?? []).length, revenue, purchase, profit: revenue - purchase, margin: revenue > 0 ? ((revenue - purchase) / revenue * 100).toFixed(1) + "%" : "0%" },
+      };
+    }
+
+    // All sales reps with performance ranking from order_items
+    const { data: items } = await sb.from("order_items")
+      .select("sales_rep, quantity, unit_price, purchase_price, orders!inner(order_date)")
+      .gte("orders.order_date", dateFrom).lte("orders.order_date", dateTo);
+
+    const byRep: Record<string, { revenue: number; purchase: number; count: number }> = {};
+    for (const i of items ?? []) {
+      const rep = i.sales_rep ?? "미지정";
+      if (!byRep[rep]) byRep[rep] = { revenue: 0, purchase: 0, count: 0 };
+      byRep[rep].revenue += Number(i.unit_price ?? 0) * i.quantity;
+      byRep[rep].purchase += Number(i.purchase_price ?? 0) * i.quantity;
+      byRep[rep].count++;
+    }
+
+    // Hospital assignments
+    const { data: hospitalData } = await sb.from("hospitals").select("name, contact_person").eq("is_active", true);
+    const repHospitals: Record<string, string[]> = {};
+    for (const h of hospitalData ?? []) {
+      const rep = h.contact_person ?? "미지정";
+      if (!repHospitals[rep]) repHospitals[rep] = [];
+      repHospitals[rep].push(h.name);
+    }
+
+    const ranking = Object.entries(byRep)
+      .map(([rep, v]) => ({
+        sales_rep: rep,
+        order_items: v.count,
+        revenue: v.revenue,
+        purchase: v.purchase,
+        profit: v.revenue - v.purchase,
+        margin: v.revenue > 0 ? ((v.revenue - v.purchase) / v.revenue * 100).toFixed(1) + "%" : "0%",
+        hospitals: repHospitals[rep] ?? [],
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+
+    return { query: "영업담당자 매출 순위", period: `${dateFrom} ~ ${dateTo}`, ranking };
+  },
+
   order_comments: async (p) => {
     const sb = createAdminClient();
     let q = sb.from("order_comments").select("id, content, created_at, order_id, orders(order_number), user_profiles(name)");
@@ -465,6 +537,50 @@ function tryDirectFormat(intent: string, _question: string, data: unknown): stri
         `• **${u.name}** — ${u.role} ${u.is_active ? "✅" : "❌ 비활성"}`
       ).join("\n");
     }
+    case "sales_rep_info": {
+      const info = d as {
+        query?: string; period?: string;
+        hospitals?: Array<{name:string;sales_rep?:string;phone?:string}>;
+        ranking?: Array<{sales_rep:string;order_items:number;revenue:number;purchase:number;profit:number;margin:string;hospitals:string[]}>;
+        rep_name?: string;
+        performance?: {order_items:number;revenue:number;purchase:number;profit:number;margin:string};
+      };
+      // Ranking table
+      if (info.ranking) {
+        const lines = [`**${info.query}** (${info.period})\n`];
+        lines.push("| 순위 | 영업담당자 | 매출액 | 매입액 | 이익 | 이익률 | 건수 | 담당 거래처 |");
+        lines.push("|---|---|---|---|---|---|---|---|");
+        info.ranking.forEach((r, i) => {
+          const hospStr = r.hospitals.slice(0, 3).join(", ") + (r.hospitals.length > 3 ? ` 외 ${r.hospitals.length - 3}개` : "");
+          lines.push(`| ${i + 1} | **${r.sales_rep}** | ${fmt(r.revenue)} | ${fmt(r.purchase)} | ${fmt(r.profit)} | ${r.margin} | ${r.order_items} | ${hospStr || "-"} |`);
+        });
+        return lines.join("\n");
+      }
+      // Individual rep detail
+      if (info.rep_name && info.performance) {
+        const perf = info.performance;
+        const lines = [`**${info.query}** (${info.period})\n`];
+        lines.push(`매출: **${fmt(perf.revenue)}** / 매입: ${fmt(perf.purchase)} / 이익: **${fmt(perf.profit)}** (${perf.margin})`);
+        lines.push(`주문 품목 수: ${perf.order_items}건\n`);
+        if (info.hospitals?.length) {
+          lines.push("**담당 거래처:**");
+          for (const h of info.hospitals) lines.push(`• ${h.name}${h.phone ? ` (${h.phone})` : ""}`);
+        }
+        return lines.join("\n");
+      }
+      // Hospital list
+      if (info.hospitals) {
+        if (info.hospitals.length === 0) return "해당 조건의 거래처를 찾을 수 없습니다.";
+        const lines = [`**${info.query}**\n`];
+        lines.push("| 거래처 | 영업담당자 | 전화번호 |");
+        lines.push("|---|---|---|");
+        for (const h of info.hospitals) {
+          lines.push(`| ${h.name} | ${h.sales_rep ?? "-"} | ${h.phone ?? "-"} |`);
+        }
+        return lines.join("\n");
+      }
+      return null;
+    }
     default:
       return null; // Use LLM for complex queries
   }
@@ -505,8 +621,12 @@ export async function processNaturalLanguageQuery(question: string): Promise<NLQ
 
   const { intent, params, confidence } = intentResult;
 
-  // Low confidence
-  if (confidence < 0.5) {
+  // Low confidence → try text-to-SQL first
+  if (confidence < 0.4) {
+    try {
+      const sqlResult = await executeTextToSQL(question);
+      if (sqlResult) return { question, intent, confidence, answer: sqlResult, durationMs: Date.now() - startMs };
+    } catch { /* fall through */ }
     return {
       question, intent, confidence,
       answer: "질문을 좀 더 구체적으로 해주시겠어요? 예: '이번 주 주문 현황', '투석액 검색', 'ORD-20260321-001 상세'",
@@ -539,7 +659,12 @@ export async function processNaturalLanguageQuery(question: string): Promise<NLQ
   // Step 2: Execute query
   const executor = QUERY_MAP[intent];
   if (!executor) {
-    return { question, intent, confidence, answer: `'${intent}' 유형의 조회는 아직 지원하지 않습니다.`, durationMs: Date.now() - startMs };
+    // No dedicated handler → try text-to-SQL
+    try {
+      const sqlResult = await executeTextToSQL(question);
+      if (sqlResult) return { question, intent, confidence, answer: sqlResult, durationMs: Date.now() - startMs };
+    } catch { /* fall through */ }
+    return { question, intent, confidence, answer: `'${intent}' 유형의 조회는 아직 지원하지 않습니다. 질문을 다시 표현해보세요.`, durationMs: Date.now() - startMs };
   }
 
   let queryResult: unknown;
@@ -571,33 +696,113 @@ export async function processNaturalLanguageQuery(question: string): Promise<NLQ
 // ─── Text-to-SQL Fallback ────────────────────────
 
 const DB_SCHEMA = `
-테이블 구조 (PostgreSQL):
+=== 테이블 구조 (PostgreSQL) ===
 
-orders (주문): id, order_number(ORD-YYYYMMDD-NNN), order_date(date), hospital_id(FK→hospitals), status(confirmed=미완료/delivered=완료), total_items, total_amount, delivery_date, notes, source_message_id, created_at
-order_items (주문품목): id, order_id(FK→orders), product_id, product_name, supplier_id(FK→suppliers), quantity, unit_type, unit_price(매출단가,VAT별도), purchase_price(매입단가,VAT별도), line_total, sales_rep, created_at
-hospitals (거래처/병원): id, name, short_name, phone, address, contact_person, business_number, is_active, ceo_name
-suppliers (공급사): id, name, short_name, phone, address, business_number, is_active, ceo_name
-my_drugs (내 의약품): id, alias(별칭), item_name(품목명), entp_name(업체명), bar_code, edi_code, unit_price, material_name
-my_devices (내 의료기기): id, alias(별칭), prdlst_nm(품목명), mnft_iprt_entp_nm(업체명), udidi_cd, unit_price, foml_info(모델명)
-captured_messages (수신메시지): id, app_name, sender, content, received_at(bigint epoch ms), is_read, is_deleted, room_name, device_id
-mobile_devices (모바일기기): id, device_name, device_model, app_version, os_version, is_active, last_sync_at, fcm_token
-user_profiles (사용자): id, name, role(admin/viewer), is_active
-partner_products (거래처품목): id, partner_type(hospital/supplier), partner_id, product_source(drug/device), product_id, unit_price
-mfds_drugs (식약처 의약품 DB): id, item_name, entp_name, bar_code, item_permit_date
-mfds_devices (식약처 의료기기 DB): id, prdlst_nm, mnft_iprt_entp_nm, udidi_cd, prmsn_ymd
+-- 1. my_drugs (내 관리 의약품, 117건)
+my_drugs: id SERIAL PK, item_seq TEXT(품목기준코드), item_name TEXT(품목명), item_eng_name TEXT(영문명),
+  entp_name TEXT(제조/수입사), entp_no TEXT(업체허가번호), item_permit_date TEXT(허가일 YYYYMMDD),
+  etc_otc_code TEXT(전문/일반 구분), chart TEXT(성상), bar_code TEXT(바코드),
+  material_name TEXT(원료성분), storage_method TEXT(저장방법 예:냉장보관),
+  valid_term TEXT(유효기간), pack_unit TEXT(포장단위), edi_code TEXT(보험코드),
+  atc_code TEXT(ATC분류코드), cancel_name TEXT(상태 정상/취소),
+  change_date TEXT(변경일), unit_price DECIMAL(단가), alias TEXT(별칭/약칭),
+  rare_drug_yn TEXT(희귀의약품 Y/N), permit_kind_name TEXT(허가종류)
 
-주의: VAT포함 금액 = 단가 × 1.1. supply_amount는 NULL이므로 사용 금지. order_items에서 직접 계산.
-captured_messages.received_at은 epoch milliseconds(bigint).
+-- 2. orders (주문, 54건)
+orders: id SERIAL PK, order_number VARCHAR(ORD-YYYYMMDD-NNN), order_date DATE(주문일),
+  hospital_id INT FK→hospitals(id), status TEXT(confirmed=미완료, delivered=완료, invoiced=계산서발행),
+  total_items INT(품목수), total_amount DECIMAL(총액), supply_amount DECIMAL(공급가액,대부분NULL),
+  tax_amount DECIMAL(부가세,대부분NULL), delivery_date DATE(납품예정일),
+  delivered_at TIMESTAMPTZ(실제납품일시), notes TEXT(메모), source_message_id TEXT(원본메시지),
+  created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
+
+-- 3. order_items (주문품목, 160건) ★매출/매입 핵심 테이블
+order_items: id SERIAL PK, order_id INT FK→orders(id), product_id INT FK→products,
+  product_name TEXT(품목명), supplier_id INT FK→suppliers(id),
+  quantity INT(수량), unit_type VARCHAR(단위: piece/box),
+  unit_price DECIMAL(매출단가,VAT별도), purchase_price DECIMAL(매입단가,VAT별도),
+  line_total DECIMAL(매출소계=unit_price*quantity), sales_rep VARCHAR(영업담당자),
+  box_spec_id INT, calculated_pieces INT, created_at TIMESTAMPTZ
+
+-- 4. tax_invoices (세금계산서, 4건)
+tax_invoices: id SERIAL PK, invoice_number VARCHAR(TI-YYYYMMDD-NNN), invoice_type TEXT(normal),
+  tax_type TEXT(tax), issue_date DATE(작성일), supply_date DATE(공급일),
+  supply_date_from DATE(공급기간시작), supply_date_to DATE(공급기간끝),
+  supplier_id INT, supplier_biz_no VARCHAR(공급자사업자번호), supplier_name VARCHAR(공급자상호),
+  supplier_ceo_name VARCHAR, supplier_address VARCHAR,
+  hospital_id INT FK→hospitals(id), buyer_biz_no VARCHAR(공급받는자사업자번호),
+  buyer_name VARCHAR(공급받는자상호), buyer_ceo_name VARCHAR,
+  buyer_address VARCHAR, buyer_email VARCHAR,
+  supply_amount DECIMAL(공급가액), tax_amount DECIMAL(부가세), total_amount DECIMAL(합계),
+  status TEXT(issued=발행, cancelled=취소, draft=임시),
+  remarks TEXT(비고), issued_at TIMESTAMPTZ(발행일시), cancelled_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
+
+-- 5. hospitals (거래처/병원, 43건)
+hospitals: id SERIAL PK, name VARCHAR(거래처명), short_name VARCHAR(약칭),
+  hospital_type TEXT(hospital/clinic/pharmacy/distributor/research/other),
+  phone VARCHAR(전화), address TEXT(주소), contact_person VARCHAR(영업담당자=거래처별),
+  business_number VARCHAR(사업자번호), ceo_name VARCHAR(대표자),
+  biz_type VARCHAR(업태), biz_item VARCHAR(종목), email VARCHAR,
+  payment_terms VARCHAR(결제조건), trade_start_date DATE(거래시작일),
+  lead_time_days INT(리드타임일수), delivery_notes TEXT(배송특이사항),
+  is_active BOOL(활성여부), lat DOUBLE(위도), lng DOUBLE(경도),
+  created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
+
+-- 6. suppliers (공급사, 40건)
+suppliers: id SERIAL PK, name VARCHAR(공급사명), short_name VARCHAR(약칭),
+  phone VARCHAR(전화), address TEXT(주소), business_number VARCHAR(사업자번호),
+  ceo_name VARCHAR(대표자), business_type VARCHAR(업태), business_category VARCHAR(업종),
+  website VARCHAR, fax VARCHAR, is_active BOOL(활성여부),
+  lat DOUBLE(위도), lng DOUBLE(경도),
+  created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
+
+=== JOIN 관계 ===
+orders.hospital_id → hospitals.id (주문↔거래처)
+order_items.order_id → orders.id (품목↔주문)
+order_items.supplier_id → suppliers.id (품목↔공급사)
+tax_invoices.hospital_id → hospitals.id (세금계산서↔거래처)
+
+=== 핵심 계산 공식 ===
+매출(VAT포함) = ROUND(unit_price * 1.1, 4) * quantity
+매입(VAT포함) = ROUND(purchase_price * 1.1, 4) * quantity
+이익 = 매출(VAT포함) - 매입(VAT포함)
+이익률 = (이익 / 매출) * 100
+공급가액 = unit_price * quantity
+부가세 = 공급가액 * 0.1
+
+=== 주의사항 ===
+- orders.supply_amount/tax_amount은 대부분 NULL → order_items에서 직접 계산할 것
+- 영업담당자 매출 실적 = order_items.sales_rep 기준 GROUP BY
+- 거래처 담당자 = hospitals.contact_person
+- 금액 비교/순위는 VAT포함 기준으로 계산
+- status 한국어 매핑: confirmed→미완료, delivered→완료, invoiced→계산서발행, issued→발행, cancelled→취소
 `;
 
-const SQL_SYSTEM_PROMPT = `PostgreSQL 전문가. 사용자 질문을 읽고 SELECT SQL만 생성.
+const SQL_SYSTEM_PROMPT = `PostgreSQL 전문가. 사용자의 자연어 질문을 읽고 정확한 SELECT SQL을 생성한다.
 ${DB_SCHEMA}
-규칙:
-- SELECT만 허용. INSERT/UPDATE/DELETE/DROP/ALTER 절대 금지.
-- LIMIT 50 이하만 사용
-- 금액 계산 시 VAT포함: ROUND(단가 * 1.1) * quantity
-- JSON 출력: {"sql":"SELECT ...", "description":"설명"}
-- 복잡한 질문이라도 반드시 SQL 생성. 생성 불가 시 {"sql":null,"description":"이유"}`;
+=== SQL 생성 규칙 ===
+- SELECT만 허용. INSERT/UPDATE/DELETE/DROP/ALTER/TRUNCATE 절대 금지
+- LIMIT 50 이하
+- 테이블 alias 사용: orders o, order_items oi, hospitals h, suppliers s, tax_invoices ti, my_drugs md
+- JOIN은 명시적으로: JOIN orders o ON oi.order_id = o.id
+- 금액 계산: ROUND(unit_price * 1.1, 4) * quantity (VAT포함)
+- 영업담당자 매출: GROUP BY oi.sales_rep, SUM(ROUND(oi.unit_price*1.1,4)*oi.quantity) as revenue
+- 기간 필터: o.order_date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD' (이번 달=당월1일~오늘)
+- 거래처별 집계: GROUP BY h.name (JOIN orders → hospitals)
+- 공급사별 매입: GROUP BY s.name (JOIN order_items → suppliers)
+- 품목 검색: ILIKE '%키워드%' (item_name, product_name, alias 등)
+- 순위: ORDER BY revenue DESC LIMIT 10
+- COUNT, SUM, AVG, MAX, MIN 적극 활용
+- JSON 출력: {"sql":"SELECT ...", "description":"한국어 설명"}
+- 생성 불가 시: {"sql":null,"description":"이유"}
+
+=== 질문→SQL 예시 ===
+"매출 1위 담당자" → SELECT oi.sales_rep, SUM(ROUND(oi.unit_price*1.1,4)*oi.quantity) as revenue FROM order_items oi JOIN orders o ON oi.order_id=o.id WHERE o.order_date>=date_trunc('month',CURRENT_DATE) GROUP BY oi.sales_rep ORDER BY revenue DESC LIMIT 10
+"거래처별 주문 금액" → SELECT h.name, COUNT(DISTINCT o.id) as orders, SUM(ROUND(oi.unit_price*1.1,4)*oi.quantity) as revenue FROM order_items oi JOIN orders o ON oi.order_id=o.id JOIN hospitals h ON o.hospital_id=h.id GROUP BY h.name ORDER BY revenue DESC
+"공급사별 매입 순위" → SELECT s.name, SUM(ROUND(oi.purchase_price*1.1,4)*oi.quantity) as purchase FROM order_items oi JOIN suppliers s ON oi.supplier_id=s.id GROUP BY s.name ORDER BY purchase DESC
+"냉장보관 품목" → SELECT item_name, entp_name, storage_method, unit_price FROM my_drugs WHERE storage_method ILIKE '%냉장%'
+"미발행 세금계산서 거래처" → SELECT h.name, COUNT(o.id) as cnt FROM orders o JOIN hospitals h ON o.hospital_id=h.id WHERE o.status='delivered' AND o.id NOT IN (SELECT tio.order_id FROM tax_invoice_orders tio JOIN tax_invoices ti ON tio.invoice_id=ti.id WHERE ti.status!='cancelled') GROUP BY h.name`;
 
 async function executeTextToSQL(question: string): Promise<string | null> {
   // Step 1: Generate SQL

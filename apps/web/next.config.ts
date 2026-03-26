@@ -23,10 +23,10 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com",
-      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com",
       "font-src 'self' https://cdn.jsdelivr.net",
-      "img-src 'self' data: blob:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co http://localhost:* https://fcm.googleapis.com https://oauth2.googleapis.com https://www.gstatic.com",
+      "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co http://localhost:* https://fcm.googleapis.com https://oauth2.googleapis.com https://www.gstatic.com https://*.tile.openstreetmap.org",
       "frame-ancestors 'none'",
     ].join("; "),
   },

@@ -22,7 +22,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { cancelInvoice, issueInvoice } from "@/lib/tax-invoice/service";
+import { Trash2 } from "lucide-react";
+import { cancelInvoice, issueInvoice, deleteInvoice } from "@/lib/tax-invoice/service";
 import type { TaxInvoice } from "@/lib/tax-invoice/types";
 
 interface InvoiceTableProps {
@@ -34,6 +35,7 @@ export default function InvoiceTable({ invoices }: InvoiceTableProps) {
   const [isPending, startTransition] = useTransition();
   const [cancelTarget, setCancelTarget] = useState<TaxInvoice | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<TaxInvoice | null>(null);
 
   function handleCancel() {
     if (!cancelTarget) return;
@@ -50,6 +52,20 @@ export default function InvoiceTable({ invoices }: InvoiceTableProps) {
         router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "취소 처리 중 오류가 발생했습니다.");
+      }
+    });
+  }
+
+  function handleDelete() {
+    if (!deleteTarget) return;
+    startTransition(async () => {
+      try {
+        await deleteInvoice(deleteTarget.id);
+        toast.success(`${deleteTarget.invoice_number} 삭제 완료`);
+        setDeleteTarget(null);
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "삭제 처리 중 오류가 발생했습니다.");
       }
     });
   }
@@ -118,6 +134,7 @@ export default function InvoiceTable({ invoices }: InvoiceTableProps) {
                   ₩{invoice.total_amount.toLocaleString()}
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-1">
                   <div className="flex h-6 rounded-md border bg-muted/40 p-0.5 w-fit">
                     <button
                       type="button"
@@ -143,6 +160,19 @@ export default function InvoiceTable({ invoices }: InvoiceTableProps) {
                     >
                       취소
                     </button>
+                  </div>
+                  {invoice.status === "cancelled" && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-muted-foreground hover:text-red-500"
+                      title="삭제"
+                      disabled={isPending}
+                      onClick={() => setDeleteTarget(invoice)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -171,6 +201,25 @@ export default function InvoiceTable({ invoices }: InvoiceTableProps) {
             </Button>
             <Button variant="destructive" onClick={handleCancel} disabled={isPending}>
               {isPending ? "처리 중..." : "취소 확정"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>세금계산서 삭제</DialogTitle>
+            <DialogDescription>
+              {deleteTarget?.invoice_number} ({deleteTarget?.buyer_name})를 완전히 삭제합니다. 이 작업은 되돌릴 수 없습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={isPending}>
+              닫기
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isPending}>
+              {isPending ? "처리 중..." : "삭제"}
             </Button>
           </DialogFooter>
         </DialogContent>

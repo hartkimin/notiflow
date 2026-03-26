@@ -338,8 +338,8 @@ export async function deleteInvoice(invoiceId: number) {
     .select("status")
     .eq("id", invoiceId)
     .single();
-  if (!invoice || invoice.status !== "draft") {
-    throw new Error("초안 상태의 세금계산서만 삭제할 수 있습니다.");
+  if (!invoice || (invoice.status !== "draft" && invoice.status !== "cancelled")) {
+    throw new Error("취소 또는 임시 상태의 세금계산서만 삭제할 수 있습니다.");
   }
 
   const { data: linkedOrders } = await supabase

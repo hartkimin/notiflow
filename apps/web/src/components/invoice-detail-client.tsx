@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import type { TaxInvoiceDetail } from "@/lib/tax-invoice/types";
+import { round4 } from "@/lib/utils";
 import {
   issueInvoice,
   cancelInvoice,
@@ -276,7 +277,7 @@ export default function InvoiceDetailClient({ invoice }: Props) {
       {(() => {
         const itemsSupply = invoice.items.reduce((s, i) => s + (i.unit_price ?? 0) * (i.quantity ?? 0), 0);
         const calcSupply = (invoice.supply_amount != null && invoice.supply_amount > 0) ? invoice.supply_amount : itemsSupply;
-        const calcTax = (invoice.tax_amount != null && invoice.tax_amount > 0) ? invoice.tax_amount : Math.round(calcSupply * 0.1);
+        const calcTax = (invoice.tax_amount != null && invoice.tax_amount > 0) ? invoice.tax_amount : round4(calcSupply * 0.1);
         const calcTotal = (invoice.total_amount != null && invoice.total_amount > 0) ? invoice.total_amount : (calcSupply + calcTax);
         return (
           <div className="grid grid-cols-3 gap-4">
@@ -343,29 +344,29 @@ export default function InvoiceDetailClient({ invoice }: Props) {
                       {item.quantity.toLocaleString("ko-KR")}
                     </TableCell>
                     <TableCell className="text-right">
-                      {item.purchase_price != null ? formatAmount(Math.round(item.purchase_price * 1.1)) : "-"}
+                      {item.purchase_price != null ? formatAmount(round4(item.purchase_price * 1.1)) : "-"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {item.purchase_price != null ? formatAmount(Math.round(item.purchase_price * 1.1) * item.quantity) : "-"}
+                      {item.purchase_price != null ? formatAmount(round4(item.purchase_price * 1.1) * item.quantity) : "-"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatAmount(Math.round(item.unit_price * 1.1))}
+                      {formatAmount(round4(item.unit_price * 1.1))}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatAmount(Math.round(item.unit_price * 1.1) * item.quantity)}
+                      {formatAmount(round4(item.unit_price * 1.1) * item.quantity)}
                     </TableCell>
                     <TableCell className="text-right">
                       {item.purchase_price != null ? (() => {
-                        const sellVat = Math.round(item.unit_price * 1.1) * item.quantity;
-                        const purchVat = Math.round(item.purchase_price * 1.1) * item.quantity;
+                        const sellVat = round4(item.unit_price * 1.1) * item.quantity;
+                        const purchVat = round4(item.purchase_price * 1.1) * item.quantity;
                         const profit = sellVat - purchVat;
                         return <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{formatAmount(profit)}</span>;
                       })() : "-"}
                     </TableCell>
                     <TableCell className="text-right">
                       {item.purchase_price != null ? (() => {
-                        const sellVat = Math.round(item.unit_price * 1.1) * item.quantity;
-                        const purchVat = Math.round(item.purchase_price * 1.1) * item.quantity;
+                        const sellVat = round4(item.unit_price * 1.1) * item.quantity;
+                        const purchVat = round4(item.purchase_price * 1.1) * item.quantity;
                         const profit = sellVat - purchVat;
                         const rate = sellVat > 0 ? (profit / sellVat) * 100 : 0;
                         return <span className={rate < 0 ? "text-red-500" : ""}>{rate.toFixed(1)}%</span>;

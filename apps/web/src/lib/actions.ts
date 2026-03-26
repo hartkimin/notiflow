@@ -165,7 +165,7 @@ export async function deleteOrders(ids: number[]) {
 
 export async function updateOrderItem(
   id: number,
-  data: { quantity?: number; unit_price?: number; product_id?: number; supplier_id?: number | null },
+  data: { quantity?: number; unit_price?: number; purchase_price?: number; product_id?: number; supplier_id?: number | null; sales_rep?: string },
 ) {
   const supabase = await createClient();
   const { error } = await supabase.from("order_items").update(data).eq("id", id);

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { round4 } from "@/lib/utils";
 import type { TaxInvoice } from "./types";
 import { validateForIssue } from "./validator";
 
@@ -34,7 +35,7 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
     (sum, item) => sum + ((item.line_total as number) || ((item.quantity as number) * ((item.unit_price as number) || 0))),
     0,
   );
-  const taxAmount = Math.round(supplyAmount * 0.1);
+  const taxAmount = round4(supplyAmount * 0.1);
   const totalAmount = supplyAmount + taxAmount;
 
   const { data: invoice, error: invoiceErr } = await supabase
@@ -82,7 +83,7 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
     unit_price: (item.unit_price as number) || 0,
     purchase_price: (item.purchase_price as number) || null,
     supply_amount: (item.line_total as number) || 0,
-    tax_amount: Math.round(((item.line_total as number) || 0) * 0.1),
+    tax_amount: round4(((item.line_total as number) || 0) * 0.1),
   }));
 
   if (items.length > 0) {
@@ -147,7 +148,7 @@ export async function createConsolidatedInvoice(
         (s, item) => s + ((item.line_total as number) || ((item.quantity as number) * ((item.unit_price as number) || 0))),
         0,
       );
-      const orderTax = Math.round(orderSupply * 0.1);
+      const orderTax = round4(orderSupply * 0.1);
       return {
         supply: acc.supply + orderSupply,
         tax: acc.tax + orderTax,
@@ -213,7 +214,7 @@ export async function createConsolidatedInvoice(
       unit_price: (item.unit_price as number) || 0,
       purchase_price: (item.purchase_price as number) || null,
       supply_amount: (item.line_total as number) || 0,
-      tax_amount: Math.round(((item.line_total as number) || 0) * 0.1),
+      tax_amount: round4(((item.line_total as number) || 0) * 0.1),
     }));
     if (items.length > 0) {
       const { error: itemsErr } = await supabase.from("tax_invoice_items").insert(items);

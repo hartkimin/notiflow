@@ -809,10 +809,14 @@ fun GeneralScreen(
                     OutlinedButton(
                         onClick = {
                             coroutineScope.launch {
-                                uploadDataSummary = withContext(Dispatchers.IO) {
-                                    viewModel.backupManager.getDataSummary()
+                                try {
+                                    uploadDataSummary = withContext(Dispatchers.IO) {
+                                        viewModel.backupManager.getDataSummary()
+                                    }
+                                    showUploadDialog = true
+                                } catch (e: Exception) {
+                                    snackbarHostState.showSnackbar("데이터 조회 실패: ${e.message}")
                                 }
-                                showUploadDialog = true
                             }
                         },
                         enabled = isLoggedIn && syncStatus != SyncStatus.SYNCING,

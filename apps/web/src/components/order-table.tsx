@@ -571,37 +571,45 @@ function OrderAccordionContent({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="text-xs w-[30px]">#</TableHead>
                 <TableHead className="text-xs">품목</TableHead>
-                <TableHead className="text-xs text-right w-[50px]">수량</TableHead>
-                <TableHead className="text-xs text-right w-[50px]">박스</TableHead>
-                <TableHead className="text-xs w-[40px]">단위</TableHead>
                 <TableHead className="text-xs w-[70px]">매입처</TableHead>
-                <TableHead className="text-xs text-right w-[110px]">매입단가</TableHead>
-                <TableHead className="text-xs text-right w-[110px]">매입(VAT)</TableHead>
-                <TableHead className="text-xs text-right w-[110px]">매입총액</TableHead>
-                <TableHead className="text-xs text-right w-[110px]">판매단가</TableHead>
-                <TableHead className="text-xs text-right w-[110px]">판매(VAT)</TableHead>
-                <TableHead className="text-xs text-right w-[110px]">매출총액</TableHead>
-                <TableHead className="text-xs text-right w-[110px]">매출이익</TableHead>
+                <TableHead className="text-xs text-right w-[50px]">수량</TableHead>
+                <TableHead className="text-xs w-[40px]">단위</TableHead>
+                <TableHead className="text-xs text-right w-[85px]">매입(VAT)</TableHead>
+                <TableHead className="text-xs text-right w-[85px]">매입단가</TableHead>
+                <TableHead className="text-xs text-right w-[85px]">매입공급가</TableHead>
+                <TableHead className="text-xs text-right w-[65px]">매입부가세</TableHead>
+                <TableHead className="text-xs text-right w-[85px]">판매(VAT)</TableHead>
+                <TableHead className="text-xs text-right w-[85px]">판매단가</TableHead>
+                <TableHead className="text-xs text-right w-[85px]">판매공급가</TableHead>
+                <TableHead className="text-xs text-right w-[65px]">판매부가세</TableHead>
+                <TableHead className="text-xs text-right w-[100px]">매출이익</TableHead>
                 <TableHead className="text-xs text-right w-[55px]">이익률</TableHead>
                 <TableHead className="text-xs w-[55px]">담당자</TableHead>
                 <TableHead className="text-xs w-[70px]">KPIS</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {group.items.map((item) => {
+              {group.items.map((item, idx) => {
                 const pp = isEditing ? (editItems[item.id]?.purchase_price ?? 0) : (item.purchase_price ?? 0);
                 const sp = isEditing ? (editItems[item.id]?.unit_price ?? 0) : (item.unit_price ?? 0);
                 const qty = isEditing ? (editItems[item.id]?.quantity ?? item.quantity) : item.quantity;
                 const ppVat = round4(pp * 1.1);
                 const spVat = round4(sp * 1.1);
-                const purchaseTotal = ppVat * qty;
-                const salesTotal = spVat * qty;
-                const profit = salesTotal - purchaseTotal;
-                const margin = salesTotal > 0 ? (profit / salesTotal) * 100 : 0;
+                const pSupply = round4(pp * qty);
+                const pTax = round4(pSupply * 0.1);
+                const sSupply = round4(sp * qty);
+                const sTax = round4(sSupply * 0.1);
+                const purchaseTotal = round4(ppVat * qty);
+                const salesTotal = round4(spVat * qty);
+                const profit = round4(salesTotal - purchaseTotal);
+                const margin = salesTotal > 0 ? round4((profit / salesTotal) * 100) : 0;
 
                 return (
                 <TableRow key={item.id}>
+                  {/* # */}
+                  <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
                   {/* 품목 */}
                   <TableCell className="text-sm font-medium">
                     {isEditing ? (
@@ -660,30 +668,6 @@ function OrderAccordionContent({
                       </>
                     )}
                   </TableCell>
-                  {/* 수량 */}
-                  <TableCell className="text-right text-sm tabular-nums">
-                    {isEditing ? (
-                      <Input
-                        type="number"
-                        min={0}
-                        value={editItems[item.id]?.quantity ?? item.quantity}
-                        onChange={(e) =>
-                          updateItemField(item.id, "quantity", Number(e.target.value))
-                        }
-                        className="h-7 w-[50px] text-right text-sm ml-auto"
-                      />
-                    ) : (
-                      item.quantity.toLocaleString()
-                    )}
-                  </TableCell>
-                  {/* 박스 */}
-                  <TableCell className="text-right text-sm tabular-nums">
-                    {item.box_quantity != null ? item.box_quantity.toLocaleString() : "-"}
-                  </TableCell>
-                  {/* 단위 */}
-                  <TableCell className="text-sm">
-                    {item.unit_type ?? "-"}
-                  </TableCell>
                   {/* 매입처 */}
                   <TableCell className="text-sm">
                     {isEditing ? (
@@ -700,25 +684,28 @@ function OrderAccordionContent({
                       item.supplier_name ?? "-"
                     )}
                   </TableCell>
-                  {/* 매입단가 */}
-                  <TableCell className="text-right text-sm tabular-nums">
+                  {/* 수량 */}
+                  <TableCell className="text-right text-xs tabular-nums">
                     {isEditing ? (
                       <Input
                         type="number"
                         min={0}
-                        step="any"
-                        value={pp}
+                        value={editItems[item.id]?.quantity ?? item.quantity}
                         onChange={(e) =>
-                          updateItemField(item.id, "purchase_price", Number(e.target.value))
+                          updateItemField(item.id, "quantity", Number(e.target.value))
                         }
-                        className="h-7 w-[100px] text-right text-sm ml-auto"
+                        className="h-7 w-[50px] text-right text-sm ml-auto"
                       />
                     ) : (
-                      pp > 0 ? fmt4(pp) : "-"
+                      item.quantity
                     )}
                   </TableCell>
+                  {/* 단위 */}
+                  <TableCell className="text-xs">
+                    {item.unit_type ?? "-"}
+                  </TableCell>
                   {/* 매입(VAT) */}
-                  <TableCell className="text-right text-sm tabular-nums">
+                  <TableCell className="text-right text-xs tabular-nums">
                     {isEditing ? (
                       <Input
                         type="number"
@@ -728,35 +715,26 @@ function OrderAccordionContent({
                         onChange={(e) =>
                           updateItemField(item.id, "purchase_price", Number(e.target.value) / 1.1)
                         }
-                        className="h-7 w-[100px] text-right text-sm ml-auto"
+                        className="h-7 w-[80px] text-right text-xs ml-auto"
                       />
                     ) : (
                       pp > 0 ? fmt4(ppVat) : "-"
                     )}
                   </TableCell>
-                  {/* 매입총액 */}
-                  <TableCell className="text-right text-sm tabular-nums">
-                    {pp > 0 ? fmt4(purchaseTotal) : "-"}
+                  {/* 매입단가 */}
+                  <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
+                    {pp > 0 ? fmt4(pp) : "-"}
                   </TableCell>
-                  {/* 판매단가 */}
-                  <TableCell className="text-right text-sm tabular-nums">
-                    {isEditing ? (
-                      <Input
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={sp}
-                        onChange={(e) =>
-                          updateItemField(item.id, "unit_price", Number(e.target.value))
-                        }
-                        className="h-7 w-[100px] text-right text-sm ml-auto"
-                      />
-                    ) : (
-                      sp > 0 ? fmt4(sp) : "-"
-                    )}
+                  {/* 매입공급가 */}
+                  <TableCell className="text-right text-xs tabular-nums">
+                    {pp > 0 ? fmt4(pSupply) : "-"}
+                  </TableCell>
+                  {/* 매입부가세 */}
+                  <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
+                    {pp > 0 ? fmt4(pTax) : "-"}
                   </TableCell>
                   {/* 판매(VAT) */}
-                  <TableCell className="text-right text-sm tabular-nums">
+                  <TableCell className="text-right text-xs tabular-nums">
                     {isEditing ? (
                       <Input
                         type="number"
@@ -766,24 +744,32 @@ function OrderAccordionContent({
                         onChange={(e) =>
                           updateItemField(item.id, "unit_price", Number(e.target.value) / 1.1)
                         }
-                        className="h-7 w-[100px] text-right text-sm ml-auto"
+                        className="h-7 w-[80px] text-right text-xs ml-auto"
                       />
                     ) : (
                       sp > 0 ? fmt4(spVat) : "-"
                     )}
                   </TableCell>
-                  {/* 매출총액 */}
-                  <TableCell className="text-right text-sm tabular-nums">
-                    {sp > 0 ? fmt4(salesTotal) : "-"}
+                  {/* 판매단가 */}
+                  <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
+                    {sp > 0 ? fmt4(sp) : "-"}
+                  </TableCell>
+                  {/* 판매공급가 */}
+                  <TableCell className="text-right text-xs tabular-nums font-medium">
+                    {sp > 0 ? fmt4(sSupply) : "-"}
+                  </TableCell>
+                  {/* 판매부가세 */}
+                  <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
+                    {sp > 0 ? fmt4(sTax) : "-"}
                   </TableCell>
                   {/* 매출이익 */}
-                  <TableCell className="text-right text-sm tabular-nums">
+                  <TableCell className="text-right text-xs tabular-nums font-mono">
                     {pp > 0 || sp > 0 ? (
                       <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{fmt4(profit)}</span>
                     ) : "-"}
                   </TableCell>
                   {/* 이익률 */}
-                  <TableCell className="text-right text-sm tabular-nums">
+                  <TableCell className="text-right text-xs tabular-nums font-mono">
                     {pp > 0 || sp > 0 ? (
                       <span className={margin < 0 ? "text-red-500" : ""}>{margin.toFixed(1)}%</span>
                     ) : "-"}

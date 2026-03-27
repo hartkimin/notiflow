@@ -65,12 +65,12 @@ export function lineProfit(sellPrice: number, purchasePrice: number, qty: number
   return lineTotal(sellPrice, qty) - lineTotal(purchasePrice, qty);
 }
 
-/** 이익률(%) = (매출이익 / 매입 VAT 총액) × 100 → 소수점 1자리 */
+/** 이익률(%) = (매출이익 / 판매 VAT 총액) × 100 → 소수점 1자리 */
 export function lineMarginRate(sellPrice: number, purchasePrice: number, qty: number): number {
-  const pTotal = lineTotal(purchasePrice, qty);
-  if (pTotal === 0) return 0;
+  const sTotal = lineTotal(sellPrice, qty);
+  if (sTotal === 0) return 0;
   const profit = lineProfit(sellPrice, purchasePrice, qty);
-  return Math.round((profit / pTotal) * 1000) / 10;
+  return Math.round((profit / sTotal) * 1000) / 10;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ export interface LineCalc {
   sTax: number;          // 판매 부가세 (정수)
   sTotal: number;        // 판매 VAT 총액 (정수)
   profit: number;        // 매출이익 (정수)
-  marginRate: number;    // 이익률(%) (소수점 1자리)
+  marginRate: number;    // 이익률(%) = 이익/판매VAT총액 (소수점 1자리)
 }
 
 /** 품목 1건의 모든 계산값을 한번에 산출 */
@@ -116,7 +116,7 @@ export interface OrderTotals {
   supplyTotal: number;     // 판매 공급가액 합계 = Σ 품목 판매 공급가액 (정수)
   taxTotal: number;        // 판매 세액 합계 = Σ 품목 판매 부가세 (정수)
   totalMargin: number;     // 마진 = 매출합계 - 매입합계 (정수)
-  marginRate: number;      // 마진율(%) = (마진 / 매입합계) × 100 (소수점 1자리)
+  marginRate: number;      // 마진율(%) = (마진 / 매출합계) × 100 (소수점 1자리)
 }
 
 /** 주문 전체 합계 계산 — 품목별 합산 방식 */
@@ -136,7 +136,7 @@ export function calcOrderTotals(
   }
 
   const totalMargin = sellingTotal - purchaseTotal;
-  const marginRate = purchaseTotal > 0 ? Math.round((totalMargin / purchaseTotal) * 1000) / 10 : 0;
+  const marginRate = sellingTotal > 0 ? Math.round((totalMargin / sellingTotal) * 1000) / 10 : 0;
 
   return { purchaseTotal, sellingTotal, supplyTotal, taxTotal, totalMargin, marginRate };
 }

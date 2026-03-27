@@ -872,7 +872,7 @@ function OrderAccordionContent({
                   <span className="text-right tabular-nums font-medium">{fmt4(ft.sellingTotal)}원</span>
                   <span className="text-muted-foreground text-right">마진</span>
                   <span className={cn("text-right tabular-nums", ft.totalMargin >= 0 ? "text-green-600" : "text-red-500")}>
-                    {fmt4(ft.totalMargin)}원 ({ft.purchaseTotal > 0 ? ft.marginRate.toFixed(1) : "-"}%)
+                    {fmt4(ft.totalMargin)}원 ({ft.sellingTotal > 0 ? ft.marginRate.toFixed(1) : "-"}%)
                   </span>
                   <Separator className="col-span-2 my-1" />
                   <span className="text-muted-foreground text-right">공급가액</span>

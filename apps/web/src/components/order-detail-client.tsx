@@ -452,28 +452,28 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
     const edit = editItems[item.id];
     const qty = edit?.quantity ?? item.quantity;
     const pp = edit?.purchase_price ?? (item.purchase_price ?? 0);
-    return sum + round4(pp * 1.1) * qty;
+    return sum + round4(round4(pp * 1.1) * qty);
   }, 0);
 
   const salesTotal = visibleItems.reduce((sum, item) => {
     const edit = editItems[item.id];
     const qty = edit ? edit.quantity : item.quantity;
     const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
-    return sum + round4(sp * 1.1) * qty;
+    return sum + round4(round4(sp * 1.1) * qty);
   }, 0);
 
   const supplyTotal = visibleItems.reduce((sum, item) => {
     const edit = editItems[item.id];
     const qty = edit ? edit.quantity : item.quantity;
     const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
-    return sum + sp * qty;
+    return sum + round4(sp * qty);
   }, 0);
 
   const taxTotal = visibleItems.reduce((sum, item) => {
     const edit = editItems[item.id];
     const qty = edit ? edit.quantity : item.quantity;
     const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
-    return sum + Math.round(sp * 0.1) * qty;
+    return sum + round4(round4(sp * 0.1) * qty);
   }, 0);
 
   // Final values: manual override takes precedence
@@ -481,8 +481,8 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
   const finalSalesTotal = manualSalesTotal ?? salesTotal;
   const finalSupply = manualSupply ?? supplyTotal;
   const finalTax = manualTax ?? taxTotal;
-  const totalMargin = finalSalesTotal - finalPurchaseTotal;
-  const marginRate = finalSalesTotal > 0 ? (totalMargin / finalSalesTotal) * 100 : 0;
+  const totalMargin = round4(finalSalesTotal - finalPurchaseTotal);
+  const marginRate = finalSalesTotal > 0 ? round4((totalMargin / finalSalesTotal) * 100) : 0;
 
   return (
     <div className="space-y-4">

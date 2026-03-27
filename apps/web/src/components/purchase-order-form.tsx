@@ -354,13 +354,13 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
     setItems((prev) => prev.map((i) => i.key === key ? { ...i, ...updates } : i));
   }
 
-  // ── Calculations ──
-  const totalPurchase = items.reduce((s, i) => s + parseFloat(((i.purchase_price ?? 0) * 1.1 * i.quantity).toPrecision(10)), 0);
-  const totalSelling = items.reduce((s, i) => s + parseFloat(((i.selling_price ?? 0) * 1.1 * i.quantity).toPrecision(10)), 0);
-  const totalSupply = items.reduce((s, i) => s + (i.selling_price ?? 0) * i.quantity, 0);
-  const totalTax = items.reduce((s, i) => s + round4((i.selling_price ?? 0) * 0.1) * i.quantity, 0);
-  const totalMargin = totalSelling - totalPurchase;
-  const marginRate = totalSelling > 0 ? (totalMargin / totalSelling) * 100 : 0;
+  // ── Calculations (round4 consistently to avoid floating-point drift) ──
+  const totalPurchase = items.reduce((s, i) => s + round4(round4((i.purchase_price ?? 0) * 1.1) * i.quantity), 0);
+  const totalSelling = items.reduce((s, i) => s + round4(round4((i.selling_price ?? 0) * 1.1) * i.quantity), 0);
+  const totalSupply = items.reduce((s, i) => s + round4((i.selling_price ?? 0) * i.quantity), 0);
+  const totalTax = items.reduce((s, i) => s + round4(round4((i.selling_price ?? 0) * 0.1) * i.quantity), 0);
+  const totalMargin = round4(totalSelling - totalPurchase);
+  const marginRate = totalSelling > 0 ? round4((totalMargin / totalSelling) * 100) : 0;
 
   // ── Submit ──
   async function handleSubmit() {
@@ -903,10 +903,10 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         <TableCell className="text-right">
                           <Input
                             type="number" min={0} step="any"
-                            value={item.purchase_price != null ? parseFloat((item.purchase_price * 1.1).toPrecision(10)) : ""}
+                            value={item.purchase_price != null ? round4(item.purchase_price * 1.1) : ""}
                             onChange={(e) => {
                               const vatIncl = e.target.value ? parseFloat(e.target.value) : null;
-                              updateItem(item.key, { purchase_price: vatIncl != null ? vatIncl / 1.1 : null });
+                              updateItem(item.key, { purchase_price: vatIncl != null ? round4(vatIncl / 1.1) : null });
                             }}
                             className="h-7 w-[80px] text-xs text-right ml-auto"
                             placeholder="VAT포함"
@@ -928,10 +928,10 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         <TableCell className="text-right">
                           <Input
                             type="number" min={0} step="any"
-                            value={item.selling_price != null ? parseFloat((item.selling_price * 1.1).toPrecision(10)) : ""}
+                            value={item.selling_price != null ? round4(item.selling_price * 1.1) : ""}
                             onChange={(e) => {
                               const vatIncl = e.target.value ? parseFloat(e.target.value) : null;
-                              updateItem(item.key, { selling_price: vatIncl != null ? vatIncl / 1.1 : null });
+                              updateItem(item.key, { selling_price: vatIncl != null ? round4(vatIncl / 1.1) : null });
                             }}
                             className="h-7 w-[80px] text-xs text-right ml-auto"
                             placeholder="VAT포함"
@@ -952,8 +952,8 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         {/* 이익 */}
                         <TableCell className="text-xs text-right font-mono">
                           {(() => {
-                            const sTotal = parseFloat(((item.selling_price ?? 0) * 1.1 * item.quantity).toPrecision(10));
-                            const pTotal = parseFloat(((item.purchase_price ?? 0) * 1.1 * item.quantity).toPrecision(10));
+                            const sTotal = round4(round4((item.selling_price ?? 0) * 1.1) * item.quantity);
+                            const pTotal = round4(round4((item.purchase_price ?? 0) * 1.1) * item.quantity);
                             const profit = round4(sTotal - pTotal);
                             return <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{fmt4(profit)}</span>;
                           })()}
@@ -961,10 +961,10 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         {/* 이익률 */}
                         <TableCell className="text-xs text-right font-mono">
                           {(() => {
-                            const sTotal = parseFloat(((item.selling_price ?? 0) * 1.1 * item.quantity).toPrecision(10));
-                            const pTotal = parseFloat(((item.purchase_price ?? 0) * 1.1 * item.quantity).toPrecision(10));
-                            const profit = sTotal - pTotal;
-                            const rate = sTotal > 0 ? (profit / sTotal) * 100 : 0;
+                            const sTotal = round4(round4((item.selling_price ?? 0) * 1.1) * item.quantity);
+                            const pTotal = round4(round4((item.purchase_price ?? 0) * 1.1) * item.quantity);
+                            const profit = round4(sTotal - pTotal);
+                            const rate = sTotal > 0 ? round4((profit / sTotal) * 100) : 0;
                             return <span className={rate < 0 ? "text-red-500" : ""}>{rate.toFixed(1)}%</span>;
                           })()}
                         </TableCell>

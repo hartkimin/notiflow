@@ -24,7 +24,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           시스템 설정, 사용자 및 기기를 관리합니다.
         </p>
       </div>
-      <div className="flex gap-1 border-b">
+      <div className="flex gap-1 border-b overflow-x-auto scrollbar-none -mx-4 px-4 md:mx-0 md:px-0">
         {settingsTabs.map((tab) => {
           const isActive = tab.exact
             ? pathname === tab.href
@@ -34,7 +34,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
               key={tab.href}
               href={tab.href}
               className={cn(
-                "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
+                "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap shrink-0",
                 isActive
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"

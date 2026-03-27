@@ -1,4 +1,4 @@
-import { getMessages, getMessagesForCalendar } from "@/lib/queries/messages";
+import { getMessages, getMessagesForCalendar, getLinkedOrders } from "@/lib/queries/messages";
 import { getHospitals } from "@/lib/queries/hospitals";
 import { getProductsCatalog } from "@/lib/queries/products";
 import { getForecastsForCalendar } from "@/lib/queries/forecasts";
@@ -61,12 +61,17 @@ export default async function NotificationsPage({ searchParams }: Props) {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
+  // Fetch linked orders for displayed messages
+  const messageIds = messages.map((m) => m.id);
+  const linkedOrders = await getLinkedOrders(messageIds).catch(() => ({}));
+
   return (
     <>
       <RealtimeListener tables={["captured_messages"]} />
       <MessagesView
         initialTab={tab as "list" | "calendar"}
         messages={messages}
+        linkedOrders={linkedOrders}
         hospitals={hospitals}
         products={products}
         currentPage={page}

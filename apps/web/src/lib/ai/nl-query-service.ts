@@ -26,7 +26,6 @@ export type NLQueryIntent =
   | "partner_products"
   | "kpis_report"
   | "order_comments"
-  | "sales_rep_info"
   | "general_question"
   | "unknown";
 
@@ -38,13 +37,62 @@ interface IntentResult {
 
 // ─── Intent Classification Prompt ───────────────
 
-const INTENT_SYSTEM_PROMPT = `의도분류기. JSON출력: {"intent":"카테고리","params":{},"confidence":0.9}
-의도: order_status(주문현황) order_detail(ORD-번호상세) order_stats(주문통계) product_search(제품검색) product_stock(제품수량) hospital_info(병원정보) hospital_orders(병원주문) supplier_info(공급사) delivery_status(배송) sales_report(매출) profit_analysis(이익/마진) invoice_status(세금계산서) mfds_search(식약처검색) period_comparison(기간비교) recent_messages(최근메시지) device_status(기기상태) user_list(사용자) audit_log(변경이력) partner_products(거래처품목) kpis_report(KPIS신고) order_comments(코멘트) sales_rep_info(영업담당자/담당자조회/담당자매출/매출1위/담당자순위/담당자실적) general_question(일반) unknown
-매개변수: hospital_name supplier_name product_name order_number period(today/this_week/this_month/last_month) compare_period(last_month) status(draft/confirmed/delivered/invoiced) sales_rep limit`;
+const INTENT_SYSTEM_PROMPT = `당신은 NotiFlow 의료 물자 주문 관리 시스템의 질의 분류기입니다.
+
+## 역할
+사용자의 자연어 질문을 분석하여 의도를 분류하고 매개변수를 추출합니다.
+
+## 의도 목록
+- order_status: 주문 현황 (예: "이번 주 주문 현황", "미확인 주문")
+- order_detail: 특정 주문 상세 (예: "ORD-20260321-001 상세")
+- order_stats: 주문 통계 (예: "이번 달 총 주문 건수")
+- product_search: 제품 검색 (예: "투석여과기 종류", "EK-15H 정보")
+- product_stock: 제품 수량/주문량 (예: "니들 얼마나 주문했어", "이번 달 투석액 총 수량")
+- hospital_info: 병원 정보 (예: "한국신장센터 연락처")
+- hospital_orders: 병원별 주문 (예: "한국신장센터 주문 내역")
+- supplier_info: 공급사 정보 (예: "대한메디칼 연락처")
+- delivery_status: 배송 상태 (예: "오늘 배송 예정")
+- sales_report: 매출 리포트 (예: "이번 달 매출 현황")
+- profit_analysis: 이익/마진 분석 (예: "이번 달 이익률", "거래처별 마진", "영업담당자 실적")
+- invoice_status: 세금계산서 현황 (예: "미발행 세금계산서", "이번 달 세금계산서")
+- mfds_search: 식약처 품목 검색 (예: "식약처 투석여과기 검색", "의료기기 허가 정보")
+- period_comparison: 기간 비교 (예: "지난달 대비 이번달 매출", "전월 비교")
+- recent_messages: 최근 메시지 (예: "오늘 들어온 메시지")
+- device_status: 모바일 기기 상태 (예: "연결된 기기", "기기 동기화 상태")
+- user_list: 사용자/직원 목록 (예: "등록된 사용자", "관리자 목록")
+- audit_log: 변경 이력/감사 로그 (예: "최근 변경 내역", "누가 수정했어")
+- partner_products: 거래처 품목/alias (예: "한국신장센터 등록 품목", "거래처별 품목")
+- kpis_report: KPIS 신고 현황 (예: "KPIS 신고 현황", "미신고 품목")
+- order_comments: 주문 코멘트 (예: "최근 코멘트", "ORD-20260321-001 코멘트")
+- general_question: DB 조회 불필요 (예: "혈액투석이 뭐야")
+- unknown: 분류 불가
+
+## 매개변수
+- hospital_name: 병원명 (부분 매칭)
+- supplier_name: 공급사명
+- product_name: 제품명/약어
+- order_number: 주문번호 (ORD-YYYYMMDD-###)
+- invoice_number: 세금계산서번호
+- period: "today", "this_week", "this_month", "last_month"
+- compare_period: 비교 기간 ("last_month", "last_year")
+- status: "draft", "confirmed", "delivered", "invoiced"
+- sales_rep: 영업담당자명
+- limit: 조회 건수 (기본 10)
+
+## 출력 (JSON만)
+{"intent":"카테고리","params":{"필요한것만"},"confidence":0.0~1.0}`;
 
 // ─── Response Generation Prompt ─────────────────
 
-const RESPONSE_SYSTEM_PROMPT = `의료물자 주문관리 어시스턴트. 한국어로 간결 답변. 숫자는 쉼표, 날짜는 한국식. confirmed=미완료 delivered=완료. 표가 적합하면 마크다운 테이블.`;
+const RESPONSE_SYSTEM_PROMPT = `당신은 NotiFlow 의료 물자 주문 관리 시스템의 어시스턴트입니다.
+
+## 규칙
+1. 조회 결과가 없으면 가능한 원인을 설명
+2. 숫자는 천단위 쉼표 (예: 1,500,000원)
+3. 날짜는 한국식 (예: 2026년 3월 21일)
+4. 주문 상태: draft→초안, confirmed→접수확인, delivered→배송완료, invoiced→정산완료
+5. 간결하게 핵심만, 표가 적합하면 마크다운 테이블 사용
+6. 추가 질문이 필요하면 유도`;
 
 // ─── Date Period Resolver ───────────────────────
 
@@ -108,36 +156,12 @@ const QUERY_MAP: Record<string, QueryExecutor> = {
 
   product_search: async (p) => {
     const sb = createAdminClient();
-    const name = escapeLikeValue((p.product_name ?? p.query ?? "") as string);
-    // Search across all product sources: my items + MFDS (식약처)
-    const [{ data: myDrugs }, { data: myDevices }, { data: mfdsDrugs }, { data: mfdsDevices }] = await Promise.all([
-      sb.from("my_drugs").select("id, item_name, bar_code, entp_name, unit_price").ilike("item_name", `%${name}%`).limit(3),
-      sb.from("my_devices").select("id, prdlst_nm, udidi_cd, mnft_iprt_entp_nm, unit_price").ilike("prdlst_nm", `%${name}%`).limit(3),
-      sb.from("mfds_drugs").select("id, item_name, bar_code, entp_name").ilike("item_name", `%${name}%`).limit(5),
-      sb.from("mfds_devices").select("id, prdlst_nm, udidi_cd, mnft_iprt_entp_nm").ilike("prdlst_nm", `%${name}%`).limit(5),
+    const name = escapeLikeValue(p.product_name as string);
+    const [{ data: drugs }, { data: devices }] = await Promise.all([
+      sb.from("my_drugs").select("id, item_name, bar_code, entp_name, unit_price").ilike("item_name", `%${name}%`).limit(5),
+      sb.from("my_devices").select("id, prdlst_nm, udidi_cd, mnft_iprt_entp_nm, unit_price").ilike("prdlst_nm", `%${name}%`).limit(5),
     ]);
-
-    // Also try vector search if embedding is available
-    let vectorResults: Array<{ name: string; similarity: number; type: string }> = [];
-    try {
-      const { generateEmbedding } = await import("./embedding-service");
-      const { searchProducts } = await import("./vector-search");
-      const { embedding } = await generateEmbedding(name);
-      vectorResults = await searchProducts(embedding, 3, 0.5);
-    } catch { /* no embedding available */ }
-
-    return {
-      my_items: {
-        drugs: (myDrugs ?? []).map(d => ({ name: d.item_name, code: d.bar_code, manufacturer: d.entp_name, source: "내 의약품" })),
-        devices: (myDevices ?? []).map(d => ({ name: d.prdlst_nm, code: d.udidi_cd, manufacturer: d.mnft_iprt_entp_nm, source: "내 의료기기" })),
-      },
-      mfds: {
-        drugs: (mfdsDrugs ?? []).map(d => ({ name: d.item_name, code: d.bar_code, manufacturer: d.entp_name, source: "식약처 의약품" })),
-        devices: (mfdsDevices ?? []).map(d => ({ name: d.prdlst_nm, code: d.udidi_cd, manufacturer: d.mnft_iprt_entp_nm, source: "식약처 의료기기" })),
-      },
-      vector_matches: vectorResults.map(v => ({ name: v.name, similarity: Math.round(v.similarity * 100) + "%", source: v.type === "drug" ? "벡터 의약품" : "벡터 의료기기" })),
-      search_term: name,
-    };
+    return { drugs: drugs ?? [], devices: devices ?? [] };
   },
 
   product_stock: async (p) => {
@@ -201,7 +225,7 @@ const QUERY_MAP: Record<string, QueryExecutor> = {
   profit_analysis: async (p) => {
     const sb = createAdminClient();
     const { dateFrom, dateTo } = resolvePeriod(p.period as string);
-    const q = sb.from("order_items")
+    let q = sb.from("order_items")
       .select("product_name, quantity, unit_price, purchase_price, sales_rep, orders!inner(order_date, status, hospital_id, hospitals(name))")
       .gte("orders.order_date", dateFrom).lte("orders.order_date", dateTo);
     if (p.hospital_name) {
@@ -384,77 +408,6 @@ const QUERY_MAP: Record<string, QueryExecutor> = {
     return data;
   },
 
-  sales_rep_info: async (p) => {
-    const sb = createAdminClient();
-    const { dateFrom, dateTo } = resolvePeriod(p.period as string);
-
-    // Specific hospital lookup
-    if (p.hospital_name) {
-      const { data } = await sb.from("hospitals").select("id, name, contact_person, phone, address")
-        .ilike("name", `%${escapeLikeValue(p.hospital_name as string)}%`).eq("is_active", true).limit(5);
-      return { query: "거래처별 영업담당자", hospitals: (data ?? []).map(h => ({ name: h.name, sales_rep: h.contact_person ?? "미지정", phone: h.phone, address: h.address })) };
-    }
-
-    // Specific sales_rep lookup
-    if (p.sales_rep) {
-      const repName = escapeLikeValue(p.sales_rep as string);
-      // Hospital assignments
-      const { data: hospitals } = await sb.from("hospitals").select("id, name, contact_person, phone")
-        .ilike("contact_person", `%${repName}%`).eq("is_active", true);
-      // Sales performance from order_items
-      const { data: items } = await sb.from("order_items")
-        .select("quantity, unit_price, purchase_price, orders!inner(order_date, status, hospitals(name))")
-        .ilike("sales_rep", `%${repName}%`)
-        .gte("orders.order_date", dateFrom).lte("orders.order_date", dateTo);
-      const revenue = (items ?? []).reduce((s, i) => s + (Number(i.unit_price ?? 0) * i.quantity), 0);
-      const purchase = (items ?? []).reduce((s, i) => s + (Number(i.purchase_price ?? 0) * i.quantity), 0);
-      return {
-        query: `담당자 "${p.sales_rep}" 실적`,
-        rep_name: p.sales_rep,
-        period: `${dateFrom} ~ ${dateTo}`,
-        hospitals: (hospitals ?? []).map(h => ({ name: h.name, phone: h.phone })),
-        performance: { order_items: (items ?? []).length, revenue, purchase, profit: revenue - purchase, margin: revenue > 0 ? ((revenue - purchase) / revenue * 100).toFixed(1) + "%" : "0%" },
-      };
-    }
-
-    // All sales reps with performance ranking from order_items
-    const { data: items } = await sb.from("order_items")
-      .select("sales_rep, quantity, unit_price, purchase_price, orders!inner(order_date)")
-      .gte("orders.order_date", dateFrom).lte("orders.order_date", dateTo);
-
-    const byRep: Record<string, { revenue: number; purchase: number; count: number }> = {};
-    for (const i of items ?? []) {
-      const rep = i.sales_rep ?? "미지정";
-      if (!byRep[rep]) byRep[rep] = { revenue: 0, purchase: 0, count: 0 };
-      byRep[rep].revenue += Number(i.unit_price ?? 0) * i.quantity;
-      byRep[rep].purchase += Number(i.purchase_price ?? 0) * i.quantity;
-      byRep[rep].count++;
-    }
-
-    // Hospital assignments
-    const { data: hospitalData } = await sb.from("hospitals").select("name, contact_person").eq("is_active", true);
-    const repHospitals: Record<string, string[]> = {};
-    for (const h of hospitalData ?? []) {
-      const rep = h.contact_person ?? "미지정";
-      if (!repHospitals[rep]) repHospitals[rep] = [];
-      repHospitals[rep].push(h.name);
-    }
-
-    const ranking = Object.entries(byRep)
-      .map(([rep, v]) => ({
-        sales_rep: rep,
-        order_items: v.count,
-        revenue: v.revenue,
-        purchase: v.purchase,
-        profit: v.revenue - v.purchase,
-        margin: v.revenue > 0 ? ((v.revenue - v.purchase) / v.revenue * 100).toFixed(1) + "%" : "0%",
-        hospitals: repHospitals[rep] ?? [],
-      }))
-      .sort((a, b) => b.revenue - a.revenue);
-
-    return { query: "영업담당자 매출 순위", period: `${dateFrom} ~ ${dateTo}`, ranking };
-  },
-
   order_comments: async (p) => {
     const sb = createAdminClient();
     let q = sb.from("order_comments").select("id, content, created_at, order_id, orders(order_number), user_profiles(name)");
@@ -469,127 +422,6 @@ const QUERY_MAP: Record<string, QueryExecutor> = {
     }));
   },
 };
-
-// ─── Direct Formatting (skip LLM for simple queries) ────
-
-function fmt(n: number): string {
-  if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)}억원`;
-  if (Math.abs(n) >= 1e4) return `${Math.round(n / 1e4).toLocaleString()}만원`;
-  return `${n.toLocaleString()}원`;
-}
-
-const STATUS_KO: Record<string, string> = { confirmed: "미완료", delivered: "완료" };
-
-function tryDirectFormat(intent: string, _question: string, data: unknown): string | null {
-  const d = data as Record<string, unknown>;
-  switch (intent) {
-    case "order_stats": {
-      const byStatus = d.by_status as Record<string, number>;
-      const statusStr = Object.entries(byStatus).map(([k, v]) => `${STATUS_KO[k] ?? k} ${v}건`).join(", ");
-      return `📊 **주문 통계** (${d.period})\n\n총 **${d.total_orders}건**, 금액 **${fmt(d.total_amount as number)}**\n상태별: ${statusStr}`;
-    }
-    case "product_search": {
-      const items = d as { my_items?: { drugs: Array<{name:string;manufacturer:string;source:string}>; devices: Array<{name:string;manufacturer:string;source:string}> }; mfds?: { drugs: Array<{name:string;manufacturer:string;source:string}>; devices: Array<{name:string;manufacturer:string;source:string}> }; vector_matches?: Array<{name:string;similarity:string;source:string}>; search_term?: string };
-      const lines: string[] = [`🔍 **"${items.search_term}" 검색 결과**\n`];
-      const allResults = [
-        ...(items.my_items?.drugs ?? []),
-        ...(items.my_items?.devices ?? []),
-        ...(items.mfds?.drugs ?? []),
-        ...(items.mfds?.devices ?? []),
-      ];
-      if (allResults.length === 0 && (!items.vector_matches || items.vector_matches.length === 0)) {
-        return `"${items.search_term}"에 대한 검색 결과가 없습니다. 다른 키워드로 검색해보세요.`;
-      }
-      for (const r of allResults.slice(0, 8)) {
-        lines.push(`• **${r.name}** — ${r.manufacturer} _(${r.source})_`);
-      }
-      if (items.vector_matches?.length) {
-        lines.push("\n**벡터 유사 검색:**");
-        for (const v of items.vector_matches) {
-          lines.push(`• ${v.name} (유사도 ${v.similarity}) _(${v.source})_`);
-        }
-      }
-      return lines.join("\n");
-    }
-    case "hospital_info": {
-      const hospitals = d as unknown as Array<{name:string;phone?:string;address?:string}> | null;
-      if (!hospitals?.length) return "해당 병원을 찾을 수 없습니다.";
-      return hospitals.map(h => `🏥 **${h.name}**\n${h.phone ? `전화: ${h.phone}` : ""}${h.address ? `\n주소: ${h.address}` : ""}`).join("\n\n");
-    }
-    case "recent_messages": {
-      const msgs = d as unknown as Array<{sender:string;app_name:string;content:string;received_at:string}> | null;
-      if (!msgs?.length) return "최근 수신 메시지가 없습니다.";
-      return `📨 **최근 메시지 ${msgs.length}건**\n\n` + msgs.map((m, i) =>
-        `${i + 1}. **${m.sender}** (${m.app_name}) — ${m.received_at}\n   ${m.content}`
-      ).join("\n");
-    }
-    case "device_status": {
-      const devices = d as unknown as Array<{device_name:string;device_model:string;status:string;last_heartbeat:string}> | null;
-      if (!devices?.length) return "등록된 기기가 없습니다.";
-      return `📱 **기기 상태**\n\n` + devices.map(dev =>
-        `• **${dev.device_name ?? dev.device_model}** — ${dev.status} (${dev.last_heartbeat ?? "미연결"})`
-      ).join("\n");
-    }
-    case "user_list": {
-      const users = d as unknown as Array<{name:string;role:string;is_active:boolean}> | null;
-      if (!users?.length) return "등록된 사용자가 없습니다.";
-      return `👥 **사용자 목록**\n\n` + users.map(u =>
-        `• **${u.name}** — ${u.role} ${u.is_active ? "✅" : "❌ 비활성"}`
-      ).join("\n");
-    }
-    case "sales_rep_info": {
-      const info = d as {
-        query?: string; period?: string;
-        hospitals?: Array<{name:string;sales_rep?:string;phone?:string}>;
-        ranking?: Array<{sales_rep:string;order_items:number;revenue:number;purchase:number;profit:number;margin:string;hospitals:string[]}>;
-        rep_name?: string;
-        performance?: {order_items:number;revenue:number;purchase:number;profit:number;margin:string};
-      };
-      // Ranking table
-      if (info.ranking) {
-        const lines = [`**${info.query}** (${info.period})\n`];
-        lines.push("| 순위 | 영업담당자 | 매출액 | 매입액 | 이익 | 이익률 | 건수 | 담당 거래처 |");
-        lines.push("|---|---|---|---|---|---|---|---|");
-        info.ranking.forEach((r, i) => {
-          const hospStr = r.hospitals.slice(0, 3).join(", ") + (r.hospitals.length > 3 ? ` 외 ${r.hospitals.length - 3}개` : "");
-          lines.push(`| ${i + 1} | **${r.sales_rep}** | ${fmt(r.revenue)} | ${fmt(r.purchase)} | ${fmt(r.profit)} | ${r.margin} | ${r.order_items} | ${hospStr || "-"} |`);
-        });
-        return lines.join("\n");
-      }
-      // Individual rep detail
-      if (info.rep_name && info.performance) {
-        const perf = info.performance;
-        const lines = [`**${info.query}** (${info.period})\n`];
-        lines.push(`매출: **${fmt(perf.revenue)}** / 매입: ${fmt(perf.purchase)} / 이익: **${fmt(perf.profit)}** (${perf.margin})`);
-        lines.push(`주문 품목 수: ${perf.order_items}건\n`);
-        if (info.hospitals?.length) {
-          lines.push("**담당 거래처:**");
-          for (const h of info.hospitals) lines.push(`• ${h.name}${h.phone ? ` (${h.phone})` : ""}`);
-        }
-        return lines.join("\n");
-      }
-      // Hospital list
-      if (info.hospitals) {
-        if (info.hospitals.length === 0) return "해당 조건의 거래처를 찾을 수 없습니다.";
-        const lines = [`**${info.query}**\n`];
-        lines.push("| 거래처 | 영업담당자 | 전화번호 |");
-        lines.push("|---|---|---|");
-        for (const h of info.hospitals) {
-          lines.push(`| ${h.name} | ${h.sales_rep ?? "-"} | ${h.phone ?? "-"} |`);
-        }
-        return lines.join("\n");
-      }
-      return null;
-    }
-    default:
-      return null; // Use LLM for complex queries
-  }
-}
-
-function formatFallback(data: unknown): string {
-  const str = JSON.stringify(data, null, 2);
-  return str.length > 1500 ? str.slice(0, 1500) + "\n..." : str;
-}
 
 // ─── Main Query Function ────────────────────────
 
@@ -607,7 +439,7 @@ export async function processNaturalLanguageQuery(question: string): Promise<NLQ
   // Step 1: Classify intent
   let intentResult: IntentResult;
   try {
-    const res = await ollamaChat(INTENT_SYSTEM_PROMPT, question, { maxTokens: 256 });
+    const res = await ollamaChat(INTENT_SYSTEM_PROMPT, question);
     const cleaned = res.text.replace(/```json\n?|```\n?/g, "").trim();
     intentResult = JSON.parse(cleaned);
   } catch (err) {
@@ -621,12 +453,8 @@ export async function processNaturalLanguageQuery(question: string): Promise<NLQ
 
   const { intent, params, confidence } = intentResult;
 
-  // Low confidence → try text-to-SQL first
-  if (confidence < 0.4) {
-    try {
-      const sqlResult = await executeTextToSQL(question);
-      if (sqlResult) return { question, intent, confidence, answer: sqlResult, durationMs: Date.now() - startMs };
-    } catch { /* fall through */ }
+  // Low confidence
+  if (confidence < 0.5) {
     return {
       question, intent, confidence,
       answer: "질문을 좀 더 구체적으로 해주시겠어요? 예: '이번 주 주문 현황', '투석액 검색', 'ORD-20260321-001 상세'",
@@ -634,21 +462,12 @@ export async function processNaturalLanguageQuery(question: string): Promise<NLQ
     };
   }
 
-  // General/unknown → try text-to-SQL fallback
+  // General question (no DB)
   if (intent === "general_question" || intent === "unknown") {
     try {
-      const sqlResult = await executeTextToSQL(question);
-      if (sqlResult) {
-        return { question, intent: "unknown", confidence: 0.8, answer: sqlResult, durationMs: Date.now() - startMs };
-      }
-    } catch (err) {
-      console.warn("[NL Query] Text-to-SQL fallback failed:", (err as Error).message);
-    }
-    try {
       const res = await ollamaChat(
-        "의료기기 유통 전문가. 간결 한국어 답변.",
+        "당신은 의료기기 유통 전문가입니다. 간결하게 한국어로 답변하세요.",
         question,
-        { maxTokens: 256, json: false },
       );
       return { question, intent, confidence, answer: res.text, durationMs: Date.now() - startMs };
     } catch {
@@ -659,12 +478,7 @@ export async function processNaturalLanguageQuery(question: string): Promise<NLQ
   // Step 2: Execute query
   const executor = QUERY_MAP[intent];
   if (!executor) {
-    // No dedicated handler → try text-to-SQL
-    try {
-      const sqlResult = await executeTextToSQL(question);
-      if (sqlResult) return { question, intent, confidence, answer: sqlResult, durationMs: Date.now() - startMs };
-    } catch { /* fall through */ }
-    return { question, intent, confidence, answer: `'${intent}' 유형의 조회는 아직 지원하지 않습니다. 질문을 다시 표현해보세요.`, durationMs: Date.now() - startMs };
+    return { question, intent, confidence, answer: `'${intent}' 유형의 조회는 아직 지원하지 않습니다.`, durationMs: Date.now() - startMs };
   }
 
   let queryResult: unknown;
@@ -674,183 +488,16 @@ export async function processNaturalLanguageQuery(question: string): Promise<NLQ
     return { question, intent, confidence, answer: `데이터 조회 중 오류: ${(err as Error).message}`, durationMs: Date.now() - startMs };
   }
 
-  // Step 3: Format response
-  // For simple queries, format directly without LLM (saves ~3s)
-  const directAnswer = tryDirectFormat(intent, question, queryResult);
-  if (directAnswer) {
-    return { question, intent, confidence, answer: directAnswer, durationMs: Date.now() - startMs };
-  }
-
-  // Complex queries: generate natural language response via LLM
+  // Step 3: Generate natural language response
   try {
-    const resultStr = JSON.stringify(queryResult, null, 2);
-    const truncated = resultStr.length > 2000 ? resultStr.slice(0, 2000) + "\n..." : resultStr;
-    const responsePrompt = `질문: ${question}\n의도: ${intent}\n결과:\n${truncated}`;
-    const res = await ollamaChat(RESPONSE_SYSTEM_PROMPT, responsePrompt, { maxTokens: 512, json: false });
-    return { question, intent, confidence, answer: res.text, durationMs: Date.now() - startMs };
+    const responsePrompt = `사용자 질문: ${question}\n조회 의도: ${intent}\n조회 결과:\n${JSON.stringify(queryResult, null, 2)}`;
+    const res = await ollamaChat(RESPONSE_SYSTEM_PROMPT, responsePrompt, { maxTokens: 2048 });
+    // Strip JSON wrapper if Ollama returns it
+    let answer = res.text;
+    try { const parsed = JSON.parse(answer); answer = parsed.response ?? parsed.answer ?? answer; } catch { /* not JSON, use as-is */ }
+    return { question, intent, confidence, answer, durationMs: Date.now() - startMs };
   } catch {
-    return { question, intent, confidence, answer: formatFallback(queryResult), durationMs: Date.now() - startMs };
-  }
-}
-
-// ─── Text-to-SQL Fallback ────────────────────────
-
-const DB_SCHEMA = `
-=== 테이블 구조 (PostgreSQL) ===
-
--- 1. my_drugs (내 관리 의약품, 117건)
-my_drugs: id SERIAL PK, item_seq TEXT(품목기준코드), item_name TEXT(품목명), item_eng_name TEXT(영문명),
-  entp_name TEXT(제조/수입사), entp_no TEXT(업체허가번호), item_permit_date TEXT(허가일 YYYYMMDD),
-  etc_otc_code TEXT(전문/일반 구분), chart TEXT(성상), bar_code TEXT(바코드),
-  material_name TEXT(원료성분), storage_method TEXT(저장방법 예:냉장보관),
-  valid_term TEXT(유효기간), pack_unit TEXT(포장단위), edi_code TEXT(보험코드),
-  atc_code TEXT(ATC분류코드), cancel_name TEXT(상태 정상/취소),
-  change_date TEXT(변경일), unit_price DECIMAL(단가), alias TEXT(별칭/약칭),
-  rare_drug_yn TEXT(희귀의약품 Y/N), permit_kind_name TEXT(허가종류)
-
--- 2. orders (주문, 54건)
-orders: id SERIAL PK, order_number VARCHAR(ORD-YYYYMMDD-NNN), order_date DATE(주문일),
-  hospital_id INT FK→hospitals(id), status TEXT(confirmed=미완료, delivered=완료, invoiced=계산서발행),
-  total_items INT(품목수), total_amount DECIMAL(총액), supply_amount DECIMAL(공급가액,대부분NULL),
-  tax_amount DECIMAL(부가세,대부분NULL), delivery_date DATE(납품예정일),
-  delivered_at TIMESTAMPTZ(실제납품일시), notes TEXT(메모), source_message_id TEXT(원본메시지),
-  created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
-
--- 3. order_items (주문품목, 160건) ★매출/매입 핵심 테이블
-order_items: id SERIAL PK, order_id INT FK→orders(id), product_id INT FK→products,
-  product_name TEXT(품목명), supplier_id INT FK→suppliers(id),
-  quantity INT(수량), unit_type VARCHAR(단위: piece/box),
-  unit_price DECIMAL(매출단가,VAT별도), purchase_price DECIMAL(매입단가,VAT별도),
-  line_total DECIMAL(매출소계=unit_price*quantity), sales_rep VARCHAR(영업담당자),
-  box_spec_id INT, calculated_pieces INT, created_at TIMESTAMPTZ
-
--- 4. tax_invoices (세금계산서, 4건)
-tax_invoices: id SERIAL PK, invoice_number VARCHAR(TI-YYYYMMDD-NNN), invoice_type TEXT(normal),
-  tax_type TEXT(tax), issue_date DATE(작성일), supply_date DATE(공급일),
-  supply_date_from DATE(공급기간시작), supply_date_to DATE(공급기간끝),
-  supplier_id INT, supplier_biz_no VARCHAR(공급자사업자번호), supplier_name VARCHAR(공급자상호),
-  supplier_ceo_name VARCHAR, supplier_address VARCHAR,
-  hospital_id INT FK→hospitals(id), buyer_biz_no VARCHAR(공급받는자사업자번호),
-  buyer_name VARCHAR(공급받는자상호), buyer_ceo_name VARCHAR,
-  buyer_address VARCHAR, buyer_email VARCHAR,
-  supply_amount DECIMAL(공급가액), tax_amount DECIMAL(부가세), total_amount DECIMAL(합계),
-  status TEXT(issued=발행, cancelled=취소, draft=임시),
-  remarks TEXT(비고), issued_at TIMESTAMPTZ(발행일시), cancelled_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
-
--- 5. hospitals (거래처/병원, 43건)
-hospitals: id SERIAL PK, name VARCHAR(거래처명), short_name VARCHAR(약칭),
-  hospital_type TEXT(hospital/clinic/pharmacy/distributor/research/other),
-  phone VARCHAR(전화), address TEXT(주소), contact_person VARCHAR(영업담당자=거래처별),
-  business_number VARCHAR(사업자번호), ceo_name VARCHAR(대표자),
-  biz_type VARCHAR(업태), biz_item VARCHAR(종목), email VARCHAR,
-  payment_terms VARCHAR(결제조건), trade_start_date DATE(거래시작일),
-  lead_time_days INT(리드타임일수), delivery_notes TEXT(배송특이사항),
-  is_active BOOL(활성여부), lat DOUBLE(위도), lng DOUBLE(경도),
-  created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
-
--- 6. suppliers (공급사, 40건)
-suppliers: id SERIAL PK, name VARCHAR(공급사명), short_name VARCHAR(약칭),
-  phone VARCHAR(전화), address TEXT(주소), business_number VARCHAR(사업자번호),
-  ceo_name VARCHAR(대표자), business_type VARCHAR(업태), business_category VARCHAR(업종),
-  website VARCHAR, fax VARCHAR, is_active BOOL(활성여부),
-  lat DOUBLE(위도), lng DOUBLE(경도),
-  created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
-
-=== JOIN 관계 ===
-orders.hospital_id → hospitals.id (주문↔거래처)
-order_items.order_id → orders.id (품목↔주문)
-order_items.supplier_id → suppliers.id (품목↔공급사)
-tax_invoices.hospital_id → hospitals.id (세금계산서↔거래처)
-
-=== 핵심 계산 공식 ===
-매출(VAT포함) = ROUND(unit_price * 1.1, 4) * quantity
-매입(VAT포함) = ROUND(purchase_price * 1.1, 4) * quantity
-이익 = 매출(VAT포함) - 매입(VAT포함)
-이익률 = (이익 / 매출) * 100
-공급가액 = unit_price * quantity
-부가세 = 공급가액 * 0.1
-
-=== 주의사항 ===
-- orders.supply_amount/tax_amount은 대부분 NULL → order_items에서 직접 계산할 것
-- 영업담당자 매출 실적 = order_items.sales_rep 기준 GROUP BY
-- 거래처 담당자 = hospitals.contact_person
-- 금액 비교/순위는 VAT포함 기준으로 계산
-- status 한국어 매핑: confirmed→미완료, delivered→완료, invoiced→계산서발행, issued→발행, cancelled→취소
-`;
-
-const SQL_SYSTEM_PROMPT = `PostgreSQL 전문가. 사용자의 자연어 질문을 읽고 정확한 SELECT SQL을 생성한다.
-${DB_SCHEMA}
-=== SQL 생성 규칙 ===
-- SELECT만 허용. INSERT/UPDATE/DELETE/DROP/ALTER/TRUNCATE 절대 금지
-- LIMIT 50 이하
-- 테이블 alias 사용: orders o, order_items oi, hospitals h, suppliers s, tax_invoices ti, my_drugs md
-- JOIN은 명시적으로: JOIN orders o ON oi.order_id = o.id
-- 금액 계산: ROUND(unit_price * 1.1, 4) * quantity (VAT포함)
-- 영업담당자 매출: GROUP BY oi.sales_rep, SUM(ROUND(oi.unit_price*1.1,4)*oi.quantity) as revenue
-- 기간 필터: o.order_date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD' (이번 달=당월1일~오늘)
-- 거래처별 집계: GROUP BY h.name (JOIN orders → hospitals)
-- 공급사별 매입: GROUP BY s.name (JOIN order_items → suppliers)
-- 품목 검색: ILIKE '%키워드%' (item_name, product_name, alias 등)
-- 순위: ORDER BY revenue DESC LIMIT 10
-- COUNT, SUM, AVG, MAX, MIN 적극 활용
-- JSON 출력: {"sql":"SELECT ...", "description":"한국어 설명"}
-- 생성 불가 시: {"sql":null,"description":"이유"}
-
-=== 질문→SQL 예시 ===
-"매출 1위 담당자" → SELECT oi.sales_rep, SUM(ROUND(oi.unit_price*1.1,4)*oi.quantity) as revenue FROM order_items oi JOIN orders o ON oi.order_id=o.id WHERE o.order_date>=date_trunc('month',CURRENT_DATE) GROUP BY oi.sales_rep ORDER BY revenue DESC LIMIT 10
-"거래처별 주문 금액" → SELECT h.name, COUNT(DISTINCT o.id) as orders, SUM(ROUND(oi.unit_price*1.1,4)*oi.quantity) as revenue FROM order_items oi JOIN orders o ON oi.order_id=o.id JOIN hospitals h ON o.hospital_id=h.id GROUP BY h.name ORDER BY revenue DESC
-"공급사별 매입 순위" → SELECT s.name, SUM(ROUND(oi.purchase_price*1.1,4)*oi.quantity) as purchase FROM order_items oi JOIN suppliers s ON oi.supplier_id=s.id GROUP BY s.name ORDER BY purchase DESC
-"냉장보관 품목" → SELECT item_name, entp_name, storage_method, unit_price FROM my_drugs WHERE storage_method ILIKE '%냉장%'
-"미발행 세금계산서 거래처" → SELECT h.name, COUNT(o.id) as cnt FROM orders o JOIN hospitals h ON o.hospital_id=h.id WHERE o.status='delivered' AND o.id NOT IN (SELECT tio.order_id FROM tax_invoice_orders tio JOIN tax_invoices ti ON tio.invoice_id=ti.id WHERE ti.status!='cancelled') GROUP BY h.name`;
-
-async function executeTextToSQL(question: string): Promise<string | null> {
-  // Step 1: Generate SQL
-  const res = await ollamaChat(SQL_SYSTEM_PROMPT, question, { maxTokens: 512 });
-  const cleaned = res.text.replace(/\`\`\`json\n?|\`\`\`\n?/g, "").trim();
-  let parsed: { sql: string | null; description: string };
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    return null;
-  }
-
-  if (!parsed.sql) return null;
-
-  // Safety check: only SELECT allowed
-  const sqlUpper = parsed.sql.trim().toUpperCase();
-  if (!sqlUpper.startsWith("SELECT") || /\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE)\b/.test(sqlUpper)) {
-    console.warn("[Text-to-SQL] Blocked unsafe SQL:", parsed.sql);
-    return null;
-  }
-
-  // Step 2: Execute SQL
-  const sb = createAdminClient();
-  const { data, error } = await sb.rpc("exec_readonly_sql", { query: parsed.sql });
-
-  if (error) {
-    // Fallback: try direct query via postgres function
-    console.error("[Text-to-SQL] Execution error:", error.message);
-    return `SQL 실행 오류: ${error.message}\n생성된 SQL: \`${parsed.sql}\``;
-  }
-
-  if (!data || (Array.isArray(data) && data.length === 0)) {
-    return `${parsed.description}\n\n결과가 없습니다.`;
-  }
-
-  // Step 3: Format result with LLM
-  const resultStr = JSON.stringify(data, null, 2);
-  const truncated = resultStr.length > 3000 ? resultStr.slice(0, 3000) + "\n..." : resultStr;
-
-  try {
-    const fmtRes = await ollamaChat(
-      "데이터 분석가. 한국어로 간결하게 답변. 숫자는 쉼표, 금액은 원 단위. 마크다운 사용 가능.",
-      `질문: ${question}\n설명: ${parsed.description}\nSQL 결과:\n${truncated}`,
-      { maxTokens: 512, json: false },
-    );
-    return fmtRes.text;
-  } catch {
-    // Raw format fallback
-    return `${parsed.description}\n\n\`\`\`\n${truncated}\n\`\`\``;
+    // Fallback: return raw data
+    return { question, intent, confidence, answer: `조회 결과:\n\`\`\`json\n${JSON.stringify(queryResult, null, 2)}\n\`\`\``, durationMs: Date.now() - startMs };
   }
 }

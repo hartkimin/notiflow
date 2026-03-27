@@ -35,7 +35,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { vatToExcl, exclToVat, calcLine, calcOrderTotals, fmt4, round4 } from "@/lib/price-calc";
+import { vatToExcl, exclToVat, calcLine, calcOrderTotals, fmt4 } from "@/lib/price-calc";
 import {
   Check,
   ChevronRight,
@@ -872,7 +872,7 @@ function OrderAccordionContent({
                   <span className="text-right tabular-nums font-medium">{fmt4(ft.sellingTotal)}원</span>
                   <span className="text-muted-foreground text-right">마진</span>
                   <span className={cn("text-right tabular-nums", ft.totalMargin >= 0 ? "text-green-600" : "text-red-500")}>
-                    {fmt4(ft.totalMargin)}원 ({ft.sellingTotal > 0 ? ft.marginRate.toFixed(1) : "-"}%)
+                    {fmt4(ft.totalMargin)}원 ({ft.purchaseTotal > 0 ? ft.marginRate.toFixed(1) : "-"}%)
                   </span>
                   <Separator className="col-span-2 my-1" />
                   <span className="text-muted-foreground text-right">공급가액</span>
@@ -880,7 +880,7 @@ function OrderAccordionContent({
                   <span className="text-muted-foreground text-right">세액</span>
                   <span className="text-right tabular-nums">{fmt4(ft.taxTotal)}원</span>
                   <span className="font-medium text-right">합계</span>
-                  <span className="font-medium text-right tabular-nums">{fmt4(round4(ft.supplyTotal + ft.taxTotal))}원</span>
+                  <span className="font-medium text-right tabular-nums">{fmt4(ft.supplyTotal + ft.taxTotal)}원</span>
                 </>
               );
             })()}

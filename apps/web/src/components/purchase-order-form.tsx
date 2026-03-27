@@ -46,7 +46,7 @@ import type { ProductSupplierOption } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PortalSearchBox } from "@/components/portal-search-box";
 import { matchesChosungSearch } from "@/lib/chosung";
-import { vatToExcl, exclToVat, calcLine, calcOrderTotals, lineSupply, lineTax, fmt4, round4 } from "@/lib/price-calc";
+import { vatToExcl, exclToVat, calcLine, calcOrderTotals, lineSupply, lineTax, fmt4 } from "@/lib/price-calc";
 import {
   getRecentHospitalsAction,
   getRecentPartnerProductsAction,
@@ -1073,7 +1073,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                   </div>
                   <div className="flex justify-between">
                     <span className="font-semibold">합계</span>
-                    <span className="tabular-nums font-semibold">₩{fmt4(round4(totalSupply + totalTax))}</span>
+                    <span className="tabular-nums font-semibold">₩{fmt4(totalSupply + totalTax)}</span>
 
                   </div>
                 </div>

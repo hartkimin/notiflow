@@ -45,7 +45,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { vatToExcl, exclToVat, calcLine, calcOrderTotals, lineSupply, lineTax, fmt4, round4 } from "@/lib/price-calc";
+import { vatToExcl, exclToVat, calcLine, calcOrderTotals, lineSupply, lineTax, fmt4 } from "@/lib/price-calc";
 import {
   Table,
   TableBody,
@@ -466,8 +466,8 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
   const finalSalesTotal = manualSalesTotal ?? salesTotal;
   const finalSupply = manualSupply ?? supplyTotal;
   const finalTax = manualTax ?? taxTotal;
-  const totalMargin = round4(finalSalesTotal - finalPurchaseTotal);
-  const marginRate = finalSalesTotal > 0 ? round4((totalMargin / finalSalesTotal) * 100) : 0;
+  const totalMargin = finalSalesTotal - finalPurchaseTotal;
+  const marginRate = finalPurchaseTotal > 0 ? Math.round((totalMargin / finalPurchaseTotal) * 1000) / 10 : 0;
 
 
   return (
@@ -693,7 +693,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                 const pp = edit ? edit.purchase_price : (item.purchase_price ?? 0);
                 const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
                 const lc = calcLine(pp, sp, qty);
-                const { ppVat, spVat, pSupply, pTax, sSupply, sTax, profit: lineProfit, marginRate: lineMargin } = lc;
+                const { ppVat, spVat, pSupply, pTax, pTotal, sSupply, sTax, profit: lineProfit, marginRate: lineMargin } = lc;
 
                 return (
                   <TableRow
@@ -901,7 +901,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                     </TableCell>
                     {/* 이익률 */}
                     <TableCell className="text-right tabular-nums">
-                      {sSupply > 0 ? (
+                      {pTotal > 0 ? (
                         <span className={lineMargin < 0 ? "text-red-500" : ""}>
                           {lineMargin.toFixed(1)}%
                         </span>
@@ -949,7 +949,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
               {/* New items rows */}
               {isEditing && newItems.map((ni) => {
                 const niLc = calcLine(ni.purchase_price, ni.unit_price, ni.quantity);
-                const { ppVat: niPpVat, spVat: niSpVat, pSupply: niPSupply, pTax: niPTax, sSupply: niSSupply, sTax: niSTax, profit: niProfit, marginRate: niMargin } = niLc;
+                const { ppVat: niPpVat, spVat: niSpVat, pSupply: niPSupply, pTax: niPTax, pTotal: niPTotal, sSupply: niSSupply, sTax: niSTax, profit: niProfit, marginRate: niMargin } = niLc;
                 return (
                 <TableRow key={ni.key} className="bg-green-50/50">
                   {/* # */}
@@ -1061,7 +1061,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                   </TableCell>
                   {/* 이익률 */}
                   <TableCell className="text-right tabular-nums">
-                    {niSSupply > 0 ? (
+                    {niPTotal > 0 ? (
                       <span className={niMargin < 0 ? "text-red-500" : ""}>{niMargin.toFixed(1)}%</span>
                     ) : "-"}
                   </TableCell>
@@ -1114,7 +1114,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
               )}
               <span className="text-muted-foreground text-right">마진</span>
               <span className={cn("text-right tabular-nums", totalMargin >= 0 ? "text-green-600" : "text-red-500")}>
-                {fmt4(totalMargin)}원 ({finalSalesTotal > 0 ? marginRate.toFixed(1) : "-"}%)
+                {fmt4(totalMargin)}원 ({finalPurchaseTotal > 0 ? marginRate.toFixed(1) : "-"}%)
               </span>
               <Separator className="col-span-2 my-1" />
               <span className="text-muted-foreground text-right">공급가액</span>
@@ -1131,7 +1131,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
               )}
               <span className="font-semibold text-right">합계</span>
               <span className="font-semibold text-right tabular-nums">
-                {fmt4(round4(finalSupply + finalTax))}원
+                {fmt4(finalSupply + finalTax)}원
               </span>
             </div>
             <div className="flex flex-col gap-1 print:hidden">

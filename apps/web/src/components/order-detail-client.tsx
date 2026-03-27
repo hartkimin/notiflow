@@ -1132,34 +1132,34 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
               {totalsEditing ? (
                 <Input type="number" step="any" className="h-7 w-[160px] text-right text-sm" value={finalPurchaseTotal} onChange={(e) => setManualPurchaseTotal(Number(e.target.value) || 0)} />
               ) : (
-                <span className="text-right tabular-nums">{finalPurchaseTotal.toLocaleString()}원</span>
+                <span className="text-right tabular-nums">{fmt4(finalPurchaseTotal)}원</span>
               )}
               <span className="text-muted-foreground text-right">매출합계</span>
               {totalsEditing ? (
                 <Input type="number" step="any" className="h-7 w-[160px] text-right text-sm" value={finalSalesTotal} onChange={(e) => setManualSalesTotal(Number(e.target.value) || 0)} />
               ) : (
-                <span className="text-right tabular-nums font-medium">{finalSalesTotal.toLocaleString()}원</span>
+                <span className="text-right tabular-nums font-medium">{fmt4(finalSalesTotal)}원</span>
               )}
               <span className="text-muted-foreground text-right">마진</span>
               <span className={cn("text-right tabular-nums", totalMargin >= 0 ? "text-green-600" : "text-red-500")}>
-                {totalMargin.toLocaleString()}원 ({finalSalesTotal > 0 ? marginRate.toFixed(1) : "-"}%)
+                {fmt4(totalMargin)}원 ({finalSalesTotal > 0 ? marginRate.toFixed(1) : "-"}%)
               </span>
               <Separator className="col-span-2 my-1" />
               <span className="text-muted-foreground text-right">공급가액</span>
               {totalsEditing ? (
                 <Input type="number" step="any" className="h-7 w-[160px] text-right text-sm" value={finalSupply} onChange={(e) => setManualSupply(Number(e.target.value) || 0)} />
               ) : (
-                <span className="text-right tabular-nums">{finalSupply.toLocaleString()}원</span>
+                <span className="text-right tabular-nums">{fmt4(finalSupply)}원</span>
               )}
               <span className="text-muted-foreground text-right">세액</span>
               {totalsEditing ? (
                 <Input type="number" step="any" className="h-7 w-[160px] text-right text-sm" value={finalTax} onChange={(e) => setManualTax(Number(e.target.value) || 0)} />
               ) : (
-                <span className="text-right tabular-nums">{finalTax.toLocaleString()}원</span>
+                <span className="text-right tabular-nums">{fmt4(finalTax)}원</span>
               )}
               <span className="font-semibold text-right">합계</span>
               <span className="font-semibold text-right tabular-nums">
-                {(finalSupply + finalTax).toLocaleString()}원
+                {fmt4(round4(finalSupply + finalTax))}원
               </span>
             </div>
             <div className="flex flex-col gap-1 print:hidden">

@@ -462,7 +462,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
         <span className="font-medium truncate">{item.name}</span>
         {item.manufacturer && <span className="text-xs text-muted-foreground truncate">{item.manufacturer}</span>}
         {item.unit_price != null && (
-          <span className="text-xs text-muted-foreground ml-auto shrink-0">{item.unit_price.toLocaleString()}원</span>
+          <span className="text-xs text-muted-foreground ml-auto shrink-0">{fmt4(item.unit_price)}원</span>
         )}
       </div>
     );
@@ -516,7 +516,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
         </Badge>
         <span className="font-medium truncate">{item.name}</span>
         {item.unit_price != null && (
-          <span className="text-xs text-muted-foreground ml-auto shrink-0">{item.unit_price.toLocaleString()}원</span>
+          <span className="text-xs text-muted-foreground ml-auto shrink-0">{fmt4(item.unit_price)}원</span>
         )}
       </div>
     );
@@ -1015,15 +1015,15 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                     <TableCell />
                     <TableCell />
                     <TableCell className="text-right text-xs tabular-nums font-bold">
-                      {totalPurchase.toLocaleString()}원
+                      {fmt4(totalPurchase)}원
                     </TableCell>
                     <TableCell />
                     <TableCell />
                     <TableCell className="text-right text-xs tabular-nums font-bold">
-                      {totalSelling.toLocaleString()}원
+                      {fmt4(totalSelling)}원
                     </TableCell>
                     <TableCell className="text-right text-xs tabular-nums">
-                      <span className={totalMargin < 0 ? "text-red-500" : "text-green-600"}>{totalMargin.toLocaleString()}원</span>
+                      <span className={totalMargin < 0 ? "text-red-500" : "text-green-600"}>{fmt4(totalMargin)}원</span>
                     </TableCell>
                     <TableCell className="text-right text-xs tabular-nums">
                       <span className={marginRate < 0 ? "text-red-500" : ""}>{marginRate.toFixed(1)}%</span>
@@ -1052,17 +1052,17 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                 <div className="md:w-[260px] space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">매입 합계</span>
-                    <span className="tabular-nums">₩{totalPurchase.toLocaleString()}</span>
+                    <span className="tabular-nums">₩{fmt4(totalPurchase)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">매출 합계</span>
-                    <span className="tabular-nums font-semibold">₩{totalSelling.toLocaleString()}</span>
+                    <span className="tabular-nums font-semibold">₩{fmt4(totalSelling)}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">이익</span>
                     <span className={`tabular-nums font-semibold ${totalMargin >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                      ₩{totalMargin.toLocaleString()}
+                      ₩{fmt4(totalMargin)}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -1072,15 +1072,15 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                   <Separator />
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">공급가액</span>
-                    <span className="tabular-nums">₩{totalSupply.toLocaleString()}</span>
+                    <span className="tabular-nums">₩{fmt4(totalSupply)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">세액</span>
-                    <span className="tabular-nums">₩{totalTax.toLocaleString()}</span>
+                    <span className="tabular-nums">₩{fmt4(totalTax)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-semibold">합계</span>
-                    <span className="tabular-nums font-semibold">₩{(totalSupply + totalTax).toLocaleString()}</span>
+                    <span className="tabular-nums font-semibold">₩{fmt4(round4(totalSupply + totalTax))}</span>
                   </div>
                 </div>
               </div>

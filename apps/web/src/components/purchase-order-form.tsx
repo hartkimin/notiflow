@@ -355,8 +355,8 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
   }
 
   // ── Calculations ──
-  const totalPurchase = items.reduce((s, i) => s + round4((i.purchase_price ?? 0) * 1.1) * i.quantity, 0);
-  const totalSelling = items.reduce((s, i) => s + round4((i.selling_price ?? 0) * 1.1) * i.quantity, 0);
+  const totalPurchase = items.reduce((s, i) => s + parseFloat(((i.purchase_price ?? 0) * 1.1 * i.quantity).toPrecision(10)), 0);
+  const totalSelling = items.reduce((s, i) => s + parseFloat(((i.selling_price ?? 0) * 1.1 * i.quantity).toPrecision(10)), 0);
   const totalSupply = items.reduce((s, i) => s + (i.selling_price ?? 0) * i.quantity, 0);
   const totalTax = items.reduce((s, i) => s + round4((i.selling_price ?? 0) * 0.1) * i.quantity, 0);
   const totalMargin = totalSelling - totalPurchase;
@@ -952,19 +952,18 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         {/* 이익 */}
                         <TableCell className="text-xs text-right font-mono">
                           {(() => {
-                            const sSupply = round4((item.selling_price ?? 0) * item.quantity);
-                            const pSupply = round4((item.purchase_price ?? 0) * item.quantity);
-                            const profit = round4(sSupply + sSupply * 0.1) - round4(pSupply + pSupply * 0.1);
+                            const sTotal = parseFloat(((item.selling_price ?? 0) * 1.1 * item.quantity).toPrecision(10));
+                            const pTotal = parseFloat(((item.purchase_price ?? 0) * 1.1 * item.quantity).toPrecision(10));
+                            const profit = round4(sTotal - pTotal);
                             return <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{fmt4(profit)}</span>;
                           })()}
                         </TableCell>
                         {/* 이익률 */}
                         <TableCell className="text-xs text-right font-mono">
                           {(() => {
-                            const sSupply = round4((item.selling_price ?? 0) * item.quantity);
-                            const pSupply = round4((item.purchase_price ?? 0) * item.quantity);
-                            const sTotal = round4(sSupply + sSupply * 0.1);
-                            const profit = sTotal - round4(pSupply + pSupply * 0.1);
+                            const sTotal = parseFloat(((item.selling_price ?? 0) * 1.1 * item.quantity).toPrecision(10));
+                            const pTotal = parseFloat(((item.purchase_price ?? 0) * 1.1 * item.quantity).toPrecision(10));
+                            const profit = sTotal - pTotal;
                             const rate = sTotal > 0 ? (profit / sTotal) * 100 : 0;
                             return <span className={rate < 0 ? "text-red-500" : ""}>{rate.toFixed(1)}%</span>;
                           })()}

@@ -471,7 +471,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
 
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20 md:pb-0">
       {/* Order info metadata — hidden on print (shown in print header) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3 text-sm print:hidden">
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -533,7 +533,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
 
         {/* Status toggle */}
         <button
-          className="relative flex h-7 w-[110px] rounded-full border text-[11px] font-medium overflow-hidden cursor-pointer transition-colors disabled:opacity-50"
+          className="relative hidden md:flex h-7 w-[110px] rounded-full border text-[11px] font-medium overflow-hidden cursor-pointer transition-colors disabled:opacity-50"
           disabled={isPending}
           onClick={() => handleStatusChange(order.status === "delivered" ? "confirmed" : "delivered")}
         >
@@ -1297,6 +1297,40 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
             {isPending ? "저장중..." : "등록"}
           </Button>
         </form>
+      </div>
+
+      {/* 모바일 고정 액션 바 */}
+      <div className="fixed bottom-14 left-0 right-0 z-40 border-t bg-background p-3 pb-safe md:hidden">
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          >
+            수정
+          </Button>
+          {order.status === "confirmed" && (
+            <Button
+              className="flex-[2]"
+              disabled={isPending}
+              onClick={() => handleStatusChange("delivered")}
+            >
+              완료 처리
+            </Button>
+          )}
+          {order.status === "delivered" && (
+            <Button
+              className="flex-[2]"
+              variant="outline"
+              disabled={isPending}
+              onClick={() => handleStatusChange("confirmed")}
+            >
+              미완료로 변경
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

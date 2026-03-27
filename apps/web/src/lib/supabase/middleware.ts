@@ -4,11 +4,22 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
+  // Detect if request came through a reverse proxy (Cloudflare Tunnel)
+  const isForwarded = request.headers.get("x-forwarded-proto") === "https" ||
+    request.headers.get("cf-visitor")?.includes('"scheme":"https"');
+
   const supabase = createServerClient(
     process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       auth: { storageKey: "sb-notiflow-auth-token" },
+      cookieOptions: {
+        // When behind Cloudflare Tunnel (HTTPS→HTTP), cookies need Secure=true
+        // because the browser sees HTTPS, even though Next.js sees HTTP
+        secure: isForwarded,
+        sameSite: "lax" as const,
+        path: "/",
+      },
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -18,9 +29,11 @@ export async function updateSession(request: NextRequest) {
             request.cookies.set(name, value),
           );
           supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options as never),
-          );
+          cookiesToSet.forEach(({ name, value, options }) => {
+            const cookieOpts = { ...options };
+            if (isForwarded) cookieOpts.secure = true;
+            supabaseResponse.cookies.set(name, value, cookieOpts as never);
+          });
         },
       },
     },

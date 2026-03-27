@@ -36,8 +36,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </TooltipProvider>
           <Toaster />
         </ThemeProvider>
-        <Analytics />
-        <SpeedInsights />
+        {process.env.VERCEL && <Analytics />}
+        {process.env.VERCEL && <SpeedInsights />}
       </body>
     </html>
   );

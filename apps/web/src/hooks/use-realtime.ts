@@ -20,6 +20,12 @@ export function useRealtime(
   const scrollRef = useRef(0);
 
   useEffect(() => {
+    // Skip realtime on external domains (Cloudflare Tunnel can't proxy WebSocket)
+    if (typeof window !== "undefined") {
+      const h = window.location.hostname;
+      if (h !== "localhost" && h !== "127.0.0.1") return;
+    }
+
     const supabase = createClient();
     const channel = supabase
       .channel(`realtime-${table}`)

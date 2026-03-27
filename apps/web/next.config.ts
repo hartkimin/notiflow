@@ -22,11 +22,11 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://static.cloudflareinsights.com",
       "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com",
       "font-src 'self' https://cdn.jsdelivr.net",
       "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co http://localhost:* https://fcm.googleapis.com https://oauth2.googleapis.com https://www.gstatic.com https://*.tile.openstreetmap.org",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co wss://notiflow.life http://localhost:* https://fcm.googleapis.com https://oauth2.googleapis.com https://www.gstatic.com https://*.tile.openstreetmap.org https://cloudflareinsights.com",
       "frame-ancestors 'none'",
     ].join("; "),
   },

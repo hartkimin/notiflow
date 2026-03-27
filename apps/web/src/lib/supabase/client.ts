@@ -18,11 +18,17 @@ function getSupabaseUrl(): string {
 }
 
 export function createClient() {
+  const isSecure = typeof window !== "undefined" && window.location.protocol === "https:";
   return createBrowserClient(
     getSupabaseUrl(),
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       auth: { storageKey: "sb-notiflow-auth-token" },
+      cookieOptions: {
+        secure: isSecure,
+        sameSite: "lax" as const,
+        path: "/",
+      },
     },
   );
 }

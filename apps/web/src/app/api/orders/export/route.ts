@@ -224,7 +224,7 @@ export async function GET(req: Request) {
   return new Response(buf, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="${suffix}_${new Date().toISOString().slice(0, 10)}.xlsx"`,
+      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(`${suffix}_${new Date().toISOString().slice(0, 10)}.xlsx`)}`,
     },
   });
 }

@@ -34,7 +34,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { cn, round4, fmt4 } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { vatToExcl, exclToVat, calcLine, calcOrderTotals, fmt4, round4 } from "@/lib/price-calc";
 import {
   Check,
   ChevronRight,
@@ -244,7 +245,7 @@ const OrderGroupRow = memo(function OrderGroupRow({
   colCount: number;
   invoicedOrderIds?: Set<number>;
 }) {
-  const vatMultiplier = 1.1;
+  const _vatMultiplier = 1.1; // kept for reference only; calculations use price-calc
   return (
     <>
       {/* Summary row */}
@@ -283,11 +284,10 @@ const OrderGroupRow = memo(function OrderGroupRow({
           {group.items.length}
         </TableCell>
         {(() => {
-          const v = vatMultiplier;
-          const purchaseTotal = group.items.reduce((s, i) => s + round4((i.purchase_price ?? 0) * v) * i.quantity, 0);
-          const salesTotal = group.items.reduce((s, i) => s + round4((i.unit_price ?? 0) * v) * i.quantity, 0);
-          const profit = salesTotal - purchaseTotal;
-          const margin = salesTotal > 0 ? (profit / salesTotal) * 100 : 0;
+          const ot = calcOrderTotals(
+            group.items.map((i) => ({ purchasePrice: i.purchase_price ?? 0, sellingPrice: i.unit_price ?? 0, qty: i.quantity })),
+          );
+          const { purchaseTotal, sellingTotal: salesTotal, totalMargin: profit, marginRate: margin } = ot;
           const reps = [...new Set(group.items.map((i) => i.sales_rep).filter(Boolean))];
           return (
             <>
@@ -595,16 +595,8 @@ function OrderAccordionContent({
                 const pp = isEditing ? (editItems[item.id]?.purchase_price ?? 0) : (item.purchase_price ?? 0);
                 const sp = isEditing ? (editItems[item.id]?.unit_price ?? 0) : (item.unit_price ?? 0);
                 const qty = isEditing ? (editItems[item.id]?.quantity ?? item.quantity) : item.quantity;
-                const ppVat = round4(pp * 1.1);
-                const spVat = round4(sp * 1.1);
-                const pSupply = round4(pp * qty);
-                const pTax = round4(pSupply * 0.1);
-                const sSupply = round4(sp * qty);
-                const sTax = round4(sSupply * 0.1);
-                const purchaseTotal = round4(ppVat * qty);
-                const salesTotal = round4(spVat * qty);
-                const profit = round4(salesTotal - purchaseTotal);
-                const margin = salesTotal > 0 ? round4((profit / salesTotal) * 100) : 0;
+                const lc = calcLine(pp, sp, qty);
+                const { ppVat, spVat, pSupply, pTax, sSupply, sTax, profit, marginRate: margin } = lc;
 
                 return (
                 <TableRow key={item.id}>
@@ -713,7 +705,7 @@ function OrderAccordionContent({
                         step="any"
                         value={ppVat}
                         onChange={(e) =>
-                          updateItemField(item.id, "purchase_price", Number(e.target.value) / 1.1)
+                          updateItemField(item.id, "purchase_price", vatToExcl(Number(e.target.value)))
                         }
                         className="h-7 w-[80px] text-right text-xs ml-auto"
                       />
@@ -742,7 +734,7 @@ function OrderAccordionContent({
                         step="any"
                         value={spVat}
                         onChange={(e) =>
-                          updateItemField(item.id, "unit_price", Number(e.target.value) / 1.1)
+                          updateItemField(item.id, "unit_price", vatToExcl(Number(e.target.value)))
                         }
                         className="h-7 w-[80px] text-right text-xs ml-auto"
                       />
@@ -869,29 +861,26 @@ function OrderAccordionContent({
         <div className="flex justify-end mt-2">
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
             {(() => {
-              const pt = group.items.reduce((s, i) => s + round4(round4((i.purchase_price ?? 0) * 1.1) * i.quantity), 0);
-              const st = group.items.reduce((s, i) => s + round4(round4((i.unit_price ?? 0) * 1.1) * i.quantity), 0);
-              const mg = round4(st - pt);
-              const mr = st > 0 ? round4((mg / st) * 100) : 0;
-              const supply = group.items.reduce((s, i) => s + round4((i.unit_price ?? 0) * i.quantity), 0);
-              const tax = group.items.reduce((s, i) => s + round4(round4((i.unit_price ?? 0) * 0.1) * i.quantity), 0);
+              const ft = calcOrderTotals(
+                group.items.map((i) => ({ purchasePrice: i.purchase_price ?? 0, sellingPrice: i.unit_price ?? 0, qty: i.quantity })),
+              );
               return (
                 <>
                   <span className="text-muted-foreground text-right">매입합계</span>
-                  <span className="text-right tabular-nums">{fmt4(pt)}원</span>
+                  <span className="text-right tabular-nums">{fmt4(ft.purchaseTotal)}원</span>
                   <span className="text-muted-foreground text-right">매출합계</span>
-                  <span className="text-right tabular-nums font-medium">{fmt4(st)}원</span>
+                  <span className="text-right tabular-nums font-medium">{fmt4(ft.sellingTotal)}원</span>
                   <span className="text-muted-foreground text-right">마진</span>
-                  <span className={cn("text-right tabular-nums", mg >= 0 ? "text-green-600" : "text-red-500")}>
-                    {fmt4(mg)}원 ({st > 0 ? mr.toFixed(1) : "-"}%)
+                  <span className={cn("text-right tabular-nums", ft.totalMargin >= 0 ? "text-green-600" : "text-red-500")}>
+                    {fmt4(ft.totalMargin)}원 ({ft.sellingTotal > 0 ? ft.marginRate.toFixed(1) : "-"}%)
                   </span>
                   <Separator className="col-span-2 my-1" />
                   <span className="text-muted-foreground text-right">공급가액</span>
-                  <span className="text-right tabular-nums">{fmt4(supply)}원</span>
+                  <span className="text-right tabular-nums">{fmt4(ft.supplyTotal)}원</span>
                   <span className="text-muted-foreground text-right">세액</span>
-                  <span className="text-right tabular-nums">{fmt4(tax)}원</span>
+                  <span className="text-right tabular-nums">{fmt4(ft.taxTotal)}원</span>
                   <span className="font-medium text-right">합계</span>
-                  <span className="font-medium text-right tabular-nums">{fmt4(round4(supply + tax))}원</span>
+                  <span className="font-medium text-right tabular-nums">{fmt4(round4(ft.supplyTotal + ft.taxTotal))}원</span>
                 </>
               );
             })()}

@@ -44,7 +44,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { cn, round4, fmt4 } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { vatToExcl, exclToVat, calcLine, calcOrderTotals, lineSupply, lineTax, fmt4, round4 } from "@/lib/price-calc";
 import {
   Table,
   TableBody,
@@ -448,33 +449,17 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
   // --- Computed totals ---
   const visibleItems = order.items.filter((item) => !deletedIds.has(item.id));
 
-  const purchaseTotal = visibleItems.reduce((sum, item) => {
-    const edit = editItems[item.id];
-    const qty = edit?.quantity ?? item.quantity;
-    const pp = edit?.purchase_price ?? (item.purchase_price ?? 0);
-    return sum + round4(round4(pp * 1.1) * qty);
-  }, 0);
-
-  const salesTotal = visibleItems.reduce((sum, item) => {
-    const edit = editItems[item.id];
-    const qty = edit ? edit.quantity : item.quantity;
-    const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
-    return sum + round4(round4(sp * 1.1) * qty);
-  }, 0);
-
-  const supplyTotal = visibleItems.reduce((sum, item) => {
-    const edit = editItems[item.id];
-    const qty = edit ? edit.quantity : item.quantity;
-    const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
-    return sum + round4(sp * qty);
-  }, 0);
-
-  const taxTotal = visibleItems.reduce((sum, item) => {
-    const edit = editItems[item.id];
-    const qty = edit ? edit.quantity : item.quantity;
-    const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
-    return sum + round4(round4(sp * 0.1) * qty);
-  }, 0);
+  const orderTotals = calcOrderTotals(
+    visibleItems.map((item) => {
+      const edit = editItems[item.id];
+      return {
+        purchasePrice: edit?.purchase_price ?? (item.purchase_price ?? 0),
+        sellingPrice: edit ? edit.unit_price : (item.unit_price ?? 0),
+        qty: edit?.quantity ?? item.quantity,
+      };
+    }),
+  );
+  const { purchaseTotal, sellingTotal: salesTotal, supplyTotal, taxTotal } = orderTotals;
 
   // Final values: manual override takes precedence
   const finalPurchaseTotal = manualPurchaseTotal ?? purchaseTotal;
@@ -483,6 +468,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
   const finalTax = manualTax ?? taxTotal;
   const totalMargin = round4(finalSalesTotal - finalPurchaseTotal);
   const marginRate = finalSalesTotal > 0 ? round4((totalMargin / finalSalesTotal) * 100) : 0;
+
 
   return (
     <div className="space-y-4">
@@ -706,15 +692,8 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                 const qty = edit ? edit.quantity : item.quantity;
                 const pp = edit ? edit.purchase_price : (item.purchase_price ?? 0);
                 const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
-                const ppVat = round4(pp * 1.1);
-                const spVat = round4(sp * 1.1);
-                const pSupply = round4(pp * qty);
-                const pTax = round4(pSupply * 0.1);
-                const sSupply = round4(sp * qty);
-                const sTax = round4(sSupply * 0.1);
-                const lineProfit = round4(sSupply + sTax) - round4(pSupply + pTax);
-                const lineSalesVatTotal = round4(sSupply + sTax);
-                const lineMargin = lineSalesVatTotal > 0 ? (lineProfit / lineSalesVatTotal) * 100 : 0;
+                const lc = calcLine(pp, sp, qty);
+                const { ppVat, spVat, pSupply, pTax, sSupply, sTax, profit: lineProfit, marginRate: lineMargin } = lc;
 
                 return (
                   <TableRow
@@ -865,7 +844,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                           value={ppVat}
                           onChange={(e) => {
                             const v = e.target.value ? parseFloat(e.target.value) : 0;
-                            updateEditItem(item.id, "purchase_price", v / 1.1);
+                            updateEditItem(item.id, "purchase_price", vatToExcl(v));
                           }}
                           className="h-7 w-[80px] text-right text-sm ml-auto"
                         />
@@ -892,7 +871,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                           value={spVat}
                           onChange={(e) => {
                             const v = e.target.value ? parseFloat(e.target.value) : 0;
-                            updateEditItem(item.id, "unit_price", v / 1.1);
+                            updateEditItem(item.id, "unit_price", vatToExcl(v));
                           }}
                           className="h-7 w-[80px] text-right text-sm ml-auto"
                         />
@@ -922,7 +901,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                     </TableCell>
                     {/* 이익률 */}
                     <TableCell className="text-right tabular-nums">
-                      {lineSalesVatTotal > 0 ? (
+                      {sSupply > 0 ? (
                         <span className={lineMargin < 0 ? "text-red-500" : ""}>
                           {lineMargin.toFixed(1)}%
                         </span>
@@ -969,15 +948,8 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
               })}
               {/* New items rows */}
               {isEditing && newItems.map((ni) => {
-                const niPpVat = round4(ni.purchase_price * 1.1);
-                const niSpVat = round4(ni.unit_price * 1.1);
-                const niPSupply = round4(ni.purchase_price * ni.quantity);
-                const niPTax = round4(niPSupply * 0.1);
-                const niSSupply = round4(ni.unit_price * ni.quantity);
-                const niSTax = round4(niSSupply * 0.1);
-                const niProfit = round4(niSSupply + niSTax) - round4(niPSupply + niPTax);
-                const niSalesVatTotal = round4(niSSupply + niSTax);
-                const niMargin = niSalesVatTotal > 0 ? (niProfit / niSalesVatTotal) * 100 : 0;
+                const niLc = calcLine(ni.purchase_price, ni.unit_price, ni.quantity);
+                const { ppVat: niPpVat, spVat: niSpVat, pSupply: niPSupply, pTax: niPTax, sSupply: niSSupply, sTax: niSTax, profit: niProfit, marginRate: niMargin } = niLc;
                 return (
                 <TableRow key={ni.key} className="bg-green-50/50">
                   {/* # */}
@@ -1051,7 +1023,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                   <TableCell className="text-sm text-muted-foreground">{ni.unit_type}</TableCell>
                   {/* 매입(VAT) — 입력 */}
                   <TableCell className="text-right tabular-nums">
-                    <Input type="number" min={0} step="any" value={niPpVat} onChange={(e) => { const v = e.target.value ? parseFloat(e.target.value) : 0; updateNewItem(ni.key, "purchase_price", v / 1.1); }} className="h-7 w-[80px] text-right text-sm ml-auto" />
+                    <Input type="number" min={0} step="any" value={niPpVat} onChange={(e) => { const v = e.target.value ? parseFloat(e.target.value) : 0; updateNewItem(ni.key, "purchase_price", vatToExcl(v)); }} className="h-7 w-[80px] text-right text-sm ml-auto" />
                   </TableCell>
                   {/* 매입단가 — 자동 */}
                   <TableCell className="text-right tabular-nums text-muted-foreground">
@@ -1067,7 +1039,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                   </TableCell>
                   {/* 판매(VAT) — 입력 */}
                   <TableCell className="text-right tabular-nums">
-                    <Input type="number" min={0} step="any" value={niSpVat} onChange={(e) => { const v = e.target.value ? parseFloat(e.target.value) : 0; updateNewItem(ni.key, "unit_price", v / 1.1); }} className="h-7 w-[80px] text-right text-sm ml-auto" />
+                    <Input type="number" min={0} step="any" value={niSpVat} onChange={(e) => { const v = e.target.value ? parseFloat(e.target.value) : 0; updateNewItem(ni.key, "unit_price", vatToExcl(v)); }} className="h-7 w-[80px] text-right text-sm ml-auto" />
                   </TableCell>
                   {/* 판매단가 — 자동 */}
                   <TableCell className="text-right tabular-nums text-muted-foreground">
@@ -1089,7 +1061,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                   </TableCell>
                   {/* 이익률 */}
                   <TableCell className="text-right tabular-nums">
-                    {niSalesVatTotal > 0 ? (
+                    {niSSupply > 0 ? (
                       <span className={niMargin < 0 ? "text-red-500" : ""}>{niMargin.toFixed(1)}%</span>
                     ) : "-"}
                   </TableCell>

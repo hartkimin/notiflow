@@ -667,7 +667,6 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                     searchAction={searchPartnerProductsLocal}
                     onSelect={addPartnerProduct}
                     renderItem={renderProductItem}
-                    keepOpenOnSelect
                     isSelected={isPartnerItemSelected}
                   />
                 )}
@@ -680,7 +679,6 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                   searchAction={searchMyItemsAction}
                   onSelect={addMyItem}
                   renderItem={renderMyItem}
-                  keepOpenOnSelect
                   isSelected={isMyItemSelected}
                 />
               </TabsContent>
@@ -692,7 +690,6 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                   searchAction={searchMfdsItemsAction}
                   onSelect={addMfdsItem}
                   renderItem={renderMfdsItem}
-                  keepOpenOnSelect
                   isSelected={isMfdsItemSelected}
                 />
               </TabsContent>
@@ -906,10 +903,10 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         <TableCell className="text-right">
                           <Input
                             type="number" min={0} step="any"
-                            value={item.purchase_price != null ? round4(item.purchase_price * 1.1) : ""}
+                            value={item.purchase_price != null ? parseFloat((item.purchase_price * 1.1).toPrecision(10)) : ""}
                             onChange={(e) => {
                               const vatIncl = e.target.value ? parseFloat(e.target.value) : null;
-                              updateItem(item.key, { purchase_price: vatIncl != null ? round4(vatIncl / 1.1) : null });
+                              updateItem(item.key, { purchase_price: vatIncl != null ? vatIncl / 1.1 : null });
                             }}
                             className="h-7 w-[80px] text-xs text-right ml-auto"
                             placeholder="VAT포함"
@@ -931,10 +928,10 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         <TableCell className="text-right">
                           <Input
                             type="number" min={0} step="any"
-                            value={item.selling_price != null ? round4(item.selling_price * 1.1) : ""}
+                            value={item.selling_price != null ? parseFloat((item.selling_price * 1.1).toPrecision(10)) : ""}
                             onChange={(e) => {
                               const vatIncl = e.target.value ? parseFloat(e.target.value) : null;
-                              updateItem(item.key, { selling_price: vatIncl != null ? round4(vatIncl / 1.1) : null });
+                              updateItem(item.key, { selling_price: vatIncl != null ? vatIncl / 1.1 : null });
                             }}
                             className="h-7 w-[80px] text-xs text-right ml-auto"
                             placeholder="VAT포함"

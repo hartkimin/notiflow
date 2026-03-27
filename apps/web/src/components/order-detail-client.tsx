@@ -128,7 +128,7 @@ function createBlankItem(): NewItemState {
 }
 
 const DETAIL_COL_DEFAULTS: Record<string, number> = {
-  idx: 35, product: 150, supplier: 80, quantity: 50, unit_type: 45,
+  idx: 35, product: 200, supplier: 80, quantity: 50, unit_type: 45,
   p_vat: 90, p_excl: 80, p_supply: 90, p_tax: 70,
   s_vat: 90, s_excl: 80, s_supply: 90, s_tax: 70,
   profit: 90, profit_rate: 55, sales_rep: 65,
@@ -703,7 +703,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                     <TableCell className="pl-6 text-muted-foreground">
                       {idx + 1}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="overflow-hidden">
                       {isEditing && !isDeleted ? (
                         <Popover
                           open={productOpenId === item.id}
@@ -761,7 +761,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                           </PopoverContent>
                         </Popover>
                       ) : (
-                        <span className="font-medium">{productName}</span>
+                        <span className="font-medium block truncate" title={productName}>{productName}</span>
                       )}
                     </TableCell>
                     <TableCell className="text-sm">

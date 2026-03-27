@@ -4,6 +4,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import { GlobalNotifications } from "@/components/global-notifications";
 import { ChatWidget } from "@/components/chat-widget";
 import { PushInitializer } from "@/components/push-initializer";
+import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { requireAuth } from "@/lib/auth";
 import { getSettings } from "@/lib/queries/settings";
 
@@ -22,6 +23,7 @@ export default async function DashboardLayout({
         <GlobalNotifications />
         <PushInitializer userId={user.id} />
         <main className="flex-1 overflow-y-auto p-4 pb-16 md:pb-4 lg:p-6 lg:pb-4">
+          <PwaInstallBanner />
           <div className="w-full space-y-4">
             {children}
           </div>

@@ -168,6 +168,23 @@
   margin-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Pull-to-refresh */
+.ptr-spinner {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+  transition: opacity 0.2s;
+}
+.ptr-spinner svg {
+  width: 24px;
+  height: 24px;
+  animation: ptr-spin 0.8s linear infinite;
+  color: var(--color-primary);
+}
+@keyframes ptr-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ── Mobile / touch enhancements ──────────────── */
 @media (pointer: coarse) {
   /* Larger touch targets on touch devices */

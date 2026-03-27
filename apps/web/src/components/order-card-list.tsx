@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ORDER_STATUS_LABELS, ORDER_STATUS_VARIANT } from "@/lib/order-status";
@@ -30,6 +31,7 @@ const STATUS_FILTERS = [
 
 export function OrderCardList({ groups }: OrderCardListProps) {
   const router = useRouter();
+  const { pullDistance, refreshing, error } = usePullToRefresh();
   const [activeFilter, setActiveFilter] = useState("all");
 
   const filtered = activeFilter === "all"
@@ -44,6 +46,24 @@ export function OrderCardList({ groups }: OrderCardListProps) {
 
   return (
     <div className="space-y-3">
+      {/* 풀투리프레시 인디케이터 */}
+      {(pullDistance > 0 || refreshing || error) && (
+        <div
+          className="ptr-spinner"
+          style={{ opacity: refreshing || error ? 1 : Math.min(pullDistance / 80, 1) }}
+        >
+          {error ? (
+            <svg className="h-6 w-6 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          ) : (
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          )}
+        </div>
+      )}
+
       {/* 상태 필터 pills */}
       <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
         {STATUS_FILTERS.map((f) => (

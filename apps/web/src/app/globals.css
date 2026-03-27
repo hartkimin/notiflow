@@ -196,6 +196,23 @@
     min-height: 40px;
     min-width: 40px;
   }
+  /* Tab triggers — minimum touch target */
+  [role="tab"],
+  [data-slot="tabs-trigger"] {
+    min-height: 36px;
+  }
+  /* Input fields — minimum touch target */
+  [data-slot="input"],
+  input[type="date"],
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="number"],
+  select,
+  [data-slot="select-trigger"] {
+    min-height: 40px;
+  }
   /* Slightly larger table rows for easier tapping */
   [data-slot="table"] tbody td {
     padding-top: 0.75rem;

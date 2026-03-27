@@ -70,6 +70,7 @@ import { useResizableColumns } from "@/hooks/use-resizable-columns";
 import { ResizableTh } from "@/components/resizable-th";
 import { toast } from "sonner";
 import type { OrderItemFlat } from "@/lib/types";
+import { OrderCardList } from "./order-card-list";
 
 export interface ProductOption {
   id: number;
@@ -156,72 +157,95 @@ export function OrderTable({
 
   return (
     <>
-      <div className="rounded-md border overflow-x-auto">
-        <Table style={{ tableLayout: "fixed" }}>
-          <TableHeader>
-            <TableRow>
-              <ResizableTh width={widths.checkbox} colKey="checkbox" onResizeStart={onMouseDown} className="px-2">
-                <Checkbox
-                  checked={rowSelection.allSelected ? true : rowSelection.someSelected ? "indeterminate" : false}
-                  onCheckedChange={() => rowSelection.toggleAll()}
-                  aria-label="모두 선택"
-                />
-              </ResizableTh>
-              <ResizableTh width={widths.expand} colKey="expand" onResizeStart={onMouseDown} />
-              <ResizableTh width={widths.order_number} colKey="order_number" onResizeStart={onMouseDown}>주문번호</ResizableTh>
-              <ResizableTh width={widths.order_date} colKey="order_date" onResizeStart={onMouseDown}>발주일</ResizableTh>
-              <ResizableTh width={widths.delivery_date} colKey="delivery_date" onResizeStart={onMouseDown}>배송일</ResizableTh>
-              <ResizableTh width={widths.hospital} colKey="hospital" onResizeStart={onMouseDown}>거래처</ResizableTh>
-              <ResizableTh width={widths.item_count} colKey="item_count" onResizeStart={onMouseDown} className="text-right">품목수</ResizableTh>
-              <ResizableTh width={widths.purchase_total} colKey="purchase_total" onResizeStart={onMouseDown} className="text-right">매입총액</ResizableTh>
-              <ResizableTh width={widths.sales_total} colKey="sales_total" onResizeStart={onMouseDown} className="text-right">매출총액</ResizableTh>
-              <ResizableTh width={widths.profit} colKey="profit" onResizeStart={onMouseDown} className="text-right">매출이익</ResizableTh>
-              <ResizableTh width={widths.margin} colKey="margin" onResizeStart={onMouseDown} className="text-right">이익률</ResizableTh>
-              <ResizableTh width={widths.sales_rep} colKey="sales_rep" onResizeStart={onMouseDown}>담당자</ResizableTh>
-              <ResizableTh width={widths.status} colKey="status" onResizeStart={onMouseDown}>상태</ResizableTh>
-              <ResizableTh width={widths.invoice} colKey="invoice" onResizeStart={onMouseDown}>계산서</ResizableTh>
-              <ResizableTh width={widths.copy} colKey="copy" onResizeStart={onMouseDown} />
-              <ResizableTh width={widths.actions} colKey="actions" onResizeStart={onMouseDown} />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {groups.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={colCount}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  주문이 없습니다.
-                </TableCell>
-              </TableRow>
-            ) : (
-              groups.map((group) => {
-                const isExpanded = expandedId === group.order_id;
-                return (
-                  <OrderGroupRow
-                    key={group.order_id}
-                    group={group}
-                    products={products}
-                    isExpanded={isExpanded}
-                    isSelected={rowSelection.selected.has(group.order_id)}
-                    onToggle={() => toggleExpand(group.order_id)}
-                    onToggleSelect={() => rowSelection.toggle(group.order_id)}
-                    colCount={colCount}
-                    invoicedOrderIds={invoicedOrderIds}
-                  />
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
+      {/* 모바일: 카드형 */}
+      <div className="md:hidden">
+        <OrderCardList
+          groups={groups.map((g) => {
+            const ot = calcOrderTotals(
+              g.items.map((i) => ({ purchasePrice: i.purchase_price ?? 0, sellingPrice: i.unit_price ?? 0, qty: i.quantity })),
+            );
+            return {
+              order_id: g.order_id,
+              order_number: g.order_number,
+              order_date: g.order_date,
+              hospital_name: g.hospital_name,
+              status: g.status,
+              total_amount: ot.sellingTotal,
+              total_items: g.items.length,
+            };
+          })}
+        />
       </div>
 
-      <BulkActionBar
-        count={rowSelection.count}
-        onClear={rowSelection.clear}
-        onDelete={() => deleteOrdersAction(Array.from(rowSelection.selected))}
-        label="주문"
-      />
+      {/* 데스크톱: 기존 테이블 */}
+      <div className="hidden md:block">
+        <div className="rounded-md border overflow-x-auto">
+          <Table style={{ tableLayout: "fixed" }}>
+            <TableHeader>
+              <TableRow>
+                <ResizableTh width={widths.checkbox} colKey="checkbox" onResizeStart={onMouseDown} className="px-2">
+                  <Checkbox
+                    checked={rowSelection.allSelected ? true : rowSelection.someSelected ? "indeterminate" : false}
+                    onCheckedChange={() => rowSelection.toggleAll()}
+                    aria-label="모두 선택"
+                  />
+                </ResizableTh>
+                <ResizableTh width={widths.expand} colKey="expand" onResizeStart={onMouseDown} />
+                <ResizableTh width={widths.order_number} colKey="order_number" onResizeStart={onMouseDown}>주문번호</ResizableTh>
+                <ResizableTh width={widths.order_date} colKey="order_date" onResizeStart={onMouseDown}>발주일</ResizableTh>
+                <ResizableTh width={widths.delivery_date} colKey="delivery_date" onResizeStart={onMouseDown}>배송일</ResizableTh>
+                <ResizableTh width={widths.hospital} colKey="hospital" onResizeStart={onMouseDown}>거래처</ResizableTh>
+                <ResizableTh width={widths.item_count} colKey="item_count" onResizeStart={onMouseDown} className="text-right">품목수</ResizableTh>
+                <ResizableTh width={widths.purchase_total} colKey="purchase_total" onResizeStart={onMouseDown} className="text-right">매입총액</ResizableTh>
+                <ResizableTh width={widths.sales_total} colKey="sales_total" onResizeStart={onMouseDown} className="text-right">매출총액</ResizableTh>
+                <ResizableTh width={widths.profit} colKey="profit" onResizeStart={onMouseDown} className="text-right">매출이익</ResizableTh>
+                <ResizableTh width={widths.margin} colKey="margin" onResizeStart={onMouseDown} className="text-right">이익률</ResizableTh>
+                <ResizableTh width={widths.sales_rep} colKey="sales_rep" onResizeStart={onMouseDown}>담당자</ResizableTh>
+                <ResizableTh width={widths.status} colKey="status" onResizeStart={onMouseDown}>상태</ResizableTh>
+                <ResizableTh width={widths.invoice} colKey="invoice" onResizeStart={onMouseDown}>계산서</ResizableTh>
+                <ResizableTh width={widths.copy} colKey="copy" onResizeStart={onMouseDown} />
+                <ResizableTh width={widths.actions} colKey="actions" onResizeStart={onMouseDown} />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {groups.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={colCount}
+                    className="h-24 text-center text-muted-foreground"
+                  >
+                    주문이 없습니다.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                groups.map((group) => {
+                  const isExpanded = expandedId === group.order_id;
+                  return (
+                    <OrderGroupRow
+                      key={group.order_id}
+                      group={group}
+                      products={products}
+                      isExpanded={isExpanded}
+                      isSelected={rowSelection.selected.has(group.order_id)}
+                      onToggle={() => toggleExpand(group.order_id)}
+                      onToggleSelect={() => rowSelection.toggle(group.order_id)}
+                      colCount={colCount}
+                      invoicedOrderIds={invoicedOrderIds}
+                    />
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        <BulkActionBar
+          count={rowSelection.count}
+          onClear={rowSelection.clear}
+          onDelete={() => deleteOrdersAction(Array.from(rowSelection.selected))}
+          label="주문"
+        />
+      </div>
     </>
   );
 }

@@ -124,11 +124,29 @@ export default async function OrdersPage({ searchParams }: Props) {
     <>
       <RealtimeListener tables={["orders", "order_items"]} />
 
-      {/* Stats bar */}
+      {/* Stats bar — mobile: 매입/매출/이익 3열, desktop: full stats */}
       {orderStats && (
         <Card>
           <CardContent className="p-3">
-            <div className="flex items-center gap-6 overflow-x-auto text-sm">
+            {/* Mobile: 3-column grid */}
+            <div className="grid grid-cols-3 gap-3 md:hidden text-center">
+              <div>
+                <p className="text-[11px] text-muted-foreground">매입</p>
+                <p className="text-sm font-bold">₩{(orderStats.total_purchase_amount / 10000).toFixed(0)}만</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground">매출</p>
+                <p className="text-sm font-bold">₩{(orderStats.total_supply_amount / 10000).toFixed(0)}만</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground">이익 ({orderStats.profit_margin.toFixed(1)}%)</p>
+                <p className={`text-sm font-bold ${orderStats.total_profit < 0 ? "text-red-500" : "text-green-600"}`}>
+                  ₩{(orderStats.total_profit / 10000).toFixed(0)}만
+                </p>
+              </div>
+            </div>
+            {/* Desktop: full inline stats */}
+            <div className="hidden md:flex items-center gap-6 overflow-x-auto text-sm">
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-muted-foreground">전체</span>
                 <span className="font-bold">{orderStats.total_count}건</span>

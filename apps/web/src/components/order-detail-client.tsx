@@ -865,7 +865,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                           value={ppVat}
                           onChange={(e) => {
                             const v = e.target.value ? parseFloat(e.target.value) : 0;
-                            updateEditItem(item.id, "purchase_price", round4(v / 1.1));
+                            updateEditItem(item.id, "purchase_price", v / 1.1);
                           }}
                           className="h-7 w-[80px] text-right text-sm ml-auto"
                         />
@@ -892,7 +892,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                           value={spVat}
                           onChange={(e) => {
                             const v = e.target.value ? parseFloat(e.target.value) : 0;
-                            updateEditItem(item.id, "unit_price", round4(v / 1.1));
+                            updateEditItem(item.id, "unit_price", v / 1.1);
                           }}
                           className="h-7 w-[80px] text-right text-sm ml-auto"
                         />
@@ -1051,7 +1051,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                   <TableCell className="text-sm text-muted-foreground">{ni.unit_type}</TableCell>
                   {/* 매입(VAT) — 입력 */}
                   <TableCell className="text-right tabular-nums">
-                    <Input type="number" min={0} step="any" value={niPpVat} onChange={(e) => { const v = e.target.value ? parseFloat(e.target.value) : 0; updateNewItem(ni.key, "purchase_price", round4(v / 1.1)); }} className="h-7 w-[80px] text-right text-sm ml-auto" />
+                    <Input type="number" min={0} step="any" value={niPpVat} onChange={(e) => { const v = e.target.value ? parseFloat(e.target.value) : 0; updateNewItem(ni.key, "purchase_price", v / 1.1); }} className="h-7 w-[80px] text-right text-sm ml-auto" />
                   </TableCell>
                   {/* 매입단가 — 자동 */}
                   <TableCell className="text-right tabular-nums text-muted-foreground">
@@ -1067,7 +1067,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                   </TableCell>
                   {/* 판매(VAT) — 입력 */}
                   <TableCell className="text-right tabular-nums">
-                    <Input type="number" min={0} step="any" value={niSpVat} onChange={(e) => { const v = e.target.value ? parseFloat(e.target.value) : 0; updateNewItem(ni.key, "unit_price", round4(v / 1.1)); }} className="h-7 w-[80px] text-right text-sm ml-auto" />
+                    <Input type="number" min={0} step="any" value={niSpVat} onChange={(e) => { const v = e.target.value ? parseFloat(e.target.value) : 0; updateNewItem(ni.key, "unit_price", v / 1.1); }} className="h-7 w-[80px] text-right text-sm ml-auto" />
                   </TableCell>
                   {/* 판매단가 — 자동 */}
                   <TableCell className="text-right tabular-nums text-muted-foreground">

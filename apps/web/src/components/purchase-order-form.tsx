@@ -906,7 +906,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                             value={item.purchase_price != null ? round4(item.purchase_price * 1.1) : ""}
                             onChange={(e) => {
                               const vatIncl = e.target.value ? parseFloat(e.target.value) : null;
-                              updateItem(item.key, { purchase_price: vatIncl != null ? round4(vatIncl / 1.1) : null });
+                              updateItem(item.key, { purchase_price: vatIncl != null ? vatIncl / 1.1 : null });
                             }}
                             className="h-7 w-[80px] text-xs text-right ml-auto"
                             placeholder="VAT포함"
@@ -931,7 +931,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                             value={item.selling_price != null ? round4(item.selling_price * 1.1) : ""}
                             onChange={(e) => {
                               const vatIncl = e.target.value ? parseFloat(e.target.value) : null;
-                              updateItem(item.key, { selling_price: vatIncl != null ? round4(vatIncl / 1.1) : null });
+                              updateItem(item.key, { selling_price: vatIncl != null ? vatIncl / 1.1 : null });
                             }}
                             className="h-7 w-[80px] text-xs text-right ml-auto"
                             placeholder="VAT포함"

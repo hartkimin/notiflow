@@ -292,14 +292,14 @@ const OrderGroupRow = memo(function OrderGroupRow({
           return (
             <>
               <TableCell className="text-right text-sm tabular-nums">
-                {purchaseTotal > 0 ? purchaseTotal.toLocaleString() : "-"}
+                {purchaseTotal > 0 ? fmt4(purchaseTotal) : "-"}
               </TableCell>
               <TableCell className="text-right text-sm tabular-nums">
-                {salesTotal > 0 ? salesTotal.toLocaleString() : "-"}
+                {salesTotal > 0 ? fmt4(salesTotal) : "-"}
               </TableCell>
               <TableCell className="text-right text-sm tabular-nums">
                 {purchaseTotal > 0 || salesTotal > 0 ? (
-                  <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{profit.toLocaleString()}</span>
+                  <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{fmt4(profit)}</span>
                 ) : "-"}
               </TableCell>
               <TableCell className="text-right text-sm tabular-nums">
@@ -726,7 +726,7 @@ function OrderAccordionContent({
                         step="any"
                         value={ppVat}
                         onChange={(e) =>
-                          updateItemField(item.id, "purchase_price", round4(Number(e.target.value) / 1.1))
+                          updateItemField(item.id, "purchase_price", Number(e.target.value) / 1.1)
                         }
                         className="h-7 w-[100px] text-right text-sm ml-auto"
                       />
@@ -764,7 +764,7 @@ function OrderAccordionContent({
                         step="any"
                         value={spVat}
                         onChange={(e) =>
-                          updateItemField(item.id, "unit_price", round4(Number(e.target.value) / 1.1))
+                          updateItemField(item.id, "unit_price", Number(e.target.value) / 1.1)
                         }
                         className="h-7 w-[100px] text-right text-sm ml-auto"
                       />
@@ -882,45 +882,33 @@ function OrderAccordionContent({
         {/* Footer totals */}
         <div className="flex justify-end mt-2">
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-            <span className="text-muted-foreground text-right">매입합계</span>
-            <span className="text-right tabular-nums">
-              {group.items.reduce((s, i) => s + round4((i.purchase_price ?? 0) * 1.1) * i.quantity, 0).toLocaleString()}원
-            </span>
-            <span className="text-muted-foreground text-right">매출합계</span>
-            <span className="text-right tabular-nums font-medium">
-              {group.items.reduce((s, i) => s + round4((i.unit_price ?? 0) * 1.1) * i.quantity, 0).toLocaleString()}원
-            </span>
             {(() => {
-              const pt = group.items.reduce((s, i) => s + round4((i.purchase_price ?? 0) * 1.1) * i.quantity, 0);
-              const st = group.items.reduce((s, i) => s + round4((i.unit_price ?? 0) * 1.1) * i.quantity, 0);
-              const mg = st - pt;
-              const mr = st > 0 ? (mg / st) * 100 : 0;
+              const pt = group.items.reduce((s, i) => s + round4(round4((i.purchase_price ?? 0) * 1.1) * i.quantity), 0);
+              const st = group.items.reduce((s, i) => s + round4(round4((i.unit_price ?? 0) * 1.1) * i.quantity), 0);
+              const mg = round4(st - pt);
+              const mr = st > 0 ? round4((mg / st) * 100) : 0;
+              const supply = group.items.reduce((s, i) => s + round4((i.unit_price ?? 0) * i.quantity), 0);
+              const tax = group.items.reduce((s, i) => s + round4(round4((i.unit_price ?? 0) * 0.1) * i.quantity), 0);
               return (
                 <>
+                  <span className="text-muted-foreground text-right">매입합계</span>
+                  <span className="text-right tabular-nums">{fmt4(pt)}원</span>
+                  <span className="text-muted-foreground text-right">매출합계</span>
+                  <span className="text-right tabular-nums font-medium">{fmt4(st)}원</span>
                   <span className="text-muted-foreground text-right">마진</span>
                   <span className={cn("text-right tabular-nums", mg >= 0 ? "text-green-600" : "text-red-500")}>
-                    {mg.toLocaleString()}원 ({st > 0 ? mr.toFixed(1) : "-"}%)
+                    {fmt4(mg)}원 ({st > 0 ? mr.toFixed(1) : "-"}%)
                   </span>
+                  <Separator className="col-span-2 my-1" />
+                  <span className="text-muted-foreground text-right">공급가액</span>
+                  <span className="text-right tabular-nums">{fmt4(supply)}원</span>
+                  <span className="text-muted-foreground text-right">세액</span>
+                  <span className="text-right tabular-nums">{fmt4(tax)}원</span>
+                  <span className="font-medium text-right">합계</span>
+                  <span className="font-medium text-right tabular-nums">{fmt4(round4(supply + tax))}원</span>
                 </>
               );
             })()}
-            <Separator className="col-span-2 my-1" />
-            <span className="text-muted-foreground text-right">공급가액</span>
-            <span className="text-right tabular-nums">
-              {group.items.reduce((s, i) => s + (i.unit_price ?? 0) * i.quantity, 0).toLocaleString()}원
-            </span>
-            <span className="text-muted-foreground text-right">세액</span>
-            <span className="text-right tabular-nums">
-              {group.items.reduce((s, i) => s + round4((i.unit_price ?? 0) * 0.1) * i.quantity, 0).toLocaleString()}원
-            </span>
-            <span className="font-medium text-right">합계</span>
-            <span className="font-medium text-right tabular-nums">
-              {(() => {
-                const supply = group.items.reduce((s, i) => s + (i.unit_price ?? 0) * i.quantity, 0);
-                const tax = group.items.reduce((s, i) => s + round4((i.unit_price ?? 0) * 0.1) * i.quantity, 0);
-                return (supply + tax).toLocaleString();
-              })()}원
-            </span>
           </div>
         </div>
       </div>

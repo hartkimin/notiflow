@@ -160,6 +160,14 @@
   }
 }
 
+/* Safe area insets for notched devices */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* ── Mobile / touch enhancements ──────────────── */
 @media (pointer: coarse) {
   /* Larger touch targets on touch devices */

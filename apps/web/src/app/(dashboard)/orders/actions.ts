@@ -24,6 +24,10 @@ export async function updateOrderItemAction(
   itemId: number,
   data: { quantity?: number; unit_price?: number; purchase_price?: number; product_id?: number; supplier_id?: number | null; sales_rep?: string },
 ) {
+  // products_catalog view uses negative IDs for my_drugs/my_devices entries
+  if (data.product_id !== undefined && data.product_id <= 0) {
+    data.product_id = undefined;
+  }
   await updateOrderItem(itemId, data);
 }
 
@@ -45,8 +49,12 @@ export async function addOrderItemAction(data: {
 }) {
   const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
+  // products_catalog view uses negative IDs for my_drugs/my_devices entries
+  // These don't exist in the products table, so null out the FK reference
+  const productId = data.product_id && data.product_id > 0 ? data.product_id : null;
   const { error } = await supabase.from("order_items").insert({
     ...data,
+    product_id: productId,
     line_total: data.unit_price ? data.unit_price * data.quantity : null,
   });
   if (error) throw error;

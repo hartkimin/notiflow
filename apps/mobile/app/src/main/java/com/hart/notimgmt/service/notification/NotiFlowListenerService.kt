@@ -149,14 +149,14 @@ class NotiRouteListenerService : NotificationListenerService() {
             }
             if (largeIcon == null) return null
 
-            // 고해상도 대응을 위해 프로필 아이콘 사이즈를 800px로 상향
-            val size = 800
-            
-            // 소스 드로어블의 크기에 맞춰 비트맵 생성 (너무 작은 경우 800px로 확대)
+            // DB 용량 절감을 위해 아이콘 사이즈를 200px로 축소 (JPEG 60 사용)
+            val size = 200
+
+            // 소스 드로어블의 크기에 맞춰 비트맵 생성 (너무 작은 경우 200px로 확대)
             val width = if (largeIcon.intrinsicWidth > 0) largeIcon.intrinsicWidth else size
             val height = if (largeIcon.intrinsicHeight > 0) largeIcon.intrinsicHeight else size
-            
-            // 비율 유지를 위해 큰 쪽을 800으로 맞춤
+
+            // 비율 유지를 위해 큰 쪽을 200으로 맞춤
             val scale = size.toFloat() / maxOf(width, height)
             val finalWidth = (width * scale).toInt()
             val finalHeight = (height * scale).toInt()
@@ -167,8 +167,8 @@ class NotiRouteListenerService : NotificationListenerService() {
             largeIcon.draw(canvas)
 
             val stream = ByteArrayOutputStream()
-            // 프로필은 선명도가 중요하므로 무손실 PNG 품질 100 사용
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+            // DB 용량 절감: JPEG 품질 60으로 압축 (아이콘은 고해상도 불필요)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 60, stream)
             bitmap.recycle()
             Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
         } catch (e: Exception) {
@@ -201,12 +201,22 @@ class NotiRouteListenerService : NotificationListenerService() {
 
             if (picture == null) return null
 
-            // 원본 화질을 최대한 유지하도록 리사이징 로직 제거
-            // 스마트폰 화면에서 보는 이미지는 압축 손실을 줄이는 것이 중요함
+            // DB 용량 절감을 위해 긴 쪽 기준 400px로 축소 후 JPEG 70 압축
+            val maxDim = 400
+            val origWidth = picture.width
+            val origHeight = picture.height
+            val scaledPicture = if (maxOf(origWidth, origHeight) > maxDim) {
+                val scale = maxDim.toFloat() / maxOf(origWidth, origHeight)
+                val newWidth = (origWidth * scale).toInt()
+                val newHeight = (origHeight * scale).toInt()
+                Bitmap.createScaledBitmap(picture, newWidth, newHeight, true)
+            } else {
+                picture
+            }
+
             val stream = ByteArrayOutputStream()
-            // 고화질 유지를 위해 압축률 최소화 (품질 100, 무손실 PNG 사용)
-            picture.compress(Bitmap.CompressFormat.PNG, 100, stream)
-            // 비트맵 해제 생략 (원본이 알림에서 가져온 것이므로 시스템이 관리)
+            scaledPicture.compress(Bitmap.CompressFormat.JPEG, 70, stream)
+            if (scaledPicture !== picture) scaledPicture.recycle()
             
             Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
         } catch (e: Exception) {

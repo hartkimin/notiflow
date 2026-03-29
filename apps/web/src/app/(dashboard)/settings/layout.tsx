@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Settings, Users, Smartphone, Building, Bot } from "lucide-react";
+import { Settings, Users, Smartphone, Building, Bot, DatabaseBackup } from "lucide-react";
 
 const settingsTabs = [
   { href: "/settings", label: "일반", icon: Settings, exact: true },
@@ -11,6 +11,7 @@ const settingsTabs = [
   { href: "/settings/users", label: "사용자 관리", icon: Users },
   { href: "/settings/devices", label: "기기 관리", icon: Smartphone },
   { href: "/settings/company", label: "자사 정보", icon: Building },
+  { href: "/settings/mobile-backup", label: "모바일 백업", icon: DatabaseBackup },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {

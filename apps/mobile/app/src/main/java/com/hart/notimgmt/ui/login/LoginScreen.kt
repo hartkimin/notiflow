@@ -1,8 +1,9 @@
 package com.hart.notimgmt.ui.login
 
-import android.app.Activity
-import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import android.widget.Toast
+import kotlin.system.exitProcess
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -67,7 +68,6 @@ import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.serializer.KotlinXSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.launch
-import kotlin.system.exitProcess
 
 private enum class LoginMode {
     SIGN_IN,        // 로그인
@@ -420,13 +420,12 @@ fun LoginScreen(
 
                                     Toast.makeText(context, "서버 연결 성공. 앱을 재시작합니다.", Toast.LENGTH_SHORT).show()
 
-                                    val activity = context as Activity
-                                    val intent = context.packageManager
-                                        .getLaunchIntentForPackage(context.packageName)!!
-                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                                    context.startActivity(intent)
-                                    activity.finishAffinity()
-                                    exitProcess(0)
+                                    // URL 변경 시 Hilt @Singleton SupabaseClient를 갱신하려면
+                                    // 프로세스 재시작이 필요. NotificationListenerService는
+                                    // 시스템이 자동 재시작함 (보통 수 초 내).
+                                    Handler(Looper.getMainLooper()).postDelayed({
+                                        exitProcess(0)
+                                    }, 500)
                                 } else {
                                     // URL 동일 — 기존 싱글턴 AuthManager 사용
                                     val result = authManager.signInWithEmail(email, password)
@@ -506,13 +505,9 @@ fun LoginScreen(
 
                                     Toast.makeText(context, "회원가입 성공. 앱을 재시작합니다.", Toast.LENGTH_SHORT).show()
 
-                                    val activity = context as Activity
-                                    val intent = context.packageManager
-                                        .getLaunchIntentForPackage(context.packageName)!!
-                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                                    context.startActivity(intent)
-                                    activity.finishAffinity()
-                                    exitProcess(0)
+                                    Handler(Looper.getMainLooper()).postDelayed({
+                                        exitProcess(0)
+                                    }, 500)
                                 } else {
                                     val result = authManager.signUpWithEmail(email, password)
                                     isLoading = false

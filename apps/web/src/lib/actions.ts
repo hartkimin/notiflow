@@ -306,6 +306,36 @@ export async function requestDeviceSync(id: string) {
   return { success: true, fcm_sent: fcmSent, fcm_failed: fcmFailed, realtime_updated: 1 };
 }
 
+export async function requestDeviceRestore(deviceId: string) {
+  const supabase = await createClient();
+
+  const { data: device } = await supabase
+    .from("mobile_devices")
+    .select("id, device_name, fcm_token, is_active")
+    .eq("id", deviceId)
+    .single();
+
+  if (!device) return { success: false, error: "기기를 찾을 수 없습니다" };
+
+  if (!device.fcm_token) return { success: false, error: "FCM 토큰이 없습니다. 앱을 실행해주세요." };
+
+  const result = await sendFCMDataMessage(device.fcm_token, {
+    type: "restore_request",
+    requested_at: new Date().toISOString(),
+  });
+
+  if (!result.success) {
+    console.error("FCM restore request failed:", result.error);
+    if (result.status === 404 || result.status === 400) {
+      await supabase.from("mobile_devices").update({ fcm_token: null }).eq("id", deviceId);
+    }
+    return { success: false, error: "FCM 전송 실패" };
+  }
+
+  revalidatePath("/settings/mobile-backup");
+  return { success: true };
+}
+
 export async function requestAllDevicesSync() {
   const supabase = await createClient();
 

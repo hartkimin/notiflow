@@ -22,7 +22,8 @@ class SyncRetryWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val messageDao: CapturedMessageDao,
     private val supabaseDataSource: SupabaseDataSource,
-    private val auth: Auth
+    private val auth: Auth,
+    private val syncManager: SyncManager
 ) : CoroutineWorker(context, params) {
 
     companion object {
@@ -90,6 +91,17 @@ class SyncRetryWorker @AssistedInject constructor(
         }
 
         Log.d(TAG, "Sync result: $successCount success, $permanentFailCount permanent failures out of ${pending.size}")
+
+        // Also trigger full upload sync for non-message entities
+        // (categories, filter rules, status steps, app filters, plans, day categories)
+        // that may have failed to sync earlier
+        try {
+            syncManager.forceUpload()
+            Log.d(TAG, "Full upload sync triggered for non-message entities")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to trigger full upload sync: ${e.message}", e)
+        }
+
         return if (successCount + permanentFailCount >= pending.size) Result.success() else Result.retry()
     }
 }

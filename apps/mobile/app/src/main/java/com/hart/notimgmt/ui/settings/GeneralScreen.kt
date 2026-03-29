@@ -142,7 +142,6 @@ fun GeneralScreen(
     var rememberLogin by remember { mutableStateOf(appPreferences.saveCredentials) }
     val isLoggingIn by settingsViewModel.isLoggingIn.collectAsState()
     val loginError by settingsViewModel.loginError.collectAsState()
-
     // Permission states
     val context = LocalContext.current
     var notificationListenerEnabled by remember { mutableStateOf(checkNotificationListener(context)) }

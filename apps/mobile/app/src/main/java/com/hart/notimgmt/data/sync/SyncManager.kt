@@ -38,7 +38,11 @@ import kotlinx.datetime.Instant
 import kotlinx.datetime.Clock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
+import com.hart.notimgmt.data.backup.BackupManager
+import com.hart.notimgmt.data.db.AppDatabase
 import com.hart.notimgmt.data.preferences.AppPreferences
+import androidx.room.withTransaction
+import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
@@ -124,7 +128,9 @@ class SyncManager @Inject constructor(
     private val auth: Auth,
     private val realtime: Realtime,
     private val workManager: WorkManager,
-    private val appPreferences: AppPreferences
+    private val appPreferences: AppPreferences,
+    private val db: AppDatabase,
+    private val backupManager: BackupManager
 ) {
     companion object {
         private const val TAG = "SyncManager"
@@ -147,6 +153,21 @@ class SyncManager @Inject constructor(
     private val channelSubscribed = AtomicBoolean(false)
     private var lastDeviceUpdateMs = 0L
     private val DEVICE_UPDATE_THROTTLE_MS = 60_000L
+
+    /**
+     * 앱 재설치 후 서버에 기존 설정이 있을 때 복원 제안 상태.
+     * null = 아직 체크 안됨, non-null = 서버에 데이터 존재 (복원 가능)
+     */
+    private val _restoreAvailable = MutableStateFlow<com.hart.notimgmt.data.backup.DataSummary?>(null)
+    val restoreAvailable: StateFlow<com.hart.notimgmt.data.backup.DataSummary?> = _restoreAvailable.asStateFlow()
+
+    private val _isRestoring = MutableStateFlow(false)
+    val isRestoring: StateFlow<Boolean> = _isRestoring.asStateFlow()
+
+    fun dismissRestorePrompt() {
+        _restoreAvailable.value = null
+        appPreferences.hasEverSynced = true
+    }
 
     /**
      * 현재 기기의 고유 ID를 반환 ({userId}_{androidId}).
@@ -187,6 +208,7 @@ class SyncManager @Inject constructor(
     private suspend fun markSyncSuccess() {
         val now = System.currentTimeMillis()
         appPreferences.lastSyncAt = now
+        appPreferences.hasEverSynced = true
         _syncStatus.value = SyncStatus.IDLE
         _syncState.value = _syncState.value.copy(
             overallStatus = SyncStatus.IDLE,
@@ -275,11 +297,6 @@ class SyncManager @Inject constructor(
      */
     fun forceSync(clearRequest: Boolean = false) {
         if (!isCloudMode) { addLog("⚠️ 오프라인 모드"); return }
-        val userId = auth.currentUserOrNull()?.id
-        if (userId == null) {
-            addLog("❌ 로그인이 필요합니다")
-            return
-        }
 
         if (_syncStatus.value == SyncStatus.SYNCING) {
             addLog("⚠️ 동기화가 이미 진행 중입니다")
@@ -288,6 +305,16 @@ class SyncManager @Inject constructor(
 
         scope.launch {
             try {
+                // 세션 복원 대기 (최대 30초) — 앱 시작 직후 호출 시 race condition 방지
+                if (!awaitUserLoggedIn()) {
+                    addLog("❌ 로그인이 필요합니다")
+                    return@launch
+                }
+                val userId = auth.currentUserOrNull()?.id ?: run {
+                    addLog("❌ 로그인이 필요합니다")
+                    return@launch
+                }
+
                 if (clearRequest) {
                     val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
                     val myDeviceId = "${userId}_${androidId}"
@@ -315,16 +342,15 @@ class SyncManager @Inject constructor(
      */
     fun forceUpload(options: UploadOptions = UploadOptions()) {
         if (!isCloudMode) { addLog("⚠️ 오프라인 모드"); return }
-        val userId = auth.currentUserOrNull()?.id
-        if (userId == null) {
-            addLog("❌ 로그인이 필요합니다")
-            return
-        }
         if (_syncStatus.value == SyncStatus.SYNCING) {
             addLog("⚠️ 동기화가 이미 진행 중입니다")
             return
         }
         scope.launch {
+            if (!awaitUserLoggedIn()) {
+                addLog("❌ 로그인이 필요합니다")
+                return@launch
+            }
             _syncStatus.value = SyncStatus.SYNCING
             _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.SYNCING)
             resetTableStatuses()
@@ -347,31 +373,45 @@ class SyncManager @Inject constructor(
 
     /**
      * 복원 전용 (원격 → 로컬). 데이터 복구 시에만 사용.
+     * @param cleanRestore true이면 로컬 전용 레코드를 삭제하고 서버 상태로 완전 복원
      */
-    fun forceDownload(options: DownloadOptions = DownloadOptions()) {
+    fun forceDownload(options: DownloadOptions = DownloadOptions(), cleanRestore: Boolean = false) {
         if (!isCloudMode) { addLog("⚠️ 오프라인 모드"); return }
-        val userId = auth.currentUserOrNull()?.id
-        if (userId == null) {
-            addLog("❌ 로그인이 필요합니다")
-            return
-        }
         if (_syncStatus.value == SyncStatus.SYNCING) {
             addLog("⚠️ 동기화가 이미 진행 중입니다")
             return
         }
         scope.launch {
+            if (!awaitUserLoggedIn()) {
+                addLog("❌ 로그인이 필요합니다")
+                return@launch
+            }
+            _isRestoring.value = true
             _syncStatus.value = SyncStatus.SYNCING
             _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.SYNCING)
             resetTableStatuses()
             try {
+                // 복원 전 자동 백업
+                try {
+                    val backupJson = backupManager.exportToJson()
+                    val backupFile = File(context.filesDir, "auto_backup_before_restore.json")
+                    backupFile.writeText(backupJson)
+                    addLog("✓ 복원 전 자동 백업 완료")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Auto-backup before restore failed", e)
+                    addLog("⚠️ 자동 백업 실패 (복원은 계속 진행)")
+                }
+
                 addLog("복원 시작...")
-                syncPull(options)
+                syncPull(options, cleanRestore = cleanRestore)
                 markSyncSuccess()
                 addLog("✅ 복원 완료!")
             } catch (e: Exception) {
                 Log.e(TAG, "Download sync failed", e)
                 addLog("❌ 복원 실패: ${e.message}")
                 markSyncError(e.message)
+            } finally {
+                _isRestoring.value = false
             }
         }
     }
@@ -381,17 +421,23 @@ class SyncManager @Inject constructor(
      */
     fun startListening() {
         if (!isCloudMode) return
-        val userId = auth.currentUserOrNull()?.id
-        if (isListening || userId == null) {
-            Log.d(TAG, "Skipping startListening: isListening=$isListening, userId=$userId")
+        if (isListening) {
+            Log.d(TAG, "Skipping startListening: already listening")
             return
         }
 
         isListening = true
-        Log.d(TAG, "Starting upload sync for user: $userId")
 
         scope.launch {
             try {
+                // 세션 복원 대기 — 앱 시작 직후 호출 시 race condition 방지
+                if (!awaitUserLoggedIn()) {
+                    Log.w(TAG, "startListening aborted: not logged in after waiting")
+                    isListening = false
+                    return@launch
+                }
+                val userId = auth.currentUserOrNull()?.id
+                Log.d(TAG, "Starting upload sync for user: $userId")
                 initialSync()
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to start sync", e)
@@ -401,36 +447,57 @@ class SyncManager @Inject constructor(
     }
 
     private suspend fun initialSync() {
+        // 앱 재설치 감지: hasEverSynced가 false이면 서버에 데이터가 있는지 확인
+        if (!appPreferences.hasEverSynced) {
+            try {
+                val remoteSummary = getRemoteDataSummary()
+                if (remoteSummary.totalCount > 0) {
+                    addLog("서버에 기존 설정 발견 (${remoteSummary.totalCount}건). 복원 대기 중...")
+                    _restoreAvailable.value = remoteSummary
+                    return  // 업로드하지 않고 복원 선택 대기
+                }
+                // 서버에 데이터 없음 → 첫 설치로 간주
+                appPreferences.hasEverSynced = true
+            } catch (e: Exception) {
+                Log.e(TAG, "Restore check failed, proceeding with normal sync: ${e.message}")
+            }
+        }
+
         _syncStatus.value = SyncStatus.SYNCING
         _syncState.value = _syncState.value.copy(overallStatus = SyncStatus.SYNCING)
         resetTableStatuses()
         addLog("업로드 동기화 시작...")
 
         var hasError = false
+        var lastErrorMessage: String? = null
         try {
             syncPush()
         } catch (e: Exception) {
             Log.e(TAG, "Push sync failed: ${e.message}", e)
             addLog("⚠️ 데이터 업로드 중 일부 실패: ${e.message}")
             hasError = true
+            lastErrorMessage = e.message
         }
         try {
             syncPendingMessages()
         } catch (e: Exception) {
             Log.e(TAG, "Pending messages sync failed: ${e.message}", e)
             hasError = true
+            lastErrorMessage = e.message
         }
         try {
             syncPendingDeletions()
         } catch (e: Exception) {
             Log.e(TAG, "Pending deletions sync failed: ${e.message}", e)
             hasError = true
+            lastErrorMessage = e.message
         }
         registerDeviceSilently()
 
         if (hasError) {
-            addLog("⚠️ 동기화 완료 (일부 오류 발생, 다음 동기화 시 재시도)")
-            markSyncSuccess()
+            addLog("❌ 동기화 실패 (일부 오류 발생, 다음 동기화 시 재시도): $lastErrorMessage")
+            markSyncError(lastErrorMessage)
+            scheduleSyncRetry()
         } else {
             markSyncSuccess()
             addLog("✅ 업로드 완료!")
@@ -472,8 +539,27 @@ class SyncManager @Inject constructor(
 
     /**
      * Pull: 원격 → 로컬 (선택된 테이블만)
+     * @param cleanRestore true이면 각 테이블의 로컬 레코드를 삭제한 후 원격 데이터를 삽입 (서버 상태로 완전 복원)
      */
-    private suspend fun syncPull(options: DownloadOptions = DownloadOptions()) {
+    private suspend fun syncPull(options: DownloadOptions = DownloadOptions(), cleanRestore: Boolean = false) {
+      db.withTransaction {
+        // cleanRestore: 로컬 전용 레코드 정리 (서버 상태로 완전 복원)
+        if (cleanRestore) {
+            addLog("클린 복원 모드: 로컬 데이터 정리 중...")
+            // FK 순서 준수: 자식 테이블 먼저 삭제
+            if (options.messages) capturedMessageDao.deleteAll()
+            if (options.plans) planDao.deleteAll()
+            if (options.dayCategories) dayCategoryDao.deleteAll()
+            if (options.categories) {
+                filterRuleDao.deleteAll()
+                dayCategoryDao.deleteAll()
+                categoryDao.deleteAll()
+            }
+            if (options.statusSteps) statusStepDao.deleteAll()
+            if (options.appFilters) appFilterDao.deleteAll()
+            addLog("✓ 로컬 데이터 정리 완료")
+        }
+
         // ── 카테고리 ──
         if (options.categories) {
             addLog("카테고리 가져오는 중...")
@@ -680,10 +766,13 @@ class SyncManager @Inject constructor(
         } else {
             updateTableStatus("day_categories", TableSyncStatus.COMPLETED)
         }
+      } // end db.withTransaction
     }
 
     /**
      * Push: 로컬 → 원격 (선택된 테이블만, 비교 후 newer만 업로드)
+     * // TODO: 로컬에서 하드 삭제된 레코드는 서버에서 정리되지 않음.
+     * // pending_remote_deletions 테이블 도입 시 구현 예정.
      */
     private suspend fun syncPush(options: UploadOptions = UploadOptions()) {
         addLog("로컬 데이터 업로드 중...")
@@ -1112,85 +1201,120 @@ class SyncManager @Inject constructor(
 
     suspend fun syncCategory(category: CategoryEntity) {
         if (!isCloudMode) return
-        if (!isUserLoggedIn()) return
+        if (!awaitUserLoggedIn()) {
+            Log.w(TAG, "Category sync deferred (not logged in): ${category.name}")
+            scheduleSyncRetry()
+            return
+        }
         try {
             supabaseDataSource.upsertCategory(category)
             Log.d(TAG, "Category synced: ${category.name}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to sync category to Supabase: ${e.message}", e)
             addLog("❌ 카테고리 동기화 실패 (${category.name}): ${e.message}")
+            scheduleSyncRetry()
         }
     }
 
     suspend fun syncFilterRule(rule: FilterRuleEntity) {
         if (!isCloudMode) return
-        if (!isUserLoggedIn()) return
+        if (!awaitUserLoggedIn()) {
+            Log.w(TAG, "Filter rule sync deferred (not logged in): ${rule.id}")
+            scheduleSyncRetry()
+            return
+        }
         try {
             supabaseDataSource.upsertFilterRule(rule)
             Log.d(TAG, "Filter rule synced: ${rule.id}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to sync filter rule to Supabase: ${e.message}", e)
             addLog("❌ 필터 규칙 동기화 실패: ${e.message}")
+            scheduleSyncRetry()
         }
     }
 
     suspend fun syncStatusStep(step: StatusStepEntity) {
         if (!isCloudMode) return
-        if (!isUserLoggedIn()) return
+        if (!awaitUserLoggedIn()) {
+            Log.w(TAG, "Status step sync deferred (not logged in): ${step.name}")
+            scheduleSyncRetry()
+            return
+        }
         try {
             supabaseDataSource.upsertStatusStep(step)
             Log.d(TAG, "Status step synced: ${step.name}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to sync status step to Supabase: ${e.message}", e)
             addLog("❌ 상태 단계 동기화 실패 (${step.name}): ${e.message}")
+            scheduleSyncRetry()
         }
     }
 
     suspend fun syncAppFilter(filter: AppFilterEntity) {
         if (!isCloudMode) return
-        if (!isUserLoggedIn()) return
+        if (!awaitUserLoggedIn()) {
+            Log.w(TAG, "App filter sync deferred (not logged in): ${filter.appName}")
+            scheduleSyncRetry()
+            return
+        }
         try {
             supabaseDataSource.upsertAppFilter(filter)
             Log.d(TAG, "App filter synced: ${filter.appName}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to sync app filter to Supabase: ${e.message}", e)
             addLog("❌ 앱 필터 동기화 실패 (${filter.appName}): ${e.message}")
+            scheduleSyncRetry()
         }
     }
 
     suspend fun syncPlan(plan: PlanEntity) {
         if (!isCloudMode) return
-        if (!isUserLoggedIn()) return
+        if (!awaitUserLoggedIn()) {
+            Log.w(TAG, "Plan sync deferred (not logged in): ${plan.id}")
+            scheduleSyncRetry()
+            return
+        }
         try {
             supabaseDataSource.upsertPlan(plan)
             Log.d(TAG, "Plan synced: ${plan.id}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to sync plan to Supabase: ${e.message}", e)
             addLog("❌ 플랜 동기화 실패: ${e.message}")
+            scheduleSyncRetry()
         }
     }
 
     suspend fun syncDayCategory(entity: DayCategoryEntity) {
         if (!isCloudMode) return
-        if (!isUserLoggedIn()) return
+        if (!awaitUserLoggedIn()) {
+            Log.w(TAG, "DayCategory sync deferred (not logged in): ${entity.id}")
+            scheduleSyncRetry()
+            return
+        }
         try {
             supabaseDataSource.upsertDayCategory(entity)
             Log.d(TAG, "DayCategory synced: ${entity.id}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to sync day category to Supabase: ${e.message}", e)
             addLog("❌ 일별 카테고리 동기화 실패: ${e.message}")
+            scheduleSyncRetry()
         }
     }
 
     suspend fun deleteDayCategory(id: String) {
         if (!isCloudMode) return
-        if (!isUserLoggedIn()) return
+        if (!awaitUserLoggedIn()) {
+            Log.w(TAG, "DayCategory delete deferred (not logged in): $id")
+            scheduleSyncRetry()
+            return
+        }
         try {
             supabaseDataSource.deleteDayCategory(id)
             Log.d(TAG, "DayCategory deleted from Supabase: $id")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to delete day category from Supabase: ${e.message}", e)
             addLog("❌ 일별 카테고리 삭제 동기화 실패: ${e.message}")
+            scheduleSyncRetry()
         }
     }
 

@@ -27,6 +27,8 @@ class SettingsViewModel @Inject constructor(
 
     val syncStatus: StateFlow<SyncStatus> = syncManager.syncStatus
     val syncState: StateFlow<SyncState> = syncManager.syncState
+    val restoreAvailable = syncManager.restoreAvailable
+    val isRestoring = syncManager.isRestoring
 
     private val _userEmail = MutableStateFlow(authManager.getUserEmail())
     val userEmail: StateFlow<String?> = _userEmail.asStateFlow()
@@ -64,8 +66,24 @@ class SettingsViewModel @Inject constructor(
         syncManager.forceUpload(options)
     }
 
-    fun triggerDownloadSync(options: DownloadOptions = DownloadOptions()) {
-        syncManager.forceDownload(options)
+    fun triggerDownloadSync(options: DownloadOptions = DownloadOptions(), cleanRestore: Boolean = false) {
+        syncManager.forceDownload(options, cleanRestore = cleanRestore)
+    }
+
+    /**
+     * 재설치 후 서버에서 전체 설정 복원
+     */
+    fun restoreFromServer() {
+        syncManager.dismissRestorePrompt()
+        syncManager.forceDownload(cleanRestore = true)
+    }
+
+    /**
+     * 복원 제안 무시 (새로 시작)
+     */
+    fun dismissRestore() {
+        syncManager.dismissRestorePrompt()
+        syncManager.forceSync()  // 빈 로컬 → 서버 업로드 (빈 데이터)
     }
 
     suspend fun getRemoteDataSummary(): DataSummary {

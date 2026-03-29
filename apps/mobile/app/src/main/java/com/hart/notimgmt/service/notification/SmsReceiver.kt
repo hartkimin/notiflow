@@ -41,12 +41,18 @@ class SmsReceiver : BroadcastReceiver() {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
         val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
+        // 멀티파트 SMS: 동일 발신자의 메시지 파트를 하나로 합침
+        val concatenatedMessages = messages
+            .filter { it.displayOriginatingAddress != null && it.displayMessageBody != null }
+            .groupBy { it.displayOriginatingAddress }
+            .map { (sender, parts) ->
+                sender!! to parts.joinToString("") { it.displayMessageBody }
+            }
+
         scope.launch {
             try {
                 withTimeout(9_000) {
-                    messages.forEach { smsMessage ->
-                        val sender = smsMessage.displayOriginatingAddress ?: return@forEach
-                        val content = smsMessage.displayMessageBody ?: return@forEach
+                    concatenatedMessages.forEach { (sender, content) ->
 
                         val activeRules = filterRuleRepository.getActiveRules()
                         val matchedRules = filterEngine.findAllMatchingRules(activeRules, sender, content, phoneNumber = sender, packageName = "SMS")

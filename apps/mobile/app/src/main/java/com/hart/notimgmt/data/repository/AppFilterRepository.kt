@@ -42,14 +42,12 @@ class AppFilterRepository @Inject constructor(
     }
 
     suspend fun softDeleteAll() {
-        // Get all filters before soft deleting
-        val allFilters = appFilterDao.getAllowedPackageNames()
+        // Read full entities BEFORE soft delete (DAO filters out isDeleted=true)
+        val allFilters = appFilterDao.getAllOnce()
         appFilterDao.softDeleteAll()
-        // Sync all as deleted
-        allFilters.forEach { packageName ->
-            appFilterDao.getByPackageName(packageName)?.let {
-                syncManager.syncAppFilter(it)
-            }
+        // Sync each as deleted
+        allFilters.forEach { filter ->
+            syncManager.syncAppFilter(filter.copy(isDeleted = true, updatedAt = System.currentTimeMillis()))
         }
     }
 

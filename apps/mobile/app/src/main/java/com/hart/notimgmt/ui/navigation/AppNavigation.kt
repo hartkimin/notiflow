@@ -6,9 +6,18 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -19,11 +28,14 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -46,12 +58,16 @@ import com.hart.notimgmt.ui.kanban.WeeklyPlannerScreen
 import com.hart.notimgmt.ui.login.LoginScreen
 import com.hart.notimgmt.ui.message.MessageDetailScreen
 import com.hart.notimgmt.ui.message.MessageListScreen
+import com.hart.notimgmt.ui.onboarding.OnboardingScreen
 import com.hart.notimgmt.ui.chat.AiChatScreen
 import com.hart.notimgmt.ui.settings.SettingsScreen
 import com.hart.notimgmt.ui.splash.SplashScreen
 import com.hart.notimgmt.ui.trash.TrashScreen
 import com.hart.notimgmt.ui.tutorial.TutorialScreen
 import com.hart.notimgmt.ui.theme.NotiRouteDesign
+import com.hart.notimgmt.viewmodel.SettingsViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.text.font.FontWeight
 
 val LocalSnackbarHostState = compositionLocalOf<SnackbarHostState> {
     error("No SnackbarHostState provided")
@@ -71,10 +87,9 @@ fun AppNavigation(
         composable(Routes.SPLASH) {
             SplashScreen(
                 onFinished = {
-                    // Mark onboarding as completed (legacy screen removed)
-                    appPreferences.isOnboardingCompleted = true
                     val destination = when {
                         !appPreferences.isTutorialSeen -> Routes.TUTORIAL
+                        !appPreferences.isOnboardingCompleted -> Routes.ONBOARDING
                         else -> Routes.MAIN
                     }
                     navController.navigate(destination) {
@@ -89,8 +104,24 @@ fun AppNavigation(
                 fromSettings = false,
                 onComplete = {
                     appPreferences.isTutorialSeen = true
-                    navController.navigate(Routes.MAIN) {
+                    val destination = if (!appPreferences.isOnboardingCompleted) {
+                        Routes.ONBOARDING
+                    } else {
+                        Routes.MAIN
+                    }
+                    navController.navigate(destination) {
                         popUpTo(Routes.TUTORIAL) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(Routes.ONBOARDING) {
+            OnboardingScreen(
+                onComplete = {
+                    appPreferences.isOnboardingCompleted = true
+                    navController.navigate(Routes.MAIN) {
+                        popUpTo(Routes.ONBOARDING) { inclusive = true }
                     }
                 }
             )
@@ -136,6 +167,71 @@ fun MainScreen(onLogout: () -> Unit = {}, onSwitchToCloud: () -> Unit = {}) {
     val imeVisible = WindowInsets.ime.getBottom(density) > 0
     val isTutorialScreen = currentDestination?.route?.startsWith(Routes.TUTORIAL) == true
     val hideBottomBar = isDetailScreen || isTrashScreen || isAppChatScreen || isTutorialScreen || (isAiChat && imeVisible)
+
+    val settingsViewModel: SettingsViewModel = hiltViewModel()
+    val restoreAvailable by settingsViewModel.restoreAvailable.collectAsState()
+    val isRestoring by settingsViewModel.isRestoring.collectAsState()
+
+    // 복원 중 프로그레스 다이얼로그
+    if (isRestoring) {
+        AlertDialog(
+            onDismissRequest = {},  // non-dismissable
+            title = { Text("서버에서 복원 중...") },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("설정과 데이터를 복원하고 있습니다", style = MaterialTheme.typography.bodyMedium)
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    // 서버 설정 복원 다이얼로그 (재설치 후 자동 감지)
+    if (restoreAvailable != null) {
+        val summary = restoreAvailable!!
+        AlertDialog(
+            onDismissRequest = { settingsViewModel.dismissRestore() },
+            title = { Text("서버에 이전 설정이 있습니다") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "서버에 저장된 설정을 복원할까요?",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("서버 데이터 현황", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            if (summary.categoryCount > 0) Text("카테고리: ${summary.categoryCount}개", style = MaterialTheme.typography.bodySmall)
+                            if (summary.statusStepCount > 0) Text("상태 단계: ${summary.statusStepCount}개", style = MaterialTheme.typography.bodySmall)
+                            if (summary.filterRuleCount > 0) Text("필터 규칙: ${summary.filterRuleCount}개", style = MaterialTheme.typography.bodySmall)
+                            if (summary.messageCount > 0) Text("메시지: ${summary.messageCount}개", style = MaterialTheme.typography.bodySmall)
+                            if (summary.appFilterCount > 0) Text("앱 필터: ${summary.appFilterCount}개", style = MaterialTheme.typography.bodySmall)
+                            if (summary.planCount > 0) Text("플랜: ${summary.planCount}개", style = MaterialTheme.typography.bodySmall)
+                            if (summary.dayCategoryCount > 0) Text("일별 카테고리: ${summary.dayCategoryCount}개", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { settingsViewModel.restoreFromServer() }) {
+                    Text("복원하기")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { settingsViewModel.dismissRestore() }) {
+                    Text("새로 시작")
+                }
+            }
+        )
+    }
 
     CompositionLocalProvider(LocalSnackbarHostState provides snackbarHostState) {
         Scaffold(

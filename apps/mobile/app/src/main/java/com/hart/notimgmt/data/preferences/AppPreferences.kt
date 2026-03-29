@@ -230,6 +230,11 @@ class AppPreferences @Inject constructor(
             prefs.edit().putString("ai_model_size", value.name).apply()
         }
 
+    // 최초 설치 후 동기화 여부 (복원 체크는 이 값이 false일 때만 수행)
+    var hasEverSynced: Boolean
+        get() = prefs.getBoolean("has_ever_synced", false)
+        set(value) = prefs.edit().putBoolean("has_ever_synced", value).apply()
+
     // Last cloud sync time (epoch millis)
     var lastSyncAt: Long
         get() = prefs.getLong("last_sync_at", 0L)

@@ -8,6 +8,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -37,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -65,6 +68,7 @@ import com.hart.notimgmt.ui.splash.SplashScreen
 import com.hart.notimgmt.ui.trash.TrashScreen
 import com.hart.notimgmt.ui.tutorial.TutorialScreen
 import com.hart.notimgmt.ui.theme.NotiRouteDesign
+import com.hart.notimgmt.data.sync.TableSyncStatus
 import com.hart.notimgmt.viewmodel.SettingsViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.text.font.FontWeight
@@ -156,14 +160,49 @@ fun MainScreen(onLogout: () -> Unit = {}, onSwitchToCloud: () -> Unit = {}) {
 
     // 복원 중 프로그레스 다이얼로그
     if (isRestoring) {
+        val syncState by settingsViewModel.syncState.collectAsState()
         AlertDialog(
             onDismissRequest = {},  // non-dismissable
             title = { Text("서버에서 복원 중...") },
             text = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("설정과 데이터를 복원하고 있습니다", style = MaterialTheme.typography.bodyMedium)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Overall progress indicator
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    // Per-table status
+                    syncState.tables.forEach { table ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = table.displayName,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                text = when (table.status) {
+                                    TableSyncStatus.PENDING -> "대기"
+                                    TableSyncStatus.PULLING -> "복원 중..."
+                                    TableSyncStatus.PUSHING -> "업로드 중..."
+                                    TableSyncStatus.COMPLETED -> "✓ ${table.pulledCount}건"
+                                    TableSyncStatus.ERROR -> "✗ 오류"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = when (table.status) {
+                                    TableSyncStatus.COMPLETED -> Color(0xFF4CAF50)
+                                    TableSyncStatus.ERROR -> MaterialTheme.colorScheme.error
+                                    TableSyncStatus.PULLING, TableSyncStatus.PUSHING -> MaterialTheme.colorScheme.primary
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                        }
+                    }
                 }
             },
             confirmButton = {}

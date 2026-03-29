@@ -90,6 +90,13 @@ class SettingsViewModel @Inject constructor(
         return syncManager.getRemoteDataSummary()
     }
 
+    /**
+     * 서버 연결 상태 확인 (로그인 플로우에서 사용)
+     */
+    suspend fun checkServerHealth(): String? {
+        return syncManager.checkServerHealth()
+    }
+
     fun logout(onLogoutComplete: () -> Unit = {}) {
         viewModelScope.launch {
             _isLoggingOut.value = true

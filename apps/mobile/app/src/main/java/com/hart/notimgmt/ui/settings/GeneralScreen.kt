@@ -970,33 +970,45 @@ fun GeneralScreen(
                     exit = shrinkVertically()
                 ) {
                     Column(modifier = Modifier.padding(top = 12.dp)) {
-                        // 서버 주소 토글
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showServerField = !showServerField }
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        // 서버 연결 상태 표시 + 고급 설정 토글
+                        val isDefaultServer = loginServerUrl == appPreferences.defaultSupabaseUrl
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Cloud,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "서버: ${loginServerUrl.removePrefix("https://").removePrefix("http://").take(30)}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Icon(
-                                imageVector = if (showServerField) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .clickable { showServerField = !showServerField }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Cloud,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = if (isDefaultServer) "NotiFlow 공식 서버" else "커스텀 서버",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = loginServerUrl.removePrefix("https://").removePrefix("http://").take(30),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    text = if (showServerField) "접기" else "변경",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                         AnimatedVisibility(
                             visible = showServerField,

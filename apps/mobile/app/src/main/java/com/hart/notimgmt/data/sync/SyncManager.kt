@@ -240,6 +240,29 @@ class SyncManager @Inject constructor(
     }
 
     /**
+     * 서버 연결 상태 확인. Supabase REST API가 정상 응답하는지 검증.
+     * Studio UI(54323)에 연결된 경우 HTML이 반환되므로 감지 가능.
+     */
+    suspend fun checkServerHealth(): String? {
+        return try {
+            // Simple query to verify Supabase REST API is responding
+            supabaseDataSource.getCategories()
+            null // success, no error
+        } catch (e: Exception) {
+            val msg = e.message ?: ""
+            when {
+                msg.contains("Unable to resolve host") ->
+                    "서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요."
+                msg.contains("Expected BEGIN_ARRAY") || msg.contains("Expected BEGIN_OBJECT") || msg.contains("<!DOCTYPE") || msg.contains("text/html") ->
+                    "서버 주소가 올바르지 않습니다. Supabase API(포트 54321)가 아닌 다른 서비스에 연결되었을 수 있습니다."
+                msg.contains("401") || msg.contains("403") || msg.contains("JWT") ->
+                    "인증에 실패했습니다. 다시 로그인해 주세요."
+                else -> "서버 연결 오류: ${msg.take(100)}"
+            }
+        }
+    }
+
+    /**
      * 원격 서버의 데이터 건수를 조회 (다운로드 선택 다이얼로그용)
      */
     suspend fun getRemoteDataSummary(): com.hart.notimgmt.data.backup.DataSummary {
@@ -447,6 +470,14 @@ class SyncManager @Inject constructor(
     }
 
     private suspend fun initialSync() {
+        // 서버 연결 검증
+        val healthError = checkServerHealth()
+        if (healthError != null) {
+            addLog("❌ $healthError")
+            markSyncError(healthError)
+            return
+        }
+
         // 앱 재설치 감지: hasEverSynced가 false이면 서버에 데이터가 있는지 확인
         if (!appPreferences.hasEverSynced) {
             try {

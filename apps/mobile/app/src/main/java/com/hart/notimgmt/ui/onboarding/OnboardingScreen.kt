@@ -88,7 +88,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                     TextButton(onClick = {
                         coroutineScope.launch { pagerState.animateScrollToPage(2) }
                     }) {
-                        Text("Skip", color = TextMuted)
+                        Text("건너뛰기", color = TextMuted)
                     }
                 } else {
                     Spacer(modifier = Modifier.height(48.dp))
@@ -149,13 +149,15 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                             }
                         } else if (canProceed) {
                             onComplete()
+                        } else {
+                            context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                         }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
                         .background(
-                            brush = if (canProceed) GradientBrush else Brush.horizontalGradient(listOf(Color.LightGray, Color.LightGray)),
+                            brush = GradientBrush,
                             shape = RoundedCornerShape(16.dp)
                         ),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
@@ -163,9 +165,9 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                 ) {
                     Text(
                         text = when {
-                            isLastPage && !canProceed -> "Grant Permissions"
-                            isLastPage && canProceed -> "Start"
-                            else -> "Next"
+                            isLastPage && !canProceed -> "권한 설정하기"
+                            isLastPage && canProceed -> "시작하기"
+                            else -> "다음"
                         },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
@@ -204,14 +206,14 @@ private fun WelcomePage() {
         Spacer(modifier = Modifier.height(48.dp))
 
         Text(
-            text = "Welcome to NotiFlow",
+            text = "NotiFlow에 오신 것을 환영합니다",
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
             color = TextDark,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Manage your flow seamlessly.",
+            text = "알림을 깔끔하게 관리하세요",
             style = MaterialTheme.typography.bodyLarge,
             color = TextMuted,
             textAlign = TextAlign.Center
@@ -229,18 +231,18 @@ private fun FeaturesPage() {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Smart Organization",
+            text = "스마트 알림 관리",
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
             color = TextDark,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(40.dp))
 
-        FeatureMinimalRow(Icons.Default.AutoAwesome, "AI Filtering", "Automatically categorize important alerts")
+        FeatureMinimalRow(Icons.Default.AutoAwesome, "AI 자동 분류", "중요한 알림을 자동으로 분류합니다")
         Spacer(modifier = Modifier.height(32.dp))
-        FeatureMinimalRow(Icons.Default.ViewKanban, "Kanban Boards", "Turn notifications into actionable tasks")
+        FeatureMinimalRow(Icons.Default.ViewKanban, "칸반 보드", "알림을 실행 가능한 작업으로 전환합니다")
         Spacer(modifier = Modifier.height(32.dp))
-        FeatureMinimalRow(Icons.Default.Insights, "Daily Summaries", "Catch up on what you missed concisely")
+        FeatureMinimalRow(Icons.Default.Insights, "일일 요약", "놓친 알림을 간결하게 확인하세요")
     }
 }
 
@@ -300,16 +302,25 @@ private fun PermissionPage() {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        Text("Permissions Required", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold), color = TextDark)
+        Text("권한 설정", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold), color = TextDark)
         Spacer(modifier = Modifier.height(12.dp))
-        Text("NotiFlow needs to access your notifications to organize them for you.", style = MaterialTheme.typography.bodyMedium, color = TextMuted, textAlign = TextAlign.Center)
+        Text("알림을 관리하려면 아래 권한이 필요합니다", style = MaterialTheme.typography.bodyMedium, color = TextMuted, textAlign = TextAlign.Center)
 
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            "아래 항목을 탭하여 권한을 허용해 주세요",
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+            color = BrandPurple,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         PermissionMinimalCard(
             icon = Icons.Default.NotificationsActive,
-            title = "Notification Access",
-            desc = "Required to read incoming alerts (Required)",
+            title = "알림 접근 권한",
+            desc = "알림을 읽기 위해 필요합니다 (필수)",
             isGranted = isNotifListenerEnabled,
             onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
         )
@@ -318,8 +329,8 @@ private fun PermissionPage() {
 
         PermissionMinimalCard(
             icon = Icons.Default.BatteryFull,
-            title = "Battery Optimization",
-            desc = "Ensure background app reliability (Optional)",
+            title = "배터리 최적화 해제",
+            desc = "백그라운드 앱 안정성 확보 (선택)",
             isGranted = isBatterOptDisabled,
             onClick = {
                 val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {

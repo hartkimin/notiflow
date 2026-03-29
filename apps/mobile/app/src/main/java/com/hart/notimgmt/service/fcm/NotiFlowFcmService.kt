@@ -55,7 +55,7 @@ class NotiRouteFcmService : FirebaseMessagingService() {
                 syncManager.forceSync(clearRequest = true)
             }
             else -> {
-                val title = message.notification?.title ?: message.data["title"] ?: "NotiRoute"
+                val title = message.notification?.title ?: message.data["title"] ?: "NotiFlow"
                 val body = message.notification?.body ?: message.data["body"] ?: ""
                 showNotification(title, body, message.data)
             }

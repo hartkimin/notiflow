@@ -127,7 +127,7 @@ fun LoginScreen(
 
         // 앱 이름
         Text(
-            text = "NotiRoute",
+            text = "NotiFlow",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground

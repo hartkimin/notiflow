@@ -5,33 +5,35 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:translateX="18"
-        android:translateY="18"
-        android:scaleX="3"
-        android:scaleY="3">
-        
+        android:translateX="27"
+        android:translateY="20">
+        <!-- Bell handle (small circle at top) -->
         <path
-            android:pathData="M6,19m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0"
-            android:fillColor="#00000000"
-            android:strokeWidth="2"
-            android:strokeColor="#FFFFFF"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round" />
-            
+            android:fillColor="#FFFFFF"
+            android:pathData="M27,4m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0"/>
+        <!-- Bell body (flared shape from narrow top to wide bottom) -->
         <path
-            android:pathData="M9,19h8.5a3.5,3.5 0,1 0,0 -7h-11a3.5,3.5 0,1 1,0 -7H15"
-            android:fillColor="#00000000"
-            android:strokeWidth="2"
-            android:strokeColor="#FFFFFF"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round" />
-            
+            android:fillColor="#FFFFFF"
+            android:pathData="M24,7C24,7 20,12 18.5,18C17.5,22 17,25 17,28L17,32L37,32L37,28C37,25 36.5,22 35.5,18C34,12 30,7 30,7Z"/>
+        <!-- Bell brim (wide horizontal bar) -->
         <path
-            android:pathData="M18,5m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0"
+            android:fillColor="#FFFFFF"
+            android:pathData="M12,32L42,32A2,2 0,0 1,42 36L12,36A2,2 0,0 1,12 32Z"/>
+        <!-- Bell clapper (half circle at bottom) -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M23,37C23,40 24.8,42.5 27,42.5C29.2,42.5 31,40 31,37Z"/>
+        <!-- Notification badge dot (top-right) -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M37,9m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0"/>
+        <!-- Flow wave (S-curve below bell) -->
+        <path
             android:fillColor="#00000000"
-            android:strokeWidth="2"
+            android:strokeWidth="3"
             android:strokeColor="#FFFFFF"
+            android:strokeAlpha="0.6"
             android:strokeLineCap="round"
-            android:strokeLineJoin="round" />
+            android:pathData="M8,50Q17.5,44 27,50Q36.5,56 46,50"/>
     </group>
 </vector>

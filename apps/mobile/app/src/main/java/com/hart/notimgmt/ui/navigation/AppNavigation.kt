@@ -88,29 +88,11 @@ fun AppNavigation(
             SplashScreen(
                 onFinished = {
                     val destination = when {
-                        !appPreferences.isTutorialSeen -> Routes.TUTORIAL
                         !appPreferences.isOnboardingCompleted -> Routes.ONBOARDING
                         else -> Routes.MAIN
                     }
                     navController.navigate(destination) {
                         popUpTo(Routes.SPLASH) { inclusive = true }
-                    }
-                }
-            )
-        }
-
-        composable(Routes.TUTORIAL) {
-            TutorialScreen(
-                fromSettings = false,
-                onComplete = {
-                    appPreferences.isTutorialSeen = true
-                    val destination = if (!appPreferences.isOnboardingCompleted) {
-                        Routes.ONBOARDING
-                    } else {
-                        Routes.MAIN
-                    }
-                    navController.navigate(destination) {
-                        popUpTo(Routes.TUTORIAL) { inclusive = true }
                     }
                 }
             )

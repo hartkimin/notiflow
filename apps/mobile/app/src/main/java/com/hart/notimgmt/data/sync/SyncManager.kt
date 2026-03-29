@@ -1357,7 +1357,7 @@ class SyncManager @Inject constructor(
 
         workManager.enqueueUniqueWork(
             SyncRetryWorker.WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
+            ExistingWorkPolicy.KEEP,  // KEEP: don't reset backoff timer on rapid failures
             request
         )
         Log.d(TAG, "Sync retry worker scheduled")

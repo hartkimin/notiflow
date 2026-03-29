@@ -29,6 +29,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -46,6 +48,7 @@ class NotiRouteListenerService : NotificationListenerService() {
         Log.e("NotiRouteListener", "Coroutine error", throwable)
     }
     private var scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + exceptionHandler)
+    private val processingMutex = Mutex()
     private val filterEngine = MessageFilterEngine()
 
     override fun onListenerConnected() {
@@ -110,11 +113,36 @@ class NotiRouteListenerService : NotificationListenerService() {
             DeepLinkCache.storeBySender(packageName, sender, contentIntent)
 
             scope.launch {
-                try {
-                    val appName = resolveAppName(packageName)
-                    processMessage(packageName, appName, sender, content, roomName, senderIconBase64, attachedImageBase64, contentIntent)
-                } catch (e: Exception) {
-                    Log.e("NotiRouteListener", "Failed to process message from $packageName", e)
+                // Mutex serializes notification processing, preventing:
+                // - TOCTOU race condition in duplicate detection (P4)
+                // - Burst notification overload — OOM from 100+ concurrent coroutines (P6)
+                processingMutex.withLock {
+                    try {
+                        val appName = resolveAppName(packageName)
+                        processMessage(packageName, appName, sender, content, roomName, senderIconBase64, attachedImageBase64, contentIntent)
+                    } catch (e: Exception) {
+                        Log.e("NotiRouteListener", "Failed to process message from $packageName", e)
+                        // Fallback: save raw message without filter matching to prevent data loss
+                        try {
+                            messageRepository.insert(
+                                CapturedMessageEntity(
+                                    categoryId = null,
+                                    matchedRuleId = null,
+                                    source = packageName,
+                                    appName = packageName,
+                                    sender = sender,
+                                    content = content,
+                                    statusId = null,
+                                    roomName = roomName,
+                                    senderIcon = senderIconBase64,
+                                    attachedImage = attachedImageBase64
+                                )
+                            )
+                            Log.w("NotiRouteListener", "Saved fallback message (no filter match)")
+                        } catch (fallbackError: Exception) {
+                            Log.e("NotiRouteListener", "Fallback save also failed", fallbackError)
+                        }
+                    }
                 }
             }
         } catch (e: Exception) {

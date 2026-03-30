@@ -134,32 +134,7 @@ export async function GET(req: Request) {
         })),
       );
 
-      if (items.length === 0) {
-        rows.push({
-          "주문번호": order.order_number,
-          "발주일": order.order_date,
-          "배송일": order.delivery_date ?? "",
-          "거래처": hospitalName,
-          "상태": STATUS_LABEL[order.status] ?? order.status,
-          "계산서": invoicedIds.has(order.id) ? "발행" : "미발행",
-          "품목명": "",
-          "수량": "",
-          "단위": "",
-          "매입(VAT)단가": "",
-          "매입공급가": "",
-          "매입부가세": "",
-          "매입합계": "",
-          "판매(VAT)단가": "",
-          "판매공급가": "",
-          "판매부가세": "",
-          "판매합계": "",
-          "매출이익": "",
-          "이익률(%)": "",
-          "매입처": "",
-          "담당자": "",
-          "비고": order.notes ?? "",
-        });
-      } else {
+      if (items.length > 0) {
         for (const item of items) {
           const pp = item.purchase_price ?? 0;
           const sp = item.unit_price ?? 0;

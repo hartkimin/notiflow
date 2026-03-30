@@ -33,7 +33,12 @@ export async function GET(req: Request) {
     .order("order_date", { ascending: false })
     .limit(1000);
 
-  if (status && status !== "all") query = query.eq("status", status);
+  if (status && status !== "all") {
+    query = query.eq("status", status);
+  } else {
+    // 기본: 취소된 주문은 내보내기에서 제외
+    query = query.neq("status", "cancelled");
+  }
   if (hospitalId) query = query.eq("hospital_id", Number(hospitalId));
   if (from) query = query.gte("order_date", from);
   if (to) query = query.lte("order_date", to);

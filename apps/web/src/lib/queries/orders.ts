@@ -95,10 +95,28 @@ export async function getOrderItems(params: {
       .select("order_id")
       .ilike("product_name", `%${q}%`);
 
+    // Match by supplier name
+    const { data: supplierMatches } = await supabase
+      .from("suppliers")
+      .select("id")
+      .ilike("name", `%${q}%`);
+    const supplierIds = (supplierMatches ?? []).map(s => s.id);
+    const { data: supplierItemMatches } = supplierIds.length > 0
+      ? await supabase.from("order_items").select("order_id").in("supplier_id", supplierIds)
+      : { data: [] };
+
+    // Match by sales rep
+    const { data: repMatches } = await supabase
+      .from("order_items")
+      .select("order_id")
+      .ilike("sales_rep", `%${q}%`);
+
     const allMatchIds = new Set([
       ...(orderNumMatches ?? []).map(o => o.id),
       ...(hospOrderMatches ?? []).map(o => o.id),
       ...(itemMatches ?? []).map(i => i.order_id),
+      ...(supplierItemMatches ?? []).map(i => i.order_id),
+      ...(repMatches ?? []).map(i => i.order_id),
     ]);
 
     if (allMatchIds.size === 0) return { items: [], total: 0 };

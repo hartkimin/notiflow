@@ -7,6 +7,33 @@ import { resolveItemSupply } from "./calc";
 import type { TaxInvoice } from "./types";
 import { validateForIssue } from "./validator";
 
+/**
+ * Throws if the order already has a non-cancelled active invoice.
+ * Used as a pre-flight guard before issuing a new invoice.
+ *
+ * Uses a plain join (not !inner) so the query works regardless of RLS;
+ * status filtering is done in application code to avoid PostgREST
+ * embedded-filter edge cases.
+ */
+export async function assertOrderNotAlreadyInvoiced(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  orderId: number,
+): Promise<void> {
+  const { data } = await supabase
+    .from("tax_invoice_orders")
+    .select("invoice_id, tax_invoices(status)")
+    .eq("order_id", orderId)
+    .maybeSingle();
+
+  if (!data) return;
+
+  const status = (data.tax_invoices as { status: string } | null)?.status;
+  if (status && status !== "cancelled") {
+    throw new Error("이미 발행된 세금계산서가 있습니다. 기존 계산서를 확인해주세요.");
+  }
+}
+
 export async function createInvoiceFromOrder(orderId: number, issueDate: string) {
   const supabase = createAdminClient();
 
@@ -17,6 +44,8 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
     .in("status", ["confirmed", "delivered"])
     .single();
   if (orderErr || !order) throw new Error("발행 가능한 주문을 찾을 수 없습니다.");
+
+  await assertOrderNotAlreadyInvoiced(supabase, orderId);
 
   const { data: company } = await supabase
     .from("company_settings")
@@ -153,6 +182,11 @@ export async function createConsolidatedInvoice(
     .limit(1)
     .single();
   if (!company || !company.biz_no) throw new Error("공급자 정보가 설정되지 않았습니다.");
+
+  // Pre-flight: verify no order is already linked to an active invoice
+  for (const id of orderIds) {
+    await assertOrderNotAlreadyInvoiced(supabase, id);
+  }
 
   // Calculate from order_items — 품목별 합산 방식 (부가세 절사)
   const totals = { supply: 0, tax: 0, total: 0 };

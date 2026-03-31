@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Settings, Users, Smartphone, Building, Bot } from "lucide-react";
+import { Settings, Users, Smartphone, Building, Bot, DatabaseBackup } from "lucide-react";
 
 const settingsTabs = [
   { href: "/settings", label: "일반", icon: Settings, exact: true },
@@ -11,6 +11,7 @@ const settingsTabs = [
   { href: "/settings/users", label: "사용자 관리", icon: Users },
   { href: "/settings/devices", label: "기기 관리", icon: Smartphone },
   { href: "/settings/company", label: "자사 정보", icon: Building },
+  { href: "/settings/mobile-backup", label: "모바일 백업", icon: DatabaseBackup },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -24,7 +25,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           시스템 설정, 사용자 및 기기를 관리합니다.
         </p>
       </div>
-      <div className="flex gap-1 border-b">
+      <div className="flex gap-1 border-b overflow-x-auto scrollbar-none -mx-4 px-4 md:mx-0 md:px-0">
         {settingsTabs.map((tab) => {
           const isActive = tab.exact
             ? pathname === tab.href
@@ -34,7 +35,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
               key={tab.href}
               href={tab.href}
               className={cn(
-                "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
+                "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap shrink-0",
                 isActive
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"

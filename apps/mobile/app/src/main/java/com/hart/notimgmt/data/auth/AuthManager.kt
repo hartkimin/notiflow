@@ -60,7 +60,17 @@ class AuthManager @Inject constructor(
                             syncManager.stopListening()
                         }
                     }
-                    else -> {} // Initializing, RefreshFailure — 대기
+                    is SessionStatus.RefreshFailure -> {
+                        Log.w(TAG, "Auth token refresh failed — stopping sync, user may need to re-login")
+                        if (syncStarted) {
+                            syncStarted = false
+                            syncManager.stopListening()
+                        }
+                    }
+                    else -> {
+                        // SessionStatus.Initializing — waiting for session restore
+                        Log.d(TAG, "Auth status: $status")
+                    }
                 }
             }
         }

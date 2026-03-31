@@ -44,7 +44,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { cn, round4, fmt4 } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { vatToExcl, exclToVat, calcLine, calcOrderTotals, lineSupply, lineTax, fmt4 } from "@/lib/price-calc";
 import {
   Table,
   TableBody,
@@ -127,7 +128,7 @@ function createBlankItem(): NewItemState {
 }
 
 const DETAIL_COL_DEFAULTS: Record<string, number> = {
-  idx: 35, product: 150, supplier: 80, quantity: 50, unit_type: 45,
+  idx: 35, product: 200, supplier: 80, quantity: 50, unit_type: 45,
   p_vat: 90, p_excl: 80, p_supply: 90, p_tax: 70,
   s_vat: 90, s_excl: 80, s_supply: 90, s_tax: 70,
   profit: 90, profit_rate: 55, sales_rep: 65,
@@ -448,33 +449,17 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
   // --- Computed totals ---
   const visibleItems = order.items.filter((item) => !deletedIds.has(item.id));
 
-  const purchaseTotal = visibleItems.reduce((sum, item) => {
-    const edit = editItems[item.id];
-    const qty = edit?.quantity ?? item.quantity;
-    const pp = edit?.purchase_price ?? (item.purchase_price ?? 0);
-    return sum + round4(pp * 1.1) * qty;
-  }, 0);
-
-  const salesTotal = visibleItems.reduce((sum, item) => {
-    const edit = editItems[item.id];
-    const qty = edit ? edit.quantity : item.quantity;
-    const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
-    return sum + round4(sp * 1.1) * qty;
-  }, 0);
-
-  const supplyTotal = visibleItems.reduce((sum, item) => {
-    const edit = editItems[item.id];
-    const qty = edit ? edit.quantity : item.quantity;
-    const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
-    return sum + sp * qty;
-  }, 0);
-
-  const taxTotal = visibleItems.reduce((sum, item) => {
-    const edit = editItems[item.id];
-    const qty = edit ? edit.quantity : item.quantity;
-    const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
-    return sum + Math.round(sp * 0.1) * qty;
-  }, 0);
+  const orderTotals = calcOrderTotals(
+    visibleItems.map((item) => {
+      const edit = editItems[item.id];
+      return {
+        purchasePrice: edit?.purchase_price ?? (item.purchase_price ?? 0),
+        sellingPrice: edit ? edit.unit_price : (item.unit_price ?? 0),
+        qty: edit?.quantity ?? item.quantity,
+      };
+    }),
+  );
+  const { purchaseTotal, sellingTotal: salesTotal, supplyTotal, taxTotal } = orderTotals;
 
   // Final values: manual override takes precedence
   const finalPurchaseTotal = manualPurchaseTotal ?? purchaseTotal;
@@ -482,10 +467,11 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
   const finalSupply = manualSupply ?? supplyTotal;
   const finalTax = manualTax ?? taxTotal;
   const totalMargin = finalSalesTotal - finalPurchaseTotal;
-  const marginRate = finalSalesTotal > 0 ? (totalMargin / finalSalesTotal) * 100 : 0;
+  const marginRate = finalSalesTotal > 0 ? Math.round((totalMargin / finalSalesTotal) * 1000) / 10 : 0;
+
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20 md:pb-0">
       {/* Order info metadata — hidden on print (shown in print header) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3 text-sm print:hidden">
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -547,7 +533,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
 
         {/* Status toggle */}
         <button
-          className="relative flex h-7 w-[110px] rounded-full border text-[11px] font-medium overflow-hidden cursor-pointer transition-colors disabled:opacity-50"
+          className="relative hidden md:flex h-7 w-[110px] rounded-full border text-[11px] font-medium overflow-hidden cursor-pointer transition-colors disabled:opacity-50"
           disabled={isPending}
           onClick={() => handleStatusChange(order.status === "delivered" ? "confirmed" : "delivered")}
         >
@@ -706,15 +692,8 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                 const qty = edit ? edit.quantity : item.quantity;
                 const pp = edit ? edit.purchase_price : (item.purchase_price ?? 0);
                 const sp = edit ? edit.unit_price : (item.unit_price ?? 0);
-                const ppVat = round4(pp * 1.1);
-                const spVat = round4(sp * 1.1);
-                const pSupply = round4(pp * qty);
-                const pTax = round4(pSupply * 0.1);
-                const sSupply = round4(sp * qty);
-                const sTax = round4(sSupply * 0.1);
-                const lineProfit = round4(sSupply + sTax) - round4(pSupply + pTax);
-                const lineSalesVatTotal = round4(sSupply + sTax);
-                const lineMargin = lineSalesVatTotal > 0 ? (lineProfit / lineSalesVatTotal) * 100 : 0;
+                const lc = calcLine(pp, sp, qty);
+                const { ppVat, spVat, pSupply, pTax, sSupply, sTax, sTotal, profit: lineProfit, marginRate: lineMargin } = lc;
 
                 return (
                   <TableRow
@@ -724,7 +703,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                     <TableCell className="pl-6 text-muted-foreground">
                       {idx + 1}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="overflow-hidden">
                       {isEditing && !isDeleted ? (
                         <Popover
                           open={productOpenId === item.id}
@@ -782,7 +761,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                           </PopoverContent>
                         </Popover>
                       ) : (
-                        <span className="font-medium">{productName}</span>
+                        <span className="font-medium block truncate" title={productName}>{productName}</span>
                       )}
                     </TableCell>
                     <TableCell className="text-sm">
@@ -865,7 +844,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                           value={ppVat}
                           onChange={(e) => {
                             const v = e.target.value ? parseFloat(e.target.value) : 0;
-                            updateEditItem(item.id, "purchase_price", round4(v / 1.1));
+                            updateEditItem(item.id, "purchase_price", vatToExcl(v));
                           }}
                           className="h-7 w-[80px] text-right text-sm ml-auto"
                         />
@@ -892,7 +871,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                           value={spVat}
                           onChange={(e) => {
                             const v = e.target.value ? parseFloat(e.target.value) : 0;
-                            updateEditItem(item.id, "unit_price", round4(v / 1.1));
+                            updateEditItem(item.id, "unit_price", vatToExcl(v));
                           }}
                           className="h-7 w-[80px] text-right text-sm ml-auto"
                         />
@@ -922,7 +901,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                     </TableCell>
                     {/* 이익률 */}
                     <TableCell className="text-right tabular-nums">
-                      {lineSalesVatTotal > 0 ? (
+                      {sTotal > 0 ? (
                         <span className={lineMargin < 0 ? "text-red-500" : ""}>
                           {lineMargin.toFixed(1)}%
                         </span>
@@ -969,15 +948,8 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
               })}
               {/* New items rows */}
               {isEditing && newItems.map((ni) => {
-                const niPpVat = round4(ni.purchase_price * 1.1);
-                const niSpVat = round4(ni.unit_price * 1.1);
-                const niPSupply = round4(ni.purchase_price * ni.quantity);
-                const niPTax = round4(niPSupply * 0.1);
-                const niSSupply = round4(ni.unit_price * ni.quantity);
-                const niSTax = round4(niSSupply * 0.1);
-                const niProfit = round4(niSSupply + niSTax) - round4(niPSupply + niPTax);
-                const niSalesVatTotal = round4(niSSupply + niSTax);
-                const niMargin = niSalesVatTotal > 0 ? (niProfit / niSalesVatTotal) * 100 : 0;
+                const niLc = calcLine(ni.purchase_price, ni.unit_price, ni.quantity);
+                const { ppVat: niPpVat, spVat: niSpVat, pSupply: niPSupply, pTax: niPTax, sSupply: niSSupply, sTax: niSTax, sTotal: niSTotal, profit: niProfit, marginRate: niMargin } = niLc;
                 return (
                 <TableRow key={ni.key} className="bg-green-50/50">
                   {/* # */}
@@ -1051,7 +1023,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                   <TableCell className="text-sm text-muted-foreground">{ni.unit_type}</TableCell>
                   {/* 매입(VAT) — 입력 */}
                   <TableCell className="text-right tabular-nums">
-                    <Input type="number" min={0} step="any" value={niPpVat} onChange={(e) => { const v = e.target.value ? parseFloat(e.target.value) : 0; updateNewItem(ni.key, "purchase_price", round4(v / 1.1)); }} className="h-7 w-[80px] text-right text-sm ml-auto" />
+                    <Input type="number" min={0} step="any" value={niPpVat} onChange={(e) => { const v = e.target.value ? parseFloat(e.target.value) : 0; updateNewItem(ni.key, "purchase_price", vatToExcl(v)); }} className="h-7 w-[80px] text-right text-sm ml-auto" />
                   </TableCell>
                   {/* 매입단가 — 자동 */}
                   <TableCell className="text-right tabular-nums text-muted-foreground">
@@ -1067,7 +1039,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                   </TableCell>
                   {/* 판매(VAT) — 입력 */}
                   <TableCell className="text-right tabular-nums">
-                    <Input type="number" min={0} step="any" value={niSpVat} onChange={(e) => { const v = e.target.value ? parseFloat(e.target.value) : 0; updateNewItem(ni.key, "unit_price", round4(v / 1.1)); }} className="h-7 w-[80px] text-right text-sm ml-auto" />
+                    <Input type="number" min={0} step="any" value={niSpVat} onChange={(e) => { const v = e.target.value ? parseFloat(e.target.value) : 0; updateNewItem(ni.key, "unit_price", vatToExcl(v)); }} className="h-7 w-[80px] text-right text-sm ml-auto" />
                   </TableCell>
                   {/* 판매단가 — 자동 */}
                   <TableCell className="text-right tabular-nums text-muted-foreground">
@@ -1089,7 +1061,7 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
                   </TableCell>
                   {/* 이익률 */}
                   <TableCell className="text-right tabular-nums">
-                    {niSalesVatTotal > 0 ? (
+                    {niSTotal > 0 ? (
                       <span className={niMargin < 0 ? "text-red-500" : ""}>{niMargin.toFixed(1)}%</span>
                     ) : "-"}
                   </TableCell>
@@ -1132,34 +1104,34 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
               {totalsEditing ? (
                 <Input type="number" step="any" className="h-7 w-[160px] text-right text-sm" value={finalPurchaseTotal} onChange={(e) => setManualPurchaseTotal(Number(e.target.value) || 0)} />
               ) : (
-                <span className="text-right tabular-nums">{finalPurchaseTotal.toLocaleString()}원</span>
+                <span className="text-right tabular-nums">{fmt4(finalPurchaseTotal)}원</span>
               )}
               <span className="text-muted-foreground text-right">매출합계</span>
               {totalsEditing ? (
                 <Input type="number" step="any" className="h-7 w-[160px] text-right text-sm" value={finalSalesTotal} onChange={(e) => setManualSalesTotal(Number(e.target.value) || 0)} />
               ) : (
-                <span className="text-right tabular-nums font-medium">{finalSalesTotal.toLocaleString()}원</span>
+                <span className="text-right tabular-nums font-medium">{fmt4(finalSalesTotal)}원</span>
               )}
               <span className="text-muted-foreground text-right">마진</span>
               <span className={cn("text-right tabular-nums", totalMargin >= 0 ? "text-green-600" : "text-red-500")}>
-                {totalMargin.toLocaleString()}원 ({finalSalesTotal > 0 ? marginRate.toFixed(1) : "-"}%)
+                {fmt4(totalMargin)}원 ({finalSalesTotal > 0 ? marginRate.toFixed(1) : "-"}%)
               </span>
               <Separator className="col-span-2 my-1" />
               <span className="text-muted-foreground text-right">공급가액</span>
               {totalsEditing ? (
                 <Input type="number" step="any" className="h-7 w-[160px] text-right text-sm" value={finalSupply} onChange={(e) => setManualSupply(Number(e.target.value) || 0)} />
               ) : (
-                <span className="text-right tabular-nums">{finalSupply.toLocaleString()}원</span>
+                <span className="text-right tabular-nums">{fmt4(finalSupply)}원</span>
               )}
               <span className="text-muted-foreground text-right">세액</span>
               {totalsEditing ? (
                 <Input type="number" step="any" className="h-7 w-[160px] text-right text-sm" value={finalTax} onChange={(e) => setManualTax(Number(e.target.value) || 0)} />
               ) : (
-                <span className="text-right tabular-nums">{finalTax.toLocaleString()}원</span>
+                <span className="text-right tabular-nums">{fmt4(finalTax)}원</span>
               )}
               <span className="font-semibold text-right">합계</span>
               <span className="font-semibold text-right tabular-nums">
-                {(finalSupply + finalTax).toLocaleString()}원
+                {fmt4(finalSupply + finalTax)}원
               </span>
             </div>
             <div className="flex flex-col gap-1 print:hidden">
@@ -1325,6 +1297,40 @@ export function OrderDetailClient({ order, products, suppliers = [], comments = 
             {isPending ? "저장중..." : "등록"}
           </Button>
         </form>
+      </div>
+
+      {/* 모바일 고정 액션 바 */}
+      <div className="fixed bottom-14 left-0 right-0 z-40 border-t bg-background p-3 pb-safe md:hidden">
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          >
+            수정
+          </Button>
+          {order.status === "confirmed" && (
+            <Button
+              className="flex-[2]"
+              disabled={isPending}
+              onClick={() => handleStatusChange("delivered")}
+            >
+              완료 처리
+            </Button>
+          )}
+          {order.status === "delivered" && (
+            <Button
+              className="flex-[2]"
+              variant="outline"
+              disabled={isPending}
+              onClick={() => handleStatusChange("confirmed")}
+            >
+              미완료로 변경
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

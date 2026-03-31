@@ -33,7 +33,10 @@ export function LoginForm() {
     });
 
     if (authError) {
-      setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+      const msg = authError.message === "Invalid login credentials"
+        ? "이메일 또는 비밀번호가 올바르지 않습니다."
+        : `로그인 실패: ${authError.message}`;
+      setError(msg);
       setLoading(false);
     } else {
       router.push("/dashboard");

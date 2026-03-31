@@ -136,7 +136,7 @@ export function PartnerMap({ pins }: PartnerMapProps) {
           0%, 100% { box-shadow: 0 3px 10px rgba(245,158,11,0.4); }
           50% { box-shadow: 0 3px 20px rgba(245,158,11,0.7), 0 0 0 8px rgba(245,158,11,0.1); }
         }
-        .leaflet-container { font-family: inherit; }
+        .leaflet-container { font-family: inherit; position: relative; z-index: 0; }
         .custom-marker { background: none !important; border: none !important; }
       `}</style>
 

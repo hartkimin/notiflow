@@ -42,24 +42,26 @@ export function CalendarHeader({
   const monthValue = `${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, "0")}`;
 
   return (
-    <div className="flex items-center gap-2 py-2">
-      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(-1)}>
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
-      <Button variant="outline" size="sm" className="h-8" onClick={onToday}>
-        오늘
-      </Button>
-      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(1)}>
-        <ChevronRight className="h-4 w-4" />
-      </Button>
+    <div className="flex flex-wrap items-center gap-2 py-2">
+      <div className="flex items-center gap-1">
+        <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => navigate(-1)}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <Button variant="outline" size="sm" className="h-9" onClick={onToday}>
+          오늘
+        </Button>
+        <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => navigate(1)}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
 
-      <span className="text-sm font-semibold ml-2">{label}</span>
+      <span className="text-sm font-semibold ml-1">{label}</span>
 
       <Input
         type="month"
         value={monthValue}
         onChange={handleMonthInput}
-        className="h-8 w-36 text-xs ml-1"
+        className="h-9 w-36 text-xs ml-1"
       />
 
       <div className="ml-auto flex items-center gap-1 rounded-lg border p-0.5">
@@ -68,7 +70,7 @@ export function CalendarHeader({
             key={v}
             onClick={() => onViewChange(v)}
             className={[
-              "px-3 py-1 text-xs rounded-md transition-colors",
+              "px-3 py-1.5 text-xs rounded-md transition-colors min-h-[32px]",
               view === v ? "bg-primary text-primary-foreground" : "hover:bg-muted",
             ].join(" ")}
           >

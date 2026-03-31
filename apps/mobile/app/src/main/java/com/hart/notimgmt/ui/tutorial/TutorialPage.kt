@@ -1,35 +1,37 @@
 package com.hart.notimgmt.ui.tutorial
 
+import com.hart.notimgmt.R
+
 data class TutorialPage(
     val title: String,
     val description: String,
-    val demoType: DemoType
+    val lottieRes: Int
 )
 
 val tutorialPages = listOf(
     TutorialPage(
-        title = "Smart Timeline",
-        description = "View all your notifications organized chronologically with AI-powered insights.",
-        demoType = DemoType.TIMELINE
+        title = "스마트 타임라인",
+        description = "카카오톡, SMS 등의 주문 알림을 시간순으로 자동 정리합니다",
+        lottieRes = R.raw.tutorial_timeline
     ),
     TutorialPage(
-        title = "Chatroom Management",
-        description = "Check and search app-specific messages neatly organized by conversational rooms.",
-        demoType = DemoType.CHATROOM
+        title = "대화방 관리",
+        description = "앱별 메시지를 대화방 형태로 깔끔하게 확인하고 검색하세요",
+        lottieRes = R.raw.tutorial_chatroom
     ),
     TutorialPage(
-        title = "AI Analysis",
-        description = "Let AI automatically analyze messages and categorize their intent.",
-        demoType = DemoType.AI_INSIGHTS
+        title = "AI 자동 분류",
+        description = "AI가 메시지를 분석하여 투석 용품 주문을 자동으로 분류합니다",
+        lottieRes = R.raw.tutorial_ai
     ),
     TutorialPage(
-        title = "Schedule Board",
-        description = "Manage notification processing states via an intuitive Kanban board.",
-        demoType = DemoType.KANBAN
+        title = "스케줄 보드",
+        description = "칸반 보드로 주문 처리 상태를 직관적으로 관리하세요",
+        lottieRes = R.raw.tutorial_kanban
     ),
     TutorialPage(
-        title = "Custom Settings",
-        description = "Personalize categories, configure filters, and enable cloud backups.",
-        demoType = DemoType.SETTINGS
+        title = "맞춤 설정",
+        description = "카테고리, 필터, 클라우드 백업을 내 환경에 맞게 설정하세요",
+        lottieRes = R.raw.tutorial_settings
     )
 )

@@ -1,18 +1,20 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Menu, Settings, HelpCircle, LogOut, User } from "lucide-react";
-import { navGroups, Package2 } from "@/lib/nav-items";
+import { Settings, HelpCircle, LogOut, User, RefreshCw, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 
 interface NavProps {
   syncInterval?: number;
@@ -41,53 +43,6 @@ export function Nav({ syncInterval = 5, userName }: NavProps) {
 
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6 lg:h-[60px] sticky top-0 z-40 transition-all duration-200 shadow-sm">
-      {/* Mobile Toggle */}
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="md:hidden -ml-2 hover:bg-accent/50">
-            <Menu className="h-5 w-5" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="flex flex-col w-72 p-0 bg-background border-r shadow-2xl">
-          <div className="p-6 flex items-center gap-3 border-b bg-zinc-950 dark:bg-black text-white">
-            <Package2 className="h-6 w-6 text-primary" />
-            <span className="font-bold text-lg tracking-tight">NotiFlow</span>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 py-6">
-            {navGroups.map((group, idx) => (
-              <div key={group.label} className={cn(idx > 0 && "mt-8")}>
-                <h3 className="px-3 mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground/50">
-                  {group.label}
-                </h3>
-                <nav className="grid gap-1.5">
-                  {group.items.map((item) => {
-                    const isActive = item.exact
-                      ? item.href === pathname
-                      : item.href === pathname || (item.href !== "/" && pathname.startsWith(item.href));
-
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={cn(
-                          "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-150",
-                          isActive
-                            ? "bg-primary/10 text-primary shadow-[0_0_0_1px_inset] shadow-primary/20"
-                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                        )}
-                      >
-                        <item.icon className={cn("h-4.5 w-4.5", isActive ? "text-primary" : "text-muted-foreground/60")} />
-                        {item.label}
-                      </Link>
-                    );
-                  })}
-                </nav>
-              </div>
-            ))}
-          </div>
-        </SheetContent>
-      </Sheet>
-
       {/* Page Title */}
       <div className="flex items-center gap-2">
         <h1 className="text-sm font-bold capitalize hidden sm:block">
@@ -97,9 +52,11 @@ export function Nav({ syncInterval = 5, userName }: NavProps) {
 
       <div className="flex-1" />
 
-      {/* Right: Settings + Profile */}
+      {/* Right: Sync + Settings + Profile */}
       <div className="flex items-center gap-1.5">
-        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+        <SyncButton />
+
+        <Button variant="ghost" size="icon" className="h-9 w-9" asChild>
           <Link href="/settings">
             <Settings className="h-4 w-4" />
           </Link>
@@ -107,7 +64,7 @@ export function Nav({ syncInterval = 5, userName }: NavProps) {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 border border-zinc-200 text-xs font-bold text-zinc-700 hover:bg-zinc-200 transition-colors">
+            <button className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 border border-zinc-200 text-xs font-bold text-zinc-700 hover:bg-zinc-200 transition-colors">
               {userInitial || <User className="h-3.5 w-3.5" />}
             </button>
           </DropdownMenuTrigger>
@@ -132,5 +89,78 @@ export function Nav({ syncInterval = 5, userName }: NavProps) {
         </DropdownMenu>
       </div>
     </header>
+  );
+}
+
+function SyncButton() {
+  const [isPending, startTransition] = useTransition();
+  const [lastSynced, setLastSynced] = useState<string | null>(null);
+  const router = useRouter();
+
+  const handleSync = () => {
+    startTransition(async () => {
+      try {
+        const { requestAllDevicesSync } = await import("@/lib/actions");
+        const result = await requestAllDevicesSync();
+        router.refresh();
+
+        if (result.fcm_sent > 0) {
+          toast.success(`${result.fcm_sent}대 기기에 동기화 요청 완료`);
+        } else if (result.realtime_updated > 0) {
+          toast.success("Realtime으로 동기화 요청을 보냈습니다");
+        } else {
+          toast.info("활성 기기가 없습니다");
+        }
+        setLastSynced(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }));
+      } catch {
+        toast.error("동기화 요청 실패");
+      }
+    });
+  };
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={handleSync}
+            disabled={isPending}
+            className={cn(
+              "group relative flex items-center gap-2 rounded-full px-3 py-1.5",
+              "bg-gradient-to-r from-blue-500/10 to-indigo-500/10",
+              "border border-blue-200/60 dark:border-blue-800/40",
+              "hover:from-blue-500/20 hover:to-indigo-500/20",
+              "hover:border-blue-300 dark:hover:border-blue-700",
+              "hover:shadow-[0_0_12px_rgba(59,130,246,0.15)]",
+              "active:scale-[0.97]",
+              "transition-all duration-200 ease-out",
+              "disabled:opacity-50 disabled:pointer-events-none",
+            )}
+          >
+            <span className="relative flex h-5 w-5 items-center justify-center">
+              <RefreshCw
+                className={cn(
+                  "h-3.5 w-3.5 text-blue-600 dark:text-blue-400 transition-transform duration-300",
+                  isPending && "animate-spin",
+                )}
+              />
+              <Smartphone className="absolute -bottom-0.5 -right-0.5 h-2 w-2 text-blue-500/70" />
+            </span>
+            <span className="text-xs font-medium text-blue-700 dark:text-blue-300 hidden sm:inline">
+              {isPending ? "동기화 중..." : "동기화"}
+            </span>
+            {lastSynced && !isPending && (
+              <span className="text-[10px] text-blue-400 dark:text-blue-500 hidden md:inline">
+                {lastSynced}
+              </span>
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">
+          <p>모든 모바일 기기에 동기화 요청</p>
+          {lastSynced && <p className="text-muted-foreground">마지막: {lastSynced}</p>}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

@@ -121,7 +121,7 @@ private fun PermissionRequestScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "NotiRoute",
+            text = "NotiFlow",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary

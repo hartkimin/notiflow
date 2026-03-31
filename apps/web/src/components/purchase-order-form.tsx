@@ -46,7 +46,7 @@ import type { ProductSupplierOption } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PortalSearchBox } from "@/components/portal-search-box";
 import { matchesChosungSearch } from "@/lib/chosung";
-import { round4, fmt4 } from "@/lib/utils";
+import { vatToExcl, exclToVat, calcLine, calcOrderTotals, lineSupply, lineTax, fmt4 } from "@/lib/price-calc";
 import {
   getRecentHospitalsAction,
   getRecentPartnerProductsAction,
@@ -354,13 +354,11 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
     setItems((prev) => prev.map((i) => i.key === key ? { ...i, ...updates } : i));
   }
 
-  // ── Calculations ──
-  const totalPurchase = items.reduce((s, i) => s + round4((i.purchase_price ?? 0) * 1.1) * i.quantity, 0);
-  const totalSelling = items.reduce((s, i) => s + round4((i.selling_price ?? 0) * 1.1) * i.quantity, 0);
-  const totalSupply = items.reduce((s, i) => s + (i.selling_price ?? 0) * i.quantity, 0);
-  const totalTax = items.reduce((s, i) => s + round4((i.selling_price ?? 0) * 0.1) * i.quantity, 0);
-  const totalMargin = totalSelling - totalPurchase;
-  const marginRate = totalSelling > 0 ? (totalMargin / totalSelling) * 100 : 0;
+  // ── Calculations (price-calc 통일 모듈) ──
+  const orderTotals = calcOrderTotals(
+    items.map((i) => ({ purchasePrice: i.purchase_price ?? 0, sellingPrice: i.selling_price ?? 0, qty: i.quantity })),
+  );
+  const { purchaseTotal: totalPurchase, sellingTotal: totalSelling, supplyTotal: totalSupply, taxTotal: totalTax, totalMargin, marginRate } = orderTotals;
 
   // ── Submit ──
   async function handleSubmit() {
@@ -462,7 +460,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
         <span className="font-medium truncate">{item.name}</span>
         {item.manufacturer && <span className="text-xs text-muted-foreground truncate">{item.manufacturer}</span>}
         {item.unit_price != null && (
-          <span className="text-xs text-muted-foreground ml-auto shrink-0">{item.unit_price.toLocaleString()}원</span>
+          <span className="text-xs text-muted-foreground ml-auto shrink-0">{fmt4(item.unit_price)}원</span>
         )}
       </div>
     );
@@ -516,7 +514,7 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
         </Badge>
         <span className="font-medium truncate">{item.name}</span>
         {item.unit_price != null && (
-          <span className="text-xs text-muted-foreground ml-auto shrink-0">{item.unit_price.toLocaleString()}원</span>
+          <span className="text-xs text-muted-foreground ml-auto shrink-0">{fmt4(item.unit_price)}원</span>
         )}
       </div>
     );
@@ -667,7 +665,6 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                     searchAction={searchPartnerProductsLocal}
                     onSelect={addPartnerProduct}
                     renderItem={renderProductItem}
-                    keepOpenOnSelect
                     isSelected={isPartnerItemSelected}
                   />
                 )}
@@ -680,7 +677,6 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                   searchAction={searchMyItemsAction}
                   onSelect={addMyItem}
                   renderItem={renderMyItem}
-                  keepOpenOnSelect
                   isSelected={isMyItemSelected}
                 />
               </TabsContent>
@@ -692,7 +688,6 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                   searchAction={searchMfdsItemsAction}
                   onSelect={addMfdsItem}
                   renderItem={renderMfdsItem}
-                  keepOpenOnSelect
                   isSelected={isMfdsItemSelected}
                 />
               </TabsContent>
@@ -906,10 +901,10 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         <TableCell className="text-right">
                           <Input
                             type="number" min={0} step="any"
-                            value={item.purchase_price != null ? round4(item.purchase_price * 1.1) : ""}
+                            value={item.purchase_price != null ? exclToVat(item.purchase_price) : ""}
                             onChange={(e) => {
                               const vatIncl = e.target.value ? parseFloat(e.target.value) : null;
-                              updateItem(item.key, { purchase_price: vatIncl != null ? round4(vatIncl / 1.1) : null });
+                              updateItem(item.key, { purchase_price: vatIncl != null ? vatToExcl(vatIncl) : null });
                             }}
                             className="h-7 w-[80px] text-xs text-right ml-auto"
                             placeholder="VAT포함"
@@ -921,20 +916,20 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         </TableCell>
                         {/* 매입공급가 — 자동 */}
                         <TableCell className="text-xs text-right tabular-nums">
-                          {item.purchase_price != null ? fmt4(round4(item.purchase_price * item.quantity)) : "-"}
+                          {item.purchase_price != null ? fmt4(lineSupply(item.purchase_price, item.quantity)) : "-"}
                         </TableCell>
                         {/* 매입부가세 — 자동 */}
                         <TableCell className="text-xs text-right tabular-nums text-muted-foreground">
-                          {item.purchase_price != null ? fmt4(round4(item.purchase_price * item.quantity * 0.1)) : "-"}
+                          {item.purchase_price != null ? fmt4(lineTax(item.purchase_price, item.quantity)) : "-"}
                         </TableCell>
                         {/* 판매(VAT) — 입력 */}
                         <TableCell className="text-right">
                           <Input
                             type="number" min={0} step="any"
-                            value={item.selling_price != null ? round4(item.selling_price * 1.1) : ""}
+                            value={item.selling_price != null ? exclToVat(item.selling_price) : ""}
                             onChange={(e) => {
                               const vatIncl = e.target.value ? parseFloat(e.target.value) : null;
-                              updateItem(item.key, { selling_price: vatIncl != null ? round4(vatIncl / 1.1) : null });
+                              updateItem(item.key, { selling_price: vatIncl != null ? vatToExcl(vatIncl) : null });
                             }}
                             className="h-7 w-[80px] text-xs text-right ml-auto"
                             placeholder="VAT포함"
@@ -946,30 +941,24 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                         </TableCell>
                         {/* 판매공급가 — 자동 */}
                         <TableCell className="text-xs text-right tabular-nums font-medium">
-                          {item.selling_price != null ? fmt4(round4(item.selling_price * item.quantity)) : "-"}
+                          {item.selling_price != null ? fmt4(lineSupply(item.selling_price, item.quantity)) : "-"}
                         </TableCell>
                         {/* 판매부가세 — 자동 */}
                         <TableCell className="text-xs text-right tabular-nums text-muted-foreground">
-                          {item.selling_price != null ? fmt4(round4(item.selling_price * item.quantity * 0.1)) : "-"}
+                          {item.selling_price != null ? fmt4(lineTax(item.selling_price, item.quantity)) : "-"}
                         </TableCell>
                         {/* 이익 */}
                         <TableCell className="text-xs text-right font-mono">
                           {(() => {
-                            const sSupply = round4((item.selling_price ?? 0) * item.quantity);
-                            const pSupply = round4((item.purchase_price ?? 0) * item.quantity);
-                            const profit = round4(sSupply + sSupply * 0.1) - round4(pSupply + pSupply * 0.1);
-                            return <span className={profit < 0 ? "text-red-500" : "text-green-600"}>{fmt4(profit)}</span>;
+                            const lc = calcLine(item.purchase_price ?? 0, item.selling_price ?? 0, item.quantity);
+                            return <span className={lc.profit < 0 ? "text-red-500" : "text-green-600"}>{fmt4(lc.profit)}</span>;
                           })()}
                         </TableCell>
                         {/* 이익률 */}
                         <TableCell className="text-xs text-right font-mono">
                           {(() => {
-                            const sSupply = round4((item.selling_price ?? 0) * item.quantity);
-                            const pSupply = round4((item.purchase_price ?? 0) * item.quantity);
-                            const sTotal = round4(sSupply + sSupply * 0.1);
-                            const profit = sTotal - round4(pSupply + pSupply * 0.1);
-                            const rate = sTotal > 0 ? (profit / sTotal) * 100 : 0;
-                            return <span className={rate < 0 ? "text-red-500" : ""}>{rate.toFixed(1)}%</span>;
+                            const lc = calcLine(item.purchase_price ?? 0, item.selling_price ?? 0, item.quantity);
+                            return <span className={lc.marginRate < 0 ? "text-red-500" : ""}>{lc.marginRate.toFixed(1)}%</span>;
                           })()}
                         </TableCell>
                         <TableCell>
@@ -1019,15 +1008,15 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                     <TableCell />
                     <TableCell />
                     <TableCell className="text-right text-xs tabular-nums font-bold">
-                      {totalPurchase.toLocaleString()}원
+                      {fmt4(totalPurchase)}원
                     </TableCell>
                     <TableCell />
                     <TableCell />
                     <TableCell className="text-right text-xs tabular-nums font-bold">
-                      {totalSelling.toLocaleString()}원
+                      {fmt4(totalSelling)}원
                     </TableCell>
                     <TableCell className="text-right text-xs tabular-nums">
-                      <span className={totalMargin < 0 ? "text-red-500" : "text-green-600"}>{totalMargin.toLocaleString()}원</span>
+                      <span className={totalMargin < 0 ? "text-red-500" : "text-green-600"}>{fmt4(totalMargin)}원</span>
                     </TableCell>
                     <TableCell className="text-right text-xs tabular-nums">
                       <span className={marginRate < 0 ? "text-red-500" : ""}>{marginRate.toFixed(1)}%</span>
@@ -1056,17 +1045,17 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                 <div className="md:w-[260px] space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">매입 합계</span>
-                    <span className="tabular-nums">₩{totalPurchase.toLocaleString()}</span>
+                    <span className="tabular-nums">₩{fmt4(totalPurchase)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">매출 합계</span>
-                    <span className="tabular-nums font-semibold">₩{totalSelling.toLocaleString()}</span>
+                    <span className="tabular-nums font-semibold">₩{fmt4(totalSelling)}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">이익</span>
                     <span className={`tabular-nums font-semibold ${totalMargin >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                      ₩{totalMargin.toLocaleString()}
+                      ₩{fmt4(totalMargin)}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -1076,15 +1065,16 @@ export function PurchaseOrderForm({ displayColumns, columnWidths, sourceMessageI
                   <Separator />
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">공급가액</span>
-                    <span className="tabular-nums">₩{totalSupply.toLocaleString()}</span>
+                    <span className="tabular-nums">₩{fmt4(totalSupply)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">세액</span>
-                    <span className="tabular-nums">₩{totalTax.toLocaleString()}</span>
+                    <span className="tabular-nums">₩{fmt4(totalTax)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-semibold">합계</span>
-                    <span className="tabular-nums font-semibold">₩{(totalSupply + totalTax).toLocaleString()}</span>
+                    <span className="tabular-nums font-semibold">₩{fmt4(totalSupply + totalTax)}</span>
+
                   </div>
                 </div>
               </div>

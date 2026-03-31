@@ -111,7 +111,7 @@ export default function InvoiceTable({ invoices }: InvoiceTableProps) {
               : Math.round(invoice.total_amount / 1.1);
             const tax = invoice.tax_amount > 0
               ? invoice.tax_amount
-              : invoice.total_amount - supply;
+              : Math.floor(supply * 0.1);
             return (
               <TableRow key={invoice.id}>
                 <TableCell>

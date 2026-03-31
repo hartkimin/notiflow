@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 
 interface OrderFiltersProps {
   hospitals?: { id: number; name: string }[];
@@ -19,6 +19,10 @@ export function OrderFilters({ hospitals = [] }: OrderFiltersProps) {
   const [hospital, setHospital] = useState(searchParams.get("hospital") || "all");
   const [invoice, setInvoice] = useState(searchParams.get("invoice") || "all");
   const [size, setSize] = useState(searchParams.get("size") || "15");
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  const hasActiveFilters = status !== "all" || hospital !== "all" || invoice !== "all"
+    || searchParams.get("from") || searchParams.get("to");
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -38,66 +42,167 @@ export function OrderFilters({ hospitals = [] }: OrderFiltersProps) {
     if (size && size !== "15") params.set("size", size);
 
     router.push(`/orders?${params}`);
+    setMoreOpen(false);
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex items-center gap-1.5 flex-wrap">
-      <Select value={status} onValueChange={setStatus}>
-        <SelectTrigger className="h-7 w-[80px] text-[11px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">전체 상태</SelectItem>
-          <SelectItem value="confirmed">미완료</SelectItem>
-          <SelectItem value="delivered">완료</SelectItem>
-        </SelectContent>
-      </Select>
-      <Select value={hospital} onValueChange={setHospital}>
-        <SelectTrigger className="h-7 w-[110px] text-[11px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">전체 거래처</SelectItem>
-          {hospitals.map((h) => (
-            <SelectItem key={h.id} value={String(h.id)}>
-              {h.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={invoice} onValueChange={setInvoice}>
-        <SelectTrigger className="h-7 w-[80px] text-[11px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">계산서</SelectItem>
-          <SelectItem value="issued">발행</SelectItem>
-          <SelectItem value="not_issued">미발행</SelectItem>
-        </SelectContent>
-      </Select>
-      <div className="h-4 w-px bg-border shrink-0" />
-      <Input type="date" name="from" defaultValue={searchParams.get("from") || ""} className="h-7 w-[115px] text-[11px]" />
-      <span className="text-muted-foreground text-[10px]">~</span>
-      <Input type="date" name="to" defaultValue={searchParams.get("to") || ""} className="h-7 w-[115px] text-[11px]" />
-      <div className="h-4 w-px bg-border shrink-0" />
+      {/* Always visible: search + filter toggle (mobile) */}
       <div className="relative">
         <Search className="absolute left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
         <Input name="search" placeholder="검색..." defaultValue={searchParams.get("search") || ""} className="h-7 w-[120px] pl-6 text-[11px]" />
       </div>
-      <Select value={size} onValueChange={setSize}>
-        <SelectTrigger className="h-7 w-[65px] text-[11px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="15">15건</SelectItem>
-          <SelectItem value="30">30건</SelectItem>
-          <SelectItem value="50">50건</SelectItem>
-          <SelectItem value="100">100건</SelectItem>
-        </SelectContent>
-      </Select>
       <Button type="submit" size="icon" variant="outline" className="h-7 w-7 shrink-0">
         <Search className="h-3 w-3" />
       </Button>
+
+      {/* Mobile: filter toggle button */}
+      <Button
+        type="button"
+        size="icon"
+        variant={hasActiveFilters ? "default" : "outline"}
+        className="h-7 w-7 shrink-0 md:hidden relative"
+        onClick={() => setMoreOpen(!moreOpen)}
+      >
+        {moreOpen ? <X className="h-3 w-3" /> : <SlidersHorizontal className="h-3 w-3" />}
+        {hasActiveFilters && !moreOpen && (
+          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
+        )}
+      </Button>
+
+      {/* Desktop: always visible filters */}
+      <div className="hidden md:contents">
+        <Select value={status} onValueChange={setStatus}>
+          <SelectTrigger className="h-7 w-[80px] text-[11px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">전체 상태</SelectItem>
+            <SelectItem value="confirmed">미완료</SelectItem>
+            <SelectItem value="delivered">완료</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={hospital} onValueChange={setHospital}>
+          <SelectTrigger className="h-7 w-[110px] text-[11px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">전체 거래처</SelectItem>
+            {hospitals.map((h) => (
+              <SelectItem key={h.id} value={String(h.id)}>
+                {h.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={invoice} onValueChange={setInvoice}>
+          <SelectTrigger className="h-7 w-[80px] text-[11px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">계산서</SelectItem>
+            <SelectItem value="issued">발행</SelectItem>
+            <SelectItem value="not_issued">미발행</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="h-4 w-px bg-border shrink-0" />
+        <Input type="date" name="from" defaultValue={searchParams.get("from") || ""} className="h-7 w-[115px] text-[11px]" />
+        <span className="text-muted-foreground text-[10px]">~</span>
+        <Input type="date" name="to" defaultValue={searchParams.get("to") || ""} className="h-7 w-[115px] text-[11px]" />
+        <div className="h-4 w-px bg-border shrink-0" />
+        <Select value={size} onValueChange={setSize}>
+          <SelectTrigger className="h-7 w-[65px] text-[11px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="15">15건</SelectItem>
+            <SelectItem value="30">30건</SelectItem>
+            <SelectItem value="50">50건</SelectItem>
+            <SelectItem value="100">100건</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Mobile: expandable filter panel */}
+      {moreOpen && (
+        <div className="w-full flex flex-col gap-2 pt-2 border-t mt-1 md:hidden">
+          <div className="grid grid-cols-3 gap-2">
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 상태</SelectItem>
+                <SelectItem value="confirmed">미완료</SelectItem>
+                <SelectItem value="delivered">완료</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={hospital} onValueChange={setHospital}>
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 거래처</SelectItem>
+                {hospitals.map((h) => (
+                  <SelectItem key={h.id} value={String(h.id)}>
+                    {h.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={invoice} onValueChange={setInvoice}>
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">계산서</SelectItem>
+                <SelectItem value="issued">발행</SelectItem>
+                <SelectItem value="not_issued">미발행</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input type="date" name="from" defaultValue={searchParams.get("from") || ""} className="h-9 flex-1 text-xs" />
+            <span className="text-muted-foreground text-xs">~</span>
+            <Input type="date" name="to" defaultValue={searchParams.get("to") || ""} className="h-9 flex-1 text-xs" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={size} onValueChange={setSize}>
+              <SelectTrigger className="h-9 w-[80px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="15">15건</SelectItem>
+                <SelectItem value="30">30건</SelectItem>
+                <SelectItem value="50">50건</SelectItem>
+                <SelectItem value="100">100건</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button type="submit" size="sm" className="h-9 flex-1">
+              <Search className="h-3.5 w-3.5 mr-1.5" />
+              필터 적용
+            </Button>
+            {hasActiveFilters && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-9 text-rose-500"
+                onClick={() => {
+                  setStatus("all");
+                  setHospital("all");
+                  setInvoice("all");
+                  setSize("15");
+                  router.push("/orders");
+                  setMoreOpen(false);
+                }}
+              >
+                초기화
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
     </form>
   );
 }

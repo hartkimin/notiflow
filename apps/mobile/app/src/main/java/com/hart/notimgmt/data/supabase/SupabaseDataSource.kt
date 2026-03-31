@@ -38,10 +38,13 @@ class SupabaseDataSource @Inject constructor(
     private val userId: String?
         get() = auth.currentUserOrNull()?.id
 
+    private fun requireUserId(): String =
+        userId ?: throw IllegalStateException("Not authenticated – cannot sync (userId is null)")
+
     // ========== Messages ==========
 
     suspend fun upsertMessage(message: CapturedMessageEntity, deviceId: String? = null) {
-        val currentUserId = userId ?: return
+        val currentUserId = requireUserId()
         try {
             val dto = message.toSupabaseDto(currentUserId, deviceId)
             Log.d(TAG, "Upserting message: ${json.encodeToString(dto)}")
@@ -59,7 +62,7 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun getMessages(): List<MessageDto> {
-        val currentUserId = userId ?: return emptyList()
+        val currentUserId = requireUserId()
         Log.d(TAG, "Getting messages for user: $currentUserId")
         val result = postgrest.from(MESSAGES_TABLE)
             .select { filter { eq("user_id", currentUserId) } }
@@ -69,7 +72,7 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun deleteMessages(ids: List<String>) {
-        val currentUserId = userId ?: return
+        val currentUserId = requireUserId()
         try {
             Log.d(TAG, "Deleting messages from Supabase: $ids")
             postgrest.from(MESSAGES_TABLE).delete {
@@ -93,7 +96,7 @@ class SupabaseDataSource @Inject constructor(
     // ========== Categories ==========
 
     suspend fun upsertCategory(category: CategoryEntity) {
-        val currentUserId = userId ?: return
+        val currentUserId = requireUserId()
         try {
             val dto = category.toSupabaseDto(currentUserId)
             Log.d(TAG, "Upserting category: ${json.encodeToString(dto)}")
@@ -111,7 +114,7 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun getCategories(): List<CategoryDto> {
-        val currentUserId = userId ?: return emptyList()
+        val currentUserId = requireUserId()
         Log.d(TAG, "Getting categories for user: $currentUserId")
         val result = postgrest.from(CATEGORIES_TABLE)
             .select { filter { eq("user_id", currentUserId) } }
@@ -123,7 +126,7 @@ class SupabaseDataSource @Inject constructor(
     // ========== Filter Rules ==========
 
     suspend fun upsertFilterRule(rule: FilterRuleEntity) {
-        val currentUserId = userId ?: return
+        val currentUserId = requireUserId()
         try {
             val dto = rule.toSupabaseDto(currentUserId)
             Log.d(TAG, "Upserting filter rule: ${json.encodeToString(dto)}")
@@ -141,7 +144,7 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun getFilterRules(): List<FilterRuleDto> {
-        val currentUserId = userId ?: return emptyList()
+        val currentUserId = requireUserId()
         Log.d(TAG, "Getting filter rules for user: $currentUserId")
         val result = postgrest.from(FILTER_RULES_TABLE)
             .select { filter { eq("user_id", currentUserId) } }
@@ -153,7 +156,7 @@ class SupabaseDataSource @Inject constructor(
     // ========== Status Steps ==========
 
     suspend fun upsertStatusStep(step: StatusStepEntity) {
-        val currentUserId = userId ?: return
+        val currentUserId = requireUserId()
         try {
             val dto = step.toSupabaseDto(currentUserId)
             Log.d(TAG, "Upserting status step: ${json.encodeToString(dto)}")
@@ -171,7 +174,7 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun getStatusSteps(): List<StatusStepDto> {
-        val currentUserId = userId ?: return emptyList()
+        val currentUserId = requireUserId()
         Log.d(TAG, "Getting status steps for user: $currentUserId")
         val result = postgrest.from(STATUS_STEPS_TABLE)
             .select { filter { eq("user_id", currentUserId) } }
@@ -183,7 +186,7 @@ class SupabaseDataSource @Inject constructor(
     // ========== App Filters ==========
 
     suspend fun upsertAppFilter(filter: AppFilterEntity) {
-        val currentUserId = userId ?: return
+        val currentUserId = requireUserId()
         try {
             val dto = filter.toSupabaseDto(currentUserId)
             Log.d(TAG, "Upserting app filter: ${json.encodeToString(dto)}")
@@ -201,7 +204,7 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun getAppFilters(): List<AppFilterDto> {
-        val currentUserId = userId ?: return emptyList()
+        val currentUserId = requireUserId()
         Log.d(TAG, "Getting app filters for user: $currentUserId")
         val result = postgrest.from(APP_FILTERS_TABLE)
             .select { filter { eq("user_id", currentUserId) } }
@@ -213,7 +216,7 @@ class SupabaseDataSource @Inject constructor(
     // ========== Plans ==========
 
     suspend fun upsertPlan(plan: PlanEntity) {
-        val currentUserId = userId ?: return
+        val currentUserId = requireUserId()
         try {
             val dto = plan.toSupabaseDto(currentUserId)
             Log.d(TAG, "Upserting plan: ${json.encodeToString(dto)}")
@@ -231,7 +234,7 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun getPlans(): List<PlanDto> {
-        val currentUserId = userId ?: return emptyList()
+        val currentUserId = requireUserId()
         Log.d(TAG, "Getting plans for user: $currentUserId")
         val result = postgrest.from(PLANS_TABLE)
             .select { filter { eq("user_id", currentUserId) } }
@@ -243,7 +246,7 @@ class SupabaseDataSource @Inject constructor(
     // ========== Day Categories ==========
 
     suspend fun upsertDayCategory(entity: DayCategoryEntity) {
-        val currentUserId = userId ?: return
+        val currentUserId = requireUserId()
         try {
             val dto = entity.toSupabaseDto(currentUserId)
             Log.d(TAG, "Upserting day category: ${json.encodeToString(dto)}")
@@ -261,7 +264,7 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun getDayCategories(): List<DayCategoryDto> {
-        val currentUserId = userId ?: return emptyList()
+        val currentUserId = requireUserId()
         Log.d(TAG, "Getting day categories for user: $currentUserId")
         val result = postgrest.from(DAY_CATEGORIES_TABLE)
             .select { filter { eq("user_id", currentUserId) } }
@@ -271,7 +274,7 @@ class SupabaseDataSource @Inject constructor(
     }
 
     suspend fun deleteDayCategory(id: String) {
-        val currentUserId = userId ?: return
+        val currentUserId = requireUserId()
         try {
             Log.d(TAG, "Deleting day category: $id")
             postgrest.from(DAY_CATEGORIES_TABLE).delete {

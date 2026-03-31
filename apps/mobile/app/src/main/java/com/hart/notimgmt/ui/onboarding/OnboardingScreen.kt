@@ -19,40 +19,39 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Insights
-import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.ViewKanban
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.rememberLottieComposition
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.hart.notimgmt.R
 import kotlinx.coroutines.launch
 
-// Color tokens based on Stitch Design
-private val BrandBlue = Color(0xFF2B2BEE)
-private val BrandPurple = Color(0xFF8B5CF6)
-private val SurfaceGray = Color(0xFFF9FAFB)
-private val TextDark = Color(0xFF111827)
-private val TextMuted = Color(0xFF6B7280)
-private val GradientBrush = Brush.horizontalGradient(listOf(BrandBlue, BrandPurple))
+// Unified onboarding color tokens
+private val WarmCream = Color(0xFFFFF8F3)
+private val SakuraPink = Color(0xFFE8729D)
+private val SakuraPinkDark = Color(0xFFD4608A)
+private val TextDark = Color(0xFF2D2D2D)
+private val TextMuted = Color(0xFF8E8E93)
+private val SurfaceLight = Color(0xFFF5F0EB)
 
 @Composable
 fun OnboardingScreen(onComplete: () -> Unit) {
@@ -72,7 +71,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(WarmCream)
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -88,7 +87,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                     TextButton(onClick = {
                         coroutineScope.launch { pagerState.animateScrollToPage(2) }
                     }) {
-                        Text("Skip", color = TextMuted)
+                        Text("건너뛰기", color = TextMuted)
                     }
                 } else {
                     Spacer(modifier = Modifier.height(48.dp))
@@ -102,8 +101,16 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                 userScrollEnabled = pagerState.currentPage != 2
             ) { page ->
                 when (page) {
-                    0 -> WelcomePage()
-                    1 -> FeaturesPage()
+                    0 -> LottiePage(
+                        lottieRes = R.raw.tutorial_timeline,
+                        title = "알림을 스마트하게 관리하세요",
+                        description = "카카오톡, SMS 등의 주문 알림을 자동으로 분류하고 시간순으로 정리합니다"
+                    )
+                    1 -> LottiePage(
+                        lottieRes = R.raw.tutorial_ai,
+                        title = "AI 분류와 칸반 보드",
+                        description = "AI가 투석 용품 주문을 자동 분류하고, 칸반 보드로 처리 상태를 한눈에 관리하세요"
+                    )
                     2 -> PermissionPage()
                 }
             }
@@ -122,7 +129,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                 ) {
                     repeat(3) { index ->
                         val color by animateColorAsState(
-                            targetValue = if (index == pagerState.currentPage) BrandBlue else Color(0xFFE5E7EB),
+                            targetValue = if (index == pagerState.currentPage) SakuraPink else Color(0xFFE5DDD7),
                             label = "dot"
                         )
                         Box(
@@ -149,23 +156,21 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                             }
                         } else if (canProceed) {
                             onComplete()
+                        } else {
+                            context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                         }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp)
-                        .background(
-                            brush = if (canProceed) GradientBrush else Brush.horizontalGradient(listOf(Color.LightGray, Color.LightGray)),
-                            shape = RoundedCornerShape(16.dp)
-                        ),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                    contentPadding = PaddingValues()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = SakuraPink)
                 ) {
                     Text(
                         text = when {
-                            isLastPage && !canProceed -> "Grant Permissions"
-                            isLastPage && canProceed -> "Start"
-                            else -> "Next"
+                            isLastPage && !canProceed -> "권한 설정하기"
+                            isLastPage && canProceed -> "시작하기"
+                            else -> "다음"
                         },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
@@ -178,91 +183,57 @@ fun OnboardingScreen(onComplete: () -> Unit) {
 }
 
 @Composable
-private fun WelcomePage() {
+private fun LottiePage(lottieRes: Int, title: String, description: String) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(32.dp),
+            .padding(horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Abstract illustration representation
+        // Lottie animation in top half
         Box(
             modifier = Modifier
-                .size(160.dp)
-                .background(Brush.radialGradient(listOf(BrandPurple.copy(0.15f), Color.Transparent))),
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(top = 8.dp, bottom = 16.dp),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.AllInclusive,
-                contentDescription = null,
-                modifier = Modifier.size(80.dp),
-                tint = BrandBlue
+            val composition by rememberLottieComposition(
+                LottieCompositionSpec.RawRes(lottieRes)
+            )
+            val progress by animateLottieCompositionAsState(
+                composition,
+                iterations = Int.MAX_VALUE
+            )
+            LottieAnimation(
+                composition = composition,
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .aspectRatio(1f)
             )
         }
 
-        Spacer(modifier = Modifier.height(48.dp))
-
-        Text(
-            text = "Welcome to NotiFlow",
-            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
-            color = TextDark,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Manage your flow seamlessly.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = TextMuted,
-            textAlign = TextAlign.Center
-        )
-    }
-}
-
-@Composable
-private fun FeaturesPage() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "Smart Organization",
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-            color = TextDark,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(40.dp))
-
-        FeatureMinimalRow(Icons.Default.AutoAwesome, "AI Filtering", "Automatically categorize important alerts")
-        Spacer(modifier = Modifier.height(32.dp))
-        FeatureMinimalRow(Icons.Default.ViewKanban, "Kanban Boards", "Turn notifications into actionable tasks")
-        Spacer(modifier = Modifier.height(32.dp))
-        FeatureMinimalRow(Icons.Default.Insights, "Daily Summaries", "Catch up on what you missed concisely")
-    }
-}
-
-@Composable
-private fun FeatureMinimalRow(icon: ImageVector, title: String, desc: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top
-    ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .background(SurfaceGray, shape = CircleShape),
-            contentAlignment = Alignment.Center
+        // Text content below
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(bottom = 16.dp)
         ) {
-            Icon(imageVector = icon, contentDescription = null, tint = BrandBlue, modifier = Modifier.size(24.dp))
-        }
-        Spacer(modifier = Modifier.width(20.dp))
-        Column {
-            Text(text = title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = TextDark)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = desc, style = MaterialTheme.typography.bodyMedium, color = TextMuted)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                color = TextDark,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyLarge,
+                color = TextMuted,
+                textAlign = TextAlign.Center,
+                lineHeight = MaterialTheme.typography.bodyLarge.lineHeight
+            )
         }
     }
 }
@@ -292,38 +263,56 @@ private fun PermissionPage() {
         Box(
             modifier = Modifier
                 .size(100.dp)
-                .background(SurfaceGray, shape = CircleShape),
+                .background(SurfaceLight, shape = CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Shield, contentDescription = null, tint = BrandPurple, modifier = Modifier.size(50.dp))
+            Icon(Icons.Default.Shield, contentDescription = null, tint = SakuraPink, modifier = Modifier.size(50.dp))
         }
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        Text("Permissions Required", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold), color = TextDark)
+        Text(
+            "시작하기 전에",
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            color = TextDark
+        )
         Spacer(modifier = Modifier.height(12.dp))
-        Text("NotiFlow needs to access your notifications to organize them for you.", style = MaterialTheme.typography.bodyMedium, color = TextMuted, textAlign = TextAlign.Center)
+        Text(
+            "알림을 관리하려면 아래 권한이 필요합니다",
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextMuted,
+            textAlign = TextAlign.Center
+        )
 
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        PermissionMinimalCard(
+        Text(
+            "아래 항목을 탭하여 권한을 허용해 주세요",
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+            color = SakuraPink,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        PermissionCard(
             icon = Icons.Default.NotificationsActive,
-            title = "Notification Access",
-            desc = "Required to read incoming alerts (Required)",
+            title = "알림 접근 권한",
+            desc = "알림을 읽기 위해 필요합니다 (필수)",
             isGranted = isNotifListenerEnabled,
             onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        PermissionMinimalCard(
+        PermissionCard(
             icon = Icons.Default.BatteryFull,
-            title = "Battery Optimization",
-            desc = "Ensure background app reliability (Optional)",
+            title = "배터리 최적화 해제",
+            desc = "백그라운드 앱 안정성 확보 (선택)",
             isGranted = isBatterOptDisabled,
             onClick = {
                 val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = Uri.parse("package:${context.packageName}")
+                    data = android.net.Uri.parse("package:${context.packageName}")
                 }
                 context.startActivity(intent)
             }
@@ -332,12 +321,21 @@ private fun PermissionPage() {
 }
 
 @Composable
-private fun PermissionMinimalCard(icon: ImageVector, title: String, desc: String, isGranted: Boolean, onClick: () -> Unit) {
+private fun PermissionCard(
+    icon: ImageVector,
+    title: String,
+    desc: String,
+    isGranted: Boolean,
+    onClick: () -> Unit
+) {
     Surface(
         onClick = { if (!isGranted) onClick() },
         shape = RoundedCornerShape(16.dp),
-        color = if (isGranted) BrandBlue.copy(alpha = 0.05f) else SurfaceGray,
-        border = BorderStroke(1.dp, if (isGranted) BrandBlue.copy(alpha = 0.3f) else Color(0xFFE5E7EB)),
+        color = if (isGranted) SakuraPink.copy(alpha = 0.08f) else SurfaceLight,
+        border = BorderStroke(
+            1.dp,
+            if (isGranted) SakuraPink.copy(alpha = 0.3f) else Color(0xFFE5DDD7)
+        ),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -347,12 +345,16 @@ private fun PermissionMinimalCard(icon: ImageVector, title: String, desc: String
             Icon(
                 imageVector = if (isGranted) Icons.Default.CheckCircle else icon,
                 contentDescription = null,
-                tint = if (isGranted) BrandBlue else TextMuted,
+                tint = if (isGranted) SakuraPink else TextMuted,
                 modifier = Modifier.size(28.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = if (isGranted) BrandBlue else TextDark)
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = if (isGranted) SakuraPinkDark else TextDark
+                )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(text = desc, style = MaterialTheme.typography.bodySmall, color = TextMuted)
             }

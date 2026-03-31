@@ -38,7 +38,6 @@ class MessageFilterEngine {
     ): List<FilterRuleEntity> {
         Log.d(TAG, "=== 필터링 시작 ===")
         Log.d(TAG, "발신자: $sender")
-        Log.d(TAG, "내용: ${content.take(50)}...")
         Log.d(TAG, "패키지: $packageName")
         Log.d(TAG, "활성 규칙 수: ${rules.size}")
 

@@ -45,7 +45,7 @@ fun SplashScreen(onFinished: () -> Unit) {
     LaunchedEffect(Unit) {
         launch { alphaAnim.animateTo(1f, tween(1000, easing = EaseOutExpo)) }
         launch { scaleAnim.animateTo(1f, tween(1200, easing = EaseOutBack)) }
-        delay(3000)
+        delay(1500)
         onFinished()
     }
 
@@ -161,7 +161,7 @@ fun SplashScreen(onFinished: () -> Unit) {
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
-                text = "NotiRoute",
+                text = "NotiFlow",
                 style = MaterialTheme.typography.displayMedium.copy(
                     letterSpacing = (-1).sp,
                     fontWeight = FontWeight.ExtraBold

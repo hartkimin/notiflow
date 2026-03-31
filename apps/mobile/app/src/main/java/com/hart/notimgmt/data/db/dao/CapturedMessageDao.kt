@@ -119,7 +119,7 @@ interface CapturedMessageDao {
     @Update
     suspend fun update(message: CapturedMessageEntity)
 
-    @Query("UPDATE captured_messages SET isDeleted = 1, updatedAt = :updatedAt WHERE id = :id")
+    @Query("UPDATE captured_messages SET isDeleted = 1, needsSync = 1, updatedAt = :updatedAt WHERE id = :id")
     suspend fun softDelete(id: String, updatedAt: Long = System.currentTimeMillis())
 
     @Delete
@@ -128,37 +128,37 @@ interface CapturedMessageDao {
     @Query("DELETE FROM captured_messages WHERE id = :id")
     suspend fun deleteById(id: String)
 
-    @Query("UPDATE captured_messages SET statusId = :statusId, statusChangedAt = :statusChangedAt, updatedAt = :updatedAt WHERE id = :messageId")
+    @Query("UPDATE captured_messages SET statusId = :statusId, statusChangedAt = :statusChangedAt, needsSync = 1, updatedAt = :updatedAt WHERE id = :messageId")
     suspend fun updateStatus(messageId: String, statusId: String, statusChangedAt: Long = System.currentTimeMillis(), updatedAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE captured_messages SET statusId = :statusId, statusHistory = :statusHistory, statusChangedAt = :statusChangedAt, updatedAt = :updatedAt WHERE id = :messageId")
+    @Query("UPDATE captured_messages SET statusId = :statusId, statusHistory = :statusHistory, statusChangedAt = :statusChangedAt, needsSync = 1, updatedAt = :updatedAt WHERE id = :messageId")
     suspend fun updateStatusWithHistory(messageId: String, statusId: String, statusHistory: String?, statusChangedAt: Long = System.currentTimeMillis(), updatedAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE captured_messages SET comment = :comment, updatedAt = :updatedAt WHERE id = :messageId")
+    @Query("UPDATE captured_messages SET comment = :comment, needsSync = 1, updatedAt = :updatedAt WHERE id = :messageId")
     suspend fun updateComment(messageId: String, comment: String?, updatedAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE captured_messages SET content = :content, originalContent = :originalContent, updatedAt = :updatedAt WHERE id = :messageId")
+    @Query("UPDATE captured_messages SET content = :content, originalContent = :originalContent, needsSync = 1, updatedAt = :updatedAt WHERE id = :messageId")
     suspend fun updateContent(messageId: String, content: String, originalContent: String?, updatedAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE captured_messages SET isDeleted = 1, updatedAt = :updatedAt WHERE id IN (:ids)")
+    @Query("UPDATE captured_messages SET isDeleted = 1, needsSync = 1, updatedAt = :updatedAt WHERE id IN (:ids)")
     suspend fun softDeleteByIds(ids: List<String>, updatedAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE captured_messages SET statusId = :statusId, updatedAt = :updatedAt WHERE id IN (:ids)")
+    @Query("UPDATE captured_messages SET statusId = :statusId, needsSync = 1, updatedAt = :updatedAt WHERE id IN (:ids)")
     suspend fun updateStatusByIds(ids: List<String>, statusId: String, updatedAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE captured_messages SET categoryId = :categoryId, updatedAt = :updatedAt WHERE id = :messageId")
+    @Query("UPDATE captured_messages SET categoryId = :categoryId, needsSync = 1, updatedAt = :updatedAt WHERE id = :messageId")
     suspend fun updateCategory(messageId: String, categoryId: String, updatedAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE captured_messages SET categoryId = :categoryId, updatedAt = :updatedAt WHERE id IN (:ids)")
+    @Query("UPDATE captured_messages SET categoryId = :categoryId, needsSync = 1, updatedAt = :updatedAt WHERE id IN (:ids)")
     suspend fun updateCategoryByIds(ids: List<String>, categoryId: String, updatedAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE captured_messages SET isArchived = :archived, updatedAt = :updatedAt WHERE id = :messageId")
+    @Query("UPDATE captured_messages SET isArchived = :archived, needsSync = 1, updatedAt = :updatedAt WHERE id = :messageId")
     suspend fun setArchived(messageId: String, archived: Boolean, updatedAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE captured_messages SET isPinned = :isPinned, updatedAt = :updatedAt WHERE id = :id")
+    @Query("UPDATE captured_messages SET isPinned = :isPinned, needsSync = 1, updatedAt = :updatedAt WHERE id = :id")
     suspend fun setPinned(id: String, isPinned: Boolean, updatedAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE captured_messages SET snoozeAt = :snoozeAt, updatedAt = :updatedAt WHERE id = :id")
+    @Query("UPDATE captured_messages SET snoozeAt = :snoozeAt, needsSync = 1, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateSnooze(id: String, snoozeAt: Long?, updatedAt: Long = System.currentTimeMillis())
 
     @Query("SELECT * FROM captured_messages WHERE snoozeAt IS NOT NULL AND snoozeAt > :now AND isDeleted = 0 AND pendingPermanentDelete = 0")
@@ -185,7 +185,7 @@ interface CapturedMessageDao {
     @Query("SELECT COUNT(*) FROM captured_messages WHERE receivedAt >= :since AND isDeleted = 0 AND categoryId IS NOT NULL AND pendingPermanentDelete = 0")
     suspend fun getTotalCountSince(since: Long): Int
 
-    @Query("UPDATE captured_messages SET isDeleted = 1, updatedAt = :updatedAt WHERE isArchived = 0 AND receivedAt < :beforeTimestamp AND pendingPermanentDelete = 0")
+    @Query("UPDATE captured_messages SET isDeleted = 1, needsSync = 1, updatedAt = :updatedAt WHERE isArchived = 0 AND receivedAt < :beforeTimestamp AND pendingPermanentDelete = 0")
     suspend fun softDeleteOlderThan(beforeTimestamp: Long, updatedAt: Long = System.currentTimeMillis())
 
     /**
@@ -205,10 +205,10 @@ interface CapturedMessageDao {
     @Query("SELECT * FROM captured_messages WHERE isDeleted = 1 AND pendingPermanentDelete = 0")
     suspend fun getDeletedOnce(): List<CapturedMessageEntity>
 
-    @Query("UPDATE captured_messages SET isDeleted = 0, updatedAt = :updatedAt WHERE id = :id")
+    @Query("UPDATE captured_messages SET isDeleted = 0, needsSync = 1, updatedAt = :updatedAt WHERE id = :id")
     suspend fun restoreById(id: String, updatedAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE captured_messages SET isDeleted = 0, updatedAt = :updatedAt WHERE id IN (:ids)")
+    @Query("UPDATE captured_messages SET isDeleted = 0, needsSync = 1, updatedAt = :updatedAt WHERE id IN (:ids)")
     suspend fun restoreByIds(ids: List<String>, updatedAt: Long = System.currentTimeMillis())
 
     @Query("DELETE FROM captured_messages WHERE id IN (:ids)")
@@ -242,7 +242,7 @@ interface CapturedMessageDao {
     """)
     fun searchMessages(query: String): Flow<List<CapturedMessageEntity>>
 
-    @Query("UPDATE captured_messages SET isRead = 1, updatedAt = :updatedAt WHERE source = :source AND (roomName = :roomId OR (roomName IS NULL AND sender = :roomId)) AND isRead = 0 AND isDeleted = 0")
+    @Query("UPDATE captured_messages SET isRead = 1, needsSync = 1, updatedAt = :updatedAt WHERE source = :source AND (roomName = :roomId OR (roomName IS NULL AND sender = :roomId)) AND isRead = 0 AND isDeleted = 0")
     suspend fun markRoomAsRead(source: String, roomId: String, updatedAt: Long = System.currentTimeMillis())
 
     @Query("DELETE FROM captured_messages")

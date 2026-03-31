@@ -12,18 +12,12 @@ export function formatCurrency(amount: number, currency = "KRW") {
   }).format(amount);
 }
 
-/** Round a number to 4 decimal places */
+/** @deprecated Use price-calc.ts functions instead */
 export function round4(n: number): number {
   return Math.round(n * 10000) / 10000;
 }
 
-/** Format a number with up to 4 decimal places (trailing zeros trimmed) */
+/** 금액을 정수로 포맷 (천 단위 콤마) — price-calc.ts의 fmt4와 동일 */
 export function fmt4(n: number): string {
-  const r = round4(n);
-  // Show up to 4 decimals, trim trailing zeros
-  const s = r.toFixed(4).replace(/\.?0+$/, "");
-  // Add thousands separator for integer part
-  const [int, dec] = s.split(".");
-  const intFormatted = Number(int).toLocaleString("ko-KR");
-  return dec ? `${intFormatted}.${dec}` : intFormatted;
+  return Math.round(n).toLocaleString("ko-KR");
 }

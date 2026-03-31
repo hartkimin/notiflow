@@ -12,6 +12,7 @@ import com.hart.notimgmt.data.model.ConditionType
 import com.hart.notimgmt.data.model.KeywordItem
 import org.json.JSONArray
 import org.json.JSONObject
+import androidx.room.withTransaction
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -70,7 +71,7 @@ class BackupManager @Inject constructor(
 ) {
     companion object {
         private const val BACKUP_FORMAT_VERSION = 8
-        private const val DB_VERSION = 25
+        private const val DB_VERSION = 27
     }
 
     suspend fun getDataSummary(): DataSummary {
@@ -113,6 +114,7 @@ class BackupManager @Inject constructor(
             val categories = db.categoryDao().getAllOnce()
             root.put("categories", JSONArray().apply {
                 categories.forEach { c ->
+                    if (c.isDeleted) return@forEach
                     put(JSONObject().apply {
                         put("id", c.id)
                         put("name", c.name)
@@ -129,6 +131,7 @@ class BackupManager @Inject constructor(
             val rules = db.filterRuleDao().getAllOnce()
             root.put("filterRules", JSONArray().apply {
                 rules.forEach { r ->
+                    if (r.isDeleted) return@forEach
                     put(JSONObject().apply {
                         put("id", r.id)
                         put("categoryId", r.categoryId)
@@ -169,6 +172,7 @@ class BackupManager @Inject constructor(
             val steps = db.statusStepDao().getAllOnce()
             root.put("statusSteps", JSONArray().apply {
                 steps.forEach { s ->
+                    if (s.isDeleted) return@forEach
                     put(JSONObject().apply {
                         put("id", s.id)
                         put("name", s.name)
@@ -212,6 +216,9 @@ class BackupManager @Inject constructor(
                         put("originalContent", m.originalContent ?: JSONObject.NULL)
                         put("attachedImage", m.attachedImage ?: JSONObject.NULL)
                         put("roomName", m.roomName ?: JSONObject.NULL)
+                        put("isRead", m.isRead)
+                        put("deviceId", m.deviceId ?: JSONObject.NULL)
+                        put("needsSync", m.needsSync)
                     })
                 }
             })
@@ -224,6 +231,7 @@ class BackupManager @Inject constructor(
             val appFilters = db.appFilterDao().getAllOnce()
             root.put("appFilters", JSONArray().apply {
                 appFilters.forEach { a ->
+                    if (a.isDeleted) return@forEach
                     put(JSONObject().apply {
                         put("packageName", a.packageName)
                         put("appName", a.appName)
@@ -242,6 +250,7 @@ class BackupManager @Inject constructor(
             val plans = db.planDao().getAllOnce()
             root.put("plans", JSONArray().apply {
                 plans.forEach { p ->
+                    if (p.isDeleted) return@forEach
                     put(JSONObject().apply {
                         put("id", p.id)
                         put("categoryId", p.categoryId ?: JSONObject.NULL)
@@ -289,6 +298,12 @@ class BackupManager @Inject constructor(
     ) {
         val root = JSONObject(json)
 
+        val formatVersion = root.optInt("version", 0)
+        if (formatVersion > BACKUP_FORMAT_VERSION) {
+            throw IllegalArgumentException("백업 파일이 현재 앱 버전보다 새롭습니다 (파일: v$formatVersion, 앱: v$BACKUP_FORMAT_VERSION). 앱을 업데이트해 주세요.")
+        }
+
+        db.withTransaction {
         // 선택된 테이블만 클리어 (FK 순서 준수)
         if (overwrite) {
             if (options.categories) {
@@ -455,7 +470,10 @@ class BackupManager @Inject constructor(
                             snoozeAt = if (m.has("snoozeAt") && !m.isNull("snoozeAt")) m.getLong("snoozeAt") else null,
                             originalContent = if (m.has("originalContent") && !m.isNull("originalContent")) m.getString("originalContent") else null,
                             attachedImage = if (m.has("attachedImage") && !m.isNull("attachedImage")) m.getString("attachedImage") else null,
-                            roomName = if (m.has("roomName") && !m.isNull("roomName")) m.getString("roomName") else null
+                            roomName = if (m.has("roomName") && !m.isNull("roomName")) m.getString("roomName") else null,
+                            isRead = m.optBoolean("isRead", false),
+                            deviceId = if (m.has("deviceId") && !m.isNull("deviceId")) m.getString("deviceId") else null,
+                            needsSync = m.optBoolean("needsSync", false)
                         )
                     )
                 }
@@ -527,10 +545,19 @@ class BackupManager @Inject constructor(
                 }
             }
         }
+        } // db.withTransaction
     }
 
-    suspend fun resetAllData() {
+    /**
+     * 모든 로컬 데이터를 삭제합니다.
+     * @param isCloudMode 클라우드 모드 여부. true이면 서버 데이터가 다음 동기화 시 복원될 수 있음을 경고합니다.
+     * @return 클라우드 모드일 경우 경고 메시지, 아니면 null
+     */
+    suspend fun resetAllData(isCloudMode: Boolean = false): String? {
         db.clearAllTables()
+        return if (isCloudMode) {
+            "⚠️ 로컬 데이터만 삭제되었습니다. 서버 데이터는 다음 동기화 시 다시 복원됩니다."
+        } else null
     }
 
     private fun parseKeywordItems(arr: JSONArray?): List<KeywordItem> {

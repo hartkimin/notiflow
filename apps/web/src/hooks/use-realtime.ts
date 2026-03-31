@@ -20,6 +20,9 @@ export function useRealtime(
   const scrollRef = useRef(0);
 
   useEffect(() => {
+    // Opt-out via env var for environments where WebSocket is unavailable (e.g. Cloudflare Tunnel)
+    if (process.env.NEXT_PUBLIC_REALTIME_DISABLED === "true") return;
+
     const supabase = createClient();
     const channel = supabase
       .channel(`realtime-${table}`)

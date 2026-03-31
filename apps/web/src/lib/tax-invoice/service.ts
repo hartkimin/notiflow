@@ -3,9 +3,36 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
-import { round4 } from "@/lib/utils";
+import { resolveItemSupply } from "./calc";
 import type { TaxInvoice } from "./types";
 import { validateForIssue } from "./validator";
+
+/**
+ * Throws if the order already has a non-cancelled active invoice.
+ * Used as a pre-flight guard before issuing a new invoice.
+ *
+ * Uses a plain join (not !inner) so the query works regardless of RLS;
+ * status filtering is done in application code to avoid PostgREST
+ * embedded-filter edge cases.
+ */
+export async function assertOrderNotAlreadyInvoiced(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  orderId: number,
+): Promise<void> {
+  const { data } = await supabase
+    .from("tax_invoice_orders")
+    .select("invoice_id, tax_invoices(status)")
+    .eq("order_id", orderId)
+    .maybeSingle();
+
+  if (!data) return;
+
+  const status = (data.tax_invoices as { status: string } | null)?.status;
+  if (status && status !== "cancelled") {
+    throw new Error("이미 발행된 세금계산서가 있습니다. 기존 계산서를 확인해주세요.");
+  }
+}
 
 export async function createInvoiceFromOrder(orderId: number, issueDate: string) {
   const supabase = createAdminClient();
@@ -18,6 +45,8 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
     .single();
   if (orderErr || !order) throw new Error("발행 가능한 주문을 찾을 수 없습니다.");
 
+  await assertOrderNotAlreadyInvoiced(supabase, orderId);
+
   const { data: company } = await supabase
     .from("company_settings")
     .select("*")
@@ -29,13 +58,20 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
 
   const hospital = order.hospitals as Record<string, unknown>;
 
-  // Calculate supply/tax/total from order_items (orders.supply_amount is NULL)
+  // Calculate supply/tax/total from order_items — 품목별 합산 방식 (부가세 절사)
   const orderItems = (order.order_items ?? []) as Array<Record<string, unknown>>;
-  const supplyAmount = orderItems.reduce(
-    (sum, item) => sum + ((item.line_total as number) || ((item.quantity as number) * ((item.unit_price as number) || 0))),
-    0,
-  );
-  const taxAmount = round4(supplyAmount * 0.1);
+  let supplyAmount = 0;
+  let taxAmount = 0;
+  for (const item of orderItems) {
+    const qty = item.quantity as number;
+    const supply = resolveItemSupply({
+      line_total: item.line_total as number | null,
+      unit_price: item.unit_price as number | null,
+      quantity: qty,
+    });
+    supplyAmount += supply;
+    taxAmount += Math.floor(supply * 0.1);
+  }
   const totalAmount = supplyAmount + taxAmount;
 
   const { data: invoice, error: invoiceErr } = await supabase
@@ -71,20 +107,27 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
     .single();
   if (invoiceErr) throw invoiceErr;
 
-  const items = orderItems.map((item, idx) => ({
-    invoice_id: invoice.id,
-    item_seq: idx + 1,
-    order_id: orderId,
-    order_item_id: item.id as number,
-    item_date: order.delivery_date,
-    item_name: (item.product_name as string) || ((item.products as Record<string, unknown>)?.name as string) || "품목",
-    specification: (item.products as Record<string, unknown>)?.standard_code as string | null,
-    quantity: item.quantity as number,
-    unit_price: (item.unit_price as number) || 0,
-    purchase_price: (item.purchase_price as number) || null,
-    supply_amount: (item.line_total as number) || 0,
-    tax_amount: round4(((item.line_total as number) || 0) * 0.1),
-  }));
+  const items = orderItems.map((item, idx) => {
+    const supply = resolveItemSupply({
+      line_total: item.line_total as number | null,
+      unit_price: item.unit_price as number | null,
+      quantity: item.quantity as number,
+    });
+    return {
+      invoice_id: invoice.id,
+      item_seq: idx + 1,
+      order_id: orderId,
+      order_item_id: item.id as number,
+      item_date: order.delivery_date,
+      item_name: (item.product_name as string) || ((item.products as Record<string, unknown>)?.name as string) || "품목",
+      specification: (item.products as Record<string, unknown>)?.standard_code as string | null,
+      quantity: item.quantity as number,
+      unit_price: (item.unit_price as number) || 0,
+      purchase_price: (item.purchase_price as number) || null,
+      supply_amount: supply,
+      tax_amount: Math.floor(supply * 0.1),
+    };
+  });
 
   if (items.length > 0) {
     const { error: itemsErr } = await supabase.from("tax_invoice_items").insert(items);
@@ -140,23 +183,27 @@ export async function createConsolidatedInvoice(
     .single();
   if (!company || !company.biz_no) throw new Error("공급자 정보가 설정되지 않았습니다.");
 
-  // Calculate from order_items (orders.supply_amount is NULL)
-  const totals = orders.reduce(
-    (acc, o) => {
-      const items = (o.order_items ?? []) as Array<Record<string, unknown>>;
-      const orderSupply = items.reduce(
-        (s, item) => s + ((item.line_total as number) || ((item.quantity as number) * ((item.unit_price as number) || 0))),
-        0,
-      );
-      const orderTax = round4(orderSupply * 0.1);
-      return {
-        supply: acc.supply + orderSupply,
-        tax: acc.tax + orderTax,
-        total: acc.total + orderSupply + orderTax,
-      };
-    },
-    { supply: 0, tax: 0, total: 0 }
-  );
+  // Pre-flight: verify no order is already linked to an active invoice
+  for (const id of orderIds) {
+    await assertOrderNotAlreadyInvoiced(supabase, id);
+  }
+
+  // Calculate from order_items — 품목별 합산 방식 (부가세 절사)
+  const totals = { supply: 0, tax: 0, total: 0 };
+  for (const o of orders) {
+    const items = (o.order_items ?? []) as Array<Record<string, unknown>>;
+    for (const item of items) {
+      const supply = resolveItemSupply({
+        line_total: item.line_total as number | null,
+        unit_price: item.unit_price as number | null,
+        quantity: item.quantity as number,
+      });
+      const tax = Math.floor(supply * 0.1);
+      totals.supply += supply;
+      totals.tax += tax;
+      totals.total += supply + tax;
+    }
+  }
 
   const dates = orders.map((o) => o.delivery_date).filter(Boolean).sort();
   const supplyDateFrom = dates[0] || null;
@@ -202,20 +249,27 @@ export async function createConsolidatedInvoice(
   let seq = 0;
   for (const order of orders) {
     const orderItems = (order.order_items ?? []) as Array<Record<string, unknown>>;
-    const items = orderItems.map((item) => ({
-      invoice_id: invoice.id,
-      item_seq: ++seq,
-      order_id: order.id,
-      order_item_id: item.id as number,
-      item_date: order.delivery_date,
-      item_name: (item.product_name as string) || ((item.products as Record<string, unknown>)?.name as string) || "품목",
-      specification: (item.products as Record<string, unknown>)?.standard_code as string | null,
-      quantity: item.quantity as number,
-      unit_price: (item.unit_price as number) || 0,
-      purchase_price: (item.purchase_price as number) || null,
-      supply_amount: (item.line_total as number) || 0,
-      tax_amount: round4(((item.line_total as number) || 0) * 0.1),
-    }));
+    const items = orderItems.map((item) => {
+      const supply = resolveItemSupply({
+        line_total: item.line_total as number | null,
+        unit_price: item.unit_price as number | null,
+        quantity: item.quantity as number,
+      });
+      return {
+        invoice_id: invoice.id,
+        item_seq: ++seq,
+        order_id: order.id,
+        order_item_id: item.id as number,
+        item_date: order.delivery_date,
+        item_name: (item.product_name as string) || ((item.products as Record<string, unknown>)?.name as string) || "품목",
+        specification: (item.products as Record<string, unknown>)?.standard_code as string | null,
+        quantity: item.quantity as number,
+        unit_price: (item.unit_price as number) || 0,
+        purchase_price: (item.purchase_price as number) || null,
+        supply_amount: supply,
+        tax_amount: Math.floor(supply * 0.1),
+      };
+    });
     if (items.length > 0) {
       const { error: itemsErr } = await supabase.from("tax_invoice_items").insert(items);
       if (itemsErr) {

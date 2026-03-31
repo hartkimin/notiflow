@@ -143,13 +143,13 @@ export function MessagesView({
   return (
     <div className="flex flex-col gap-0">
       {/* ──── Unified Toolbar ──── */}
-      <div className="flex items-center gap-2 py-1.5">
+      <div className="flex flex-wrap items-center gap-2 py-1.5">
         {/* Tab toggle */}
         <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-50 p-0.5 shrink-0">
           <button
             onClick={() => handleTabChange("list")}
             className={[
-              "px-3 py-1 text-xs rounded-md transition-all duration-200",
+              "px-3 py-1.5 text-xs rounded-md transition-all duration-200 min-h-[36px]",
               tab === "list" ? "bg-white text-indigo-700 font-semibold shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-white/60",
             ].join(" ")}
           >
@@ -158,7 +158,7 @@ export function MessagesView({
           <button
             onClick={() => handleTabChange("calendar")}
             className={[
-              "px-3 py-1 text-xs rounded-md transition-all duration-200",
+              "px-3 py-1.5 text-xs rounded-md transition-all duration-200 min-h-[36px]",
               tab === "calendar" ? "bg-white text-indigo-700 font-semibold shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-white/60",
             ].join(" ")}
           >
@@ -166,36 +166,41 @@ export function MessagesView({
           </button>
         </div>
 
-        <div className="w-px h-5 bg-border shrink-0" />
+        <div className="hidden md:block w-px h-5 bg-border shrink-0" />
 
         {/* Mode-specific controls */}
         {tab === "list" ? (
-          <form onSubmit={handleFilterSubmit} className="flex items-center gap-2 flex-1 min-w-0">
-            <Input type="text" name="q" defaultValue={searchParams.get("q") || ""} placeholder="발신자, 내용 검색..." className="h-8 w-[160px] text-xs" />
-            <Input type="date" name="from" defaultValue={searchParams.get("from") || ""} className="h-8 w-[120px] text-xs" />
-            <Input type="date" name="to" defaultValue={searchParams.get("to") || ""} className="h-8 w-[120px] text-xs" />
-            <Select name="source_app" defaultValue={searchParams.get("source_app") || "all"}>
-              <SelectTrigger className="h-8 w-[100px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">전체 출처</SelectItem>
-                <SelectItem value="kakaotalk">카카오톡</SelectItem>
-                <SelectItem value="sms">SMS</SelectItem>
-                <SelectItem value="telegram">텔레그램</SelectItem>
-                <SelectItem value="manual">수동</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button type="submit" size="sm" variant="outline" className="h-8 px-2.5 border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200">
-              <Search className="h-3.5 w-3.5" />
-            </Button>
-            {(searchParams.get("from") || searchParams.get("to") || searchParams.get("source_app") || searchParams.get("q")) && (
-              <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-all duration-200" onClick={() => router.push("/messages")}>
-                <FilterX className="h-3.5 w-3.5" />
+          <form onSubmit={handleFilterSubmit} className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+            <Input type="text" name="q" defaultValue={searchParams.get("q") || ""} placeholder="발신자, 내용 검색..." className="h-9 w-full md:w-[160px] text-xs" />
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <Input type="date" name="from" defaultValue={searchParams.get("from") || ""} className="h-9 flex-1 md:w-[120px] text-xs" />
+              <span className="text-muted-foreground text-xs">~</span>
+              <Input type="date" name="to" defaultValue={searchParams.get("to") || ""} className="h-9 flex-1 md:w-[120px] text-xs" />
+            </div>
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <Select name="source_app" defaultValue={searchParams.get("source_app") || "all"}>
+                <SelectTrigger className="h-9 flex-1 md:w-[100px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 출처</SelectItem>
+                  <SelectItem value="kakaotalk">카카오톡</SelectItem>
+                  <SelectItem value="sms">SMS</SelectItem>
+                  <SelectItem value="telegram">텔레그램</SelectItem>
+                  <SelectItem value="manual">수동</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button type="submit" size="sm" variant="outline" className="h-9 px-3 border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200">
+                <Search className="h-4 w-4" />
               </Button>
-            )}
-            <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap">
-              <span>전체 <strong className="text-foreground">{totalCount}</strong>건</span>
+              {(searchParams.get("from") || searchParams.get("to") || searchParams.get("source_app") || searchParams.get("q")) && (
+                <Button type="button" size="sm" variant="ghost" className="h-9 px-2.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-all duration-200" onClick={() => router.push("/messages")}>
+                  <FilterX className="h-4 w-4" />
+                </Button>
+              )}
+              <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap">
+                <span>전체 <strong className="text-foreground">{totalCount}</strong>건</span>
+              </div>
             </div>
           </form>
         ) : (

@@ -115,7 +115,7 @@ fun DashboardScreen(
     }
 
     NotiRouteScreenWrapper(
-        title = "NotiRoute",
+        title = "NotiFlow",
         expandedHeight = expandedHeight,
         actions = {
             IconButton(onClick = {

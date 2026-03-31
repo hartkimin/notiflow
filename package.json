@@ -18,6 +18,10 @@
     "dev:local": "npm run supabase:start && npm run dev:web",
     "docker:web": "node -e \"process.env.APP_VERSION=require('./apps/web/package.json').version; require('child_process').execSync('docker compose up web --build -d', {stdio:'inherit',env:process.env})\"",
     "docker:web:stop": "docker compose down",
-    "docker:web:logs": "docker compose logs -f web"
+    "docker:web:logs": "docker compose logs -f web",
+    "sync:cloud": "dotenv -e apps/web/.env.local -- bash scripts/sync-to-cloud.sh"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^11.0.0"
   }
 }

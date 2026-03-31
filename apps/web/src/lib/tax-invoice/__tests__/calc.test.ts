@@ -15,6 +15,11 @@ describe("resolveItemSupply", () => {
     expect(resolveItemSupply({ line_total: 0, unit_price: 10000, quantity: 3 })).toBe(30000);
   });
 
+  it("falls back to lineSupply when line_total is negative (credit/return guard)", () => {
+    // Negative line_total should NOT be used — fall back to unit_price calculation
+    expect(resolveItemSupply({ line_total: -50000, unit_price: 10000, quantity: 3 })).toBe(30000);
+  });
+
   it("returns 0 when both line_total and unit_price are null", () => {
     expect(resolveItemSupply({ line_total: null, unit_price: null, quantity: 5 })).toBe(0);
   });

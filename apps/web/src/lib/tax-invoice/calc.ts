@@ -14,7 +14,7 @@ export interface OrderItemLike {
  * Priority: line_total (if > 0) → lineSupply(unit_price, qty) → 0
  */
 export function resolveItemSupply(item: OrderItemLike): number {
-  if (item.line_total) return item.line_total;
+  if (item.line_total != null && item.line_total > 0) return item.line_total;
   if (item.unit_price) return lineSupply(item.unit_price, item.quantity);
   return 0;
 }

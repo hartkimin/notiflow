@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
-import { lineSupply, lineTax } from "@/lib/price-calc";
+import { resolveItemSupply } from "./calc";
 import type { TaxInvoice } from "./types";
 import { validateForIssue } from "./validator";
 
@@ -35,8 +35,11 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
   let taxAmount = 0;
   for (const item of orderItems) {
     const qty = item.quantity as number;
-    const unitPrice = item.unit_price as number | null;
-    const supply = (item.line_total as number) || (unitPrice ? lineSupply(unitPrice, qty) : 0);
+    const supply = resolveItemSupply({
+      line_total: item.line_total as number | null,
+      unit_price: item.unit_price as number | null,
+      quantity: qty,
+    });
     supplyAmount += supply;
     taxAmount += Math.floor(supply * 0.1);
   }
@@ -76,7 +79,11 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
   if (invoiceErr) throw invoiceErr;
 
   const items = orderItems.map((item, idx) => {
-    const supply = (item.line_total as number) || 0;
+    const supply = resolveItemSupply({
+      line_total: item.line_total as number | null,
+      unit_price: item.unit_price as number | null,
+      quantity: item.quantity as number,
+    });
     return {
       invoice_id: invoice.id,
       item_seq: idx + 1,
@@ -152,7 +159,11 @@ export async function createConsolidatedInvoice(
   for (const o of orders) {
     const items = (o.order_items ?? []) as Array<Record<string, unknown>>;
     for (const item of items) {
-      const supply = (item.line_total as number) || ((item.quantity as number) * ((item.unit_price as number) || 0));
+      const supply = resolveItemSupply({
+        line_total: item.line_total as number | null,
+        unit_price: item.unit_price as number | null,
+        quantity: item.quantity as number,
+      });
       const tax = Math.floor(supply * 0.1);
       totals.supply += supply;
       totals.tax += tax;
@@ -205,7 +216,11 @@ export async function createConsolidatedInvoice(
   for (const order of orders) {
     const orderItems = (order.order_items ?? []) as Array<Record<string, unknown>>;
     const items = orderItems.map((item) => {
-      const supply = (item.line_total as number) || 0;
+      const supply = resolveItemSupply({
+        line_total: item.line_total as number | null,
+        unit_price: item.unit_price as number | null,
+        quantity: item.quantity as number,
+      });
       return {
         invoice_id: invoice.id,
         item_seq: ++seq,

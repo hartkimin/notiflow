@@ -217,6 +217,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Grant the auth admin service role permission to call the hook
 GRANT USAGE ON SCHEMA public TO supabase_auth_admin;
 GRANT EXECUTE ON FUNCTION public.custom_access_token_hook TO supabase_auth_admin;
+-- supabase_auth_admin needs SELECT on user_profiles to resolve user_role in the hook
+GRANT SELECT ON public.user_profiles TO supabase_auth_admin;
 
 -- Revoke from all other roles for security
 REVOKE EXECUTE ON FUNCTION public.custom_access_token_hook FROM authenticated, anon, public;

@@ -43,7 +43,7 @@ echo "[2/3] Restoring to Cloud..."
 psql "$CLOUD_DB_URL" -q -c "
 DO \$\$ DECLARE r RECORD; BEGIN
   FOR r IN SELECT tablename FROM pg_tables WHERE schemaname='public'
-    AND tablename NOT IN ('app_filters','audit_logs','my_drugs','my_devices','filter_rules','mobile_devices','categories','captured_messages')
+    AND tablename NOT IN ('app_filters','audit_logs','my_drugs','my_devices','filter_rules','mobile_devices','categories','captured_messages','user_profiles')
   LOOP
     BEGIN EXECUTE 'TRUNCATE TABLE public.' || quote_ident(r.tablename) || ' CASCADE';
     EXCEPTION WHEN OTHERS THEN NULL; END;

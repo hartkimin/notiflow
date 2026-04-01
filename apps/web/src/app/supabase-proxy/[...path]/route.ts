@@ -75,6 +75,9 @@ async function handler(
   // Forward response with CORS headers
   const responseHeaders = new Headers(res.headers);
   responseHeaders.delete("transfer-encoding");
+  // Node.js fetch auto-decompresses gzip — drop the header so the browser
+  // doesn't try to decompress already-decompressed data (empty body bug)
+  responseHeaders.delete("content-encoding");
   for (const [key, value] of Object.entries(corsHeaders)) {
     responseHeaders.set(key, value);
   }

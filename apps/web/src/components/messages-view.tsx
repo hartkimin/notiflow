@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarPlus, CalendarRange, ChevronLeft, ChevronRight, Search, FilterX } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { MessageCalendar } from "@/components/message-calendar";
 import { CreateMessageDialog } from "@/components/message-list";
 import { ForecastDialog } from "@/components/forecast-dialog";
 import { ForecastBatchDialog } from "@/components/forecast-batch-dialog";
+import { getCalendarMessagesAction, getCalendarForecastsAction } from "@/app/(dashboard)/notifications/actions";
 import {
   formatWeekLabel, formatMonthLabel, formatDayLabel, getWeekMonday,
   toLocalDateStr,
@@ -36,8 +37,10 @@ interface MessagesViewProps {
   totalPages: number;
   totalCount: number;
   // Calendar data
-  calendarMessages: RawMessage[];
-  calendarForecasts: OrderForecast[];
+  calendarStartMs: number;
+  calendarEndMs: number;
+  calendarFrom: string;
+  calendarTo: string;
   initialCalView: CalendarView;
   initialCalDate: Date;
 }
@@ -48,13 +51,36 @@ export function MessagesView({
   initialTab,
   messages, linkedOrders, hospitals, products,
   currentPage, totalPages, totalCount,
-  calendarMessages, calendarForecasts, initialCalView, initialCalDate,
+  calendarStartMs, calendarEndMs, calendarFrom, calendarTo, initialCalView, initialCalDate,
 }: MessagesViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   // Tab state
   const [tab, setTab] = useState<TabValue>(initialTab);
+
+  const [calendarMessages, setCalendarMessages] = useState<RawMessage[]>([]);
+  const [calendarForecasts, setCalendarForecasts] = useState<OrderForecast[]>([]);
+  const [calLoading, setCalLoading] = useState(false);
+  const calFetchedRef = useRef(false);
+
+  // Fetch calendar data when tab switches to calendar
+  useEffect(() => {
+    if (tab === "calendar" && !calFetchedRef.current) {
+      calFetchedRef.current = true;
+      setCalLoading(true);
+      Promise.all([
+        getCalendarMessagesAction(calendarStartMs, calendarEndMs),
+        getCalendarForecastsAction(calendarFrom, calendarTo),
+      ])
+        .then(([msgs, fcsts]) => {
+          setCalendarMessages(msgs as any[]); // type assertion for RawMessage
+          setCalendarForecasts(fcsts);
+        })
+        .catch(() => {})
+        .finally(() => setCalLoading(false));
+    }
+  }, [tab, calendarStartMs, calendarEndMs, calendarFrom, calendarTo]);
 
   // Calendar state (lifted from DataCalendar for toolbar control)
   const [calView, setCalView] = useState<CalendarView>(initialCalView);

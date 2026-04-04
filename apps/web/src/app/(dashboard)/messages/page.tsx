@@ -1,9 +1,8 @@
 export const dynamic = "force-dynamic";
 
-import { getMessages, getMessagesForCalendar, getLinkedOrders } from "@/lib/queries/messages";
+import { getMessages, getLinkedOrders } from "@/lib/queries/messages";
 import { getHospitals } from "@/lib/queries/hospitals";
 import { getProductsCatalog } from "@/lib/queries/products";
-import { getForecastsForCalendar } from "@/lib/queries/forecasts";
 import { MessagesView } from "@/components/messages-view";
 import { RealtimeListener } from "@/components/realtime-listener";
 import { toLocalDateStr } from "@/lib/schedule-utils";
@@ -49,13 +48,11 @@ export default async function MessagesPage({ searchParams }: Props) {
   const toStr = toLocalDateStr(new Date(calYear, calMonth + 1, 1 + 7));
 
   // Fetch both datasets in parallel for instant tab switching
-  const [result, calendarMessages, hospitalsResult, productsResult, calendarForecasts] = await Promise.all([
+  const [result, hospitalsResult, productsResult] = await Promise.all([
     getMessages({ from: params.from, to: params.to, source_app: params.source_app, q: params.q, limit, offset })
       .catch(() => ({ messages: [], total: 0 })),
-    getMessagesForCalendar({ from: fromStr, to: toStr, source_app: params.source_app }).catch(() => []),
     getHospitals({ limit: 500 }).catch(() => ({ hospitals: [], total: 0 })),
     getProductsCatalog().catch(() => []),
-    getForecastsForCalendar({ from: fromStr, to: toStr }).catch(() => []),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(result.total / limit));
@@ -76,8 +73,10 @@ export default async function MessagesPage({ searchParams }: Props) {
         currentPage={page}
         totalPages={totalPages}
         totalCount={result.total}
-        calendarMessages={calendarMessages}
-        calendarForecasts={calendarForecasts}
+        calendarStartMs={new Date(fromStr).getTime()}
+        calendarEndMs={new Date(toStr).getTime()}
+        calendarFrom={fromStr}
+        calendarTo={toStr}
         initialCalView={calView}
         initialCalDate={calRef}
       />

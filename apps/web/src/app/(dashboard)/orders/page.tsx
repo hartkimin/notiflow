@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PlusCircle } from "lucide-react";
 import { OrderExportButton } from "@/components/order-export-button";
 
-import { getOrderItems, getOrderSummaryStats, getLatestOrderDate, getOrdersForCalendar } from "@/lib/queries/orders";
+import { getOrderItems, getOrderSummaryStats, getLatestOrderDate } from "@/lib/queries/orders";
 import { getHospitals } from "@/lib/queries/hospitals";
 import { getProductsCatalog } from "@/lib/queries/products";
 import { getOrderDisplayColumns } from "@/lib/queries/settings";
@@ -101,14 +101,13 @@ export default async function OrdersPage({ searchParams }: Props) {
     invoiceFilterIds = undefined;
   }
 
-  const [result, allProducts, , sourceMessage, orderStats, calendarOrders, { hospitals }] = await Promise.all([
+  const [result, allProducts, , sourceMessage, orderStats, { hospitals }] = await Promise.all([
     getOrderItems({ status, hospital_id: hospitalId, search, from: params.from, to: params.to, limit, offset, order_ids: invoiceFilterIds, exclude_order_ids: invoiceFilter === "not_issued" ? [...invoicedOrderIds] : undefined })
       .catch(() => ({ items: [], total: 0 })),
     getProductsCatalog().catch(() => []),
     getOrderDisplayColumns(),
     messagePromise,
     getOrderSummaryStats({ status, hospital_id: hospitalId, from: params.from, to: params.to }).catch(() => null),
-    getOrdersForCalendar({ from: fromStr, to: toStr }).catch(() => []),
     getHospitals({ limit: 500 }).catch(() => ({ hospitals: [], total: 0 })),
   ]);
 
@@ -233,7 +232,7 @@ export default async function OrdersPage({ searchParams }: Props) {
             value: "calendar",
             label: "캘린더",
             content: (
-              <OrderCalendar initialView={calView} initialDate={calRef} orders={calendarOrders} />
+              <OrderCalendar initialView={calView} initialDate={calRef} calendarFrom={fromStr} calendarTo={toStr} />
             ),
           },
         ]}

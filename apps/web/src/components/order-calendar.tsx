@@ -246,14 +246,31 @@ function DetailContent({ order }: { order: OrderDetail }) {
 }
 
 // --- Main component ---
+import { useState, useEffect } from "react";
+import { getCalendarOrdersAction } from "@/app/(dashboard)/orders/actions";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface OrderCalendarProps {
   initialView: CalendarView;
   initialDate: Date;
-  orders: OrderDetail[];
+  calendarFrom: string;
+  calendarTo: string;
 }
 
-export function OrderCalendar({ initialView, initialDate, orders }: OrderCalendarProps) {
+export function OrderCalendar({ initialView, initialDate, calendarFrom, calendarTo }: OrderCalendarProps) {
+  const [orders, setOrders] = useState<OrderDetail[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    getCalendarOrdersAction(calendarFrom, calendarTo)
+      .then(setOrders)
+      .catch(() => setOrders([]))
+      .finally(() => setLoading(false));
+  }, [calendarFrom, calendarTo]);
+
+  if (loading) return <Skeleton className="h-[500px] w-full rounded-md" />;
+
   return (
     <DataCalendar
       items={orders}

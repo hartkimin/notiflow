@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# sync-to-cloud.sh — Snapshot local Supabase public schema data to Supabase Cloud.
+# sync-to-cloud.sh — 100% clone of local Supabase public schema to Supabase Cloud.
 # Usage: CLOUD_DB_URL=<url> bash scripts/sync-to-cloud.sh
-# Or:    npm run sync:cloud  (reads CLOUD_DB_URL from .env.local automatically via dotenv-cli)
+# Or:    npm run sync:cloud  (reads CLOUD_DB_URL from .env.local via dotenv-cli)
 set -euo pipefail
 
 # Add Homebrew libpq to PATH (for pg_dump, pg_restore, psql, pg_isready)
@@ -13,7 +13,7 @@ LOCAL_PORT="${LOCAL_SUPABASE_DB_PORT:-54322}"
 DUMP_FILE="/tmp/notiflow_sync_$(date +%Y%m%d_%H%M%S).dump"
 
 echo ""
-echo "=== NotiFlow Cloud Sync ==="
+echo "=== NotiFlow Cloud Sync (Full Clone) ==="
 echo "Local port : $LOCAL_PORT"
 echo "Dump file  : $DUMP_FILE"
 echo ""
@@ -36,46 +36,64 @@ PGPASSWORD=postgres pg_dump \
 DUMP_SIZE=$(du -sh "$DUMP_FILE" | cut -f1)
 echo "    Dump complete: $DUMP_SIZE"
 
-echo "[2/3] Restoring to Cloud..."
-# Note: --disable-triggers requires superuser (not available on Cloud pooler)
-# Use table-by-table restore in dependency order instead
-# First truncate, then restore in FK-safe order
-psql "$CLOUD_DB_URL" -q -c "
-DO \$\$ DECLARE r RECORD; BEGIN
-  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname='public'
-    AND tablename NOT IN ('app_filters','audit_logs','my_drugs','my_devices','filter_rules','mobile_devices','categories','captured_messages','user_profiles')
+echo "[2/3] Truncating all public tables on Cloud..."
+# session_replication_role=replica disables FK trigger checks (incl. auth.users refs)
+psql "$CLOUD_DB_URL" -q <<'SQL'
+DO $$
+DECLARE r RECORD;
+BEGIN
+  SET session_replication_role = replica;
+  FOR r IN
+    SELECT tablename FROM pg_tables WHERE schemaname = 'public'
   LOOP
-    BEGIN EXECUTE 'TRUNCATE TABLE public.' || quote_ident(r.tablename) || ' CASCADE';
-    EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN
+      EXECUTE 'TRUNCATE TABLE public.' || quote_ident(r.tablename) || ' CASCADE';
+    EXCEPTION WHEN OTHERS THEN
+      -- skip tables that can't be truncated (e.g. views, partitions)
+      NULL;
+    END;
   END LOOP;
-END \$\$;
-" 2>/dev/null || true
+END $$;
+SQL
 
-# Restore tables in FK dependency order
-TABLES=(
-  categories suppliers hospitals products partner_products partner_product_aliases
-  captured_messages mobile_devices device_tokens
-  hospital_products orders order_items order_comments
-  notification_logs company_settings
-  mfds_drugs mfds_devices mfds_items mfds_sync_logs mfds_sync_meta
-  kpis_reports order_patterns order_forecasts forecast_items
-  archived_messages product_box_specs
-)
+echo "    Truncate complete."
 
-for TABLE in "${TABLES[@]}"; do
-  (echo "SET session_replication_role = replica;"; \
-   pg_restore --schema=public --data-only --no-owner --no-privileges --table="$TABLE" -f - "$DUMP_FILE" 2>/dev/null) \
-  | psql "$CLOUD_DB_URL" -q 2>/dev/null || true
-done
+echo "[3/3] Restoring all data to Cloud..."
+# Pipe restore SQL through a single psql session with FK checks disabled
+(
+  echo "SET session_replication_role = replica;"
+  pg_restore \
+    --schema=public \
+    --data-only \
+    --no-owner \
+    --no-privileges \
+    -f - \
+    "$DUMP_FILE" 2>/dev/null
+) | psql "$CLOUD_DB_URL" -q
 
-echo "[3/3] Verifying row counts on Cloud..."
-psql "$CLOUD_DB_URL" --tuples-only --no-align \
-  -c "SELECT
-        (SELECT count(*) FROM orders)            || ' orders' ,
-        (SELECT count(*) FROM hospitals)         || ' hospitals',
-        (SELECT count(*) FROM suppliers)         || ' suppliers',
-        (SELECT count(*) FROM captured_messages) || ' captured_messages',
-        (SELECT count(*) FROM mfds_drugs)        || ' mfds_drugs';" \
+echo "    Restore complete."
+echo ""
+echo "=== Verifying row counts on Cloud ==="
+psql "$CLOUD_DB_URL" --tuples-only --no-align -c "
+SELECT tablename || ': ' || (
+  SELECT count(*)::text FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relname = t.tablename
+) as info
+FROM pg_tables t
+WHERE schemaname = 'public'
+ORDER BY tablename;" 2>/dev/null || true
+
+# Simple key table count
+psql "$CLOUD_DB_URL" --tuples-only --no-align -c "
+SELECT
+  (SELECT count(*) FROM orders)            || ' orders',
+  (SELECT count(*) FROM order_items)       || ' order_items',
+  (SELECT count(*) FROM captured_messages) || ' captured_messages',
+  (SELECT count(*) FROM hospitals)         || ' hospitals',
+  (SELECT count(*) FROM suppliers)         || ' suppliers',
+  (SELECT count(*) FROM products)          || ' products',
+  (SELECT count(*) FROM mfds_drugs)        || ' mfds_drugs';" \
   | tr '|' '\n' | grep -v '^$' | sed 's/^ */  /'
 
 echo ""

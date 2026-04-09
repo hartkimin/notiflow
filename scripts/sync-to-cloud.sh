@@ -80,10 +80,15 @@ BEGIN
 END $$;
 SQL
 
-(
-  echo "SET session_replication_role = replica;"
-  pg_restore --schema=public --data-only --no-owner --no-privileges -f - "$PUBLIC_DUMP_FILE" 2>/dev/null
-) | psql "$CLOUD_DB_URL" -q
+# Use pg_restore -d directly (avoids pooler \copy restriction) with --disable-triggers
+pg_restore \
+  --dbname="$CLOUD_DB_URL" \
+  --schema=public \
+  --data-only \
+  --no-owner \
+  --no-privileges \
+  --disable-triggers \
+  "$PUBLIC_DUMP_FILE" 2>/dev/null || true
 echo "    Done."
 
 # ── Verify ──────────────────────────────────────────────────────────────────

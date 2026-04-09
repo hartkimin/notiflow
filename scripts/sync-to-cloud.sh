@@ -54,8 +54,8 @@ END \$\$;
 # Restore tables in FK dependency order
 TABLES=(
   categories suppliers hospitals products partner_products partner_product_aliases
-  hospital_products orders order_items order_comments
   captured_messages mobile_devices device_tokens
+  hospital_products orders order_items order_comments
   notification_logs company_settings
   mfds_drugs mfds_devices mfds_items mfds_sync_logs mfds_sync_meta
   kpis_reports order_patterns order_forecasts forecast_items
@@ -63,14 +63,9 @@ TABLES=(
 )
 
 for TABLE in "${TABLES[@]}"; do
-  pg_restore \
-    --dbname="$CLOUD_DB_URL" \
-    --schema=public \
-    --data-only \
-    --no-owner \
-    --no-privileges \
-    --table="$TABLE" \
-    "$DUMP_FILE" 2>/dev/null || true
+  (echo "SET session_replication_role = replica;"; \
+   pg_restore --schema=public --data-only --no-owner --no-privileges --table="$TABLE" -f - "$DUMP_FILE" 2>/dev/null) \
+  | psql "$CLOUD_DB_URL" -q 2>/dev/null || true
 done
 
 echo "[3/3] Verifying row counts on Cloud..."

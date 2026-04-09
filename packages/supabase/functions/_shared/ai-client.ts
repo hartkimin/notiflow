@@ -45,6 +45,48 @@ export async function callAI(
   }
 }
 
+export async function generateEmbedding(
+  provider: string,
+  apiKey: string,
+  model: string,
+  input: string,
+): Promise<number[]> {
+  switch (provider) {
+    case "ollama":
+      return getOllamaEmbedding(model, input);
+    case "openai":
+      return getOpenAIEmbedding(apiKey, model, input);
+    case "google":
+      return getGeminiEmbedding(apiKey, model, input);
+    default:
+      // If no provider but we want local, try Ollama
+      return getOllamaEmbedding("nomic-embed-text", input);
+  }
+}
+
+async function getOllamaEmbedding(
+  model: string,
+  input: string,
+): Promise<number[]> {
+  const baseUrl = Deno.env.get("OLLAMA_BASE_URL") || "http://host.docker.internal:11434";
+  const res = await fetch(`${baseUrl}/api/embed`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: model || "nomic-embed-text",
+      input,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Ollama Embedding error (${res.status}): ${errText}`);
+  }
+
+  const data = await res.json();
+  return data.embeddings?.[0] || [];
+}
+
 // ---------------------------------------------------------------------------
 // Anthropic (Claude) — uses SDK already in the dependency tree
 // ---------------------------------------------------------------------------
@@ -108,6 +150,33 @@ async function callGemini(
   };
 }
 
+async function getGeminiEmbedding(
+  apiKey: string,
+  model: string,
+  input: string,
+): Promise<number[]> {
+  // text-embedding-004 is current standard
+  const embeddingModel = model.includes("embedding") ? model : "text-embedding-004";
+  const url =
+    `https://generativelanguage.googleapis.com/v1beta/models/${embeddingModel}:embedContent?key=${apiKey}`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      content: { parts: [{ text: input }] },
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Gemini Embedding error (${res.status}): ${errText}`);
+  }
+
+  const data = await res.json();
+  return data.embedding?.values ?? [];
+}
+
 // ---------------------------------------------------------------------------
 // OpenAI (GPT) — REST API (no extra SDK needed)
 // ---------------------------------------------------------------------------
@@ -143,6 +212,34 @@ async function callOpenAI(
     inputTokens: data.usage?.prompt_tokens ?? 0,
     outputTokens: data.usage?.completion_tokens ?? 0,
   };
+}
+
+async function getOpenAIEmbedding(
+  apiKey: string,
+  model: string,
+  input: string,
+): Promise<number[]> {
+  const embeddingModel = model.includes("text-embedding") ? model : "text-embedding-3-small";
+  const res = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: embeddingModel,
+      input,
+      dimensions: 768, // CRITICAL: DB vector(768)와 일치시킴
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`OpenAI Embedding error (${res.status}): ${errText}`);
+  }
+
+  const data = await res.json();
+  return data.data[0].embedding;
 }
 
 // ---------------------------------------------------------------------------

@@ -26,6 +26,7 @@ export type NLQueryIntent =
   | "partner_products"
   | "kpis_report"
   | "order_comments"
+  | "order_search_rag"
   | "general_question"
   | "unknown";
 
@@ -64,6 +65,7 @@ const INTENT_SYSTEM_PROMPT = `당신은 NotiFlow 의료 물자 주문 관리 시
 - partner_products: 거래처 품목/alias (예: "한국신장센터 등록 품목", "거래처별 품목")
 - kpis_report: KPIS 신고 현황 (예: "KPIS 신고 현황", "미신고 품목")
 - order_comments: 주문 코멘트 (예: "최근 코멘트", "ORD-20260321-001 코멘트")
+- order_search_rag: 주문 상세 검색/내용 질문 (예: "이번 주 투석액 90개 시킨 주문 찾아줘", "최근에 에이액 주문한 병원 어디야")
 - general_question: DB 조회 불필요 (예: "혈액투석이 뭐야")
 - unknown: 분류 불가
 
@@ -73,6 +75,7 @@ const INTENT_SYSTEM_PROMPT = `당신은 NotiFlow 의료 물자 주문 관리 시
 - product_name: 제품명/약어
 - order_number: 주문번호 (ORD-YYYYMMDD-###)
 - invoice_number: 세금계산서번호
+- query: RAG 검색어 (order_search_rag용)
 - period: "today", "this_week", "this_month", "last_month"
 - compare_period: 비교 기간 ("last_month", "last_year")
 - status: "draft", "confirmed", "delivered", "invoiced"
@@ -421,6 +424,28 @@ const QUERY_MAP: Record<string, QueryExecutor> = {
       created_at: new Date(c.created_at).toLocaleString("ko-KR"),
     }));
   },
+
+  order_search_rag: async (p) => {
+    const { generateEmbedding } = await import("./embedding-service");
+    const queryStr = (p.query as string) || (p._original_question as string);
+    if (!queryStr) return { error: "검색어가 없습니다." };
+    
+    const { embedding } = await generateEmbedding(queryStr);
+    const sb = createAdminClient();
+    
+    // Parallel RAG search across orders, products, and partners
+    const [orders, products, partners] = await Promise.all([
+      sb.rpc("match_orders", { query_embedding: embedding, match_threshold: 0.3, match_count: 3 }),
+      sb.rpc("match_products_rag", { query_embedding: embedding, match_threshold: 0.3, match_count: 3 }),
+      sb.rpc("match_partners_rag", { query_embedding: embedding, match_threshold: 0.3, match_count: 3 }),
+    ]);
+
+    return {
+      relevant_orders: orders.data || [],
+      relevant_products: products.data || [],
+      relevant_partners: partners.data || [],
+    };
+  },
 };
 
 // ─── Main Query Function ────────────────────────
@@ -452,6 +477,8 @@ export async function processNaturalLanguageQuery(question: string): Promise<NLQ
   }
 
   const { intent, params, confidence } = intentResult;
+  // Inject original question for RAG fallback
+  params._original_question = question;
 
   // Low confidence
   if (confidence < 0.5) {

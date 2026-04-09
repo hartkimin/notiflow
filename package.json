@@ -23,5 +23,11 @@
   },
   "devDependencies": {
     "dotenv-cli": "^11.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.101.1",
+    "dotenv": "^17.4.0",
+    "node-fetch": "^2.7.0",
+    "pg": "^8.20.0"
   }
 }

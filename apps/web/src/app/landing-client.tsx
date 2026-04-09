@@ -118,13 +118,13 @@ export default function LandingClient() {
 <motion.div className="space-y-8" initial="hidden" animate="visible">
   <motion.div custom={0} variants={fadeInUp} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-tertiary-container text-on-tertiary-container text-xs font-bold font-headline tracking-wider uppercase">
     <span className="material-symbols-outlined text-sm" data-icon="local_hospital">local_hospital</span>
-    혈액투석 의료물품 주문관리
+    의료물품 주문관리
   </motion.div>
   <motion.h1 custom={1} variants={fadeInUp} className="text-6xl md:text-8xl font-headline font-bold text-on-surface tracking-tighter leading-[0.9] text-glow">
     주문부터<br/>납품까지,<br/><span className="text-primary">한눈에.</span>
   </motion.h1>
   <motion.p custom={2} variants={fadeInUp} className="text-xl text-on-surface-variant leading-relaxed max-w-lg">
-    카카오톡·문자 수신 알림을 자동 수집하고, AI가 주문 내용을 파싱하여 체계적으로 관리합니다. 투석실 의료물품 발주의 모든 과정을 NotiFlow 하나로 통합하세요.
+    카카오톡·문자 수신 알림을 자동 수집하고, AI가 주문 내용을 파싱하여 체계적으로 관리합니다. 의료물품 발주의 모든 과정을 NotiFlow 하나로 통합하세요.
   </motion.p>
   <motion.div custom={3} variants={fadeInUp} className="flex flex-wrap gap-4">
     <Link href="/login" className="bg-primary text-on-primary px-10 py-4 rounded-full font-bold text-lg shadow-xl hover:shadow-primary/20 transition-all hover:-translate-y-1">무료로 시작하기</Link>
@@ -401,7 +401,7 @@ export default function LandingClient() {
 </div>
 <div>
 <div className="font-bold text-on-surface">김OO 실장</div>
-<div className="text-sm text-on-surface-variant">서울 소재 혈액투석 전문 의원</div>
+<div className="text-sm text-on-surface-variant">서울 소재 의원</div>
 </div>
 </div>
 </div>
@@ -499,7 +499,7 @@ export default function LandingClient() {
 <p className="text-xl text-on-primary-container/80 max-w-2xl mx-auto">카카오톡 주문 메시지, 아직 수작업으로 정리하고 계신가요? NotiFlow로 주문관리를 자동화하세요.</p>
 <div className="flex flex-col md:flex-row justify-center gap-4">
 <Link href="/login" className="bg-primary text-on-primary px-12 py-5 rounded-full font-bold text-xl shadow-lg hover:shadow-primary/30 transition-all animate-pulse-shadow">무료로 시작하기</Link>
-<a href="mailto:support@notiflow.life" className="bg-white/50 backdrop-blur-sm text-primary px-12 py-5 rounded-full font-bold text-xl border border-primary/20 hover:bg-white transition-all">문의하기</a>
+<a href="mailto:jinzhangxun@gmail.com" className="bg-white/50 backdrop-blur-sm text-primary px-12 py-5 rounded-full font-bold text-xl border border-primary/20 hover:bg-white transition-all">문의하기</a>
 </div>
 </div>
 </motion.div>
@@ -516,12 +516,12 @@ export default function LandingClient() {
 <div className="flex flex-col md:flex-row justify-between items-center px-12 py-16 w-full max-w-7xl mx-auto">
 <div className="space-y-4 text-center md:text-left">
 <div className="text-lg font-bold text-emerald-900 font-headline">NotiFlow</div>
-<p className="font-body text-sm text-emerald-900/60 max-w-xs">© 2024 NotiFlow. 혈액투석 의료물품 주문관리 시스템</p>
+<p className="font-body text-sm text-emerald-900/60 max-w-xs">© 2024 NotiFlow. 의료물품 주문관리 시스템</p>
 </div>
 <div className="flex flex-wrap justify-center gap-8 mt-12 md:mt-0">
 <a className="font-body text-sm text-emerald-900/60 hover:text-emerald-500 transition-all underline decoration-emerald-200 decoration-2 underline-offset-4 hover:translate-x-1 duration-200" href="#">개인정보처리방침</a>
 <a className="font-body text-sm text-emerald-900/60 hover:text-emerald-500 transition-all underline decoration-emerald-200 decoration-2 underline-offset-4 hover:translate-x-1 duration-200" href="#">이용약관</a>
-<a className="font-body text-sm text-emerald-900/60 hover:text-emerald-500 transition-all underline decoration-emerald-200 decoration-2 underline-offset-4 hover:translate-x-1 duration-200" href="mailto:support@notiflow.life">문의하기</a>
+<a className="font-body text-sm text-emerald-900/60 hover:text-emerald-500 transition-all underline decoration-emerald-200 decoration-2 underline-offset-4 hover:translate-x-1 duration-200" href="mailto:jinzhangxun@gmail.com">문의하기</a>
 </div>
 </div>
 </motion.footer>

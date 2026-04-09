@@ -183,14 +183,18 @@ export default function LandingClient() {
               </button>
             </div>
             <div className="flex items-center gap-2">
+              <Link href="/demo"
+                className="px-4 py-2 rounded-full text-sm font-medium text-[#5f6368] hover:text-[#202124] hover:bg-[#f8f9fa] transition-all duration-200">
+                라이브 데모
+              </Link>
               <Link href="/login"
                 className="px-4 py-2 rounded-full text-sm font-medium text-[#1a73e8] hover:bg-[#e8f0fe] transition-all duration-200">
                 로그인
               </Link>
-              <button onClick={() => setContactOpen(true)}
+              <Link href="/signup"
                 className="px-5 py-2 rounded-full text-sm font-semibold bg-[#1a73e8] text-white hover:bg-[#1557b0] hover:shadow-md transition-all duration-200 active:scale-95">
-                데모 신청
-              </button>
+                무료 시작
+              </Link>
             </div>
           </div>
         </nav>

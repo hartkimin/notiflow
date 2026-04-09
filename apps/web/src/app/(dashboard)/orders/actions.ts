@@ -2,6 +2,7 @@
 
 import { confirmOrder, updateOrderStatus } from "@/lib/queries/orders";
 import { deleteOrders, updateOrder, updateOrderItem, deleteOrderItem, upsertKpisReport, createOrderComment, deleteOrderComment } from "@/lib/actions";
+import { getOrgId } from "@/lib/org-context";
 import { revalidatePath } from "next/cache";
 
 export async function confirmOrderAction(orderId: number) {
@@ -49,6 +50,7 @@ export async function addOrderItemAction(data: {
 }) {
   const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
+  const organization_id = await getOrgId();
   // products_catalog view uses negative IDs for my_drugs/my_devices entries
   // These don't exist in the products table, so null out the FK reference
   const productId = data.product_id && data.product_id > 0 ? data.product_id : null;
@@ -56,6 +58,7 @@ export async function addOrderItemAction(data: {
     ...data,
     product_id: productId,
     line_total: data.unit_price ? data.unit_price * data.quantity : null,
+    organization_id,
   });
   if (error) throw error;
   revalidatePath("/orders");
@@ -152,6 +155,7 @@ export async function createOrderAction(data: {
 }) {
   const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
+  const organization_id = await getOrgId();
 
   // Generate order number via DB function
   const { data: orderNumber, error: rpcErr } = await supabase.rpc("generate_order_number");
@@ -170,6 +174,7 @@ export async function createOrderAction(data: {
       source_message_id: data.source_message_id ?? null,
       status: "delivered",
       total_items: data.items.length,
+      organization_id,
     })
     .select("id")
     .single();
@@ -182,6 +187,7 @@ export async function createOrderAction(data: {
       quantity: item.quantity,
       unit_price: item.unit_price,
       line_total: item.unit_price ? item.unit_price * item.quantity : null,
+      organization_id,
     }));
     const { error: itemsErr } = await supabase.from("order_items").insert(orderItems);
     if (itemsErr) throw itemsErr;
@@ -250,6 +256,7 @@ export async function createOrderWithDetailsAction(data: {
 }) {
   const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
+  const organization_id = await getOrgId();
 
   const { data: orderNumber, error: rpcErr } = await supabase.rpc("generate_order_number");
   if (rpcErr) throw rpcErr;
@@ -269,6 +276,7 @@ export async function createOrderWithDetailsAction(data: {
       status: "delivered",
       total_items: data.items.length,
       total_amount: totalAmount || null,
+      organization_id,
     })
     .select("id")
     .single();
@@ -300,6 +308,7 @@ export async function createOrderWithDetailsAction(data: {
       purchase_price: item.purchase_price,
       line_total: item.unit_price ? item.unit_price * item.quantity : null,
       sales_rep: item.sales_rep,
+      organization_id,
     }));
 
     const { data: insertedItems, error: itemsErr } = await supabase
@@ -308,11 +317,11 @@ export async function createOrderWithDetailsAction(data: {
       .select("id");
     if (itemsErr) throw itemsErr;
 
-    const kpisInserts: Array<{ order_item_id: number; reference_number: string; report_status: string }> = [];
+    const kpisInserts: Array<{ order_item_id: number; reference_number: string; report_status: string; organization_id: string }> = [];
     for (let i = 0; i < data.items.length; i++) {
       const ref = data.items[i].kpis_reference_number;
       if (ref && insertedItems?.[i]) {
-        kpisInserts.push({ order_item_id: insertedItems[i].id, reference_number: ref, report_status: "pending" });
+        kpisInserts.push({ order_item_id: insertedItems[i].id, reference_number: ref, report_status: "pending", organization_id });
       }
     }
     if (kpisInserts.length > 0) {

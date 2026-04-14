@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { getOrgId } from "@/lib/org-context";
 
 interface ManualParseItem {
   product_id: number;
@@ -15,6 +16,7 @@ export async function createManualOrder(
   items: ManualParseItem[],
 ) {
   const supabase = await createClient();
+  const organization_id = await getOrgId();
 
   // Generate order number
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -43,6 +45,7 @@ export async function createManualOrder(
       supply_amount: supplyAmount,
       tax_amount: taxAmount,
       total_amount: supplyAmount + taxAmount,
+      organization_id,
     })
     .select("id")
     .single();
@@ -58,6 +61,7 @@ export async function createManualOrder(
     line_total: item.quantity * item.unit_price,
     match_status: "manual" as const,
     match_confidence: 1.0,
+    organization_id,
   }));
 
   const { error: itemsError } = await supabase

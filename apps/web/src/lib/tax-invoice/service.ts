@@ -39,7 +39,7 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
 
   const { data: order, error: orderErr } = await supabase
     .from("orders")
-    .select("*, hospitals(*), order_items(*, products(name, standard_code))")
+    .select("*, hospitals(*), order_items(*, products(name, standard_code)), organization_id")
     .eq("id", orderId)
     .in("status", ["confirmed", "delivered"])
     .single();
@@ -74,6 +74,8 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
   }
   const totalAmount = supplyAmount + taxAmount;
 
+  const organization_id = order.organization_id as string;
+
   const { data: invoice, error: invoiceErr } = await supabase
     .from("tax_invoices")
     .insert({
@@ -102,6 +104,7 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
       supply_amount: supplyAmount,
       tax_amount: taxAmount,
       total_amount: totalAmount,
+      organization_id,
     })
     .select()
     .single();
@@ -126,6 +129,7 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
       purchase_price: (item.purchase_price as number) || null,
       supply_amount: supply,
       tax_amount: Math.floor(supply * 0.1),
+      organization_id,
     };
   });
 
@@ -141,6 +145,7 @@ export async function createInvoiceFromOrder(orderId: number, issueDate: string)
     invoice_id: invoice.id,
     order_id: orderId,
     amount: order.total_amount,
+    organization_id,
   });
   if (linkErr) throw linkErr;
 
@@ -166,7 +171,7 @@ export async function createConsolidatedInvoice(
 
   const { data: orders, error: ordersErr } = await supabase
     .from("orders")
-    .select("*, hospitals(*), order_items(*, products(name, standard_code))")
+    .select("*, hospitals(*), order_items(*, products(name, standard_code)), organization_id")
     .in("id", orderIds)
     .in("status", ["confirmed", "delivered"]);
   if (ordersErr || !orders?.length) throw new Error("발행 가능한 주문을 찾을 수 없습니다.");
@@ -211,6 +216,7 @@ export async function createConsolidatedInvoice(
 
   const { data: invoiceNumber } = await supabase.rpc("generate_invoice_number");
   const hospital = orders[0].hospitals as Record<string, unknown>;
+  const organization_id = orders[0].organization_id as string;
 
   const { data: invoice, error: invoiceErr } = await supabase
     .from("tax_invoices")
@@ -241,6 +247,7 @@ export async function createConsolidatedInvoice(
       supply_amount: totals.supply,
       tax_amount: totals.tax,
       total_amount: totals.total,
+      organization_id,
     })
     .select()
     .single();
@@ -268,6 +275,7 @@ export async function createConsolidatedInvoice(
         purchase_price: (item.purchase_price as number) || null,
         supply_amount: supply,
         tax_amount: Math.floor(supply * 0.1),
+        organization_id,
       };
     });
     if (items.length > 0) {
@@ -282,6 +290,7 @@ export async function createConsolidatedInvoice(
       invoice_id: invoice.id,
       order_id: order.id,
       amount: order.total_amount,
+      organization_id,
     });
     if (linkErr) throw linkErr;
 

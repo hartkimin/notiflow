@@ -16,6 +16,14 @@ export async function createOrderFromParsedItems(
 ): Promise<CreateOrderResult> {
   const supabase = createAdminClient();
 
+  // Resolve org from the hospital (AI parsing runs as admin, not as a specific user)
+  const { data: hospital } = await supabase
+    .from("hospitals")
+    .select("organization_id")
+    .eq("id", hospitalId)
+    .single();
+  const organization_id = hospital?.organization_id as string | undefined;
+
   const { data: orderNumber, error: rpcErr } = await supabase.rpc("generate_order_number");
   if (rpcErr) throw rpcErr;
 
@@ -31,6 +39,7 @@ export async function createOrderFromParsedItems(
       status: "draft",
       total_items: items.length,
       notes: `AI 자동 생성 (${items.filter(i => i.product_id).length}/${items.length} 품목 매칭)`,
+      ...(organization_id ? { organization_id } : {}),
     })
     .select("id")
     .single();
@@ -44,6 +53,7 @@ export async function createOrderFromParsedItems(
       product_name: item.product_name_matched ?? item.matched_product ?? item.item,
       quantity: item.qty,
       unit_type: item.unit,
+      ...(organization_id ? { organization_id } : {}),
     }));
     const { error: itemsErr } = await supabase.from("order_items").insert(orderItems);
     if (itemsErr) throw itemsErr;

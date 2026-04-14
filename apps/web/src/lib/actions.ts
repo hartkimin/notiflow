@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { geocodeAddress } from "@/lib/geocode";
 import { sendFCMDataMessage } from "@/lib/fcm-admin";
+import { getOrgId } from "@/lib/org-context";
 
 
 // --- Messages (captured_messages table) ---
@@ -91,7 +92,8 @@ export async function createHospital(data: {
     if (coords) { data.lat = coords.lat; data.lng = coords.lng; }
   }
   const supabase = await createClient();
-  const { error } = await supabase.from("hospitals").insert(data);
+  const organization_id = await getOrgId();
+  const { error } = await supabase.from("hospitals").insert({ ...data, organization_id });
   if (error) throw error;
   revalidatePath("/hospitals");
   revalidatePath("/map");
@@ -203,7 +205,8 @@ export async function createSupplier(data: {
     if (coords) { data.lat = coords.lat; data.lng = coords.lng; }
   }
   const supabase = await createClient();
-  const { error } = await supabase.from("suppliers").insert(data);
+  const organization_id = await getOrgId();
+  const { error } = await supabase.from("suppliers").insert({ ...data, organization_id });
   if (error) throw error;
   revalidatePath("/suppliers");
   revalidatePath("/map");
@@ -406,6 +409,8 @@ export async function createUser(data: {
   }
 
   // Upsert: trigger may have already created a default profile row
+  // Inherit the calling user's organization
+  const organization_id = await getOrgId().catch(() => null);
   const { error: profileError } = await admin
     .from("user_profiles")
     .upsert({
@@ -413,6 +418,7 @@ export async function createUser(data: {
       name: data.name,
       role,
       is_active: true,
+      ...(organization_id ? { organization_id } : {}),
     }, { onConflict: "id" });
 
   if (profileError) {
@@ -536,7 +542,8 @@ export async function upsertKpisReport(
     const { error } = await supabase.from("kpis_reports").update(updates).eq("id", existing.id);
     if (error) throw error;
   } else {
-    const insert: Record<string, unknown> = { order_item_id: orderItemId, ...data };
+    const organization_id = await getOrgId();
+    const insert: Record<string, unknown> = { order_item_id: orderItemId, ...data, organization_id };
     if (data.report_status === "reported") insert.reported_at = new Date().toISOString();
     const { error } = await supabase.from("kpis_reports").insert(insert);
     if (error) throw error;
@@ -973,8 +980,9 @@ export async function getMfdsSyncStatus() {
 // --- Products (Legacy/Sync) ---
 
 export async function createProduct(data: Record<string, unknown>) {
+  const organization_id = await getOrgId();
   const supabase = createAdminClient();
-  const { data: row, error } = await supabase.from("products").insert(data).select("id").single();
+  const { data: row, error } = await supabase.from("products").insert({ ...data, organization_id }).select("id").single();
   if (error) throw error;
   revalidatePath("/products");
   return { id: (row as { id: number }).id };
@@ -1013,8 +1021,9 @@ export async function getProductAliases(productId: number) {
 }
 
 export async function createProductAlias(productId: number, data: { alias: string; hospital_id?: number | null; source?: string | null }) {
+  const organization_id = await getOrgId();
   const supabase = createAdminClient();
-  const { error } = await supabase.from("product_aliases").insert({ product_id: productId, ...data });
+  const { error } = await supabase.from("product_aliases").insert({ product_id: productId, ...data, organization_id });
   if (error) throw error;
   return { success: true };
 }

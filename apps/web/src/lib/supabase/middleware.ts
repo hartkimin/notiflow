@@ -46,7 +46,12 @@ export async function updateSession(request: NextRequest) {
   // Public paths that don't require auth
   const pathname = request.nextUrl.pathname;
   const isPublicPath =
-    pathname === "/" || pathname.startsWith("/login") || pathname.startsWith("/supabase-proxy");
+    pathname === "/" ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/demo") ||
+    pathname.startsWith("/invite") ||
+    pathname.startsWith("/supabase-proxy");
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();

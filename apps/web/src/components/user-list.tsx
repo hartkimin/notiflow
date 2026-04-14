@@ -33,7 +33,7 @@ import {
   Plus, Pencil, MoreHorizontal, ArrowUp, ArrowDown, ArrowUpDown,
   LayoutList, LayoutGrid, UserPlus, ShieldCheck, Eye, UserX, UserCheck,
 } from "lucide-react";
-import { createUser, updateUser, deleteUser } from "@/lib/actions";
+import { inviteTeamMember, updateUser, deleteUser } from "@/lib/actions";
 import { useResizableColumns } from "@/hooks/use-resizable-columns";
 import { ResizableTh } from "@/components/resizable-th";
 import type { DashboardUser } from "@/lib/types";
@@ -158,7 +158,7 @@ export function UserTable({ users }: { users: DashboardUser[] }) {
           </Tooltip>
         </div>
         <Button size="sm" onClick={() => setShowCreate(true)}>
-          <UserPlus className="h-4 w-4 mr-1.5" /> 사용자 추가
+          <UserPlus className="h-4 w-4 mr-1.5" /> 팀원 초대
         </Button>
       </div>
 
@@ -172,7 +172,7 @@ export function UserTable({ users }: { users: DashboardUser[] }) {
             <p className="text-sm font-medium">등록된 사용자가 없습니다</p>
             <p className="text-xs text-muted-foreground mt-1">첫 사용자를 추가해주세요.</p>
             <Button size="sm" className="mt-4" onClick={() => setShowCreate(true)}>
-              <Plus className="h-4 w-4 mr-1" /> 사용자 추가
+              <Plus className="h-4 w-4 mr-1" /> 팀원 초대
             </Button>
           </CardContent>
         </Card>
@@ -394,26 +394,29 @@ function UserFormDialog({
         if (password) data.password = password;
         result = await updateUser(user.id, data);
       } else {
-        result = await createUser({
+        result = await inviteTeamMember({
           email: fd.get("email") as string,
-          password: fd.get("password") as string,
-          name: fd.get("name") as string,
           role,
         });
       }
 
       if (result?.error) {
         const msg = String(result.error);
-        if (msg.includes("already exists") || msg.includes("23505") || msg.includes("already_exists")) {
-          setError("이미 사용 중인 이메일입니다.");
+        if (msg.includes("already") || msg.includes("23505")) {
+          setError("이미 초대되었거나 등록된 이메일입니다.");
         } else {
           setError(msg);
         }
         return;
       }
 
-      const displayName = fd.get("name") as string;
-      toast.success(isEdit ? `${displayName} 사용자 정보가 수정되었습니다.` : `${displayName} 사용자가 추가되었습니다.`);
+      if (isEdit) {
+        const displayName = fd.get("name") as string;
+        toast.success(`${displayName} 사용자 정보가 수정되었습니다.`);
+      } else {
+        const email = fd.get("email") as string;
+        toast.success(`${email}으로 초대 메일을 발송했습니다.`);
+      }
       onClose();
       router.refresh();
     });
@@ -423,11 +426,11 @@ function UserFormDialog({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "사용자 수정" : "새 사용자 추가"}</DialogTitle>
+          <DialogTitle>{isEdit ? "사용자 수정" : "팀원 초대"}</DialogTitle>
           <DialogDescription>
             {isEdit
               ? "사용자 정보를 수정합니다. 비밀번호는 변경할 때만 입력하세요."
-              : "대시보드에 접근할 새 사용자 계정을 생성합니다."}
+              : "초대 메일을 발송합니다. 팀원이 링크를 클릭하면 자동으로 조직에 합류합니다."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -445,24 +448,25 @@ function UserFormDialog({
                 autoComplete="off"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">비밀번호 {!isEdit && <span className="text-destructive">*</span>}</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                required={!isEdit}
-                placeholder={isEdit ? "변경시에만 입력" : "비밀번호를 입력하세요"}
-                autoComplete="new-password"
-              />
-              {isEdit && (
-                <p className="text-xs text-muted-foreground">비워두면 기존 비밀번호가 유지됩니다.</p>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="name">이름 <span className="text-destructive">*</span></Label>
-              <Input id="name" name="name" required defaultValue={user?.name || ""} placeholder="표시될 이름" />
-            </div>
+            {isEdit && (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="password">비밀번호</Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    placeholder="변경시에만 입력"
+                    autoComplete="new-password"
+                  />
+                  <p className="text-xs text-muted-foreground">비워두면 기존 비밀번호가 유지됩니다.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="name">이름 <span className="text-destructive">*</span></Label>
+                  <Input id="name" name="name" required defaultValue={user?.name || ""} placeholder="표시될 이름" />
+                </div>
+              </>
+            )}
             <div className="space-y-1.5">
               <Label>역할</Label>
               <Select value={role} onValueChange={setRole}>
@@ -495,7 +499,7 @@ function UserFormDialog({
           <DialogFooter>
             <Button variant="outline" type="button" onClick={onClose}>취소</Button>
             <Button type="submit" disabled={isPending}>
-              {isPending ? "저장중..." : isEdit ? "수정" : "추가"}
+              {isPending ? (isEdit ? "저장중..." : "발송중...") : isEdit ? "수정" : "초대 메일 발송"}
             </Button>
           </DialogFooter>
         </form>

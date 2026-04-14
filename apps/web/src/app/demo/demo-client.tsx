@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowRight, Building2, Package, Users, TrendingUp, CheckCircle2, Lock, Eye } from "lucide-react";
+import { ArrowRight, Building2, Package, Users, TrendingUp, CheckCircle2, Lock, Eye, LogIn, Copy, Check } from "lucide-react";
+import { useState } from "react";
 
 type DemoData = {
   org: { id: string; name: string };
@@ -49,13 +50,15 @@ export default function DemoClient({ data }: { data: DemoData }) {
       {/* Demo banner */}
       <div className="bg-orange-50 border-b border-orange-200">
         <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-center gap-2 text-sm text-orange-800">
-          <Eye className="w-4 h-4" />
-          <span>읽기 전용 데모 환경입니다. 실제 계정을 만들면 데이터 입력 및 관리가 가능합니다.</span>
-          <a href="/signup" className="underline font-medium">지금 시작하기 →</a>
+          <Eye className="w-4 h-4 flex-shrink-0" />
+          <span>아래는 미리보기입니다. 테스트 계정으로 직접 로그인하면 모든 기능을 체험할 수 있습니다.</span>
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+
+        {/* Demo login card */}
+        <DemoLoginCard />
 
         {/* Hero stat cards */}
         {data && (
@@ -182,6 +185,61 @@ export default function DemoClient({ data }: { data: DemoData }) {
             ))}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+      className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+      title="복사"
+    >
+      {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+    </button>
+  );
+}
+
+function DemoLoginCard() {
+  return (
+    <div className="bg-white rounded-xl border-2 border-[#1a73e8] overflow-hidden">
+      <div className="px-6 py-4 bg-[#1a73e8] flex items-center gap-2">
+        <LogIn className="w-4 h-4 text-white" />
+        <h2 className="font-semibold text-white text-sm">테스트 계정으로 직접 체험하기</h2>
+      </div>
+      <div className="px-6 py-5">
+        <p className="text-sm text-gray-500 mb-4">
+          아래 계정으로 로그인하면 대시보드, 주문, 세금계산서, 설정 등 모든 기능을 직접 사용해볼 수 있습니다.
+        </p>
+        <div className="grid sm:grid-cols-2 gap-3 mb-5">
+          <div className="bg-gray-50 rounded-lg px-4 py-3 flex items-center justify-between">
+            <div>
+              <div className="text-xs text-gray-400 mb-0.5">이메일</div>
+              <div className="font-mono text-sm text-gray-900">demo@notiflow.life</div>
+            </div>
+            <CopyButton text="demo@notiflow.life" />
+          </div>
+          <div className="bg-gray-50 rounded-lg px-4 py-3 flex items-center justify-between">
+            <div>
+              <div className="text-xs text-gray-400 mb-0.5">비밀번호</div>
+              <div className="font-mono text-sm text-gray-900">Demo1234!</div>
+            </div>
+            <CopyButton text="Demo1234!" />
+          </div>
+        </div>
+        <a
+          href="/login"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1a73e8] text-white text-sm font-medium rounded-lg hover:bg-[#1557b0] transition-colors"
+        >
+          <LogIn className="w-4 h-4" /> 테스트 계정으로 로그인
+        </a>
+        <p className="text-xs text-gray-400 mt-3">
+          * 데모 데이터는 주기적으로 초기화됩니다. 실제 데이터를 보관하려면{" "}
+          <a href="/signup" className="text-[#1a73e8] hover:underline">무료 계정을 만드세요</a>.
+        </p>
       </div>
     </div>
   );

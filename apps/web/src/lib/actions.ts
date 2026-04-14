@@ -502,6 +502,79 @@ export async function updateUser(id: string, data: Record<string, unknown>) {
   };
 }
 
+export async function inviteTeamMember(data: { email: string; role: string }) {
+  "use server";
+  const admin = createAdminClient();
+  const organization_id = await getOrgId().catch(() => null);
+
+  const validRoles = ["admin", "manager", "viewer"];
+  if (!validRoles.includes(data.role)) {
+    return { error: `올바르지 않은 역할입니다: ${data.role}` };
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://notiflow.life";
+
+  const { error } = await admin.auth.admin.inviteUserByEmail(data.email, {
+    data: {
+      organization_id,
+      org_role: data.role,
+    },
+    redirectTo: `${appUrl}/invite/accept`,
+  });
+
+  if (error) {
+    if (error.message.includes("already been invited") || error.message.includes("already registered")) {
+      return { error: "이미 초대되었거나 등록된 이메일입니다." };
+    }
+    return { error: `초대 메일 발송 실패: ${error.message}` };
+  }
+
+  revalidatePath("/settings/users");
+  return { success: true };
+}
+
+export async function completeInviteSetup(data: { name: string; password: string }) {
+  "use server";
+  const supabase = await createClient();
+  const admin = createAdminClient();
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    return { error: "인증 세션이 없습니다. 초대 링크를 다시 클릭해주세요." };
+  }
+
+  // Update password
+  const { error: pwError } = await supabase.auth.updateUser({ password: data.password });
+  if (pwError) {
+    return { error: `비밀번호 설정 실패: ${pwError.message}` };
+  }
+
+  // Get org context from invite metadata
+  const organization_id = user.user_metadata?.organization_id ?? null;
+  const org_role = user.user_metadata?.org_role ?? "viewer";
+
+  // Upsert user_profile with org context and name
+  const { error: profileError } = await admin.from("user_profiles").upsert({
+    id: user.id,
+    name: data.name,
+    role: org_role,
+    is_active: true,
+    ...(organization_id ? { organization_id } : {}),
+  }, { onConflict: "id" });
+
+  if (profileError) {
+    return { error: `프로필 설정 실패: ${profileError.message}` };
+  }
+
+  // Sync name to auth user_metadata
+  await admin.auth.admin.updateUserById(user.id, {
+    user_metadata: { ...user.user_metadata, name: data.name },
+  });
+
+  revalidatePath("/settings/users");
+  return { success: true };
+}
+
 export async function deleteUser(id: string) {
   const admin = createAdminClient();
 
@@ -871,6 +944,7 @@ export async function searchMfdsItems(params: { query: string; sourceType: strin
 
 export async function addToMyDrugs(item: Record<string, unknown>): Promise<{ success: boolean; id?: number }> {
   const supabase = await createClient();
+  const organization_id = await getOrgId();
   const row: Record<string, string | null> = {};
   const cols = [
     "alias", "item_seq", "item_name", "item_eng_name", "entp_name", "entp_no",
@@ -880,7 +954,7 @@ export async function addToMyDrugs(item: Record<string, unknown>): Promise<{ suc
     "cancel_name", "change_date", "atc_code", "rare_drug_yn",
   ];
   for (const col of cols) row[col] = (item[col] as string) ?? null;
-  const insertRow: Record<string, unknown> = { ...row };
+  const insertRow: Record<string, unknown> = { ...row, organization_id };
   if (item.unit_price != null && String(item.unit_price).trim() !== "") insertRow.unit_price = Number(item.unit_price);
   const { data, error } = await supabase.from("my_drugs").insert(insertRow).select("id").single();
   if (error) { console.error("addToMyDrugs error:", error); throw new Error(error.message); }
@@ -889,6 +963,7 @@ export async function addToMyDrugs(item: Record<string, unknown>): Promise<{ suc
 
 export async function addToMyDevices(item: Record<string, unknown>): Promise<{ success: boolean; id?: number }> {
   const supabase = await createClient();
+  const organization_id = await getOrgId();
   const row: Record<string, string | null> = {};
   const cols = [
     "alias", "udidi_cd", "prdlst_nm", "mnft_iprt_entp_nm", "mdeq_clsf_no", "clsf_no_grad_cd",
@@ -898,7 +973,7 @@ export async function addToMyDevices(item: Record<string, unknown>): Promise<{ s
     "strg_cnd_info", "circ_cnd_info", "rcprslry_trgt_yn",
   ];
   for (const col of cols) row[col] = (item[col] as string) ?? null;
-  const insertRow: Record<string, unknown> = { ...row };
+  const insertRow: Record<string, unknown> = { ...row, organization_id };
   if (item.unit_price != null && String(item.unit_price).trim() !== "") insertRow.unit_price = Number(item.unit_price);
   const { data, error } = await supabase.from("my_devices").insert(insertRow).select("id").single();
   if (error) { console.error("addToMyDevices error:", error); throw new Error(error.message); }

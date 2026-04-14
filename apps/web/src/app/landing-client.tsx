@@ -8,6 +8,7 @@ import {
   CheckCircle2, Mail, X, ArrowRight, Clock, Users, Zap,
   Building2, Stethoscope, Package,
 } from "lucide-react";
+import { joinWaitlist } from "@/lib/waitlist-actions";
 
 /* ── Ripple effect hook ── */
 function useRipple() {
@@ -117,9 +118,116 @@ function ContactModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+/* ── Waitlist Modal ── */
+function WaitlistModal({ onClose }: { onClose: () => void }) {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const result = await joinWaitlist(email);
+      if (result.error) { setError(result.error); return; }
+      setDone(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <AnimatePresence>
+      <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+        <motion.div className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full"
+          initial={{ scale: 0.92, opacity: 0, y: 16 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.92, opacity: 0, y: 16 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}>
+          <button onClick={onClose}
+            className="absolute top-4 right-4 p-1.5 rounded-full text-[#5f6368] hover:bg-[#f1f3f4] transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+
+          {done ? (
+            <div className="text-center py-4">
+              <div className="w-14 h-14 rounded-full bg-[#e6f4ea] flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="w-7 h-7 text-[#34a853]" />
+              </div>
+              <h3 className="text-lg font-semibold text-[#202124] mb-2">등록 완료!</h3>
+              <p className="text-sm text-[#5f6368] mb-5">
+                베타 서비스 오픈 시 가장 먼저 안내해 드리겠습니다.
+              </p>
+              <button onClick={onClose}
+                className="w-full py-2.5 rounded-full bg-[#1a73e8] text-white text-sm font-semibold hover:bg-[#1557b0] transition-colors">
+                확인
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-[#e8f0fe] flex items-center justify-center">
+                  <Bell className="w-5 h-5 text-[#1a73e8]" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-[#202124]">베타 대기명단 등록</h3>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#fce8e6] text-[#d93025] text-xs font-semibold">Beta</span>
+                </div>
+              </div>
+              <p className="text-[#5f6368] text-sm leading-relaxed mb-5 mt-3">
+                현재 초대 코드가 있는 분만 가입이 가능합니다.<br />
+                이메일을 남겨주시면 베타 오픈 시 먼저 연락드리겠습니다.
+              </p>
+              <form onSubmit={handleSubmit} className="space-y-3">
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#80868b]" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="이메일 주소를 입력해 주세요"
+                    className="w-full pl-10 pr-4 py-2.5 border border-[#dadce0] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1a73e8] focus:border-transparent"
+                  />
+                </div>
+                {error && (
+                  <p className="text-xs text-[#d93025] px-1">{error}</p>
+                )}
+                <button type="submit" disabled={loading}
+                  className="w-full py-2.5 rounded-full bg-[#1a73e8] text-white text-sm font-semibold hover:bg-[#1557b0] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                  {loading
+                    ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    : <>대기명단 등록 <ArrowRight className="w-4 h-4" /></>}
+                </button>
+              </form>
+              <p className="text-center text-xs text-[#80868b] mt-3">
+                이미 초대 코드가 있으신가요?{" "}
+                <Link href="/signup" className="text-[#1a73e8] hover:underline" onClick={onClose}>
+                  가입하기
+                </Link>
+              </p>
+            </>
+          )}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 export default function LandingClient() {
   const [scrolled, setScrolled] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
   const ripple = useRipple();
 
   useEffect(() => {
@@ -156,6 +264,7 @@ export default function LandingClient() {
       `}</style>
 
       {contactOpen && <ContactModal onClose={() => setContactOpen(false)} />}
+      {waitlistOpen && <WaitlistModal onClose={() => setWaitlistOpen(false)} />}
 
       <div className="bg-white text-[#202124] min-h-screen">
 
@@ -169,6 +278,7 @@ export default function LandingClient() {
                 <Zap className="w-4 h-4 text-white" />
               </div>
               <span className="text-lg font-bold text-[#202124]">NotiFlow</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#fce8e6] text-[#d93025] leading-none">Beta</span>
             </div>
             <div className="hidden md:flex items-center gap-1">
               {["기능", "업무흐름", "도입사례"].map((item, i) => (
@@ -191,10 +301,10 @@ export default function LandingClient() {
                 className="px-4 py-2 rounded-full text-sm font-medium text-[#1a73e8] hover:bg-[#e8f0fe] transition-all duration-200">
                 로그인
               </Link>
-              <Link href="/signup"
+              <button onClick={() => setWaitlistOpen(true)}
                 className="px-5 py-2 rounded-full text-sm font-semibold bg-[#1a73e8] text-white hover:bg-[#1557b0] hover:shadow-md transition-all duration-200 active:scale-95">
                 무료 시작
-              </Link>
+              </button>
             </div>
           </div>
         </nav>
@@ -246,15 +356,15 @@ export default function LandingClient() {
                 </motion.div>
 
                 <motion.div custom={3} variants={fadeUp} className="flex flex-wrap gap-3">
-                  <button onClick={() => setContactOpen(true)}
+                  <Link href="/demo"
                     className="px-7 py-3.5 rounded-full font-semibold text-base bg-[#1a73e8] text-white hover:bg-[#1557b0] hover:shadow-lg transition-all duration-200 active:scale-95">
-                    무료 데모 신청
-                  </button>
-                  <Link href="/login"
-                    className="px-7 py-3.5 rounded-full font-semibold text-base border border-[#dadce0] text-[#202124] hover:bg-[#f8f9fa] hover:border-[#bdc1c6] transition-all duration-200 flex items-center gap-2">
-                    로그인
-                    <ArrowRight className="w-4 h-4" />
+                    라이브 데모 보기
                   </Link>
+                  <button onClick={() => setWaitlistOpen(true)}
+                    className="px-7 py-3.5 rounded-full font-semibold text-base border border-[#dadce0] text-[#202124] hover:bg-[#f8f9fa] hover:border-[#bdc1c6] transition-all duration-200 flex items-center gap-2">
+                    무료로 시작하기
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
                 </motion.div>
                 <motion.div custom={4} variants={fadeUp}
                   className="flex items-center gap-4 pt-2 flex-wrap">
@@ -603,18 +713,16 @@ export default function LandingClient() {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row justify-center gap-3">
-                <button
-                  ref={ripple.ref}
-                  onClick={(e) => { ripple.trigger(e); setContactOpen(true); }}
+                <Link href="/demo"
                   className="px-8 py-4 rounded-full font-semibold text-lg bg-[#1a73e8] text-white hover:bg-[#1557b0] hover:shadow-xl transition-all duration-200 active:scale-95 flex items-center gap-2 justify-center">
-                  <Mail className="w-5 h-5" />
-                  무료 데모 신청
-                </button>
-                <Link href="/login"
-                  className="px-8 py-4 rounded-full font-semibold text-lg border-2 border-[#dadce0] text-[#5f6368] hover:bg-white hover:border-[#1a73e8] hover:text-[#1a73e8] transition-all duration-200 flex items-center gap-2 justify-center">
-                  기존 계정 로그인
                   <ArrowRight className="w-5 h-5" />
+                  라이브 데모 보기
                 </Link>
+                <button onClick={() => setWaitlistOpen(true)}
+                  className="px-8 py-4 rounded-full font-semibold text-lg border-2 border-[#dadce0] text-[#5f6368] hover:bg-white hover:border-[#1a73e8] hover:text-[#1a73e8] transition-all duration-200 flex items-center gap-2 justify-center">
+                  무료로 시작하기
+                  <ArrowRight className="w-5 h-5" />
+                </button>
               </div>
               <p className="text-sm text-[#80868b]">신용카드 불필요 · 계약 없이 체험 가능</p>
             </motion.div>
